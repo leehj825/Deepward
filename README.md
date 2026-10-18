@@ -46,7 +46,7 @@ The Android app wraps the web game with [Capacitor](https://capacitorjs.com/).
 
 The `android/` folder isn't committed. To customise the project (icons, splash screen, signing), generate it once, adjust it, and commit it; the workflow then uses yours.
 
-**Building locally** needs Node 20, JDK 17 and the Android SDK:
+**Building locally** needs Node 22, JDK 17 and the Android SDK:
 
 ```bash
 npm ci && npm run www && npx cap add android && node tools/android_patch.js && npx cap sync android
