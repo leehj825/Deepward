@@ -39,6 +39,15 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Lighting:** a fixed pool of six point lights follows the torches nearest the hero, so rooms coming and going never force a shader recompile.
 - **Camera:** the south doorway turns see-through while the camera is behind it.
 
+## Animation (built)
+
+- Characters play Nightfall Settlement's Mixamo motion capture: idle, walk, run, strafe and walk-back loops, four sword attacks and slashes, a jump smash, a looping shield block, hit reactions and deaths. The brute uses the great-sword set.
+- Nightfall mirrors Mixamo so its sword sits in the +X hand. Deepward holds the sword in the anatomically right hand (-X), so the extractor mirrors it back.
+- **Attacks:** each clip is time-warped so its recorded moment of impact lands exactly on the game's hit frame. Short wind-ups feel snappy, and long enemy wind-ups play the same swing slowly, which is the telegraph.
+- **Movement:** all walking clips share one stride phase driven by real ground speed, so switching between walk, strafe, back and run doesn't hitch.
+- **Blocking while moving:** the upper body plays the block and the legs keep walking.
+- **Hand-made poses** remain for the dodge roll, stagger, guard break and posture break.
+
 ## Dungeon tiers (planned)
 
 | Tier | Dungeon | New threat | Skill it forces |

@@ -327,7 +327,7 @@ requestAnimationFrame(frame);
 // Test hook: lets automated tests drive the game without a real input device
 window.__dw = {
   G, Input, CFG, step,
-  start: startGame, View, World,
+  start: startGame, View, World, scene, camera, renderer,
   sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },

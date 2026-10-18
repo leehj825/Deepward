@@ -117,7 +117,8 @@ const Enemy = (() => {
   }
 
   function finishUpdate(e, dt, before) {
-    const moved = Math.hypot(e.pos.x - before.x, e.pos.z - before.z) / Math.max(dt, 1e-4);
+    const mx = e.pos.x - before.x, mz = e.pos.z - before.z, ml = Math.hypot(mx, mz), moved = ml / Math.max(dt, 1e-4);
+    if (ml > 1e-5) { const fx = Math.sin(e.facing), fz = Math.cos(e.facing); e.dirF = (mx * fx + mz * fz) / ml; e.dirS = (mx * fz - mz * fx) / ml; }
     e.speedK += (Math.min(1, moved / Math.max(1, e.def.speed)) - e.speedK) * Math.min(1, 10 * dt);
     if (e.speedK > 0.05) e.cycle += dt * 9 * Math.max(0.5, e.speedK);
     const r = e.rig;
@@ -127,16 +128,17 @@ const Enemy = (() => {
     if (e.state === 'hunt' || e.state === 'spawn') mode = guardUp(e) && near ? 'block' : e.speedK > 0.08 ? 'move' : 'idle';
     const h = e.atk && e.atk.hits[e.hitIdx];
     Rig.animate(r, {
-      mode, t: e.t, speed: e.speedK, cycle: e.cycle,
+      mode, t: e.t, speed: e.speedK, mps: e.speedK * e.def.speed, cycle: e.cycle, dirF: e.dirF, dirS: e.dirS,
       atk: h && h.pose, phase: e.phase, p: e.phase === 'recover' && h ? e.phaseT / h.recover : 0,
+      phaseT: e.phaseT, wind: h && h.wind, active: h && h.active, recover: h && h.recover,
       windRate: h ? 2.6 / h.wind : 12,
     }, dt);
     Rig.updateTrail(e.trail, r.weapon, e.state === 'attack' && e.phase === 'active', h && h.unblockable ? 0xff5030 : undefined);
     if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, 0, 0); }
   }
 
-  function hurtFlash(e, c = 0xffffff, a = 0.9) { Rig.flash(e.rig, c, a); e.flashT = 0.1; }
-  function stun(e, t) { setState(e, 'stagger'); e.stunFor = t; }
+  function hurtFlash(e, c = 0xffffff, a = 0.45) { Rig.flash(e.rig, c, a); e.flashT = 0.1; }
+  function stun(e, t) { setState(e, 'stagger'); e.stunFor = t; e.rig.hurtVar = Math.random() < 0.5; }
   function addPosture(e, n) {
     e.posture = Math.min(e.def.posture * e.mult, e.posture + n); e.postureT = 0;
     if (e.posture >= e.def.posture * e.mult && e.state !== 'dead') {
@@ -194,7 +196,7 @@ const Enemy = (() => {
     if (e.hp <= 0) die(e);
   }
   function die(e) {
-    e.hp = 0; setState(e, 'dead');
+    e.hp = 0; e.rig.dieVar = Math.random() < 0.5; setState(e, 'dead');
     Snd.play('die'); FX.burst(Combat.chestPos(e.pos, 1.0), e.type === 'skeleton' ? 0xd8cfb4 : 0x6a1a1a, 24, 6, 0.6);
     e.bar.remove();
     G.onEnemyDeath(e);

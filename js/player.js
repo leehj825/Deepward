@@ -148,7 +148,8 @@ const Player = (() => {
     r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
     const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state;
     Rig.animate(r, {
-      mode, t: p.t, speed: p.speedK, cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
+      mode, t: p.t, speed: p.speedK, mps: p.speedK * P.speed, cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
+      phaseT: p.phaseT, wind: p.atk && p.atk.wind, active: p.atk && p.atk.active, recover: p.atk && p.atk.recover,
       p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
       atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
     }, dt);
@@ -167,7 +168,7 @@ const Player = (() => {
   function damage(p, n, from) {
     p.hp = Math.max(0, p.hp - n);
     FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
-    if (p.hp <= 0) { setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
+    if (p.hp <= 0) { p.rig.dieVar = Math.random() < 0.5; setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
     return false;
   }
   function knock(p, from, amount) {
@@ -213,7 +214,7 @@ const Player = (() => {
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
     knock(p, e.pos, hit.aoe ? 9 : 5);
     G.stats.hitsTaken++;
-    if (!damage(p, dmg, e.pos)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; }
+    if (!damage(p, dmg, e.pos)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
     return 'hit';
   }
 
