@@ -90,3 +90,11 @@ body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, 
 body.behind #keys .vb { display: inline; }
 .ebar.guardian { width: 84px; }
 .ebar.guardian .hp { height: 7px; box-shadow: 0 0 6px rgba(255, 120, 60, 0.7); }
+/* ---- Game controller ---- */
+#padKeys { display: none; position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 12px; opacity: 0.6; white-space: nowrap; pointer-events: none; }
+#padKeys b { color: #f2d27a; font-weight: 600; }
+body.pad #padKeys { display: block; }
+body.pad #keys, body.pad .ctl.desk, body.pad .ctl.mob { display: none !important; }
+.ctl.padc { display: none; }
+body.pad .ctl.padc { display: block; }
+body:not(.playing) #padKeys { display: none !important; }

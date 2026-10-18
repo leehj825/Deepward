@@ -89,18 +89,60 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
   }
 })();
+// ---------------- Game controller (Xbox layout, standard mapping) ----------------
+// Left stick move · right stick camera · RB / X light · RT / Y heavy · LB / LT block · A / B dodge
+// View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
+const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
+function pollPad(real) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
+  if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dodge.'); }
+  const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
+  const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
+  Pad.prev = now;
+  const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
+  Pad.move.x = mx; Pad.move.z = my;
+  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  if (now.some(Boolean)) Snd.init();
+  // Menus: Menu or A confirms whatever screen is up
+  if (G.state === 'title' || G.state === 'over') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) startGame(); return; }
+  if (G.state === 'pause') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
+  if (G.state !== 'play') return;
+  if (down(PAD_BTN.MENU)) { togglePause(); return; }
+  if (down(PAD_BTN.VIEW)) toggleView();
+  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
+  if (down(PAD_BTN.RT) || down(PAD_BTN.Y)) Player.press(G.player, 'heavy');
+  if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
+  if (View.mode === 'behind') {
+    if (down(PAD_BTN.RS)) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }
+    turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
+  }
+}
+// Rumble on the controller, if it has motors: strong / weak in 0..1, duration in ms
+G.rumble = (strong, weak, ms) => {
+  if (!Pad.id) return;
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.id === Pad.id);
+  const act = gp && gp.vibrationActuator;
+  if (act && act.playEffect) act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+};
+
 function readInput() {
   const k = Input.keys;
   let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
+  if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
     // Screen up = away from the camera, screen right = the camera's right
     const fx = -Math.sin(View.yaw), fz = -Math.cos(View.yaw), rx = Math.cos(View.yaw), rz = -Math.sin(View.yaw);
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock);
+  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
@@ -294,6 +336,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 function step(real) {
+  pollPad(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);

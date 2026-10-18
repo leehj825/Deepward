@@ -192,25 +192,25 @@ const Player = (() => {
       } else if (p.blockT <= P.block.parryWindow) {
         Snd.play('parry'); FX.glint(shieldPos, 0xfff2b0, 2.4, 0.35); FX.burst(shieldPos, 0xffe08a, 16, 7);
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
-        FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry);
+        FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
         return 'parry';
       } else {
         const cost = dmg * P.block.staminaPerDmg * (hit.blockMult || 1);
         if (p.st >= cost) {
           spend(p, cost);
-          Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08);
+          Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
           damage(p, dmg * (1 - P.block.reduce), e.pos);
           return 'block';
         }
         p.st = 0; p.stDelay = P.staminaDelay * 2;
         Snd.play('guardBreak'); FX.text(Combat.chestPos(p.pos, 2.2), 'GUARD BROKEN', 'warn'); FX.burst(shieldPos, 0xff9a5a, 14, 6);
-        knock(p, e.pos, 5); flash(p, 0xff3a1a);
+        knock(p, e.pos, 5); flash(p, 0xff3a1a); G.rumble(0.9, 0.6, 300);
         if (!damage(p, dmg * 0.5, e.pos)) setState(p, 'guardbreak');
         return 'guardbreak';
       }
     }
-    Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt);
+    Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt); G.rumble(hit.aoe ? 1 : 0.7, 0.5, hit.aoe ? 350 : 200);
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
     knock(p, e.pos, hit.aoe ? 9 : 5);
     G.stats.hitsTaken++;

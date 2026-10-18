@@ -21,16 +21,18 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 
 ## Controls
 
-| Action | Keyboard / mouse | Touch |
-| --- | --- | --- |
-| Move (strafe in the behind view) | WASD / arrows | Left thumb (floating stick) |
-| Turn camera (behind view) | Mouse (click to capture) | Drag the right side |
-| Switch camera | B | 🎥 |
-| Light attack (3-hit combo) | J / left-click | ATTACK |
-| Heavy attack (breaks guards) | K / Q / middle-click | HEAVY |
-| Block (hold), parry (tap at impact) | L / Shift / right-click | BLOCK |
-| Dodge roll (invulnerable mid-roll) | Space | DODGE |
-| Pause / mute | Esc or P / M | ⏸ / 🔊 |
+| Action | Keyboard / mouse | Xbox controller | Touch |
+| --- | --- | --- | --- |
+| Move (strafe in the behind view) | WASD / arrows | Left stick | Left thumb (floating stick) |
+| Turn camera (behind view) | Mouse (click to capture) | Right stick (click to recentre) | Drag the right side |
+| Switch camera | B | View | 🎥 |
+| Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
+| Heavy attack (breaks guards) | K / Q / middle-click | RT or Y | HEAVY |
+| Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
+| Dodge roll (invulnerable mid-roll) | Space | A or B | DODGE |
+| Pause / mute | Esc or P / M | Menu | ⏸ / 🔊 |
+
+Any controller with the browser's standard layout works (Xbox, and PlayStation pads with the same positions). Plug it in or pair it, then press a button so the browser notices it. The on-screen hints switch to controller buttons, A or Menu starts the game and confirms menus, and the controller rumbles when you take a hit, block, parry or land a critical (on browsers that support rumble).
 
 ## How a fight works
 
@@ -58,6 +60,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | `js/world.js` | The dungeon: room and corridor building per stage theme, portcullis gates, fade-in/fade-out and unloading, walkable space, encounters, pooled torch lights |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
+| `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
 
@@ -65,6 +68,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 
 ```bash
 node tools/combat_test.js     # set NODE_PATH=$(npm root -g) if Playwright is installed globally
+node tools/gamepad_test.js
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break and the riposte critical. It also plays through five rooms into stage 2 and checks that the gates open and the rooms behind unload.

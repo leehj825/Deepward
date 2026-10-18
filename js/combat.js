@@ -29,6 +29,7 @@ const Combat = (() => {
       FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
       FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
       Snd.play(crit ? 'crit' : 'hit');
+      G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
     } else if (blocked) {
       Player.recoil(p);
     }

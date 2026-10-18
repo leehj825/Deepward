@@ -98,6 +98,14 @@ body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, 
 body.behind #keys .vb { display: inline; }
 .ebar.guardian { width: 84px; }
 .ebar.guardian .hp { height: 7px; box-shadow: 0 0 6px rgba(255, 120, 60, 0.7); }
+/* ---- Game controller ---- */
+#padKeys { display: none; position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 12px; opacity: 0.6; white-space: nowrap; pointer-events: none; }
+#padKeys b { color: #f2d27a; font-weight: 600; }
+body.pad #padKeys { display: block; }
+body.pad #keys, body.pad .ctl.desk, body.pad .ctl.mob { display: none !important; }
+.ctl.padc { display: none; }
+body.pad .ctl.padc { display: block; }
+body:not(.playing) #padKeys { display: none !important; }
 
 </style>
 </head>
@@ -114,6 +122,7 @@ body.behind #keys .vb { display: inline; }
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip"></div>
+<div id="padKeys"><b>LS</b> move · <b>RS</b> camera · <b>RB</b> attack · <b>RT</b> heavy · <b>LB</b> block · <b>A</b> dodge · <b>View</b> camera mode · <b>Menu</b> pause</div>
 <div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dodge · <b>B</b> camera</div>
 
 <div id="stick"><div id="knob"></div></div>
@@ -133,6 +142,7 @@ body.behind #keys .vb { display: inline; }
     <li>Fill an enemy's <span class="g-gold">posture bar</span> to break them, then strike for a <b>critical</b></li>
   </ul>
   <p class="ctl desk">Mouse look (click to capture) · WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dodge · B switch camera · Esc pause</p>
+  <p class="ctl padc">Controller: left stick move · right stick camera · RB / X attack · RT / Y heavy · LB / LT block (tap to parry) · A / B dodge · View: camera mode · Menu: pause · press A to start</p>
   <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dodge · 🎥 switches camera</p>
   <button id="startBtn">Enter the dungeon</button>
 </div></div>
@@ -985,6 +995,7 @@ const Combat = (() => {
       FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
       FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
       Snd.play(crit ? 'crit' : 'hit');
+      G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
     } else if (blocked) {
       Player.recoil(p);
     }
@@ -1205,25 +1216,25 @@ const Player = (() => {
       } else if (p.blockT <= P.block.parryWindow) {
         Snd.play('parry'); FX.glint(shieldPos, 0xfff2b0, 2.4, 0.35); FX.burst(shieldPos, 0xffe08a, 16, 7);
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
-        FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry);
+        FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
         return 'parry';
       } else {
         const cost = dmg * P.block.staminaPerDmg * (hit.blockMult || 1);
         if (p.st >= cost) {
           spend(p, cost);
-          Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08);
+          Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
           damage(p, dmg * (1 - P.block.reduce), e.pos);
           return 'block';
         }
         p.st = 0; p.stDelay = P.staminaDelay * 2;
         Snd.play('guardBreak'); FX.text(Combat.chestPos(p.pos, 2.2), 'GUARD BROKEN', 'warn'); FX.burst(shieldPos, 0xff9a5a, 14, 6);
-        knock(p, e.pos, 5); flash(p, 0xff3a1a);
+        knock(p, e.pos, 5); flash(p, 0xff3a1a); G.rumble(0.9, 0.6, 300);
         if (!damage(p, dmg * 0.5, e.pos)) setState(p, 'guardbreak');
         return 'guardbreak';
       }
     }
-    Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt);
+    Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt); G.rumble(hit.aoe ? 1 : 0.7, 0.5, hit.aoe ? 350 : 200);
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
     knock(p, e.pos, hit.aoe ? 9 : 5);
     G.stats.hitsTaken++;
@@ -1914,18 +1925,60 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
   }
 })();
+// ---------------- Game controller (Xbox layout, standard mapping) ----------------
+// Left stick move · right stick camera · RB / X light · RT / Y heavy · LB / LT block · A / B dodge
+// View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
+const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
+function pollPad(real) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
+  if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dodge.'); }
+  const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
+  const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
+  Pad.prev = now;
+  const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
+  Pad.move.x = mx; Pad.move.z = my;
+  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  if (now.some(Boolean)) Snd.init();
+  // Menus: Menu or A confirms whatever screen is up
+  if (G.state === 'title' || G.state === 'over') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) startGame(); return; }
+  if (G.state === 'pause') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
+  if (G.state !== 'play') return;
+  if (down(PAD_BTN.MENU)) { togglePause(); return; }
+  if (down(PAD_BTN.VIEW)) toggleView();
+  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
+  if (down(PAD_BTN.RT) || down(PAD_BTN.Y)) Player.press(G.player, 'heavy');
+  if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
+  if (View.mode === 'behind') {
+    if (down(PAD_BTN.RS)) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }
+    turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
+  }
+}
+// Rumble on the controller, if it has motors: strong / weak in 0..1, duration in ms
+G.rumble = (strong, weak, ms) => {
+  if (!Pad.id) return;
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.id === Pad.id);
+  const act = gp && gp.vibrationActuator;
+  if (act && act.playEffect) act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+};
+
 function readInput() {
   const k = Input.keys;
   let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
+  if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
     // Screen up = away from the camera, screen right = the camera's right
     const fx = -Math.sin(View.yaw), fz = -Math.cos(View.yaw), rx = Math.cos(View.yaw), rz = -Math.sin(View.yaw);
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock);
+  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
@@ -2119,6 +2172,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 function step(real) {
+  pollPad(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
