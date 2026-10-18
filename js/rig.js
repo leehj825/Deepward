@@ -45,6 +45,29 @@ const Rig = (() => {
     const tip = joint(g, 0, 0, 1.08), base = joint(g, 0, 0, 0.3);
     return { group: g, glowMats: [wood, iron], tip, base };
   }
+  function axe(hand, o) {
+    const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xb8bec8, 0.4, 0.6), wood = std(0x5a3a22);
+    mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.85, 7).rotateX(Math.PI / 2), wood, g, 0, 0, 0.3);
+    const hm = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(0, -0.09), new THREE.Vector2(0, 0.09), new THREE.Vector2(-0.26, 0.17), new THREE.Vector2(-0.26, -0.17)]), { depth: 0.03, bevelEnabled: false }), steel);
+    hm.rotation.y = Math.PI / 2; hm.position.set(-0.015, 0, 0.66); hm.castShadow = true; g.add(hm);
+    mesh(new THREE.BoxGeometry(0.06, 0.06, 0.1), steel, g, 0, 0, 0.66);
+    const tip = joint(g, 0, 0.26, 0.66), base = joint(g, 0, 0.05, 0.6);
+    return { group: g, glowMats: [steel], tip, base };
+  }
+  function mace(hand, o) {
+    const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xa8aeb8, 0.4, 0.6);
+    mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.7, 7).rotateX(Math.PI / 2), std(0x3a2416), g, 0, 0, 0.24);
+    ball(g, 0.1, steel, 0, 0, 0.64, 8, 6);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; box(g, 0.03, 0.08, 0.16, steel, Math.cos(a) * 0.1, Math.sin(a) * 0.1, 0.64).rotation.z = a; }
+    const tip = joint(g, 0, 0, 0.74), base = joint(g, 0, 0, 0.5);
+    return { group: g, glowMats: [steel], tip, base };
+  }
+  function hammer(hand) {
+    const g = joint(hand, 0, -0.03, 0), iron = std(0x4a4a50, 0.5, 0.6);
+    mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.5, 6).rotateX(Math.PI / 2), std(0x5a3a22), g, 0, 0, 0.18);
+    box(g, 0.1, 0.1, 0.22, iron, 0, 0, 0.42).rotation.y = Math.PI / 2;
+    return { group: g, glowMats: [iron], tip: joint(g, 0, 0, 0.5), base: joint(g, 0, 0, 0.3) };
+  }
   function roundShield(hand, c) {
     const g = new THREE.Group(); hand.add(g);
     const face = std(c, 0.8), rim = std(0x8a8f99, 0.45, 0.5), boss = std(0xc9a23a, 0.4, 0.5);
@@ -67,9 +90,12 @@ const Rig = (() => {
 
   // ---------------- Bodies ----------------
   // One humanoid skeleton of joints; "kind" picks proportions, materials and armour.
-  function build(kind) {
+  // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
+  function build(kind, o = {}) {
+    const L = o.look || {}, N = o.npc || {};
     const S = {
-      hero: { skin: 0xe2a982, cloth: 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       knight: { skin: 0x5a606c, cloth: 0x6a1a1a, pants: 0x3a3e48, boot: 0x2a2c32, w: 1.08, limbR: 1.1 },
       brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
@@ -120,9 +146,15 @@ const Rig = (() => {
       const torso = mesh(new THREE.CylinderGeometry(0.2 * w, 0.16 * w, 0.36, 9), kind === 'brute' ? skin : cloth, chest, 0, 0.08, 0);
       torso.scale.z = 0.72;
       if (kind === 'hero') {
-        const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7;
-        ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1);
+        if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, chest, 0, 0.09, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(chest, 0.12, steel, 0.21 * s, 0.22, 0, 8, 6).scale.set(1, 0.65, 1); }
+        else { const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7; ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1); }
         box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
+        if (L.trinket) { ball(chest, 0.035, std(0xd9a92a, 0.3, 0.6), 0, 0.12, 0.15, 6, 5); ball(chest, 0.018, glowMat(0x7fe8ff), 0, 0.12, 0.18, 5, 4); }
+      }
+      if (kind === 'npc') {
+        if (N.apron) box(chest, 0.3, 0.55, 0.03, std(0x4a3420), 0, -0.05, 0.15);
+        if (N.elder) mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 9, 1, true), cloth, chest, 0, -0.32, 0).material.side = THREE.DoubleSide;   // long robe
+        box(chest, 0.34, 0.05, 0.24, std(N.scarf || 0x5a4a30), 0, 0.27, 0);
       }
       if (kind === 'knight') {
         const plate = mesh(new THREE.CylinderGeometry(0.22 * w, 0.17 * w, 0.38, 9), steel, chest, 0, 0.08, 0); plate.scale.z = 0.78;
@@ -153,11 +185,20 @@ const Rig = (() => {
       } else {
         for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
         box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
-        if (kind === 'hero') {
-          const hair = std(0x3b2416, 0.8);
+        if (kind === 'hero' || kind === 'npc') {
+          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8);
           box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
           for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
-          box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
+          if (N.beard) { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, 0.08, 0.05, hair, 0, -0.18, 0.1); }
+          if (kind === 'hero' && L.helm === 0) { const cap = mesh(new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), leather, head, 0, 0.06, 0); cap.scale.set(1, 0.9, 1.05); }
+          else if (kind === 'hero' && L.helm === 1) {
+            const hm = mesh(new THREE.SphereGeometry(0.16, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.6), steel, head, 0, 0.04, 0); hm.scale.set(1, 1.05, 1.08);
+            box(head, 0.03, 0.14, 0.03, steel, 0, 0.0, 0.15);                  // nasal guard
+          } else if (kind === 'hero' && L.helm === 2) {
+            mesh(new THREE.CylinderGeometry(0.155, 0.15, 0.33, 10), steel, head, 0, 0.01, 0);
+            box(head, 0.2, 0.025, 0.04, dark, 0, 0.03, 0.145);
+            mesh(new THREE.ConeGeometry(0.16, 0.1, 10), steel, head, 0, 0.22, 0);
+          } else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
         }
         if (kind === 'brute') {
           box(head, 0.24, 0.05, 0.06, dark, 0, 0.06, 0.1);                       // heavy brow
@@ -178,7 +219,7 @@ const Rig = (() => {
       const el = joint(sh, 0, -0.3, 0);
       ball(el, 0.058 * R, bony ? skin : (kind === 'knight' ? steel : skin));
       limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
-      if (kind === 'hero' || kind === 'brute') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
+      if (kind === 'hero' || kind === 'brute' || kind === 'npc') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
       const hd = joint(el, 0, -0.29, 0);
       ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : skin, 0, 0, 0.0, 8, 6);
       rig.j['sh' + n] = sh; rig.j['el' + n] = el; rig.j['hd' + n] = hd;
@@ -194,15 +235,19 @@ const Rig = (() => {
     }
 
     // Weapons and shields
-    let wpn;
+    let wpn = null;
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
-    else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : {});
-    rig.weapon = wpn; rig.glowMats.push(...wpn.glowMats);
-    if (kind === 'hero') rig.shield = roundShield(rig.j.hdL, 0x2f4a6b);
+    else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
+    else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
+    else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
+    else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen });
+    rig.weapon = wpn; if (wpn) rig.glowMats.push(...wpn.glowMats);
+    if (wpn && L.glow) for (const m of wpn.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.25; }     // rare-and-better weapons shimmer faintly
+    if (kind === 'hero' && L.shield !== false) rig.shield = roundShield(rig.j.hdL, L.shieldFace || 0x2f4a6b);
     if (kind === 'knight') rig.shield = towerShield(rig.j.hdL, 0x3a3e48);
     // Motion capture drives every rig: sword-and-shield clips for people, great-sword clips for the two-handed brute.
     // The shield rides on the outside of the forearm, where the clips expect it (mirrored from Nightfall's rig).
-    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' ? 'gs' : 'ss';
+    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' ? 'gs' : 'ss'; rig.calm = kind === 'npc';
     if (rig.mocap && rig.shield) {
       rig.j.elL.add(rig.shield); rig.shield.position.set(0.14, -0.2, 0.02);
       rig.shield.rotation.set(0, Math.PI / 2, kind === 'knight' ? Math.PI / 2 : 0);    // face outward; a tall shield stands across the forearm
@@ -339,6 +384,11 @@ const Rig = (() => {
       });
       rate = 10;
     }
+    if (st.mode === 'drink') {
+      const k = Math.min(1, st.t * 4) * (st.t > 0.7 ? Math.max(0, (0.85 - st.t) / 0.15) : 1);
+      pose = merge(pose, { spine: [-0.15 * k, 0, 0], neck: [-0.45 * k, 0, 0], shL: [-2.3 * k, -0.7 * k, 0.2], elL: [-1.7 * k, 0, 0] });
+      rate = 16;
+    }
     if (st.mode === 'dead') {
       pose = merge(pose, { spine: [-0.3, 0, 0], neck: [-0.4, 0.4, 0], shR: [-2.6, 0, -0.6], elR: [0, 0, 0], shL: [-2.6, 0, 0.6], elL: [0, 0, 0], hipL: [-0.2, 0, 0.2], knL: [0.2, 0, 0], hipR: [-0.1, 0, -0.2], knR: [0.4, 0, 0], brx: -Math.PI / 2, by: -0.4 });
       rate = 7;
@@ -355,6 +405,7 @@ const Rig = (() => {
   function locoClip(rig, st) {
     const gs = rig.set === 'gs', run = (st.mps || 0) > 2.8, f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
     if (gs) return { name: f < -0.5 ? 'gsWalkB' : run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
+    if ((rig.calm || st.calm) && f > 0.5) return { name: run ? 'runCalm' : 'walkCalm', ref: run ? 4.6 : 1.6 };
     if (f > 0.5) return { name: run ? 'run' : 'walk', ref: run ? 4.6 : 1.6 };
     if (f < -0.5) return { name: run ? 'runB' : 'walkB', ref: run ? 3.6 : 1.4 };
     return { name: (run ? 'strafeRun' : 'strafeWalk') + (side > 0 ? 'N' : 'P'), ref: run ? 3.6 : 1.5 };
@@ -371,7 +422,7 @@ const Rig = (() => {
       rig.loco += dt * Math.min(1.8, Math.max(0.4, (st.mps || 1.5) / lc.ref)) / c.d;
       Mocap.sample(lc.name, rig.loco * c.d, out);
     }
-    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(gs ? 'gsIdle' : 'idle', rig.time, out);
+    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(gs ? 'gsIdle' : (rig.calm || st.calm) ? 'idleCalm' : 'idle', rig.time, out);
     if (m === 'block') {                                                    // shield up; the legs keep walking underneath when moving
       if (gs) return 0;
       Mocap.sample('blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES); return 20;

@@ -1,10 +1,9 @@
 // Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
 // The dungeon itself (rooms, gates, progression) lives in world.js.
+// G.state: title | play | pause | menu (a panel is open) · G.mode: camp | dungeon
 const G = {
-  state: 'title', time: 0, player: null, enemies: [], queue: [],
+  state: 'title', mode: 'camp', time: 0, player: null, enemies: [], queue: [], boss: null, spot: null, timers: [],
   stats: { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 }, seen: {},
-  onEnemyDeath(e) { G.stats.kills++; },
-  onPlayerDeath() { setTimeout(showGameOver, 1600); Snd.play('lose'); },
 };
 
 // ---------------- Camera view ----------------
@@ -19,14 +18,26 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
+    if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
+      const c = ev.code;
+      if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
+      else if (c === 'ArrowDown' || c === 'KeyS' || c === 'ArrowRight' || c === 'KeyD' || c === 'Tab') UI.nav(1);
+      else if (!ev.repeat && (c === 'Enter' || c === 'Space' || c === 'KeyE' || c === 'KeyJ')) UI.confirm();
+      else if (!ev.repeat && (c === 'Escape' || c === 'Backspace' || c === 'KeyI')) UI.back();
+      ev.preventDefault(); return;
+    }
     if (ev.repeat) return;
     Input.keys[ev.code] = true;
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
-    if (ev.code === 'Enter' && G.state !== 'play') startGame();
-    if (KEYMAP[ev.code] && G.state === 'play') { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
+    if (ev.code === 'Enter' && G.state === 'title') titleGo();
+    if (G.state !== 'play') return;
+    if (ev.code === 'KeyE') interact();
+    if (ev.code === 'KeyR') Player.drink(G.player);
+    if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
+    if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
   });
   addEventListener('keyup', ev => { Input.keys[ev.code] = false; });
   addEventListener('blur', () => { Input.keys = {}; Input.mouseBlock = false; });
@@ -83,7 +94,10 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     b.addEventListener('pointerdown', ev => {
       ev.preventDefault(); Snd.init(); b.classList.add('on');
       if (G.state !== 'play') return;
-      if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
+      if (act === 'light' && G.spot) interact();
+      else if (act === 'flask') Player.drink(G.player);
+      else if (act === 'bag') openPanel('bag');
+      else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
     });
     const up = () => { b.classList.remove('on'); if (act === 'block') Input.touchBlock = false; };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
@@ -108,15 +122,25 @@ function pollPad(real) {
   Pad.move.x = mx; Pad.move.z = my;
   Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
   if (now.some(Boolean)) Snd.init();
-  // Menus: Menu or A confirms whatever screen is up
-  if (G.state === 'title' || G.state === 'over') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) startGame(); return; }
+  // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
+  if (UI.open) {
+    const v = (now[12] ? -1 : now[13] ? 1 : 0) || (my < -0.5 ? -1 : my > 0.5 ? 1 : 0);
+    if (v && (v !== Pad.navDir || performance.now() > Pad.navNext)) { UI.nav(v); Pad.navNext = performance.now() + (v === Pad.navDir ? 120 : 350); }
+    Pad.navDir = v;
+    if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
+    Pad.move.x = Pad.move.z = 0; return;
+  }
+  if (G.state === 'title') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
   if (down(PAD_BTN.VIEW)) toggleView();
   if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
   if (down(PAD_BTN.RT) || down(PAD_BTN.Y)) Player.press(G.player, 'heavy');
-  if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
+  if (down(PAD_BTN.A) && G.spot) interact();
+  else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
+  if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
+  if (down(13)) openPanel('bag');                                         // d-pad down: gear
   if (View.mode === 'behind') {
     if (down(PAD_BTN.RS)) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
@@ -177,7 +201,7 @@ const dust = (() => {
 })();
 
 World.init(scene, hemi);
-World.reset();
+World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
 
 // ---------------- Collisions ----------------
 function resolveCollisions() {
@@ -204,7 +228,7 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
-    if (q.guardian) { e.guardian = true; e.rig.root.scale.multiplyScalar(1.15); e.bar.classList.add('guardian'); }
+    if (q.guardian) { e.guardian = q.guardian; e.rig.root.scale.multiplyScalar(1.15); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     G.enemies.push(e);
     return false;
   });
@@ -228,6 +252,18 @@ function updateHud() {
   $('stFill').style.width = p.st / p.maxSt * 100 + '%';
   $('stBar').classList.toggle('empty', p.st < 1);
   for (const e of G.enemies) Enemy.updateBar(e);
+  if (G.boss && G.boss.bar) G.boss.bar.style.display = 'none';
+  UI.boss(G.boss);
+  $('goldN').textContent = Items.S ? Items.S.gold : 0;
+  $('flaskN').textContent = p.flasks;
+  // In camp, the nearest person or place you can use
+  const spot = G.mode === 'camp' && p.state !== 'dead' ? Camp.nearest(World.camp(), p.pos) : null;
+  if (spot !== G.spot) {
+    G.spot = spot;
+    const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
+    UI.prompt(spot ? `<b>${pad ? 'Ⓐ' : touch ? 'TALK' : 'E'}</b> ${spot.verb} · ${spot.name}` : '');
+    document.querySelector('.b-light').textContent = spot ? 'TALK' : 'ATTACK';
+  }
 }
 function toggleMute() { const m = Snd.toggleMute(); $('muteBtn').textContent = m ? '🔇' : '🔊'; }
 $('muteBtn').textContent = Snd.muted ? '🔇' : '🔊';
@@ -240,34 +276,130 @@ function togglePause() {
   else if (G.state === 'pause') { G.state = 'play'; $('pause').classList.remove('show'); }
 }
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
-function bestRooms() { try { return +localStorage.getItem('dw_best_rooms') || 0; } catch (e) { return 0; } }
-function showGameOver() {
-  G.state = 'over';
-  if (document.pointerLockElement) document.exitPointerLock();
-  const s = G.stats, best = Math.max(bestRooms(), s.rooms);
-  try { localStorage.setItem('dw_best_rooms', best); } catch (e) {}
-  $('overStats').innerHTML = `Fell in <b>${World.label()}</b><br>${s.rooms} rooms cleared (best ${best})<br>${s.kills} kills · ${s.parries} parries · ${s.crits} criticals · ${s.dodges} dodges`;
-  $('over').classList.add('show');
-}
-
 // ---------------- Game flow ----------------
-function startGame() {
+// Title -> (story) -> camp -> descend into a stage -> rooms -> guardian -> back to camp or press on. Falling wakes you in camp.
+function fadeTo(fn) {
+  const f = $('fade'); f.classList.add('on');
+  setTimeout(() => { fn(); setTimeout(() => f.classList.remove('on'), 60); }, 420);
+}
+function openPanel(id, opt, done) {
+  if (UI.open) return;
+  G.state = 'menu';
+  UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
+}
+const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
+function clearEnemies() { for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+function placeHero(at) {
+  const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
+  View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
+}
+// Into the camp: everything restored, Tilda's stock refreshed, the game saved
+function enterCamp(atSpawn = true) {
+  clearEnemies();
+  const at = World.enterCamp();
+  G.mode = 'camp';
+  const S = Items.S; S.tripGold = 0;
+  const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
+  if (atSpawn) S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+  Items.save();
+  Player.refit(G.player, scene, true); Player.revive(G.player);
+  if (atSpawn) placeHero(at);
+  $('waveN').textContent = World.label(); $('foesN').textContent = '';
+}
+function titleGo() { startGame(Items.hasSave() && Items.load() ? 'continue' : 'new'); }
+function startGame(how = 'new') {
   Snd.init();
-  for (const e of G.enemies) Enemy.dispose(e, scene);
-  G.enemies = []; G.queue = [];
+  if (how === 'new' || !Items.load()) Items.newGame();
   if (G.player) { scene.remove(G.player.rig.root); scene.remove(G.player.trail.mesh); }
-  FX.clear();
-  World.reset();
   G.player = Player.create(scene);
   G.time = 0; G.seen = {};
   G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 };
-  $('title').classList.remove('show'); $('over').classList.remove('show'); $('pause').classList.remove('show');
+  $('title').classList.remove('show'); $('pause').classList.remove('show');
   G.state = 'play'; document.body.classList.add('playing');
-  View.yaw = 0; View.pitch = 0.42; camTarget.copy(G.player.pos);
-  World.begin();
+  enterCamp();
+  const S = Items.S;
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => showTip('Walk up to Bram, Tilda, Maren, the ledger or the gate and press E (Ⓐ on a controller) to talk. R drinks a flask, I opens your gear.')); }
 }
-$('startBtn').addEventListener('click', startGame);
-$('retryBtn').addEventListener('click', startGame);
+// Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
+G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
+function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
+// Down into stage k
+G.descend = k => fadeTo(() => {
+  clearEnemies();
+  const at = World.startStage(k);
+  G.mode = 'dungeon'; G.stageK = k; Items.S.tripGold = 0;
+  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  G.state = 'play'; $('waveN').textContent = World.label();
+  const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
+  if (!S.story.pre[k]) {
+    S.story.pre[k] = true; Items.save();
+    const lines = st.pre[si].map(t => ['Maren', t]);
+    if (depth) lines.unshift(['Maren', st.depth.replace('{n}', depth + 1)]);
+    say(lines, null, 'Into the dark');
+  }
+});
+// Gold from fallen enemies
+G.onEnemyDeath = e => {
+  G.stats.kills++;
+  if (G.boss === e) G.boss = null;
+  if (!Items.S || G.mode !== 'dungeon') return;
+  const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.guardian ? 5 : 1));
+  FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
+};
+// A cleared room's chest: gold, maybe gear; the guardian's chest always holds gear and unlocks the next stage
+G.onChest = room => {
+  const S = Items.S, big = room.chest.big, k = room.inf.k, C = CFG.chest;
+  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : 1) * G.player.S.goldFind);
+  FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
+  FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
+  let it = null;
+  if (big || Math.random() < C.itemChance) {
+    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big ? 1 : 0, boost: big ? 1 : 0 });
+    if (Items.add(it)) UI.toast('Found: ' + Items.fullName(it) + ' (' + CFG.gear.rarities[it.rarity].name + ')', CFG.gear.rarities[it.rarity].color);
+    else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
+  }
+  if (big) {
+    S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
+    G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
+  } else Items.save();
+};
+G.returnToCamp = () => fadeTo(() => {
+  const k = G.stageK; enterCamp(); G.state = 'play';
+  const S = Items.S, si = k % CFG.stages.length;
+  if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
+  else { S.story.post[k] = true; Items.save(); }
+});
+G.pressOn = () => { World.pressOn(); G.state = 'play'; };
+G.onPlayerDeath = () => {
+  Snd.play('lose'); Items.S.deaths++;
+  G.after(1.6, () => {
+    const S = Items.S, lost = Math.floor(S.tripGold * CFG.camp.deathGoldLoss);
+    S.gold = Math.max(0, S.gold - lost); S.tripGold = 0; Items.save();
+    openPanel('fallen', { lost, where: 'Fell in ' + World.label() });
+  });
+};
+G.wakeInCamp = () => fadeTo(() => { enterCamp(); G.state = 'play'; });
+// Gear changed in a menu: new numbers and looks; a camp building rebuilds the camp around the hero
+G.onGearChanged = campChanged => {
+  const inCamp = G.mode === 'camp';
+  Player.refit(G.player, scene, inCamp);
+  if (campChanged && inCamp) { World.enterCamp(); }
+};
+// Talk to whoever is near in camp
+function interact() {
+  const s = G.spot; if (!s || G.state !== 'play') return;
+  Player.revive(G.player);
+  if (s.id === 'elder') {
+    const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
+    const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
+    if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
+    return say(lines);
+  }
+  openPanel(s.id);
+}
+$('startBtn').addEventListener('click', () => startGame('new'));
+$('contBtn').addEventListener('click', () => startGame('continue'));
+if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
@@ -328,7 +460,7 @@ addEventListener('resize', resize); resize();
 
 // ---------------- Main loop ----------------
 let last = performance.now();
-const idleRig = (() => { const r = Rig.build('hero'); r.root.position.set(0, 0, 2); r.root.rotation.y = 0.4; scene.add(r.root); return r; })();
+const idleRig = (() => { const r = Rig.build('hero', { look: Items.S ? Items.look() : {} }); r.root.position.set(1.7, 0, 3.3); r.root.rotation.y = -2.5; scene.add(r.root); return r; })();
 function frame(now) {
   requestAnimationFrame(frame);
   const real = Math.min(0.05, (now - last) / 1000); last = now;
@@ -349,19 +481,18 @@ function step(real) {
     resolveCollisions();
     World.update(dt, camera.position);
     updateSpawns();
+    runTimers();
     FX.update(dt);
     updateHud();
     updateCamera(real);
   } else if (G.state === 'title') {
     World.update(real);
-    Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0 }, real);
+    Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);
     camTarget.set(0, 0, 2); setFov(42);
-    camera.position.set(2.5, 2.4, 6.6); camera.lookAt(0, 1.1, 2);
-  } else if (G.state === 'over') {
-    const dt = real; G.time += dt;
-    Player.update(G.player, dt);
-    for (const e of G.enemies) Enemy.update(e, dt);
-    World.update(dt, camera.position); FX.update(dt); updateHud(); updateCamera(real);
+    camera.position.set(-0.6, 2.2, 7.8); camera.lookAt(0.2, 1.2, 2.4);
+  } else if (G.state === 'menu') {
+    World.update(real, camera.position);                                 // gates, fades and the camp keep moving behind menus
+    updateCamera(real);
   }
   if (G.state !== 'title' && idleRig.root.parent) scene.remove(idleRig.root);
 }
@@ -370,7 +501,9 @@ requestAnimationFrame(frame);
 // Test hook: lets automated tests drive the game without a real input device
 window.__dw = {
   G, Input, CFG, step,
-  start: startGame, View, World, scene, camera, renderer,
+  start: startGame, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
+  // Tests: a fresh hero standing in the first room of stage k, no story, no fade
+  arena(k = 0) { Items.wipe(); startGame('new'); UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },

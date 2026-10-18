@@ -61,11 +61,12 @@ const SCENARIOS = {
   progress: `(() => {
     if (__dw.View.mode !== 'behind') return { skipped: true };
     const W = __dw.World, G = __dw.G, log = [];
-    __dw.World.begin();
+    __dw.World.startStage(0);
     const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
     for (let room = 0; room < 5; room++) {
       __dw.sim(12, () => { kill(); G.player.hp = 100; return W.active && W.active.state === 'cleared'; });
       __dw.sim(0.5);
+      if (W.active.inf.room.guardian) { log.push('guardian cleared, chest: ' + !!W.active.chest); W.pressOn(); __dw.sim(0.5); }
       const nextRoom = W.rooms.find(r => r.i === room + 1);
       if (!nextRoom) { log.push('no next room after ' + room); break; }
       __dw.View.yaw = 0; __dw.G.player.pos.x = 0;
@@ -118,7 +119,7 @@ const CHECKS = {
   hit: r => r.hitsTaken >= 1 && r.hp <= 88,
   dodge: r => r.dodges === 1 && r.hitsTaken === 0 && r.hp === 100,
   combo: r => r.kills === 1,
-  progress: r => r.skipped || (r.rooms === 5 && r.log.length === 5 && r.log[4].room === 5 && r.log[4].stage === 'The Iron Keep' && r.log.every(l => l.live && !l.live.split(',').includes(String(l.room - 1)))),
+  progress: r => r.skipped || (r.rooms === 5 && r.log.length === 6 && r.log[5].room === 5 && r.log[3] === 'guardian cleared, chest: true' && r.log[5].stage === 'The Iron Keep' && r.log.every(l => typeof l === 'string' || (l.live && !l.live.split(',').includes(String(l.room - 1))))),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
   guardBreak: r => r.enemyHp < r.maxHp && (r.enemyState === 'stagger' || r.enemyState === 'broken'),
@@ -135,7 +136,7 @@ const CHECKS = {
     await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
     await pg.waitForTimeout(400);
     // Start, clear the first wave and park the hero at a known spot facing north
-    await pg.evaluate(`__dw.setView('${view}'); __dw.start(); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.World.halt();`);
+    await pg.evaluate(`__dw.setView('${view}'); __dw.arena(0); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.World.halt();`);
     const r = await pg.evaluate(code);
     const ok = CHECKS[name](r) && !errs.length;
     if (!ok) fails++;

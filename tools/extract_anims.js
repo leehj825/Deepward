@@ -14,7 +14,7 @@ const A = load('anims.js', 'MIXAMO_CLIPS'), L = load('anims_lib.js', 'MIXAMO_LIB
 // Deepward name -> [source table, source name]
 const WANT = {
   // sword and shield
-  idle: [A, 'ssIdle'], walk: [A, 'ssWalk'], walkB: [A, 'ssWalkB'], run: [A, 'ssRun'], runB: [A, 'ssRunB'],
+  idle: [A, 'ssIdle'], idleCalm: [A, 'ssIdleCalm'], walkCalm: [A, 'walk'], runCalm: [A, 'run'], walk: [A, 'ssWalk'], walkB: [A, 'ssWalkB'], run: [A, 'ssRun'], runB: [A, 'ssRunB'],
   strafeWalkN: [A, 'ssStrafeNW'], strafeWalkP: [A, 'ssStrafePW'], strafeRunN: [A, 'ssStrafeN'], strafeRunP: [A, 'ssStrafeP'],
   attack1: [A, 'ssAttack1'], attack2: [A, 'ssAttack2'], attack3: [A, 'ssAttack3'], attackJump: [A, 'ssAttack4'],
   slash1: [L, 'ss_sword_and_shield_slash'], slash3: [L, 'ss_sword_and_shield_slash_3'], slash5: [L, 'ss_sword_and_shield_slash_5'], kick: [L, 'ss_sword_and_shield_kick'],

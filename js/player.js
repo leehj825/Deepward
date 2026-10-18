@@ -3,13 +3,18 @@
 const Player = (() => {
   const P = CFG.player;
 
+  // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
+  const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4 };
+  const gearStats = () => (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE;
+  const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
+
   function create(scene) {
-    const rig = Rig.build('hero');
+    const rig = Rig.build('hero', { look: gearLook() }), S = gearStats();
     scene.add(rig.root);
     return {
       rig, trail: Rig.makeTrail(scene, 0xbfe4ff),
       pos: new THREE.Vector3(0, 0, 4), facing: Math.PI, kb: new THREE.Vector3(),
-      hp: P.hp, maxHp: P.hp, st: P.stamina, maxSt: P.stamina, stDelay: 0,
+      S, hp: S.maxHp, maxHp: S.maxHp, st: S.maxSt, maxSt: S.maxSt, stDelay: 0, flasks: S.flasks, drinkT: 0,
       state: 'free', t: 0, blocking: false, blockT: 9, lastBlockPress: -9,
       atk: null, atkKind: null, phase: null, phaseT: 0, combo: 0, comboT: 9, target: null,
       buffer: null, rollDir: 0, rollFrom: new THREE.Vector3(), cycle: 0, speedK: 0,
@@ -55,7 +60,13 @@ const Player = (() => {
     const { target, dir } = pickTarget(p);
     p.target = target;
     p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
-    p.atk = data; p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
+    // The weapon and its bonuses scale the move: damage, posture, swing speed and reach; criticals roll per swing
+    const S = p.S, crit = Math.random() < S.crit;
+    p.atk = Object.assign({}, data, {
+      dmg: data.dmg * S.dmg * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit,
+      wind: data.wind / S.speed, active: data.active / S.speed, recover: data.recover / S.speed, range: data.range + S.range,
+    });
+    p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
     setState(p, 'attack');
   }
 
@@ -74,7 +85,7 @@ const Player = (() => {
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
     if (p.state !== 'dead') {
       if (p.stDelay > 0) p.stDelay -= dt;
-      else if (p.state === 'free') p.st = Math.min(p.maxSt, p.st + P.staminaRegen * dt * (p.blocking ? P.block.regenMult : 1));
+      else if (p.state === 'free' || p.state === 'drink') p.st = Math.min(p.maxSt, p.st + P.staminaRegen * p.S.regen * dt * (p.blocking ? P.block.regenMult : 1));
     }
     let moveSpeed = 0;
     const m = Input.move, mlen = Math.min(1, Math.hypot(m.x, m.z));
@@ -83,7 +94,7 @@ const Player = (() => {
       const wantBlock = Input.block;
       if (wantBlock && !p.blocking) {
         // Mashing block does not parry: a press too soon after the last one skips the parry window
-        p.blockT = (G.time - p.lastBlockPress < 0.45) ? P.block.parryWindow + 0.01 : 0;
+        p.blockT = (G.time - p.lastBlockPress < 0.45) ? p.S.parry + 0.01 : 0;
         p.lastBlockPress = G.time;
       }
       p.blocking = wantBlock;
@@ -133,6 +144,15 @@ const Player = (() => {
       p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
       moveSpeed = P.speed;
       if (p.t >= D.time) { setState(p, 'free'); tryAct(p); }
+    } else if (p.state === 'drink') {
+      // A slow walk while the flask goes down; the healing lands partway through, so a hit early on wastes it
+      if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; p.pos.z += m.z / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; moveSpeed = mlen * P.blockSpeed * 0.8; }
+      if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
+      if (!p.healed && p.t > 0.45) {
+        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h);
+        FX.text(Combat.chestPos(p.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(p.pos, 1.4), 0x7aff9a, 14, 3);
+      }
+      if (p.t >= 0.85) setState(p, 'free');
     } else if (p.state === 'hurt') {
       if (p.t >= (p.hurtFor || P.hurtStun)) setState(p, 'free');
     } else if (p.state === 'guardbreak') {
@@ -148,7 +168,7 @@ const Player = (() => {
     r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
     const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state;
     Rig.animate(r, {
-      mode, t: p.t, speed: p.speedK, mps: p.speedK * P.speed, cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
+      mode, t: p.t, speed: p.speedK, mps: p.speedK * P.speed, calm: G.mode === 'camp', cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
       phaseT: p.phaseT, wind: p.atk && p.atk.wind, active: p.atk && p.atk.active, recover: p.atk && p.atk.recover,
       p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
       atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
@@ -166,6 +186,7 @@ const Player = (() => {
 
   function flash(p, c) { p.flashT = 0.2; p.flashC = c; }
   function damage(p, n, from) {
+    n *= 1 - p.S.dr;                                                      // armour
     p.hp = Math.max(0, p.hp - n);
     FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
     if (p.hp <= 0) { p.rig.dieVar = Math.random() < 0.5; setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
@@ -189,18 +210,18 @@ const Player = (() => {
     if (p.state === 'free' && p.blocking && facingOK) {
       if (hit.unblockable) {
         FX.text(Combat.chestPos(p.pos, 2.4), 'UNBLOCKABLE', 'warn');
-      } else if (p.blockT <= P.block.parryWindow) {
+      } else if (p.blockT <= p.S.parry) {
         Snd.play('parry'); FX.glint(shieldPos, 0xfff2b0, 2.4, 0.35); FX.burst(shieldPos, 0xffe08a, 16, 7);
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
         return 'parry';
       } else {
-        const cost = dmg * P.block.staminaPerDmg * (hit.blockMult || 1);
+        const cost = dmg * P.block.staminaPerDmg * p.S.guard * (hit.blockMult || 1);
         if (p.st >= cost) {
           spend(p, cost);
           Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
-          damage(p, dmg * (1 - P.block.reduce), e.pos);
+          damage(p, dmg * (1 - p.S.block), e.pos);
           return 'block';
         }
         p.st = 0; p.stDelay = P.staminaDelay * 2;
@@ -225,5 +246,22 @@ const Player = (() => {
     p.hurtFor = 0.35; setState(p, 'hurt'); p.combo = 0;
   }
 
-  return { create, update, press, receive, recoil };
+  // Healing flask: only when free to act
+  function drink(p) {
+    if (p.state !== 'free' || p.flasks <= 0) { if (p.flasks <= 0) FX.text(Combat.chestPos(p.pos, 2.1), 'NO FLASKS', 'warn'); return false; }
+    p.flasks--; p.healed = false; p.blocking = false; setState(p, 'drink'); Snd.play('roll');
+    return true;
+  }
+  // New gear: fresh numbers and a rebuilt look; keeps position, facing and the share of health left
+  function refit(p, scene, full) {
+    const S = gearStats(), share = p.maxHp ? p.hp / p.maxHp : 1;
+    p.S = S; p.maxHp = S.maxHp; p.maxSt = S.maxSt; p.hp = full ? S.maxHp : Math.max(1, Math.round(S.maxHp * share)); p.st = Math.min(p.st, S.maxSt);
+    if (full) { p.st = S.maxSt; p.flasks = S.flasks; }
+    scene.remove(p.rig.root);
+    p.rig = Rig.build('hero', { look: gearLook() }); scene.add(p.rig.root);
+    p.rig.root.position.copy(p.pos); p.rig.root.rotation.y = p.facing;
+  }
+  function revive(p) { setState(p, 'free'); p.kb.set(0, 0, 0); p.buffer = null; p.blocking = false; p.combo = 0; }
+
+  return { create, update, press, receive, recoil, drink, refit, revive };
 })();

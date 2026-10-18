@@ -12,7 +12,7 @@ const World = (() => {
     const S = CFG.stages, per = S.reduce((n, s) => n + s.rooms.length, 0), loop = Math.floor(i / per);
     let n = i % per;
     for (let si = 0; si < S.length; si++) {
-      if (n < S[si].rooms.length) return { si, ri: n, loop, stage: S[si], room: S[si].rooms[n], count: S[si].rooms.length };
+      if (n < S[si].rooms.length) return { si, ri: n, loop, k: loop * S.length + si, stage: S[si], room: S[si].rooms[n], count: S[si].rooms.length };
       n -= S[si].rooms.length;
     }
   }
@@ -181,6 +181,7 @@ const World = (() => {
   }
   function dispose(room) {
     scene.remove(room.group);
+    room.group.traverse(o => { if (o.isMesh || o.isPoints) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
     for (const g of room.geos) g.dispose();
     for (const m of room.mats) m.dispose();
     for (const t of room.texs) t.dispose();
@@ -189,7 +190,7 @@ const World = (() => {
 
   // ---------------- Walkable space ----------------
   const roomAt = i => rooms.find(r => r.i === i);
-  function corrOpen(r) { const prev = roomAt(r.i - 1); return r.corr && r.gateS.open && prev && prev.gateN.open; }
+  function corrOpen(r) { const prev = roomAt(r.i - 1); return r.corr && r.gateS.open && prev && prev.gateN && prev.gateN.open; }
   function walkRects() {
     const out = [];
     for (const r of rooms) { out.push(r.rect); if (corrOpen(r)) out.push(r.corr); }
@@ -205,8 +206,8 @@ const World = (() => {
       if (d < bd) { bd = d; bx = x; bz = z; if (d === 0) break; }
     }
     pos.x = bx; pos.z = bz;
-    for (const r of rooms) for (const [px, pz] of r.pillars) {
-      const dx = pos.x - px, dz = pos.z - pz, d = Math.hypot(dx, dz), min = CFG.pillarR + rad;
+    for (const r of rooms) for (const [px, pz, pr] of r.pillars) {
+      const dx = pos.x - px, dz = pos.z - pz, d = Math.hypot(dx, dz), min = (pr || CFG.pillarR) + rad;
       if (d < min && d > 1e-4) { pos.x = px + dx / d * min; pos.z = pz + dz / d * min; }
     }
   }
@@ -235,7 +236,7 @@ const World = (() => {
     spots.sort(() => Math.random() - 0.5);
     list.forEach((type, k) => {
       const guardian = room.inf.room.guardian && room.wave === 0 && k === 0;
-      G.queue.push({ type, at: spots[k % spots.length] || new THREE.Vector3(0, 0, room.cz - 2), mult: mult * (guardian ? CFG.guardianMult : 1), guardian, room, t: G.time + 0.3 + k * 0.45 });
+      G.queue.push({ type, at: spots[k % spots.length] || new THREE.Vector3(0, 0, room.cz - 2), mult: mult * (guardian ? CFG.guardianMult : 1), guardian: guardian && room.inf.stage.guardian, room, t: G.time + 0.3 + k * 0.45 });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.wave > 0) banner('MORE COME');
@@ -252,17 +253,42 @@ const World = (() => {
     if (inf.ri === 0) {
       banner(inf.stage.name.toUpperCase() + (inf.loop ? '  ·  DEPTH ' + (inf.loop + 1) : ''));
       fogTo = new THREE.Color(room.th.fog); hemiTo = new THREE.Color(room.th.hemi);
-    } else banner('ROOM ' + (inf.ri + 1) + ' / ' + inf.count);
+    } else if (inf.room.guardian) banner(inf.stage.guardian.toUpperCase());
+    else banner('ROOM ' + (inf.ri + 1) + ' / ' + inf.count);
   }
 
   function clearRoom(room) {
     room.state = 'cleared';
     const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.roomHeal);
     G.stats.rooms++;
-    banner(room.inf.room.guardian ? 'STAGE CLEARED' : 'ROOM CLEARED');
-    const nx = build(nextIndex);                                          // the next room fades in beyond the gate
+    const guardian = !!room.inf.room.guardian;
+    addChest(room, guardian);
+    banner(guardian ? 'STAGE CLEARED' : 'ROOM CLEARED');
+    if (guardian) return;                                                 // the hero chooses: back to camp, or press on (pressOn)
+    pressOn(room);
+  }
+  // Raise the far gate and let the next room fade in beyond it
+  function pressOn(room = active) {
+    if (!room || room.kind === 'camp') return;
+    const nx = build(nextIndex);
     room.gateN.open = true; nx.gateS.open = true;
     Snd.play('gate');
+  }
+
+  // A chest left in the middle of each cleared room; the guardian's is bigger
+  function addChest(room, big) {
+    const g = new THREE.Group(), s = big ? 1.35 : 1, x = -Math.min(room.hw - 2, 3.6); g.position.set(x, 0, room.cz); g.rotation.y = Math.PI / 2; g.scale.setScalar(s); room.group.add(g);
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4424, roughness: 0.85, flatShading: true }), band = new THREE.MeshStandardMaterial({ color: big ? 0xd9a92a : 0x6a6d75, roughness: 0.4, metalness: 0.6, flatShading: true });
+    room.mats.push(wood, band);
+    const add = (geo, m, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); room.geos.push(geo); return o; };
+    add(new THREE.BoxGeometry(0.9, 0.5, 0.6), wood, 0, 0.25, 0);
+    for (const x of [-0.35, 0.35]) add(new THREE.BoxGeometry(0.08, 0.52, 0.62), band, x, 0.25, 0);
+    const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.3); g.add(lid);
+    add(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0, 0.3, lid);
+    add(new THREE.BoxGeometry(0.12, 0.14, 0.05), band, 0, -0.02, 0.62, lid);
+    room.chest = { g, lid, big, opened: false, x, z: room.cz, t: 0 };
+    room.pillars.push([x, room.cz, 0.55 * s]);
+    FX.glint(new THREE.Vector3(x, 0.9, room.cz), big ? 0xffd040 : 0xfff0c0, 2, 0.6);
   }
 
   // ---------------- Per-frame ----------------
@@ -271,6 +297,12 @@ const World = (() => {
     for (const r of rooms.slice()) {
       if (r.fadeDir > 0 && r.fade < 1) setFade(r, Math.min(1, r.fade + dt / CFG.fadeTime));
       if (r.fadeDir < 0) { setFade(r, Math.max(0, r.fade - dt / CFG.fadeTime)); if (r.fade <= 0) { dispose(r); continue; } }
+      if (r.kind === 'camp') { Camp.update(r, dt, p && p.pos); continue; }
+      if (r.chest) {
+        const c = r.chest;
+        if (!c.opened && p && p.state !== 'dead' && Math.hypot(p.pos.x - c.x, p.pos.z - c.z) < 1.7) { c.opened = true; Snd.play('gate'); G.onChest(r); }
+        if (c.opened && c.t < 1) { c.t = Math.min(1, c.t + dt * 2.5); c.lid.rotation.x = -1.9 * c.t; }
+      }
       const behind = cam && cam.z > r.southZ + 0.2 && Math.abs(cam.x) < r.hw + 1;
       r.occl += ((behind ? 0.15 : 1) - r.occl) * Math.min(1, dt * 8);
       for (const m of r.occluders) {
@@ -328,19 +360,42 @@ const World = (() => {
     for (const r of rooms.slice()) dispose(r);
     cursorZ = 6; nextIndex = 0; active = null;
     const r0 = build(0); setFade(r0, 1);
-    const th = r0.th; scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null;
+    applyTheme(r0.th);
     return r0;
   }
-  function halt() { active = null; }                                     // tests: stop the dungeon sending enemies
+  function halt() { active = null; }
+  function applyTheme(th) { scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
+  // Swap everything for the camp; returns where the hero should stand
+  function enterCamp(levels) {
+    for (const r of rooms.slice()) dispose(r);
+    active = null;
+    rooms.push(Camp.build(scene, levels || Items.S.camp));
+    applyTheme(CFG.themes.camp);
+    return Camp.spawn;
+  }
+  // Swap everything for the first room of stage k (running index: 3 stages per depth); returns the hero's start
+  function startStage(k) {
+    for (const r of rooms.slice()) dispose(r);
+    const S = CFG.stages, per = S.reduce((n, s) => n + s.rooms.length, 0), loop = Math.floor(k / S.length), si = k % S.length;
+    let idx = loop * per; for (let j = 0; j < si; j++) idx += S[j].rooms.length;
+    cursorZ = 6; nextIndex = idx;
+    const r = build(idx); setFade(r, 1); applyTheme(r.th);
+    active = r; r.state = 'start'; r.t = 0;
+    banner(r.inf.stage.name.toUpperCase() + (r.inf.loop ? '  ·  DEPTH ' + (r.inf.loop + 1) : ''));
+    return { x: 0, z: r.southZ - 3, facing: Math.PI };
+  }
+  const inCamp = () => rooms.some(r => r.kind === 'camp');
+  const camp = () => rooms.find(r => r.kind === 'camp');                                     // tests: stop the dungeon sending enemies
   function begin() { const r0 = roomAt(0); active = r0; r0.state = 'start'; r0.t = 0; banner(r0.inf.stage.name.toUpperCase()); }
 
   function label() {
+    if (inCamp()) return 'Deepward Camp';
     const r = active || roomAt(0); if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }
 
   return {
-    init, reset, begin, halt, update, constrain, inSpace, roomOf, label, info,
+    init, reset, begin, halt, update, constrain, inSpace, roomOf, label, info, enterCamp, startStage, pressOn, inCamp, camp,
     get active() { return active; }, get rooms() { return rooms; },
   };
 })();

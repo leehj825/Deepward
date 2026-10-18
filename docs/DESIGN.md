@@ -62,7 +62,18 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 
 Each dungeon has 5 to 8 rooms from hand-tuned templates, one optional elite, and a boss. Cleared dungeons can be replayed at higher ranks for better loot.
 
-## Gear (planned)
+## Story, camp and gear (built)
+
+- **Story:** an opening (the Deep under Varrow Hill; Deepward, the last camp on its rim). Maren speaks before each stage, again after each guardian falls, and at every new depth as the stages repeat. The guardians are the Bone Warden, Sir Aldric the Hollow and the Den Mother; each has a boss bar.
+- **Camp:** a hub between stages. You talk to Maren, Bram (forge, upgrade, salvage) and Tilda (buy and sell), use the ledger to build up the forge, apothecary and training yard, and take the gate down to any unlocked stage. Each building's level shows in the camp.
+- **Loop:** clearing a stage's guardian offers a choice: return to camp, banking gold, or press on. Falling wakes you in camp with half the trip's gold lost. Progress saves in the browser.
+- **Gear as built:**
+  - Five slots: weapon, shield, armour, helm and trinket.
+  - Weapon types: sword, axe, mace and longsword.
+  - Tiers by depth, four rarities, eight bonus types, and smith upgrades up to +8 with the best forge.
+  - Gear changes the hero's look: blade, weapon model, tunic colour, plate, helm style, shield face and amulet.
+
+## Gear (original plan, partly built)
 
 - **Slots:** weapon, off-hand, helm, chest, gloves, boots, ring, amulet.
 - **Weapon types:** sword (balanced), greataxe (posture), daggers (long combos), spear (reach), mace (stuns armour). Each has its own combo poses.

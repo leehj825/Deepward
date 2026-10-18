@@ -20,8 +20,10 @@ const path = require('path');
     const out = {}, G = __dw.G, sim = (s, fn) => __dw.sim(s, fn), tap = i => { __btn(i, true); sim(1 / 60); __btn(i, false); sim(1 / 60); };
     __dw.setView('behind');
     out.padClass = (sim(0.1), document.body.classList.contains('pad'));
-    tap(0); out.startedWithA = G.state === 'play';
-    __dw.World.halt(); G.queue = []; G.player.pos.set(0, 0, 4);
+    tap(0); out.startedWithA = G.state === 'menu' && __dw.G.mode === 'camp';      // a new game opens on the camp and its story
+    for (let i = 0; i < 8 && G.state === 'menu'; i++) tap(0);                   // A pages through the story
+    out.storyDone = G.state === 'play';
+    __dw.arena(0); __dw.World.halt(); G.queue = []; G.player.pos.set(0, 0, 4);
     __pad.axes[1] = -1; sim(0.5); __pad.axes[1] = 0; sim(0.1);
     out.movedForward = G.player.pos.z < 2.5;
     const yaw0 = __dw.View.yaw; __pad.axes[2] = 1; sim(0.5); __pad.axes[2] = 0;
