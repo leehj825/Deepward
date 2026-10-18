@@ -1,0 +1,399 @@
+// Deepward - characters built entirely in code: a joint hierarchy of Groups dressed with primitive meshes,
+// weapons and shields as child meshes, and procedural poses (no model or animation files).
+// Conventions: feet at y=0, facing +Z, right hand on -X. Shoulders and hips use Euler order YXZ:
+// z = out to the side, x = raise forward (negative), y = swing left (+) / right (-).
+const Rig = (() => {
+  const std = (c, rough = 0.85, metal = 0, emissive = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: metal, emissive, flatShading: true });
+  const glowMat = c => new THREE.MeshBasicMaterial({ color: c });
+
+  function mesh(geo, m, parent, x = 0, y = 0, z = 0) {
+    const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o;
+  }
+  function joint(parent, x, y, z, order) {
+    const g = new THREE.Group(); g.position.set(x, y, z); if (order) g.rotation.order = order; parent.add(g); return g;
+  }
+  // A limb segment hanging down from its joint
+  function limb(parent, len, rTop, rBot, m, seg = 8) { return mesh(new THREE.CylinderGeometry(rTop, rBot, len, seg), m, parent, 0, -len / 2, 0); }
+  const ball = (parent, r, m, x = 0, y = 0, z = 0, w = 10, h = 8) => mesh(new THREE.SphereGeometry(r, w, h), m, parent, x, y, z);
+  const box = (parent, w, h, d, m, x = 0, y = 0, z = 0) => mesh(new THREE.BoxGeometry(w, h, d), m, parent, x, y, z);
+
+  // ---------------- Weapons ----------------
+  // Weapons point along the hand's +Z (forward when the arm hangs down). tip/base mark the blade for the swing trail.
+  function sword(hand, o) {
+    const g = joint(hand, 0, -0.03, 0);
+    const steel = std(o.blade || 0xc9ced6, 0.35, 0.6), grip = std(o.grip || 0x3a2416), guard = std(o.guard || 0xb08a3a, 0.5, 0.4);
+    const len = o.len || 0.92;
+    mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.2, 6).rotateX(Math.PI / 2), grip, g, 0, 0, 0);
+    ball(g, 0.035, guard, 0, 0, -0.11, 6, 5);
+    box(g, 0.26, 0.04, 0.05, guard, 0, 0, 0.11);
+    const blade = box(g, 0.075, 0.018, len, steel, 0, 0, 0.13 + len / 2);
+    mesh(new THREE.ConeGeometry(0.053, 0.16, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 0.34, 1), steel, g, 0, 0, 0.13 + len + 0.08);
+    box(g, 0.012, 0.022, len * 0.85, std(0x8a9099, 0.4, 0.5), 0, 0, 0.13 + len * 0.45);   // fuller
+    const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
+    return { group: g, glowMats: [steel], tip, base, blade };
+  }
+  function club(hand, o) {
+    const g = joint(hand, 0, -0.03, 0);
+    const wood = std(0x5a3a22), iron = std(0x4a4a50, 0.5, 0.5);
+    mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 7).rotateX(Math.PI / 2), std(0x2a1a10), g, 0, 0, 0);
+    mesh(new THREE.CylinderGeometry(0.15, 0.06, 0.95, 8).rotateX(Math.PI / 2), wood, g, 0, 0, 0.6);
+    mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 8).rotateX(Math.PI / 2), iron, g, 0, 0, 0.98);
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2, s = mesh(new THREE.ConeGeometry(0.035, 0.14, 5), iron, g, Math.cos(a) * 0.15, Math.sin(a) * 0.15, 0.8 + (i % 2) * 0.12);
+      s.rotation.z = a - Math.PI / 2;
+    }
+    const tip = joint(g, 0, 0, 1.08), base = joint(g, 0, 0, 0.3);
+    return { group: g, glowMats: [wood, iron], tip, base };
+  }
+  function roundShield(hand, c) {
+    const g = new THREE.Group(); hand.add(g);
+    const face = std(c, 0.8), rim = std(0x8a8f99, 0.45, 0.5), boss = std(0xc9a23a, 0.4, 0.5);
+    mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.05, 14).rotateX(Math.PI / 2), face, g, 0, 0, 0.06);
+    mesh(new THREE.TorusGeometry(0.36, 0.025, 5, 18), rim, g, 0, 0, 0.09);
+    ball(g, 0.07, boss, 0, 0, 0.1, 8, 6).scale.z = 0.6;
+    box(g, 0.05, 0.6, 0.012, std(0xd9b45a, 0.7), 0, 0, 0.088);
+    box(g, 0.6, 0.05, 0.012, std(0xd9b45a, 0.7), 0, 0, 0.088);
+    return g;
+  }
+  function towerShield(hand, c) {
+    const g = new THREE.Group(); hand.add(g);
+    const face = std(c, 0.7, 0.3), rim = std(0x2a2a30, 0.5, 0.6);
+    box(g, 0.62, 0.95, 0.06, face, 0, -0.05, 0.07);
+    box(g, 0.68, 0.06, 0.08, rim, 0, 0.43, 0.07); box(g, 0.68, 0.06, 0.08, rim, 0, -0.53, 0.07);
+    box(g, 0.06, 1.0, 0.08, rim, 0.33, -0.05, 0.07); box(g, 0.06, 1.0, 0.08, rim, -0.33, -0.05, 0.07);
+    box(g, 0.14, 0.42, 0.02, std(0xc9a23a, 0.5, 0.4), 0, -0.02, 0.11); box(g, 0.34, 0.12, 0.02, std(0xc9a23a, 0.5, 0.4), 0, 0.08, 0.11);
+    return g;
+  }
+
+  // ---------------- Bodies ----------------
+  // One humanoid skeleton of joints; "kind" picks proportions, materials and armour.
+  function build(kind) {
+    const S = {
+      hero: { skin: 0xe2a982, cloth: 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
+      knight: { skin: 0x5a606c, cloth: 0x6a1a1a, pants: 0x3a3e48, boot: 0x2a2c32, w: 1.08, limbR: 1.1 },
+      brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
+    }[kind];
+    const rig = { kind, j: {}, mats: [], glowMats: [], trail: null };
+    const root = new THREE.Group(), body = joint(root, 0, 0.5, 0), hips = joint(body, 0, 0.45, 0);
+    rig.root = root; rig.body = body;
+    const skin = std(S.skin, kind === 'knight' ? 0.45 : 0.8, kind === 'knight' ? 0.55 : 0), cloth = std(S.cloth), pants = std(S.pants), boot = std(S.boot, 0.9);
+    const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18);
+    const w = S.w, R = S.limbR, bony = kind === 'skeleton';
+
+    // Pelvis and legs
+    if (bony) { box(hips, 0.26, 0.1, 0.12, skin, 0, -0.02, 0); mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.34, 7, 1, true), std(0x3a2f2a, 1), hips, 0, -0.14, 0).material.side = THREE.DoubleSide; }
+    else {
+      mesh(new THREE.CylinderGeometry(0.16 * w, 0.17 * w, 0.18, 9), pants, hips, 0, -0.02, 0);
+      mesh(new THREE.CylinderGeometry(0.175 * w, 0.24 * w, 0.32, 9, 1, true), cloth, hips, 0, -0.13, 0).material.side = THREE.DoubleSide;
+      mesh(new THREE.TorusGeometry(0.168 * w, 0.025, 5, 14).rotateX(Math.PI / 2), leather, hips, 0, 0.04, 0);
+      box(hips, 0.07, 0.06, 0.03, std(0xc9a23a, 0.4, 0.5), 0, 0.04, 0.17 * w);
+    }
+    for (const side of [1, -1]) {
+      const n = side > 0 ? 'L' : 'R';
+      const hip = joint(hips, 0.1 * w * side, -0.05, 0, 'YXZ');
+      limb(hip, 0.42, 0.085 * R, 0.068 * R, bony ? skin : pants);
+      const knee = joint(hip, 0, -0.42, 0);
+      ball(knee, 0.07 * R, bony ? skin : (kind === 'knight' ? steel : pants), 0, 0, 0.01);
+      limb(knee, 0.4, 0.07 * R, 0.058 * R, bony ? skin : boot);
+      if (!bony) mesh(new THREE.CylinderGeometry(0.078 * R, 0.07 * R, 0.16, 8), boot, knee, 0, -0.08, 0);
+      const ankle = joint(knee, 0, -0.42, 0);
+      box(ankle, 0.11 * R, 0.08, 0.25, boot, 0, 0.0, 0.05);
+      rig.j['hip' + n] = hip; rig.j['kn' + n] = knee;
+    }
+
+    // Spine, chest, head
+    const spine = joint(hips, 0, 0.05, 0, 'YXZ'); rig.j.spine = spine;
+    if (bony) {
+      for (let i = 0; i < 4; i++) box(spine, 0.05, 0.05, 0.05, skin, 0, 0.03 + i * 0.07, -0.04);
+    } else mesh(new THREE.CylinderGeometry(0.15 * w, 0.155 * w, 0.24, 9), kind === 'brute' ? skin : cloth, spine, 0, 0.1, 0);
+    if (kind === 'brute') ball(spine, 0.21, skin, 0, 0.1, 0.06, 10, 8).scale.set(1.15, 0.9, 1);       // belly
+    const chest = joint(spine, 0, 0.28, 0); rig.j.chest = chest;
+    if (bony) {
+      for (let i = 0; i < 4; i++) {
+        const r = mesh(new THREE.TorusGeometry(0.13 - i * 0.012, 0.016, 4, 12, Math.PI * 1.6), skin, chest, 0, 0.15 - i * 0.07, 0.0);
+        r.rotation.set(Math.PI / 2, 0, Math.PI * 0.7);
+      }
+      box(chest, 0.04, 0.24, 0.04, skin, 0, 0.06, 0.11);
+      box(chest, 0.36, 0.04, 0.05, skin, 0, 0.21, 0);
+    } else {
+      const torso = mesh(new THREE.CylinderGeometry(0.2 * w, 0.16 * w, 0.36, 9), kind === 'brute' ? skin : cloth, chest, 0, 0.08, 0);
+      torso.scale.z = 0.72;
+      if (kind === 'hero') {
+        const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7;
+        ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1);
+        box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
+      }
+      if (kind === 'knight') {
+        const plate = mesh(new THREE.CylinderGeometry(0.22 * w, 0.17 * w, 0.38, 9), steel, chest, 0, 0.08, 0); plate.scale.z = 0.78;
+        box(chest, 0.2, 0.42, 0.02, cloth, 0, 0.0, 0.15);                     // tabard
+        for (const s of [1, -1]) ball(chest, 0.13, steel, 0.22 * s, 0.22, 0, 8, 6).scale.set(1, 0.7, 1.05);
+      }
+      if (kind === 'brute') {
+        const strap = box(chest, 0.08, 0.55, 0.04, leather, 0, 0.08, 0.15); strap.rotation.z = -0.6;
+        ball(chest, 0.16, std(0x5a5048, 0.6, 0.3), -0.25, 0.22, 0, 8, 6).scale.set(1, 0.7, 1);
+        for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(0.03, 0.12, 5), std(0xd8cfb4), chest, -0.25 + i * 0.04, 0.33, -0.02 + i * 0.03);
+      }
+    }
+    const neck = joint(chest, 0, 0.26, 0, 'YXZ'); rig.j.neck = neck;
+    limb(neck, 0.1, 0.05 * R, 0.06 * R, skin).position.y = 0.03;
+    const head = joint(neck, 0, 0.14, 0); rig.j.head = head;
+    if (bony) {
+      ball(head, 0.13, skin, 0, 0.02, 0, 10, 8).scale.set(1, 1.05, 1.1);
+      box(head, 0.16, 0.07, 0.12, skin, 0, -0.1, 0.04);
+      for (const s of [1, -1]) { ball(head, 0.035, dark, 0.05 * s, 0.02, 0.11, 6, 5); ball(head, 0.016, glowMat(0x7fe8ff), 0.05 * s, 0.02, 0.135, 5, 4); }
+      box(head, 0.03, 0.04, 0.02, dark, 0, -0.04, 0.135);
+    } else {
+      box(head, 0.23, 0.26, 0.24, skin, 0, 0, 0);
+      if (kind === 'knight') {
+        mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.32, 10), std(0x6a707c, 0.4, 0.6), head, 0, 0.01, 0);
+        box(head, 0.2, 0.025, 0.04, dark, 0, 0.03, 0.14);
+        mesh(new THREE.ConeGeometry(0.155, 0.12, 10), std(0x6a707c, 0.4, 0.6), head, 0, 0.23, 0);
+        mesh(new THREE.BoxGeometry(0.03, 0.18, 0.22), cloth, head, 0, 0.3, -0.02);
+      } else {
+        for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
+        box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
+        if (kind === 'hero') {
+          const hair = std(0x3b2416, 0.8);
+          box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
+          for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+          box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
+        }
+        if (kind === 'brute') {
+          box(head, 0.24, 0.05, 0.06, dark, 0, 0.06, 0.1);                       // heavy brow
+          for (const s of [1, -1]) mesh(new THREE.ConeGeometry(0.025, 0.08, 5), std(0xe8e0c8), head, 0.06 * s, -0.08, 0.13).rotation.x = Math.PI;   // tusks
+          const helm = mesh(new THREE.SphereGeometry(0.16, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), std(0x4a4a50, 0.5, 0.5), head, 0, 0.06, 0);
+          helm.scale.set(1, 0.8, 1.05);
+          for (const s of [1, -1]) { const h = mesh(new THREE.ConeGeometry(0.045, 0.3, 6), std(0xe8e0c8), head, 0.17 * s, 0.17, 0); h.rotation.z = -0.9 * s; }
+        }
+      }
+    }
+
+    // Arms
+    for (const side of [1, -1]) {
+      const n = side > 0 ? 'L' : 'R';
+      const sh = joint(chest, 0.22 * w * side + (kind === 'brute' ? 0.06 * side : 0), 0.2, 0, 'YXZ');
+      ball(sh, 0.075 * R, bony ? skin : (kind === 'knight' ? steel : cloth));
+      limb(sh, 0.3, 0.068 * R, 0.058 * R, bony ? skin : (kind === 'brute' ? skin : cloth));
+      const el = joint(sh, 0, -0.3, 0);
+      ball(el, 0.058 * R, bony ? skin : (kind === 'knight' ? steel : skin));
+      limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
+      if (kind === 'hero' || kind === 'brute') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
+      const hd = joint(el, 0, -0.29, 0);
+      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : skin, 0, 0, 0.0, 8, 6);
+      rig.j['sh' + n] = sh; rig.j['el' + n] = el; rig.j['hd' + n] = hd;
+    }
+
+    // Cape for the hero: hangs from the shoulders and flutters with speed
+    if (kind === 'hero') {
+      const cape = joint(chest, 0, 0.23, -0.15); rig.j.cape = cape;
+      const geo = new THREE.BoxGeometry(0.42, 0.85, 0.02, 1, 4, 1), p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setX(i, p.getX(i) * (1 + (0.425 - y) * 0.45)); }
+      geo.translate(0, -0.425, 0); geo.computeVertexNormals();
+      mesh(geo, std(0x6a1f1a, 0.95), cape);
+    }
+
+    // Weapons and shields
+    let wpn;
+    if (kind === 'brute') wpn = club(rig.j.hdR, {});
+    else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : {});
+    rig.weapon = wpn; rig.glowMats.push(...wpn.glowMats);
+    if (kind === 'hero') rig.shield = roundShield(rig.j.hdL, 0x2f4a6b);
+    if (kind === 'knight') rig.shield = towerShield(rig.j.hdL, 0x3a3e48);
+
+    root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    rig.time = Math.random() * 10;
+    rig.shieldYaw = 0;
+    if (kind === 'brute') root.scale.setScalar(CFG.enemies.brute.scale);
+    if (kind === 'knight') root.scale.setScalar(CFG.enemies.knight.scale);
+    return rig;
+  }
+
+  // ---------------- Flash and glow ----------------
+  function flash(rig, color, amount) {
+    rig.mats.forEach((m, i) => { if (amount > 0) m.emissive.setHex(color).multiplyScalar(amount); else m.emissive.setHex(rig.baseEmissive[i]); });
+  }
+  function glow(rig, color, amount) {
+    for (const m of rig.glowMats) m.emissive.setHex(color).multiplyScalar(amount);
+  }
+
+  // ---------------- Poses ----------------
+  // A pose is { joint: [x, y, z] } plus body offsets (by = height, brx = forward spin, bfz = forward shift).
+  // Attack poses come in pairs: "wind" (the telegraph) and "strike" (follow-through).
+  const STANCE = {
+    hero: {
+      spine: [0.1, -0.2, 0], neck: [-0.05, 0.2, 0],
+      shR: [-0.45, 0, -0.18], elR: [-0.75, 0, 0], hdR: [0.25, 0, 0],
+      shL: [-0.5, 0.35, 0.25], elL: [-1.1, 0, 0], hdL: [0, 0, 0],
+      hipL: [-0.3, 0.15, 0.06], knL: [0.35, 0, 0], hipR: [0.2, -0.1, -0.06], knR: [0.3, 0, 0], by: -0.05,
+    },
+    skeleton: {
+      spine: [0.18, -0.15, 0], neck: [-0.1, 0.15, 0.1],
+      shR: [-0.35, 0, -0.25], elR: [-0.6, 0, 0], hdR: [0.4, 0, 0],
+      shL: [-0.2, 0, 0.3], elL: [-0.5, 0, 0], hdL: [0, 0, 0],
+      hipL: [-0.25, 0.1, 0.08], knL: [0.4, 0, 0], hipR: [0.2, -0.1, -0.08], knR: [0.35, 0, 0], by: -0.06,
+    },
+    knight: {
+      spine: [0.05, -0.25, 0], neck: [0, 0.25, 0],
+      shR: [-0.3, 0, -0.15], elR: [-0.9, 0, 0], hdR: [0.6, 0, 0],
+      shL: [-0.65, 0.5, 0.2], elL: [-1.2, 0, 0], hdL: [0, 0, 0],
+      hipL: [-0.3, 0.15, 0.06], knL: [0.3, 0, 0], hipR: [0.2, -0.1, -0.06], knR: [0.25, 0, 0], by: -0.04,
+    },
+    brute: {
+      spine: [0.4, 0, 0], neck: [-0.4, 0, 0],
+      shR: [-0.3, 0, -0.35], elR: [-0.5, 0, 0], hdR: [0.6, 0, 0],
+      shL: [-0.3, 0, 0.4], elL: [-0.4, 0, 0], hdL: [0, 0, 0],
+      hipL: [-0.2, 0.2, 0.15], knL: [0.35, 0, 0], hipR: [0.15, -0.2, -0.15], knR: [0.3, 0, 0], by: -0.08,
+    },
+  };
+  const ATTACKS = {
+    slashR: {   // horizontal swing from the right side across to the left
+      wind: { spine: [0.05, -0.85, 0], shR: [-1.35, -1.15, -0.2], elR: [-0.5, 0, 0], hdR: [1.1, 0, 0.3], shL: [-0.6, 0.6, 0.3], hipL: [-0.45, 0, 0], knL: [0.3, 0, 0], hipR: [0.35, 0, 0], knR: [0.4, 0, 0] },
+      strike: { spine: [0.15, 0.75, 0], shR: [-1.45, 0.9, -0.1], elR: [-0.1, 0, 0], hdR: [1.35, 0, -0.2], shL: [-0.3, 0.2, 0.5], hipL: [-0.6, 0.2, 0], knL: [0.45, 0, 0], hipR: [0.45, 0, 0], knR: [0.2, 0, 0], bfz: 0.1 },
+    },
+    slashL: {   // backhand: from the left side back to the right
+      wind: { spine: [0.05, 0.7, 0], shR: [-1.3, 0.95, -0.1], elR: [-1.1, 0, 0], hdR: [1.2, 0, -0.4], shL: [-0.4, 0.3, 0.4], hipL: [-0.35, 0, 0], knL: [0.35, 0, 0], hipR: [0.3, 0, 0], knR: [0.3, 0, 0] },
+      strike: { spine: [0.15, -0.8, 0], shR: [-1.5, -1.2, -0.25], elR: [-0.05, 0, 0], hdR: [1.35, 0, 0.3], shL: [-0.6, 0.6, 0.3], hipL: [-0.5, 0, 0], knL: [0.3, 0, 0], hipR: [0.5, 0, 0], knR: [0.35, 0, 0], bfz: 0.1 },
+    },
+    overhead: { // raised high, brought straight down
+      wind: { spine: [-0.25, -0.15, 0], shR: [-2.9, 0, -0.2], elR: [-0.4, 0, 0], hdR: [0.3, 0, 0], shL: [-0.3, 0.3, 0.6], hipL: [-0.2, 0, 0], knL: [0.2, 0, 0], hipR: [0.3, 0, 0], knR: [0.3, 0, 0], by: 0.02 },
+      strike: { spine: [0.55, 0.05, 0], shR: [-0.95, 0.15, -0.05], elR: [-0.05, 0, 0], hdR: [0.85, 0, 0], shL: [-0.5, 0.4, 0.4], hipL: [-0.75, 0, 0], knL: [0.6, 0, 0], hipR: [0.5, 0, 0], knR: [0.25, 0, 0], by: -0.14, bfz: 0.15 },
+    },
+    thrust: {   // pulled back to the hip, then straight forward
+      wind: { spine: [0.0, -0.6, 0], shR: [-0.3, -0.4, -0.2], elR: [-1.7, 0, 0], hdR: [1.5, 0, 0], hipL: [-0.4, 0, 0], knL: [0.35, 0, 0], hipR: [0.35, 0, 0], knR: [0.35, 0, 0] },
+      strike: { spine: [0.25, 0.25, 0], shR: [-1.5, 0.1, -0.05], elR: [0, 0, 0], hdR: [1.5, 0, 0], hipL: [-0.8, 0, 0], knL: [0.5, 0, 0], hipR: [0.55, 0, 0], knR: [0.1, 0, 0], by: -0.1, bfz: 0.2 },
+    },
+    heavy: {    // a leaping two-handed smash
+      wind: { spine: [-0.4, -0.1, 0], neck: [0.2, 0, 0], shR: [-3.0, 0.2, -0.1], elR: [-0.6, 0, 0], hdR: [0.4, 0, 0], shL: [-2.9, -0.3, 0.1], elL: [-0.6, 0, 0], hipL: [-0.5, 0, 0], knL: [0.9, 0, 0], hipR: [0.2, 0, 0], knR: [0.9, 0, 0], by: -0.12 },
+      strike: { spine: [0.75, 0, 0], neck: [-0.4, 0, 0], shR: [-0.7, 0.3, 0], elR: [0, 0, 0], hdR: [0.9, 0, 0], shL: [-0.7, -0.3, 0], elL: [0, 0, 0], hipL: [-0.9, 0, 0], knL: [0.9, 0, 0], hipR: [0.6, 0, 0], knR: [0.3, 0, 0], by: -0.22, bfz: 0.25 },
+    },
+  };
+  const BLOCK = {
+    hero: { shL: [-1.15, -0.55, 0.1], elL: [-1.2, 0, 0], spine: [0.15, 0.1, 0], shR: [-0.55, 0, -0.35], elR: [-0.9, 0, 0], hdR: [0.4, 0, 0] },
+    knight: { shL: [-1.05, -0.45, 0.1], elL: [-1.1, 0, 0], spine: [0.15, 0.1, 0] },
+    skeleton: { shR: [-1.2, 0.7, 0], elR: [-1.0, 0, 0], hdR: [0.2, 0, 1.4] },
+    brute: { shR: [-1.2, 0.5, 0], elR: [-1.5, 0, 0], shL: [-1.2, -0.5, 0], elL: [-1.5, 0, 0] },
+  };
+
+  const JOINTS = ['spine', 'neck', 'shL', 'elL', 'hdL', 'shR', 'elR', 'hdR', 'hipL', 'knL', 'hipR', 'knR'];
+  const Z3 = [0, 0, 0];
+  function merge(base, over) { const o = Object.assign({}, base); for (const k in over) o[k] = over[k]; return o; }
+
+  // st: { mode, t (time in mode), p (0..1 progress), speed (0..1 of run), atk (pose name), phase: wind|active|recover }
+  // Returns the pose and how fast joints chase it (higher = snappier).
+  function poseFor(rig, st) {
+    const stance = STANCE[rig.kind], T = rig.time;
+    let pose = merge(stance, {}), rate = 12;
+    const breathe = Math.sin(T * 2.2) * 0.03;
+    pose.spine = [stance.spine[0] + breathe, stance.spine[1], stance.spine[2]];
+
+    if (st.mode === 'move' || (st.mode === 'block' && st.speed > 0.05)) {
+      const ph = st.cycle, s = Math.min(1, st.speed), sw = Math.sin(ph) * 0.75 * s;
+      pose.hipL = [-sw - 0.1 * s, 0, 0.03]; pose.hipR = [sw - 0.1 * s, 0, -0.03];
+      pose.knL = [0.15 + Math.max(0, Math.sin(ph + 1.4)) * 1.1 * s, 0, 0]; pose.knR = [0.15 + Math.max(0, Math.sin(ph + 1.4 + Math.PI)) * 1.1 * s, 0, 0];
+      pose.spine = [stance.spine[0] + 0.12 * s, stance.spine[1] * (1 - s * 0.6) + Math.sin(ph) * 0.12 * s, 0];
+      pose.shR = [stance.shR[0] + sw * 0.35, stance.shR[1], stance.shR[2]];
+      if (st.mode !== 'block') pose.shL = [stance.shL[0] - sw * 0.35, stance.shL[1], stance.shL[2]];
+      pose.by = stance.by - Math.abs(Math.cos(ph)) * 0.05 * s;
+      rate = 14;
+    }
+    if (st.mode === 'block') { pose = merge(pose, BLOCK[rig.kind] || {}); rate = 22; }
+    if (st.mode === 'attack') {
+      const a = ATTACKS[st.atk] || ATTACKS.slashR;
+      if (st.phase === 'wind') { pose = merge(pose, a.wind); rate = st.windRate || 14; }
+      else if (st.phase === 'active') { pose = merge(pose, a.strike); rate = 34; }
+      else { pose = merge(pose, st.p < 0.4 ? a.strike : {}); rate = st.p < 0.4 ? 30 : 7; }
+    }
+    if (st.mode === 'roll') {
+      const p = st.p, tuck = Math.sin(Math.min(1, p * 1.25) * Math.PI);
+      pose = merge(pose, {
+        spine: [0.9 * tuck + 0.1, 0, 0], neck: [0.5 * tuck, 0, 0],
+        shR: [-1.2 * tuck, 0, -0.2], elR: [-1.5 * tuck, 0, 0], shL: [-1.2 * tuck, 0, 0.2], elL: [-1.5 * tuck, 0, 0],
+        hipL: [-1.9 * tuck, 0, 0.1], knL: [2.2 * tuck, 0, 0], hipR: [-1.7 * tuck, 0, -0.1], knR: [2.2 * tuck, 0, 0],
+        by: -0.18 * tuck, brx: p < 0.85 ? p / 0.85 * Math.PI * 2 : Math.PI * 2,
+      });
+      rate = 40;
+    }
+    if (st.mode === 'stagger' || st.mode === 'hurt') {
+      const k = Math.max(0, 1 - st.t * 2.5);
+      pose = merge(pose, { spine: [-0.45 * k + 0.05, 0.25 * k, 0], neck: [-0.3 * k, 0, 0], shR: [-0.6, 0, -0.9 * k - 0.2], shL: [-0.4, 0, 0.9 * k + 0.2], by: -0.06 });
+      rate = 18;
+    }
+    if (st.mode === 'broken' || st.mode === 'guardbreak') {
+      const sway = Math.sin(T * 3) * 0.08;
+      pose = merge(pose, {
+        spine: [0.55 + sway, 0.2, 0.1], neck: [0.5, 0, 0.2], shR: [0.1, 0, -0.3], elR: [-0.2, 0, 0], shL: [0.1, 0, 0.3], elL: [-0.2, 0, 0], hdR: [0.6, 0, 0],
+        hipL: [-0.4, 0, 0.1], knL: [1.0, 0, 0], hipR: [-0.2, 0, -0.1], knR: [0.9, 0, 0], by: -0.25,
+      });
+      rate = 10;
+    }
+    if (st.mode === 'dead') {
+      pose = merge(pose, { spine: [-0.3, 0, 0], neck: [-0.4, 0.4, 0], shR: [-2.6, 0, -0.6], elR: [0, 0, 0], shL: [-2.6, 0, 0.6], elL: [0, 0, 0], hipL: [-0.2, 0, 0.2], knL: [0.2, 0, 0], hipR: [-0.1, 0, -0.2], knR: [0.4, 0, 0], brx: -Math.PI / 2, by: -0.4 });
+      rate = 7;
+    }
+    return { pose, rate };
+  }
+
+  const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
+  function animate(rig, st, dt) {
+    rig.time += dt;
+    const { pose, rate } = poseFor(rig, st), k = 1 - Math.exp(-rate * dt);
+    for (const n of JOINTS) {
+      const jt = rig.j[n]; if (!jt) continue;
+      const t = pose[n] || Z3, r = jt.rotation;
+      r.x += (t[0] - r.x) * k; r.y += (t[1] - r.y) * k; r.z += (t[2] - r.z) * k;
+    }
+    const b = rig.body;
+    b.position.y += (0.5 + (pose.by || 0) - b.position.y) * k;
+    b.position.z += ((pose.bfz || 0) - b.position.z) * k;
+    // The roll spin must not ease back through zero, so it is set directly
+    if (st.mode === 'roll') b.rotation.x = pose.brx; else if (st.mode === 'dead') b.rotation.x += (pose.brx - b.rotation.x) * k;
+    else b.rotation.x = 0;
+    if (st.mode === 'dead') b.position.y += (0.18 - b.position.y) * k;
+    if (rig.j.cape) {
+      const target = 0.15 + (st.speed || 0) * 0.7 + Math.sin(rig.time * 6) * 0.05 * (0.3 + (st.speed || 0));
+      rig.j.cape.rotation.x += (target - rig.j.cape.rotation.x) * (1 - Math.exp(-8 * dt));
+    }
+    // Shields always face the way the chest faces, turned outward unless blocking
+    if (rig.shield) {
+      const want = st.mode === 'block' ? -0.15 : 0.75;
+      rig.shieldYaw += (want - rig.shieldYaw) * (1 - Math.exp(-18 * dt));
+      rig.root.updateMatrixWorld(true);
+      rig.j.chest.getWorldQuaternion(tmpQ);
+      rig.j.hdL.getWorldQuaternion(tmpQ2);
+      yawQ.setFromAxisAngle(Y, rig.shieldYaw);
+      rig.shield.quaternion.copy(tmpQ2.invert().multiply(tmpQ).multiply(yawQ));
+    }
+  }
+
+  // ---------------- Swing trail ----------------
+  // A ribbon between the blade's base and tip over the last few frames, fading out (additive blending).
+  function makeTrail(scene, color) {
+    const N = 10, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 3), idx = [];
+    for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    geo.setIndex(idx); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    m.frustumCulled = false; scene.add(m);
+    return { mesh: m, N, pts: [], color: new THREE.Color(color), on: false };
+  }
+  const va = new THREE.Vector3(), vb = new THREE.Vector3();
+  function updateTrail(tr, wpn, on, color) {
+    if (color !== undefined) tr.color.setHex(color);
+    if (on) { wpn.base.getWorldPosition(va); wpn.tip.getWorldPosition(vb); tr.pts.unshift([va.clone(), vb.clone()]); }
+    else tr.pts.shift();
+    if (tr.pts.length > tr.N) tr.pts.length = tr.N;
+    const pos = tr.mesh.geometry.attributes.position, col = tr.mesh.geometry.attributes.color;
+    for (let i = 0; i < tr.N; i++) {
+      const p = tr.pts[Math.min(i, tr.pts.length - 1)], f = tr.pts.length ? (1 - i / tr.N) * 0.9 : 0;
+      for (let s = 0; s < 2; s++) {
+        const v = p ? p[s] : va; pos.setXYZ(i * 2 + s, v.x, v.y, v.z);
+        const fs = f * (s ? 1 : 0.15); col.setXYZ(i * 2 + s, tr.color.r * fs, tr.color.g * fs, tr.color.b * fs);
+      }
+    }
+    pos.needsUpdate = col.needsUpdate = true;
+    tr.mesh.visible = tr.pts.length > 1;
+  }
+
+  return { build, animate, flash, glow, makeTrail, updateTrail, ATTACKS };
+})();

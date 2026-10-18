@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Deepward</title>
+<meta name="theme-color" content="#07060a">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
+  <div id="stBar" class="bar"><i id="stFill"></i></div>
+</div>
+<div id="waveBox"><b id="waveN">Wave 1</b><small id="foesN"></small></div>
+<div id="corner"><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Mute (M)">🔊</button></div>
+<div id="bars"></div>
+<div id="floaters"></div>
+<div id="banner"></div>
+<div id="tip"></div>
+<div id="keys">WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dodge</div>
+
+<div id="stick"><div id="knob"></div></div>
+<div id="pad">
+  <button data-act="heavy" class="b-heavy">HEAVY</button>
+  <button data-act="block" class="b-block">BLOCK</button>
+  <button data-act="dodge" class="b-dodge">DODGE</button>
+  <button data-act="light" class="b-light">ATTACK</button>
+</div>
+
+<div id="title" class="screen show"><div class="card">
+  <h1>DEEPWARD</h1>
+  <p class="sub">Combat sandbox · read the telegraph, then answer it</p>
+  <ul class="legend">
+    <li><span class="g-white">White glint</span> - block it, or block right at impact to <b>parry</b></li>
+    <li><span class="g-red">Red glow</span> - unblockable: <b>dodge</b> through it</li>
+    <li>Fill an enemy's <span class="g-gold">posture bar</span> to break them, then strike for a <b>critical</b></li>
+  </ul>
+  <p class="ctl desk">WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dodge · Esc pause</p>
+  <p class="ctl mob">Left thumb: move · Right: Attack, Heavy, Block (hold), Dodge</p>
+  <button id="startBtn">Enter the dungeon</button>
+</div></div>
+<div id="pause" class="screen"><div class="card"><h2>Paused</h2><button id="resumeBtn">Resume</button></div></div>
+<div id="over" class="screen"><div class="card"><h2>You have fallen</h2><p id="overStats"></p><button id="retryBtn">Rise again</button></div></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/rig.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
