@@ -31,6 +31,28 @@ Open `index.html` in a browser. Three.js is vendored in `vendor/`, so it works o
 
 A single-file build goes to `dist/deepward-single.html`; regenerate it with `python3 tools/build_single.py`.
 
+## Android
+
+The Android app wraps the web game with [Capacitor](https://capacitorjs.com/).
+
+**Getting a debug APK from GitHub Actions:** the workflow "Android debug APK" (`.github/workflows/android-debug.yml`) runs on every push to `main` or a `ccr-*` branch that changes the game, on `v*` tags, and from the Actions tab (Run workflow). When it finishes, open the run and download the **deepward-debug-apk** artifact. It's a zip holding `deepward-debug-<commit>.apk`. Copy that to your phone and install it; you may need to allow installs from unknown sources.
+
+**What the workflow does:**
+
+1. Copies the game into `www/` (`npm run www`).
+2. Generates the Android project (`npx cap add android`).
+3. Patches it for fullscreen with the screen kept on (`tools/android_patch.js`).
+4. Builds with Gradle.
+
+The `android/` folder isn't committed. To customise the project (icons, splash screen, signing), generate it once, adjust it, and commit it; the workflow then uses yours.
+
+**Building locally** needs Node 20, JDK 17 and the Android SDK:
+
+```bash
+npm ci && npm run www && npx cap add android && node tools/android_patch.js && npx cap sync android
+cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Camera views
 
 There are two views; switch with **B** or the 🎥 button, and the game remembers your choice.
