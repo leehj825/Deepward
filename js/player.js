@@ -1,0 +1,219 @@
+// Deepward - the hero: movement, stamina, light/heavy attacks with a combo chain, block and parry, dodge roll.
+// States: free (moving / blocking), attack, roll, hurt, guardbreak, dead.
+const Player = (() => {
+  const P = CFG.player;
+
+  function create(scene) {
+    const rig = Rig.build('hero');
+    scene.add(rig.root);
+    return {
+      rig, trail: Rig.makeTrail(scene, 0xbfe4ff),
+      pos: new THREE.Vector3(0, 0, 4), facing: Math.PI, kb: new THREE.Vector3(),
+      hp: P.hp, maxHp: P.hp, st: P.stamina, maxSt: P.stamina, stDelay: 0,
+      state: 'free', t: 0, blocking: false, blockT: 9, lastBlockPress: -9,
+      atk: null, atkKind: null, phase: null, phaseT: 0, combo: 0, comboT: 9, target: null,
+      buffer: null, rollDir: 0, rollFrom: new THREE.Vector3(), cycle: 0, speedK: 0,
+    };
+  }
+
+  function setState(p, s) { p.state = s; p.t = 0; }
+  function spend(p, n) { p.st = Math.max(0, p.st - n); p.stDelay = P.staminaDelay; }
+  function press(p, act) { p.buffer = { act, t: 0 }; }
+
+  // The enemy that an attack should snap toward: nearest one roughly in the direction the player is pushing
+  function pickTarget(p, maxD = 5) {
+    const m = Input.move, hasDir = Math.hypot(m.x, m.z) > 0.2, dir = hasDir ? Math.atan2(m.x, m.z) : p.facing;
+    let best = null, bestS = Infinity;
+    for (const e of G.enemies) {
+      if (!Enemy.targetable(e)) continue;
+      const d = Combat.dist(p.pos, e.pos); if (d > maxD + e.def.radius) continue;
+      const da = Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - dir));
+      if (da > 1.9) continue;
+      const s = d + da * 1.5;
+      if (s < bestS) { bestS = s; best = e; }
+    }
+    return { target: best, dir };
+  }
+
+  function tryAct(p) {
+    const b = p.buffer; if (!b) return false;
+    if (b.act === 'dodge') { if (p.st <= 0) return false; startRoll(p); p.buffer = null; return true; }
+    if (b.act === 'light' || b.act === 'heavy') {
+      if (p.st <= 0) return false;
+      let data;
+      if (b.act === 'heavy') { data = P.heavy; p.combo = 0; }
+      else { if (p.comboT > P.comboReset || p.combo >= P.light.length) p.combo = 0; data = P.light[p.combo % P.light.length]; p.combo++; }
+      startAttack(p, b.act, data); p.buffer = null; return true;
+    }
+    return false;
+  }
+
+  function startAttack(p, kind, data) {
+    spend(p, data.cost);
+    const { target, dir } = pickTarget(p);
+    p.target = target;
+    p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
+    p.atk = data; p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
+    setState(p, 'attack');
+  }
+
+  function startRoll(p) {
+    spend(p, P.dodge.cost);
+    const m = Input.move;
+    p.rollDir = Math.hypot(m.x, m.z) > 0.2 ? Math.atan2(m.x, m.z) : p.facing;
+    p.facing = p.rollDir; p.rollFrom.copy(p.pos);
+    p.blocking = false; p.combo = 0;
+    setState(p, 'roll');
+    Snd.play('roll');
+  }
+
+  function update(p, dt) {
+    p.t += dt; p.comboT += dt;
+    if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
+    if (p.state !== 'dead') {
+      if (p.stDelay > 0) p.stDelay -= dt;
+      else if (p.state === 'free') p.st = Math.min(p.maxSt, p.st + P.staminaRegen * dt * (p.blocking ? P.block.regenMult : 1));
+    }
+    let moveSpeed = 0;
+    const m = Input.move, mlen = Math.min(1, Math.hypot(m.x, m.z));
+
+    if (p.state === 'free') {
+      const wantBlock = Input.block;
+      if (wantBlock && !p.blocking) {
+        // Mashing block does not parry: a press too soon after the last one skips the parry window
+        p.blockT = (G.time - p.lastBlockPress < 0.45) ? P.block.parryWindow + 0.01 : 0;
+        p.lastBlockPress = G.time;
+      }
+      p.blocking = wantBlock;
+      if (p.blocking) p.blockT += dt;
+      const sp = p.blocking ? P.blockSpeed : P.speed;
+      if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * sp * dt; p.pos.z += m.z / Math.max(1, mlen) * sp * dt; moveSpeed = mlen * sp; }
+      let want = null;
+      if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
+      if (want === null && mlen > 0.1) want = Math.atan2(m.x, m.z);
+      if (want !== null) p.facing += Combat.wrap(want - p.facing) * Math.min(1, P.turnRate * dt);
+      if (mlen > 0.05) p.cycle += dt * (p.blocking ? 6 : 10.5) * Math.max(0.5, mlen);
+      tryAct(p);
+    } else if (p.state === 'attack') {
+      const a = p.atk; p.phaseT += dt;
+      if (p.phase === 'wind' || p.phase === 'active') {
+        // Lunge forward, stopping short of the target
+        const lungeV = a.lunge / (a.wind + a.active);
+        const close = p.target && Combat.dist(p.pos, p.target.pos) < p.target.def.radius + 0.95;
+        if (!close) { p.pos.x += Math.sin(p.facing) * lungeV * dt; p.pos.z += Math.cos(p.facing) * lungeV * dt; }
+        if (p.target && p.phase === 'wind' && Enemy.targetable(p.target)) p.facing += Combat.wrap(Combat.yawTo(p.pos, p.target.pos) - p.facing) * Math.min(1, 20 * dt);
+      }
+      if (p.phase === 'wind' && p.phaseT >= a.wind) {
+        p.phase = 'active'; p.phaseT = 0;
+        Snd.play(p.atkKind === 'heavy' ? 'heavySwing' : 'swing');
+      }
+      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) { p.struck = true; Combat.playerStrike(p, a); }
+      if (p.phase === 'active' && p.phaseT >= a.active) { p.phase = 'recover'; p.phaseT = 0; }
+      if (p.phase === 'recover') {
+        const prog = p.phaseT / a.recover;
+        // Cancels: dodge at any point of the recovery, next combo hit after a moment, block late in the recovery
+        if (p.buffer && p.buffer.act === 'dodge') { p.comboT = 0; tryAct(p); }
+        else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < P.light.length) { p.comboT = 0; tryAct(p); }
+        else if (p.buffer && prog > 0.6) { p.comboT = 0; tryAct(p); }
+        else if (Input.block && prog > 0.5) { p.comboT = 0; p.combo = 0; setState(p, 'free'); }
+        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= P.light.length || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
+      }
+    } else if (p.state === 'roll') {
+      const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
+      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * D.dist * ease;
+      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
+      moveSpeed = P.speed;
+      if (p.t >= D.time) { setState(p, 'free'); tryAct(p); }
+    } else if (p.state === 'hurt') {
+      if (p.t >= (p.hurtFor || P.hurtStun)) setState(p, 'free');
+    } else if (p.state === 'guardbreak') {
+      if (p.t >= P.block.breakStun) setState(p, 'free');
+    }
+    if (p.state !== 'free') p.blocking = false;
+
+    // Knockback slides off quickly
+    p.pos.addScaledVector(p.kb, dt); p.kb.multiplyScalar(Math.exp(-9 * dt));
+    p.speedK += (Math.min(1, moveSpeed / P.speed) - p.speedK) * Math.min(1, 10 * dt);
+
+    const r = p.rig;
+    r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
+    const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state;
+    Rig.animate(r, {
+      mode, t: p.t, speed: p.speedK, cycle: p.cycle,
+      p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
+      atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
+    }, dt);
+    const swinging = p.state === 'attack' && (p.phase === 'active' || (p.phase === 'recover' && p.phaseT < 0.06));
+    Rig.updateTrail(p.trail, r.weapon, swinging, p.atkKind === 'heavy' ? 0xffc870 : 0xbfe4ff);
+    if (p.flashT > 0) { p.flashT -= dt; Rig.flash(r, p.flashC, Math.max(0, p.flashT / 0.2) * 0.8); if (p.flashT <= 0) Rig.flash(r, 0, 0); }
+  }
+
+  function nearest(p, maxD) {
+    let best = null, bd = maxD;
+    for (const e of G.enemies) { if (!Enemy.targetable(e)) continue; const d = Combat.dist(p.pos, e.pos); if (d < bd) { bd = d; best = e; } }
+    return best;
+  }
+
+  function flash(p, c) { p.flashT = 0.2; p.flashC = c; }
+  function damage(p, n, from) {
+    p.hp = Math.max(0, p.hp - n);
+    FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
+    if (p.hp <= 0) { setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
+    return false;
+  }
+  function knock(p, from, amount) {
+    const a = Combat.yawTo(from, p.pos); p.kb.set(Math.sin(a) * amount, 0, Math.cos(a) * amount);
+  }
+
+  // An enemy's attack reaches the player. Returns what happened: dodge, parry, block, guardbreak or hit.
+  function receive(p, e, hit) {
+    if (p.state === 'dead') return null;
+    const D = P.dodge, dmg = hit.dmg * e.mult;
+    const shieldPos = Combat.chestPos(p.pos, 1.25).add(new THREE.Vector3(Math.sin(p.facing) * 0.5, 0, Math.cos(p.facing) * 0.5));
+    if (p.state === 'roll' && p.t >= D.iStart && p.t <= D.iEnd) {
+      FX.text(Combat.chestPos(p.pos, 2.1), 'DODGE', 'dodge');
+      G.stats.dodges++;
+      return 'dodge';
+    }
+    const facingOK = Combat.facingCheck(p.pos, p.facing, e.pos, P.block.angle);
+    if (p.state === 'free' && p.blocking && facingOK) {
+      if (hit.unblockable) {
+        FX.text(Combat.chestPos(p.pos, 2.4), 'UNBLOCKABLE', 'warn');
+      } else if (p.blockT <= P.block.parryWindow) {
+        Snd.play('parry'); FX.glint(shieldPos, 0xfff2b0, 2.4, 0.35); FX.burst(shieldPos, 0xffe08a, 16, 7);
+        FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
+        FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry);
+        G.stats.parries++;
+        return 'parry';
+      } else {
+        const cost = dmg * P.block.staminaPerDmg * (hit.blockMult || 1);
+        if (p.st >= cost) {
+          spend(p, cost);
+          Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08);
+          damage(p, dmg * (1 - P.block.reduce), e.pos);
+          return 'block';
+        }
+        p.st = 0; p.stDelay = P.staminaDelay * 2;
+        Snd.play('guardBreak'); FX.text(Combat.chestPos(p.pos, 2.2), 'GUARD BROKEN', 'warn'); FX.burst(shieldPos, 0xff9a5a, 14, 6);
+        knock(p, e.pos, 5); flash(p, 0xff3a1a);
+        if (!damage(p, dmg * 0.5, e.pos)) setState(p, 'guardbreak');
+        return 'guardbreak';
+      }
+    }
+    Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt);
+    FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
+    knock(p, e.pos, hit.aoe ? 9 : 5);
+    G.stats.hitsTaken++;
+    if (!damage(p, dmg, e.pos)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; }
+    return 'hit';
+  }
+
+  // The swing bounced off a shield
+  function recoil(p) {
+    Snd.play('block'); FX.text(Combat.chestPos(p.pos, 2.0), 'BLOCKED', 'warn');
+    p.kb.set(-Math.sin(p.facing) * 4, 0, -Math.cos(p.facing) * 4);
+    p.hurtFor = 0.35; setState(p, 'hurt'); p.combo = 0;
+  }
+
+  return { create, update, press, receive, recoil };
+})();
