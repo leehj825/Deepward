@@ -12,11 +12,20 @@ Open `index.html` in a browser. Three.js is vendored in `vendor/`, so it works o
 
 A single-file build goes to `dist/deepward-single.html`; regenerate it with `python3 tools/build_single.py`.
 
+## Camera views
+
+There are two views; switch with **B** or the 🎥 button, and the game remembers your choice.
+
+- **Behind (default):** an orbit camera over the hero's shoulder, like Nightfall Settlement's normal view. The mouse turns the camera (click once to capture it; Esc releases it and pauses). On touch, drag the right side of the screen. The scroll wheel zooms. The hero always faces where the camera looks, so WASD strafes and walks backward; backing up and sidestepping are a little slower. Attacks go where you look, with light aim assist.
+- **Top-down:** the fixed high quarter view. The hero faces the way it walks and turns toward the nearest enemy while blocking.
+
 ## Controls
 
 | Action | Keyboard / mouse | Touch |
 | --- | --- | --- |
-| Move | WASD / arrows | Left thumb (floating stick) |
+| Move (strafe in the behind view) | WASD / arrows | Left thumb (floating stick) |
+| Turn camera (behind view) | Mouse (click to capture) | Drag the right side |
+| Switch camera | B | 🎥 |
 | Light attack (3-hit combo) | J / left-click | ATTACK |
 | Heavy attack (breaks guards) | K / Q / middle-click | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | BLOCK |
@@ -54,4 +63,4 @@ A single-file build goes to `dist/deepward-single.html`; regenerate it with `pyt
 node tools/combat_test.js     # set NODE_PATH=$(npm root -g) if Playwright is installed globally
 ```
 
-It drives the game through `window.__dw` and checks parry, block, taking a hit, dodging an area slam, unblockable attacks, the light combo, shield bounce, guard break and the riposte critical.
+It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break and the riposte critical.

@@ -289,8 +289,10 @@ const Rig = (() => {
     pose.spine = [stance.spine[0] + breathe, stance.spine[1], stance.spine[2]];
 
     if (st.mode === 'move' || (st.mode === 'block' && st.speed > 0.05)) {
+      // dirF / dirS: the step direction relative to the body (1,0 = forward; -1,0 = backward; 0,±1 = sidestep)
       const ph = st.cycle, s = Math.min(1, st.speed), sw = Math.sin(ph) * 0.75 * s;
-      pose.hipL = [-sw - 0.1 * s, 0, 0.03]; pose.hipR = [sw - 0.1 * s, 0, -0.03];
+      const f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
+      pose.hipL = [-sw * f - 0.1 * s, 0, 0.03 + sw * side * 0.45]; pose.hipR = [sw * f - 0.1 * s, 0, -0.03 - sw * side * 0.45];
       pose.knL = [0.15 + Math.max(0, Math.sin(ph + 1.4)) * 1.1 * s, 0, 0]; pose.knR = [0.15 + Math.max(0, Math.sin(ph + 1.4 + Math.PI)) * 1.1 * s, 0, 0];
       pose.spine = [stance.spine[0] + 0.12 * s, stance.spine[1] * (1 - s * 0.6) + Math.sin(ph) * 0.12 * s, 0];
       pose.shR = [stance.shR[0] + sw * 0.35, stance.shR[1], stance.shR[2]];

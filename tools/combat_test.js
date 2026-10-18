@@ -50,6 +50,13 @@ const SCENARIOS = {
     __dw.Input.keys.KeyL = false;
     return { hp: Math.round(__dw.G.player.hp), hitsTaken: __dw.G.stats.hitsTaken };
   })()`,
+  // Behind view: holding D sidesteps right while the hero keeps facing the camera's way
+  strafe: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    __dw.Input.keys.KeyD = true; __dw.sim(0.6); __dw.Input.keys.KeyD = false;
+    const p = __dw.G.player;
+    return { x: +p.pos.x.toFixed(2), z: +p.pos.z.toFixed(2), facing: +p.facing.toFixed(2) };
+  })()`,
   // Mash light attacks into a skeleton until it dies
   combo: `(() => {
     const e = __dw.spawn('skeleton', 0, 2.4); e.state = 'hunt'; e.cooldown = 9; e.rig.root.position.y = 0;
@@ -91,6 +98,7 @@ const CHECKS = {
   hit: r => r.hitsTaken >= 1 && r.hp <= 88,
   dodge: r => r.dodges === 1 && r.hitsTaken === 0 && r.hp === 100,
   combo: r => r.kills === 1,
+  strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
   guardBreak: r => r.enemyHp < r.maxHp && (r.enemyState === 'stagger' || r.enemyState === 'broken'),
   riposte: r => r.crits >= 1,
@@ -99,18 +107,18 @@ const CHECKS = {
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   let fails = 0;
-  for (const [name, code] of Object.entries(SCENARIOS)) {
+  for (const view of ['behind', 'top']) for (const [name, code] of Object.entries(SCENARIOS)) {
     const pg = await b.newPage({ viewport: { width: 960, height: 600 } });
     const errs = [];
     pg.on('pageerror', e => errs.push(e.message));
     await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
     await pg.waitForTimeout(400);
     // Start, clear the first wave and park the hero at a known spot facing north
-    await pg.evaluate(`__dw.start(); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.G.wave = 99; __dw.G.between = true; __dw.G.waveT = 999;`);
+    await pg.evaluate(`__dw.setView('${view}'); __dw.start(); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.G.wave = 99; __dw.G.between = true; __dw.G.waveT = 999;`);
     const r = await pg.evaluate(code);
     const ok = CHECKS[name](r) && !errs.length;
     if (!ok) fails++;
-    console.log((ok ? 'PASS ' : 'FAIL ') + name.padEnd(11) + JSON.stringify(r) + (errs.length ? '  errors: ' + errs.join(' | ') : ''));
+    console.log((ok ? 'PASS ' : 'FAIL ') + view.padEnd(7) + name.padEnd(12) + JSON.stringify(r) + (errs.length ? '  errors: ' + errs.join(' | ') : ''));
     await pg.close();
   }
   await b.close();
