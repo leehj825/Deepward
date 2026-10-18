@@ -57,6 +57,26 @@ const SCENARIOS = {
     const p = __dw.G.player;
     return { x: +p.pos.x.toFixed(2), z: +p.pos.z.toFixed(2), facing: +p.facing.toFixed(2) };
   })()`,
+  // Progression: clear rooms with a cheat, walk north through the gates; rooms behind unload, stage 2 begins
+  progress: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const W = __dw.World, G = __dw.G, log = [];
+    __dw.World.begin();
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    for (let room = 0; room < 5; room++) {
+      __dw.sim(12, () => { kill(); G.player.hp = 100; return W.active && W.active.state === 'cleared'; });
+      __dw.sim(0.5);
+      const nextRoom = W.rooms.find(r => r.i === room + 1);
+      if (!nextRoom) { log.push('no next room after ' + room); break; }
+      __dw.View.yaw = 0; __dw.G.player.pos.x = 0;
+      __dw.Input.keys.KeyW = true;
+      __dw.sim(12, () => W.active === nextRoom);
+      __dw.Input.keys.KeyW = false;
+      __dw.sim(2.5, () => { kill(); });
+      log.push({ room: W.active.i, stage: W.active.inf.stage.name, live: W.rooms.map(r => r.i).join(','), z: Math.round(G.player.pos.z) });
+    }
+    return { log, kills: G.stats.kills, rooms: G.stats.rooms, children: __dw.sceneSize() };
+  })()`,
   // Mash light attacks into a skeleton until it dies
   combo: `(() => {
     const e = __dw.spawn('skeleton', 0, 2.4); e.state = 'hunt'; e.cooldown = 9; e.rig.root.position.y = 0;
@@ -98,6 +118,7 @@ const CHECKS = {
   hit: r => r.hitsTaken >= 1 && r.hp <= 88,
   dodge: r => r.dodges === 1 && r.hitsTaken === 0 && r.hp === 100,
   combo: r => r.kills === 1,
+  progress: r => r.skipped || (r.rooms === 5 && r.log.length === 5 && r.log[4].room === 5 && r.log[4].stage === 'The Iron Keep' && r.log.every(l => l.live && !l.live.split(',').includes(String(l.room - 1)))),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
   guardBreak: r => r.enemyHp < r.maxHp && (r.enemyState === 'stagger' || r.enemyState === 'broken'),
@@ -114,7 +135,7 @@ const CHECKS = {
     await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
     await pg.waitForTimeout(400);
     // Start, clear the first wave and park the hero at a known spot facing north
-    await pg.evaluate(`__dw.setView('${view}'); __dw.start(); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.G.wave = 99; __dw.G.between = true; __dw.G.waveT = 999;`);
+    await pg.evaluate(`__dw.setView('${view}'); __dw.start(); __dw.G.queue = []; __dw.G.player.pos.set(0, 0, 4); __dw.G.player.facing = Math.PI; __dw.World.halt();`);
     const r = await pg.evaluate(code);
     const ok = CHECKS[name](r) && !errs.length;
     if (!ok) fails++;

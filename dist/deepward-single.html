@@ -96,6 +96,8 @@ body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, 
 }
 #keys .vb { display: none; }
 body.behind #keys .vb { display: inline; }
+.ebar.guardian { width: 84px; }
+.ebar.guardian .hp { height: 7px; box-shadow: 0 0 6px rgba(255, 120, 60, 0.7); }
 
 </style>
 </head>
@@ -211,25 +213,45 @@ const CFG = {
     },
   },
   maxAttackers: 2,               // enemies that may be winding up or swinging at the same time
-  // The sandbox arena sends these waves in order, then loops them with tougher enemies.
-  waves: [
-    ['skeleton'],
-    ['skeleton', 'skeleton'],
-    ['knight'],
-    ['skeleton', 'knight'],
-    ['brute'],
-    ['skeleton', 'skeleton', 'knight'],
-    ['brute', 'skeleton'],
-    ['knight', 'knight', 'brute'],
+  // The dungeon is a chain of rooms heading north. Each stage is a run of rooms in its own theme, ending in a
+  // guardian room (its first enemy is a tougher elite). After the last stage the stages repeat with tougher enemies.
+  // size: [half width, half depth] in metres; waves: the groups that attack in turn inside the room.
+  stages: [
+    { name: 'The Crypt', theme: 'crypt', rooms: [
+      { size: [7, 6], waves: [['skeleton']] },
+      { size: [8, 7], waves: [['skeleton', 'skeleton']] },
+      { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'skeleton']] },
+      { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton', 'skeleton']] },
+    ] },
+    { name: 'The Iron Keep', theme: 'keep', rooms: [
+      { size: [8, 7], waves: [['knight']] },
+      { size: [9, 7], waves: [['skeleton', 'knight']] },
+      { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight']] },
+      { size: [10, 8], guardian: true, waves: [['knight', 'knight', 'skeleton']] },
+    ] },
+    { name: 'The Ogre Den', theme: 'den', rooms: [
+      { size: [9, 8], waves: [['brute']] },
+      { size: [10, 8], pillars: true, waves: [['brute', 'skeleton']] },
+      { size: [10, 9], waves: [['knight', 'brute'], ['skeleton', 'skeleton']] },
+      { size: [11, 9], guardian: true, waves: [['brute', 'knight', 'knight']] },
+    ] },
   ],
-  loopScale: 0.25,               // +25% enemy health and damage each time the waves loop
-  waveHeal: 0.35,                // share of max health restored between waves
+  // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
+  themes: {
+    crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
+    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
+    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks' },
+  },
+  guardianMult: 1.7,             // guardian health and damage multiplier
+  loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
+  roomHeal: 0.35,                // share of max health restored when a room is cleared
+  fadeTime: 1.4,                 // seconds for a room to fade in ahead of you, or out behind you
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or roll behind them.',
     brute: 'A RED glow is UNBLOCKABLE. DODGE (Space) through it - you are invulnerable mid-roll.',
   },
-  arena: { half: 11, pillars: [[-6, -6], [6, -6], [-6, 5], [6, 5]], pillarR: 0.75 },
+  pillarR: 0.75,
 };
 
 </script>
@@ -284,6 +306,7 @@ const Snd = (() => {
     glint: () => tone(2200, 0.12, 'sine', 0.06, 2600),
     die: () => { noise(0.4, 0.3, 'lowpass', 800, 80); for (let i = 0; i < 4; i++) tone(400 - i * 60, 0.08, 'square', 0.05, 200, i * 0.05); },
     slam: () => { tone(60, 0.5, 'sine', 0.6, 30); noise(0.45, 0.45, 'lowpass', 600, 60); },
+    gate: () => { noise(0.9, 0.18, 'lowpass', 700, 120); for (let i = 0; i < 6; i++) tone(90 + (i % 2) * 30, 0.06, 'square', 0.04, 70, i * 0.12); },
     wave: () => { for (const [f, d] of [[392, 0], [523, 0.12], [659, 0.24]]) tone(f, 0.4, 'triangle', 0.12, null, d); },
     lose: () => { for (const [f, d] of [[392, 0], [311, 0.2], [262, 0.4]]) tone(f, 0.6, 'triangle', 0.14, null, d); },
   };
@@ -1339,11 +1362,360 @@ const Enemy = (() => {
 
 </script>
 <script>
-// Deepward - scene, dungeon arena, camera, input (keyboard / mouse / touch), HUD, waves and the main loop.
-// Milestone 1: a combat sandbox arena that sends waves of skeletons, shield knights and brutes.
+// Deepward - the dungeon: a chain of rooms heading north (-Z), joined by short corridors closed by portcullis gates.
+// Only the room you are in and the one ahead exist at a time. Clearing a room raises its far gate and the next room
+// fades in out of the dark; stepping into it drops the gate behind you, and the room you left fades out and is unloaded.
+// States of a room: ahead (built, not entered) -> start (a short breath) -> fight (waves) -> cleared.
+const World = (() => {
+  const CORR_LEN = 7, DOOR = 1.6, WALL_H = 3.4, N_LIGHTS = 6;
+  let scene, hemi, rooms = [], nextIndex = 0, cursorZ = 6, lights = [], fogTo = null, hemiTo = null, active = null;
+  const texCache = {};
+
+  // Which stage, room and loop a running room index falls in
+  function info(i) {
+    const S = CFG.stages, per = S.reduce((n, s) => n + s.rooms.length, 0), loop = Math.floor(i / per);
+    let n = i % per;
+    for (let si = 0; si < S.length; si++) {
+      if (n < S[si].rooms.length) return { si, ri: n, loop, stage: S[si], room: S[si].rooms[n], count: S[si].rooms.length };
+      n -= S[si].rooms.length;
+    }
+  }
+
+  // ---------------- Textures (drawn once per theme) ----------------
+  function canvasTex(draw) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; draw(cv.getContext('2d'));
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; return t;
+  }
+  const rgb = (c, d = 0) => `rgb(${c[0] + d | 0},${c[1] + d | 0},${c[2] + d | 0})`;
+  function themeTex(name) {
+    if (texCache[name]) return texCache[name];
+    const th = CFG.themes[name];
+    // Flagstones: irregular slabs, dark grout, a few cracks
+    const floor = canvasTex(c => {
+      c.fillStyle = rgb(th.stone, -36); c.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+        const v = Math.random() * 20 - 6, sx = (x * 64 + (y % 2) * 32) % 256 + 3;
+        c.fillStyle = rgb(th.stone, v); c.fillRect(sx, y * 64 + 3, 58, 58);
+        if (sx + 58 > 256) c.fillRect(sx - 256, y * 64 + 3, 58, 58);
+        c.fillStyle = 'rgba(0,0,0,0.25)'; for (let i = 0; i < 6; i++) c.fillRect((sx + Math.random() * 58) % 256, y * 64 + Math.random() * 58, 3, 3);
+      }
+      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1.5;
+      for (let i = 0; i < 5; i++) { c.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; c.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (Math.random() - 0.5) * 30; py += (Math.random() - 0.5) * 30; c.lineTo(px, py); } c.stroke(); }
+    });
+    // Brick courses
+    const wall = canvasTex(c => {
+      c.fillStyle = rgb(th.wall, -32); c.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 6; x++) {
+        c.fillStyle = rgb(th.wall, Math.random() * 18 - 6);
+        c.fillRect(x * 56 + (y % 2) * 28 - 28, y * 32 + 2, 52, 28);
+      }
+    });
+    return (texCache[name] = { floor, wall });
+  }
+
+  // ---------------- Building a room ----------------
+  function build(i) {
+    const inf = info(i), def = inf.room, th = CFG.themes[inf.stage.theme], T = themeTex(inf.stage.theme);
+    const [hw, hd] = def.size, southZ = cursorZ, northZ = southZ - hd * 2, cz = southZ - hd;
+    cursorZ = northZ - CORR_LEN;
+    const group = new THREE.Group(); scene.add(group);
+    const room = {
+      i, inf, th, hw, hd, southZ, northZ, cz, group, mats: [], geos: [], texs: [], torches: [], pillars: [],
+      fade: 0, fadeDir: 1, occl: 1, state: 'ahead', t: 0, wave: 0, waveDelay: 0,
+      rect: { x0: -hw, x1: hw, z0: northZ, z1: southZ },
+      // The corridor south of the room overlaps both rooms by a metre so you can walk from one rectangle into the next
+      corr: i > 0 ? { x0: -DOOR + 0.1, x1: DOOR - 0.1, z0: southZ - 1, z1: southZ + CORR_LEN + 1 } : null,
+    };
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const texFor = (t, rx, ry) => { const c = t.clone(); c.needsUpdate = true; c.repeat.set(rx, ry); room.texs.push(c); return c; };
+
+    // Floor (room + corridor)
+    const floorM = M(0xffffff, { map: texFor(T.floor, (hw * 2 + 2) / 4, (hd * 2 + 2) / 4), roughness: 0.95, flatShading: false });
+    add(new THREE.PlaneGeometry(hw * 2 + 2, hd * 2 + 2).rotateX(-Math.PI / 2), floorM, 0, 0, cz, false);
+    if (room.corr) {
+      const cm = M(0xffffff, { map: texFor(T.floor, (DOOR * 2 + 2) / 4, CORR_LEN / 4), roughness: 0.95, flatShading: false });
+      add(new THREE.PlaneGeometry(DOOR * 2 + 2, CORR_LEN).rotateX(-Math.PI / 2), cm, 0, 0.001, southZ + CORR_LEN / 2, false);
+    }
+
+    // Walls: brick boxes whose texture repeats by size
+    const wallM = M(0xffffff, { map: T.wall, roughness: 0.95, flatShading: false }), trimM = M(rgbHex(th.wall, -8));
+    function wallBox(w, h, d, x, y, z, m = wallM) {
+      const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv;
+      const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const n = f * 4 + k; uv.setXY(n, uv.getX(n) * dims[f][0] / 3, uv.getY(n) * dims[f][1] / 3); }
+      return add(g, m, x, y, z);
+    }
+    const seg = hw + 1 - DOOR;
+    wallBox(1, WALL_H, hd * 2 + 2, -hw - 0.5, WALL_H / 2, cz); wallBox(1, WALL_H, hd * 2 + 2, hw + 0.5, WALL_H / 2, cz);
+    for (const s of [-1, 1]) wallBox(seg, WALL_H, 1, s * (DOOR + seg / 2), WALL_H / 2, northZ - 0.5);
+    wallBox(DOOR * 2, WALL_H - 2.9, 1, 0, 2.9 + (WALL_H - 2.9) / 2, northZ - 0.5);
+    // The south wall stays low so the high camera can see in; posts and a lintel frame its gate
+    for (const s of [-1, 1]) {
+      wallBox(seg, 0.7, 1, s * (DOOR + seg / 2), 0.35, southZ + 0.5);
+      wallBox(0.5, 3.1, 1.1, s * (DOOR + 0.25), 1.55, southZ + 0.5, trimM);
+    }
+    wallBox(DOOR * 2 + 1, 0.45, 1.1, 0, 3.1, southZ + 0.5, trimM);
+    if (room.corr) for (const s of [-1, 1]) wallBox(1, WALL_H, CORR_LEN, s * (DOOR + 0.5), WALL_H / 2, southZ + CORR_LEN / 2);
+
+    // Portcullis gates at both doorways
+    const iron = M(0x2a2a2e, { roughness: 0.6, metalness: 0.6 }), ironS = M(0x2a2a2e, { roughness: 0.6, metalness: 0.6 });
+    function gate(z, iron) {
+      const g = new THREE.Group(); g.position.set(0, 0, z); group.add(g);
+      const bar = new THREE.BoxGeometry(0.07, 2.9, 0.07), rail = new THREE.BoxGeometry(DOOR * 2, 0.08, 0.08), spike = new THREE.ConeGeometry(0.05, 0.16, 4);
+      room.geos.push(bar, rail, spike);
+      for (let k = -5; k <= 5; k++) {
+        const b = new THREE.Mesh(bar, iron); b.position.set(k * DOOR / 5.5, 1.45 + 0.08, 0); b.castShadow = true; g.add(b);
+        const sp = new THREE.Mesh(spike, iron); sp.position.set(k * DOOR / 5.5, 0.05, 0); sp.rotation.x = Math.PI; g.add(sp);
+      }
+      for (const y of [0.7, 1.7, 2.7]) { const r = new THREE.Mesh(rail, iron); r.position.y = y; g.add(r); }
+      return { g, open: false, y: 0 };
+    }
+    room.gateS = gate(southZ + 0.5, ironS); room.gateN = gate(northZ - 0.5, iron);
+    // The south doorway (frame and gate) turns see-through while the camera is behind it
+    room.occluders = [trimM, ironS];
+
+    // Pillar stumps
+    if (def.pillars) {
+      const stone = M(rgbHex(th.wall, 14));
+      for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const x = px * hw * 0.55, z = cz + pz * hd * 0.45, h = 1.2 + Math.random() * 0.8;
+        add(new THREE.BoxGeometry(1.7, 0.35, 1.7), stone, x, 0.175, z);
+        add(new THREE.CylinderGeometry(CFG.pillarR * 0.85, CFG.pillarR * 0.95, h, 8), stone, x, 0.35 + h / 2, z);
+        add(new THREE.CylinderGeometry(CFG.pillarR * 0.6, CFG.pillarR * 0.85, 0.35, 8), stone, x + 0.1, 0.5 + h, z).rotation.z = 0.25;
+        add(new THREE.DodecahedronGeometry(0.35, 0), stone, x + 0.9, 0.25, z + 0.6);
+        room.pillars.push([x, z]);
+      }
+    }
+
+    // Torches: on the side walls and either side of the far gate, plus a pair in the corridor
+    const flameM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(flameM);
+    const stickM = M(0x3a2a1a);
+    function torch(x, z, ry) {
+      const g = new THREE.Group(); g.position.set(x, 2.2, z); g.rotation.y = ry; group.add(g);
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.5, 6), stickM); st.position.set(0, 0, 0.25); st.rotation.x = 0.6; g.add(st);
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.32, 6), flameM); fl.position.set(0, 0.28, 0.4); g.add(fl);
+      room.geos.push(st.geometry, fl.geometry);
+      const pos = new THREE.Vector3(x + Math.sin(ry) * 0.6, 2.6, z + Math.cos(ry) * 0.6);
+      room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
+    }
+    for (const s of [-1, 1]) {
+      torch(s * (hw - 0.05), cz - hd * 0.45, -s * Math.PI / 2); torch(s * (hw - 0.05), cz + hd * 0.45, -s * Math.PI / 2);
+      torch(s * (DOOR + 1.4), northZ + 0.05, 0);
+    }
+    if (room.corr) torch(-(DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
+
+    // Scattered decor in the theme of the stage
+    const decorM = th.decor === 'bones' ? M(0xcfc6aa) : th.decor === 'crates' ? M(0x6a4a2c) : M(rgbHex(th.wall, 4));
+    const decorM2 = M(rgbHex(th.wall, -6));
+    for (let k = 0; k < Math.round(hw * hd * 0.35); k++) {
+      const x = (Math.random() * 2 - 1) * (hw - 0.8), z = cz + (Math.random() * 2 - 1) * (hd - 0.8);
+      if (Math.abs(x) < DOOR + 0.6) continue;                             // keep the walkway between the gates clear
+      if (room.pillars.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.4)) continue;
+      const r = Math.random();
+      if (th.decor === 'bones') {
+        if (r < 0.4) add(new THREE.SphereGeometry(0.12, 6, 5), decorM, x, 0.1, z, false).scale.set(1, 0.9, 1.15);
+        else if (r < 0.8) add(new THREE.CylinderGeometry(0.025, 0.03, 0.4, 5), decorM, x, 0.03, z, false).rotation.set(Math.PI / 2, 0, Math.random() * 3);
+        else add(new THREE.DodecahedronGeometry(0.2, 0), decorM2, x, 0.1, z);
+      } else if (th.decor === 'crates') {
+        if (Math.abs(x) > hw - 2.2 && r < 0.6) {                          // crates and barrels stack along the walls
+          if (r < 0.3) add(new THREE.BoxGeometry(0.7, 0.7, 0.7), decorM, x, 0.35, z).rotation.y = Math.random();
+          else add(new THREE.CylinderGeometry(0.32, 0.32, 0.8, 9), decorM, x, 0.4, z);
+        } else add(new THREE.DodecahedronGeometry(0.12 + Math.random() * 0.15, 0), decorM2, x, 0.08, z);
+      } else {
+        add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.35, 0), r < 0.5 ? decorM : decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      }
+    }
+
+    setFade(room, 0);
+    rooms.push(room);
+    nextIndex = i + 1;
+    return room;
+  }
+  function rgbHex(c, d = 0) { return ((Math.max(0, c[0] + d) | 0) << 16) | ((Math.max(0, c[1] + d) | 0) << 8) | (Math.max(0, c[2] + d) | 0); }
+
+  function setFade(room, f) {
+    room.fade = f;
+    const see = f < 0.999;
+    for (const m of room.mats) {
+      m.opacity = f;
+      if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; }
+    }
+    room.group.visible = f > 0.01;
+  }
+  function dispose(room) {
+    scene.remove(room.group);
+    for (const g of room.geos) g.dispose();
+    for (const m of room.mats) m.dispose();
+    for (const t of room.texs) t.dispose();
+    rooms.splice(rooms.indexOf(room), 1);
+  }
+
+  // ---------------- Walkable space ----------------
+  const roomAt = i => rooms.find(r => r.i === i);
+  function corrOpen(r) { const prev = roomAt(r.i - 1); return r.corr && r.gateS.open && prev && prev.gateN.open; }
+  function walkRects() {
+    const out = [];
+    for (const r of rooms) { out.push(r.rect); if (corrOpen(r)) out.push(r.corr); }
+    return out;
+  }
+  // Keep a body (position, radius) inside the walkable space; enemies pass their own room to stay in it
+  function constrain(pos, rad, room) {
+    const rs = room ? [room.rect] : walkRects();
+    let bx = pos.x, bz = pos.z, bd = Infinity;
+    for (const q of rs) {
+      const x = Math.max(q.x0 + rad, Math.min(q.x1 - rad, pos.x)), z = Math.max(q.z0 + rad, Math.min(q.z1 - rad, pos.z));
+      const d = (x - pos.x) ** 2 + (z - pos.z) ** 2;
+      if (d < bd) { bd = d; bx = x; bz = z; if (d === 0) break; }
+    }
+    pos.x = bx; pos.z = bz;
+    for (const r of rooms) for (const [px, pz] of r.pillars) {
+      const dx = pos.x - px, dz = pos.z - pz, d = Math.hypot(dx, dz), min = CFG.pillarR + rad;
+      if (d < min && d > 1e-4) { pos.x = px + dx / d * min; pos.z = pz + dz / d * min; }
+    }
+  }
+  // Is a camera position inside the built space (rooms and corridors, gates ignored)?
+  function inSpace(x, z, pad = 0.5) {
+    for (const r of rooms) {
+      for (const q of r.corr ? [r.rect, r.corr] : [r.rect]) if (x > q.x0 - pad && x < q.x1 + pad && z > q.z0 - pad && z < q.z1 + pad) return true;
+    }
+    return false;
+  }
+  // The room whose floor the given point is on (null in a corridor)
+  function roomOf(pos) { return rooms.find(r => pos.z <= r.southZ && pos.z >= r.northZ) || null; }
+
+  // ---------------- Encounters ----------------
+  function spawnWave(room) {
+    const list = room.inf.room.waves[room.wave], p = G.player;
+    const mult = 1 + room.inf.loop * CFG.loopScale;
+    // Spawn spots: across the far two thirds of the room, away from the hero and the pillars
+    const spots = [];
+    for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 3; gz++) {
+      const x = gx / 2 * (room.hw - 1.8), z = room.northZ + 1.8 + gz * (room.hd * 2 - 3.6) / 3;
+      if (Math.hypot(x - p.pos.x, z - p.pos.z) < 5) continue;
+      if (room.pillars.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue;
+      spots.push(new THREE.Vector3(x, 0, z));
+    }
+    spots.sort(() => Math.random() - 0.5);
+    list.forEach((type, k) => {
+      const guardian = room.inf.room.guardian && room.wave === 0 && k === 0;
+      G.queue.push({ type, at: spots[k % spots.length] || new THREE.Vector3(0, 0, room.cz - 2), mult: mult * (guardian ? CFG.guardianMult : 1), guardian, room, t: G.time + 0.3 + k * 0.45 });
+      if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
+    });
+    if (room.wave > 0) banner('MORE COME');
+  }
+
+  function enter(room) {
+    const prev = roomAt(room.i - 1);
+    room.state = 'start'; room.t = 0;
+    room.gateS.open = false; if (prev) prev.gateN.open = false;
+    Snd.play('gate');
+    if (prev) prev.fadeDir = -1;                                          // the room behind fades out and is unloaded
+    active = room;
+    const inf = room.inf;
+    if (inf.ri === 0) {
+      banner(inf.stage.name.toUpperCase() + (inf.loop ? '  ·  DEPTH ' + (inf.loop + 1) : ''));
+      fogTo = new THREE.Color(room.th.fog); hemiTo = new THREE.Color(room.th.hemi);
+    } else banner('ROOM ' + (inf.ri + 1) + ' / ' + inf.count);
+  }
+
+  function clearRoom(room) {
+    room.state = 'cleared';
+    const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.roomHeal);
+    G.stats.rooms++;
+    banner(room.inf.room.guardian ? 'STAGE CLEARED' : 'ROOM CLEARED');
+    const nx = build(nextIndex);                                          // the next room fades in beyond the gate
+    room.gateN.open = true; nx.gateS.open = true;
+    Snd.play('gate');
+  }
+
+  // ---------------- Per-frame ----------------
+  function update(dt, cam) {
+    const p = G.player;
+    for (const r of rooms.slice()) {
+      if (r.fadeDir > 0 && r.fade < 1) setFade(r, Math.min(1, r.fade + dt / CFG.fadeTime));
+      if (r.fadeDir < 0) { setFade(r, Math.max(0, r.fade - dt / CFG.fadeTime)); if (r.fade <= 0) { dispose(r); continue; } }
+      const behind = cam && cam.z > r.southZ + 0.2 && Math.abs(cam.x) < r.hw + 1;
+      r.occl += ((behind ? 0.15 : 1) - r.occl) * Math.min(1, dt * 8);
+      for (const m of r.occluders) {
+        const o = r.fade * r.occl, see = o < 0.999;
+        m.opacity = o; if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; }
+      }
+      for (const gt of [r.gateS, r.gateN]) { gt.y += ((gt.open ? 2.75 : 0) - gt.y) * Math.min(1, dt * (gt.open ? 2.2 : 9)); gt.g.position.y = gt.y; }
+    }
+    if (p && G.state === 'play') {
+      const ahead = rooms.find(r => r.state === 'ahead' && r.i > 0);
+      if (ahead && p.pos.z < ahead.southZ - 1.2) enter(ahead);
+      const a = active;
+      if (a) {
+        a.t += dt;
+        if (a.state === 'start' && a.t > 0.9) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
+        else if (a.state === 'fight') {
+          const alive = G.enemies.some(e => e.state !== 'dead') || G.queue.length;
+          if (!alive) {
+            if (a.wave < a.inf.room.waves.length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            else if (p.state !== 'dead') clearRoom(a);
+          }
+        }
+      }
+    }
+    // Colours drift toward the new stage's fog and ambient light
+    if (fogTo) { scene.fog.color.lerp(fogTo, Math.min(1, dt * 1.2)); scene.background.copy(scene.fog.color); }
+    if (hemiTo) hemi.color.lerp(hemiTo, Math.min(1, dt * 1.2));
+    updateLights(p ? p.pos : new THREE.Vector3(0, 0, 2));
+  }
+
+  // A fixed pool of point lights follows the torches nearest the hero (so the shader never recompiles as rooms come and go)
+  function updateLights(at) {
+    const all = [];
+    for (const r of rooms) for (const t of r.torches) all.push([t, r, (t.pos.x - at.x) ** 2 + (t.pos.z - at.z) ** 2]);
+    all.sort((a, b) => a[2] - b[2]);
+    const now = performance.now();
+    for (const [t, r] of all) {
+      const f = 0.85 + Math.sin(now / 90 + t.seed) * 0.08 + Math.sin(now / 37 + t.seed * 3) * 0.06;
+      t.fl.scale.set(1, f * 1.1, 1);
+    }
+    lights.forEach((L, k) => {
+      const e = all[k];
+      if (!e) { L.intensity = 0; return; }
+      const [t, r] = e, f = 0.85 + Math.sin(now / 90 + t.seed) * 0.08 + Math.sin(now / 37 + t.seed * 3) * 0.06;
+      L.position.copy(t.pos); L.color.setHex(t.color); L.intensity = 1.5 * f * r.fade;
+    });
+  }
+
+  function init(sc, hemiLight) {
+    scene = sc; hemi = hemiLight;
+    for (let k = 0; k < N_LIGHTS; k++) { const L = new THREE.PointLight(0xffa040, 0, 10, 1.6); scene.add(L); lights.push(L); }
+  }
+  // Tear everything down and build the entrance room (fully visible, gates shut)
+  function reset() {
+    for (const r of rooms.slice()) dispose(r);
+    cursorZ = 6; nextIndex = 0; active = null;
+    const r0 = build(0); setFade(r0, 1);
+    const th = r0.th; scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null;
+    return r0;
+  }
+  function halt() { active = null; }                                     // tests: stop the dungeon sending enemies
+  function begin() { const r0 = roomAt(0); active = r0; r0.state = 'start'; r0.t = 0; banner(r0.inf.stage.name.toUpperCase()); }
+
+  function label() {
+    const r = active || roomAt(0); if (!r) return '';
+    return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
+  }
+
+  return {
+    init, reset, begin, halt, update, constrain, inSpace, roomOf, label, info,
+    get active() { return active; }, get rooms() { return rooms; },
+  };
+})();
+
+</script>
+<script>
+// Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
+// The dungeon itself (rooms, gates, progression) lives in world.js.
 const G = {
-  state: 'title', time: 0, player: null, enemies: [], queue: [], wave: 0, waveT: 0, between: false,
-  stats: { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0 }, seen: {},
+  state: 'title', time: 0, player: null, enemies: [], queue: [],
+  stats: { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 }, seen: {},
   onEnemyDeath(e) { G.stats.kills++; },
   onPlayerDeath() { setTimeout(showGameOver, 1600); Snd.play('lose'); },
 };
@@ -1455,92 +1827,32 @@ scene.fog = new THREE.Fog(0x07060a, 18, 38);
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
 FX.init(scene, camera, document.getElementById('floaters'));
 
-scene.add(new THREE.HemisphereLight(0x6a7aa0, 0x1a1210, 0.55));
-const moon = new THREE.DirectionalLight(0xaab8e0, 0.55);
-moon.position.set(-6, 16, 8); moon.castShadow = true;
+const hemi = new THREE.HemisphereLight(0x6a7aa0, 0x1a1210, 0.55);
+scene.add(hemi);
+// The moon light follows the hero so its shadow map always covers the fight
+const moon = new THREE.DirectionalLight(0xaab8e0, 0.5);
+moon.castShadow = true;
 moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 40 });
 moon.shadow.bias = -0.0008;
-scene.add(moon);
+scene.add(moon, moon.target);
+function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
-const torches = [];
-(function buildArena() {
-  const A = CFG.arena, H = A.half;
-  const std = (c, r = 0.9, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, flatShading: true });
-  const canvasTex = (draw, rep) => { const cv = document.createElement('canvas'); cv.width = cv.height = 256; draw(cv.getContext('2d')); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.encoding = THREE.sRGBEncoding; return t; };
-  // Flagstone floor: irregular slabs with dark grout and a few cracks
-  const floorTex = canvasTex(c => {
-    c.fillStyle = '#1c1a1e'; c.fillRect(0, 0, 256, 256);
-    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
-      const v = 52 + Math.random() * 22 | 0, off = (y % 2) * 32;
-      const sx = (x * 64 + off) % 256 + 3;
-      c.fillStyle = `rgb(${v},${v - 3},${v + 4})`; c.fillRect(sx, y * 64 + 3, 58, 58);
-      if (sx + 58 > 256) c.fillRect(sx - 256, y * 64 + 3, 58, 58);
-      c.fillStyle = 'rgba(0,0,0,0.25)'; for (let i = 0; i < 6; i++) c.fillRect((x * 64 + off + Math.random() * 58) % 256, y * 64 + Math.random() * 58, 3, 3);
-    }
-    c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1.5;
-    for (let i = 0; i < 5; i++) { c.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; c.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (Math.random() - 0.5) * 30; py += (Math.random() - 0.5) * 30; c.lineTo(px, py); } c.stroke(); }
-  }, 6);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(H * 2 + 2, H * 2 + 2), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.95 }));
-  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-  const brickTex = canvasTex(c => {
-    c.fillStyle = '#16141a'; c.fillRect(0, 0, 256, 256);
-    for (let y = 0; y < 8; y++) for (let x = 0; x < 5; x++) {
-      const v = 44 + Math.random() * 20 | 0; c.fillStyle = `rgb(${v},${v - 4},${v + 2})`;
-      c.fillRect((x * 56 + (y % 2) * 28) % 280 - 14, y * 32 + 2, 52, 28);
-    }
-  }, 1);
-  const wallMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.95 });
-  const wall = (w, h, d, x, z) => { brickTex.repeat.set(1, 1); const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat); m.position.set(x, h / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m; };
-  wall(H * 2 + 2, 3.4, 1, 0, -H - 0.5); wall(1, 3.4, H * 2 + 2, -H - 0.5, 0); wall(1, 3.4, H * 2 + 2, H + 0.5, 0);
-  wall(H * 2 + 2, 0.7, 1, 0, H + 0.5);                                      // low south wall keeps the camera's view open
-  // North gate where enemies emerge
-  const gateMat = std(0x0a0808);
-  const gate = new THREE.Mesh(new THREE.BoxGeometry(3, 2.8, 0.2), gateMat); gate.position.set(0, 1.4, -H + 0.02); scene.add(gate);
-  const iron = std(0x2a2a2e, 0.6, 0.6);
-  for (let i = -5; i <= 5; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.6, 0.07), iron); b.position.set(i * 0.26, 1.3, -H + 0.15); scene.add(b); }
-  for (const y of [0.8, 1.8]) { const b = new THREE.Mesh(new THREE.BoxGeometry(3, 0.08, 0.08), iron); b.position.set(0, y, -H + 0.15); scene.add(b); }
-  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.25, 6, 12, Math.PI), std(0x3a363c)); arch.position.set(0, 2.6, -H + 0.1); scene.add(arch);
-  // Pillars
-  for (const [x, z] of A.pillars) {
-    const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
-    const stone = std(0x4a464e);
-    const add = (geo, y) => { const m = new THREE.Mesh(geo, stone); m.position.y = y; m.castShadow = m.receiveShadow = true; g.add(m); };
-    // Broken stumps rather than full columns, so they never hide the fight from the high camera
-    const h = 1.2 + Math.random() * 0.8;
-    add(new THREE.BoxGeometry(1.7, 0.35, 1.7), 0.175); add(new THREE.CylinderGeometry(A.pillarR * 0.85, A.pillarR * 0.95, h, 8), 0.35 + h / 2);
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(A.pillarR * 0.6, A.pillarR * 0.85, 0.35, 8), stone); top.position.set(0.1, 0.5 + h, 0); top.rotation.z = 0.25; top.castShadow = true; g.add(top);
-    const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 0), stone); chunk.position.set(0.9, 0.25, 0.6); chunk.castShadow = true; g.add(chunk);
-  }
-  // Torches on the walls, each with a flickering light
-  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa040 });
-  for (const [x, z, ry] of [[-5, -H + 0.05, 0], [5, -H + 0.05, 0], [-H + 0.05, -2, Math.PI / 2], [H - 0.05, -2, -Math.PI / 2], [-H + 0.05, 6, Math.PI / 2], [H - 0.05, 6, -Math.PI / 2]]) {
-    const g = new THREE.Group(); g.position.set(x, 2.2, z); g.rotation.y = ry; scene.add(g);
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.5, 6), std(0x3a2a1a)); st.position.set(0, 0, 0.25); st.rotation.x = 0.6; g.add(st);
-    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.32, 6), flameMat); fl.position.set(0, 0.28, 0.4); g.add(fl);
-    const light = new THREE.PointLight(0xff8a3a, 1.4, 9, 1.6); light.position.set(0, 0.4, 0.6); g.add(light);
-    torches.push({ fl, light, seed: Math.random() * 10 });
-  }
-  // Scattered bones and rubble
-  const bone = std(0xcfc6aa), rub = std(0x3a363c);
-  for (let i = 0; i < 26; i++) {
-    const x = (Math.random() * 2 - 1) * (H - 0.8), z = (Math.random() * 2 - 1) * (H - 0.8);
-    if (Math.hypot(x, z) < 3) continue;
-    if (i % 3 === 0) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), bone); m.position.set(x, 0.1, z); m.scale.set(1, 0.9, 1.15); scene.add(m); }
-    else if (i % 3 === 1) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.4, 5), bone); m.position.set(x, 0.03, z); m.rotation.set(Math.PI / 2, 0, Math.random() * 3); scene.add(m); }
-    else { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.2, 0), rub); m.position.set(x, 0.08, z); m.rotation.set(Math.random(), Math.random(), 0); m.castShadow = true; scene.add(m); }
-  }
-  // Drifting dust motes
+// Drifting dust motes that travel with the hero
+const dust = (() => {
   const N = 160, pos = new Float32Array(N * 3);
-  for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() * 2 - 1) * H; pos[i * 3 + 1] = Math.random() * 4; pos[i * 3 + 2] = (Math.random() * 2 - 1) * H; }
-  const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffd8a0, size: 0.05, transparent: true, opacity: 0.5, depthWrite: false }));
-  scene.add(dust); torches.dust = dust;
+  for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() * 2 - 1) * 11; pos[i * 3 + 1] = Math.random() * 4; pos[i * 3 + 2] = (Math.random() * 2 - 1) * 11; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const d = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffd8a0, size: 0.05, transparent: true, opacity: 0.5, depthWrite: false }));
+  scene.add(d); return d;
 })();
+
+World.init(scene, hemi);
+World.reset();
 
 // ---------------- Collisions ----------------
 function resolveCollisions() {
-  const A = CFG.arena, p = G.player;
+  const p = G.player;
   const bodies = [p, ...G.enemies.filter(e => e.state !== 'dead')];
   const rad = b => b === p ? CFG.player.radius : b.def.radius;
   for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
@@ -1551,42 +1863,24 @@ function resolveCollisions() {
     const push = (min - d), nx = dx / d, nz = dz / d, wa = a === p ? 0.7 : 0.5;
     a.pos.x -= nx * push * wa; a.pos.z -= nz * push * wa; b.pos.x += nx * push * (1 - wa); b.pos.z += nz * push * (1 - wa);
   }
-  for (const b of bodies) {
-    const r = rad(b), lim = A.half - r;
-    b.pos.x = Math.max(-lim, Math.min(lim, b.pos.x)); b.pos.z = Math.max(-lim, Math.min(lim, b.pos.z));
-    for (const [px, pz] of A.pillars) {
-      const dx = b.pos.x - px, dz = b.pos.z - pz, d = Math.hypot(dx, dz), min = A.pillarR + r;
-      if (d < min && d > 1e-4) { b.pos.x = px + dx / d * min; b.pos.z = pz + dz / d * min; }
-    }
-  }
+  // The hero may use any open space; enemies stay inside the room they were spawned in
+  for (const b of bodies) World.constrain(b.pos, rad(b), b === p ? null : b.room);
 }
 
-// ---------------- Waves ----------------
-const SPAWNS = [[0, -9], [-4, -8], [4, -8], [-8.5, -1], [8.5, -1], [-8, 7], [8, 7]];
-function spawnWave() {
-  const list = CFG.waves[G.wave % CFG.waves.length], loop = Math.floor(G.wave / CFG.waves.length), mult = 1 + loop * CFG.loopScale;
-  const pts = SPAWNS.map(s => new THREE.Vector3(s[0], 0, s[1]))
-    .filter(v => Combat.dist(v, G.player.pos) > 5)
-    .sort(() => Math.random() - 0.5);
-  list.forEach((type, i) => {
-    const at = pts[i % pts.length] || new THREE.Vector3(0, 0, -9);
-    G.queue.push({ type, at, mult, t: G.time + i * 0.45 });
-    if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
-  });
-  banner('WAVE ' + (G.wave + 1) + (loop ? '  ·  +' + Math.round(loop * CFG.loopScale * 100) + '%' : ''));
-  Snd.play('wave');
-}
-function updateWaves(dt) {
+// ---------------- Spawning ----------------
+// World queues enemies with a time; they appear here (so pausing and tests use game time)
+function updateSpawns() {
   G.enemies = G.enemies.filter(e => { if (e.remove) { Enemy.dispose(e, scene); return false; } return true; });
-  G.queue = G.queue.filter(q => { if (G.time < q.t) return true; G.enemies.push(Enemy.spawn(scene, q.type, q.at, q.mult)); return false; });
+  G.queue = G.queue.filter(q => {
+    if (G.time < q.t) return true;
+    const e = Enemy.spawn(scene, q.type, q.at, q.mult);
+    e.room = q.room;
+    if (q.guardian) { e.guardian = true; e.rig.root.scale.multiplyScalar(1.15); e.bar.classList.add('guardian'); }
+    G.enemies.push(e);
+    return false;
+  });
   const alive = G.enemies.filter(e => e.state !== 'dead').length;
-  if (!G.between && !G.queue.length && alive === 0 && G.player.state !== 'dead') {
-    G.between = true; G.waveT = 2.6;
-    const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.waveHeal);
-    banner('WAVE CLEARED');
-  }
-  if (G.between) { G.waveT -= dt; if (G.waveT <= 0) { G.between = false; G.wave++; spawnWave(); } }
-  document.getElementById('waveN').textContent = 'Wave ' + (G.wave + 1);
+  document.getElementById('waveN').textContent = World.label();
   document.getElementById('foesN').textContent = alive ? alive + (alive === 1 ? ' foe' : ' foes') : '';
 }
 
@@ -1617,14 +1911,13 @@ function togglePause() {
   else if (G.state === 'pause') { G.state = 'play'; $('pause').classList.remove('show'); }
 }
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
-function bestWave() { try { return +localStorage.getItem('dw_best') || 0; } catch (e) { return 0; } }
+function bestRooms() { try { return +localStorage.getItem('dw_best_rooms') || 0; } catch (e) { return 0; } }
 function showGameOver() {
   G.state = 'over';
   if (document.pointerLockElement) document.exitPointerLock();
-  const reached = G.wave + 1, best = Math.max(bestWave(), reached);
-  try { localStorage.setItem('dw_best', best); } catch (e) {}
-  const s = G.stats;
-  $('overStats').innerHTML = `Reached <b>wave ${reached}</b> (best ${best})<br>${s.kills} kills · ${s.parries} parries · ${s.crits} criticals · ${s.dodges} dodges`;
+  const s = G.stats, best = Math.max(bestRooms(), s.rooms);
+  try { localStorage.setItem('dw_best_rooms', best); } catch (e) {}
+  $('overStats').innerHTML = `Fell in <b>${World.label()}</b><br>${s.rooms} rooms cleared (best ${best})<br>${s.kills} kills · ${s.parries} parries · ${s.crits} criticals · ${s.dodges} dodges`;
   $('over').classList.add('show');
 }
 
@@ -1635,13 +1928,14 @@ function startGame() {
   G.enemies = []; G.queue = [];
   if (G.player) { scene.remove(G.player.rig.root); scene.remove(G.player.trail.mesh); }
   FX.clear();
+  World.reset();
   G.player = Player.create(scene);
-  G.wave = 0; G.between = false; G.time = 0; G.seen = {};
-  G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0 };
+  G.time = 0; G.seen = {};
+  G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 };
   $('title').classList.remove('show'); $('over').classList.remove('show'); $('pause').classList.remove('show');
   G.state = 'play'; document.body.classList.add('playing');
   View.yaw = 0; View.pitch = 0.42; camTarget.copy(G.player.pos);
-  spawnWave();
+  World.begin();
 }
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', startGame);
@@ -1674,21 +1968,23 @@ function updateCamera(dt) {
   setFov(42);
   const want = p ? p.pos : new THREE.Vector3(0, 0, 0);
   camTarget.lerp(want, 1 - Math.exp(-6 * dt));
-  const lim = CFG.arena.half - 4;
-  const tx = Math.max(-lim, Math.min(lim, camTarget.x)), tz = Math.max(-lim - 1, Math.min(lim, camTarget.z));
+  // Stay framed on the room the hero is in (in a corridor, just follow)
+  const r = p && World.roomOf(p.pos);
+  let tx = camTarget.x, tz = camTarget.z;
+  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5); tx = Math.max(-lx, Math.min(lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);
 }
 
 function updateBehindCamera(dt) {
-  const p = G.player, portrait = innerHeight > innerWidth, H = CFG.arena.half;
+  const p = G.player, portrait = innerHeight > innerWidth;
   camTarget.lerp(p.pos, 1 - Math.exp(-14 * dt));
   setFov(portrait ? 72 : 55);
   let d = View.dist * (portrait ? 1.15 : 1);
   const cx = () => camTarget.x + Math.sin(View.yaw) * Math.cos(View.pitch) * d, cz = () => camTarget.z + Math.cos(View.yaw) * Math.cos(View.pitch) * d;
   // Pull in toward the hero rather than look through a wall
-  for (let i = 0; i < 20 && (Math.abs(cx()) > H - 0.3 || Math.abs(cz()) > H - 0.3) && d > 1.5; i++) d *= 0.9;
+  for (let i = 0; i < 20 && !World.inSpace(cx(), cz()) && d > 1.5; i++) d *= 0.9;
   const s = FX.shakeAmt;
   camera.position.set(cx() + (Math.random() - 0.5) * s, View.LOOK_H + Math.sin(View.pitch) * d + (Math.random() - 0.5) * s, cz());
   camLook.set(camTarget.x, View.LOOK_H, camTarget.z);
@@ -1711,11 +2007,9 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 function step(real) {
-  for (const t of torches) {
-    const f = 0.85 + Math.sin(performance.now() / 90 + t.seed) * 0.08 + Math.sin(performance.now() / 37 + t.seed * 3) * 0.06;
-    t.light.intensity = 1.4 * f; t.fl.scale.set(1, f * 1.1, 1);
-  }
-  torches.dust.rotation.y += real * 0.01;
+  const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
+  dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
+  aimMoon(focus);
   if (G.state === 'play') {
     readInput();
     const dt = FX.scaleDt(real);
@@ -1723,11 +2017,13 @@ function step(real) {
     Player.update(G.player, dt);
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
-    updateWaves(dt);
+    World.update(dt, camera.position);
+    updateSpawns();
     FX.update(dt);
     updateHud();
     updateCamera(real);
   } else if (G.state === 'title') {
+    World.update(real);
     Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0 }, real);
     camTarget.set(0, 0, 2); setFov(42);
     camera.position.set(2.5, 2.4, 6.6); camera.lookAt(0, 1.1, 2);
@@ -1735,7 +2031,7 @@ function step(real) {
     const dt = real; G.time += dt;
     Player.update(G.player, dt);
     for (const e of G.enemies) Enemy.update(e, dt);
-    FX.update(dt); updateHud(); updateCamera(real);
+    World.update(dt, camera.position); FX.update(dt); updateHud(); updateCamera(real);
   }
   if (G.state !== 'title' && idleRig.root.parent) scene.remove(idleRig.root);
 }
@@ -1744,7 +2040,8 @@ requestAnimationFrame(frame);
 // Test hook: lets automated tests drive the game without a real input device
 window.__dw = {
   G, Input, CFG, step,
-  start: startGame, View,
+  start: startGame, View, World,
+  sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
   press(act) { Player.press(G.player, act); },

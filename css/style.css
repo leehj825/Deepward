@@ -88,3 +88,5 @@ body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, 
 }
 #keys .vb { display: none; }
 body.behind #keys .vb { display: inline; }
+.ebar.guardian { width: 84px; }
+.ebar.guardian .hp { height: 7px; box-shadow: 0 0 6px rgba(255, 120, 60, 0.7); }

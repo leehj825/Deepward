@@ -62,23 +62,43 @@ const CFG = {
     },
   },
   maxAttackers: 2,               // enemies that may be winding up or swinging at the same time
-  // The sandbox arena sends these waves in order, then loops them with tougher enemies.
-  waves: [
-    ['skeleton'],
-    ['skeleton', 'skeleton'],
-    ['knight'],
-    ['skeleton', 'knight'],
-    ['brute'],
-    ['skeleton', 'skeleton', 'knight'],
-    ['brute', 'skeleton'],
-    ['knight', 'knight', 'brute'],
+  // The dungeon is a chain of rooms heading north. Each stage is a run of rooms in its own theme, ending in a
+  // guardian room (its first enemy is a tougher elite). After the last stage the stages repeat with tougher enemies.
+  // size: [half width, half depth] in metres; waves: the groups that attack in turn inside the room.
+  stages: [
+    { name: 'The Crypt', theme: 'crypt', rooms: [
+      { size: [7, 6], waves: [['skeleton']] },
+      { size: [8, 7], waves: [['skeleton', 'skeleton']] },
+      { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'skeleton']] },
+      { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton', 'skeleton']] },
+    ] },
+    { name: 'The Iron Keep', theme: 'keep', rooms: [
+      { size: [8, 7], waves: [['knight']] },
+      { size: [9, 7], waves: [['skeleton', 'knight']] },
+      { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight']] },
+      { size: [10, 8], guardian: true, waves: [['knight', 'knight', 'skeleton']] },
+    ] },
+    { name: 'The Ogre Den', theme: 'den', rooms: [
+      { size: [9, 8], waves: [['brute']] },
+      { size: [10, 8], pillars: true, waves: [['brute', 'skeleton']] },
+      { size: [10, 9], waves: [['knight', 'brute'], ['skeleton', 'skeleton']] },
+      { size: [11, 9], guardian: true, waves: [['brute', 'knight', 'knight']] },
+    ] },
   ],
-  loopScale: 0.25,               // +25% enemy health and damage each time the waves loop
-  waveHeal: 0.35,                // share of max health restored between waves
+  // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
+  themes: {
+    crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
+    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
+    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks' },
+  },
+  guardianMult: 1.7,             // guardian health and damage multiplier
+  loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
+  roomHeal: 0.35,                // share of max health restored when a room is cleared
+  fadeTime: 1.4,                 // seconds for a room to fade in ahead of you, or out behind you
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or roll behind them.',
     brute: 'A RED glow is UNBLOCKABLE. DODGE (Space) through it - you are invulnerable mid-roll.',
   },
-  arena: { half: 11, pillars: [[-6, -6], [6, -6], [-6, 5], [6, 5]], pillarR: 0.75 },
+  pillarR: 0.75,
 };

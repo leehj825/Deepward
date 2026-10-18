@@ -4,7 +4,7 @@ A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128
 
 Every model and animation is built in code from primitives. There are no model, texture or sound files.
 
-**Status: milestone 1, the combat sandbox.** It is a single arena that sends waves of skeletons, shield knights and brutes. See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
+**Status: milestone 1 plus forward progression.** You fight your way north through a chain of sealed rooms. Each cleared room raises its far gate and the next room fades in out of the dark. Once you step through, the gate drops behind you and the room you left fades out and is unloaded. Stages change every four rooms (The Crypt, The Iron Keep, The Ogre Den), each with its own stone, torchlight, fog and enemies, and each ends in a guardian room. After the last stage they repeat with tougher enemies. See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Run
 
@@ -46,14 +46,15 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | --- | --- |
 | `index.html` | Page markup (HUD, touch pad, screens) and script tags |
 | `css/style.css` | All styles, including the touch and portrait layouts |
-| `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks, waves) |
+| `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks) and the stages: rooms, sizes, waves, themes |
 | `js/audio.js` | Synthesized sound effects (WebAudio) |
 | `js/rig.js` | Code-built characters (hero, skeleton, knight, brute), weapons, shields, procedural poses, swing trails |
 | `js/fx.js` | Sparks, glints, floor rings, floating text, hit-stop, slow motion, screen shake |
 | `js/combat.js` | Attack cones and hit resolution between player and enemies |
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, attack tokens, telegraphs, guard, posture, death |
-| `js/game.js` | Scene and arena, camera, input, HUD, waves, main loop, `window.__dw` test hook |
+| `js/world.js` | The dungeon: room and corridor building per stage theme, portcullis gates, fade-in/fade-out and unloading, walkable space, encounters, pooled torch lights |
+| `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/build_single.py` | Builds the single-file version |
 
@@ -63,4 +64,4 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 node tools/combat_test.js     # set NODE_PATH=$(npm root -g) if Playwright is installed globally
 ```
 
-It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break and the riposte critical.
+It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break and the riposte critical. It also plays through five rooms into stage 2 and checks that the gates open and the rooms behind unload.
