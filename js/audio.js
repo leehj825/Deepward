@@ -48,6 +48,7 @@ const Snd = (() => {
     glint: () => tone(2200, 0.12, 'sine', 0.06, 2600),
     die: () => { noise(0.4, 0.3, 'lowpass', 800, 80); for (let i = 0; i < 4; i++) tone(400 - i * 60, 0.08, 'square', 0.05, 200, i * 0.05); },
     slam: () => { tone(60, 0.5, 'sine', 0.6, 30); noise(0.45, 0.45, 'lowpass', 600, 60); },
+    gate: () => { noise(0.9, 0.18, 'lowpass', 700, 120); for (let i = 0; i < 6; i++) tone(90 + (i % 2) * 30, 0.06, 'square', 0.04, 70, i * 0.12); },
     wave: () => { for (const [f, d] of [[392, 0], [523, 0.12], [659, 0.24]]) tone(f, 0.4, 'triangle', 0.12, null, d); },
     lose: () => { for (const [f, d] of [[392, 0], [311, 0.2], [262, 0.4]]) tone(f, 0.6, 'triangle', 0.14, null, d); },
   };

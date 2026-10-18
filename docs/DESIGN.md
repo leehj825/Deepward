@@ -29,6 +29,25 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Attack tokens:** at most two enemies wind up or swing at once, so crowds stay readable.
 - **Feel:** hit-stop on impact, slow motion on a parry, screen shake, swing trails, sparks and floating numbers.
 
+## Progression through the dungeon (built)
+
+- The dungeon is a chain of rooms heading north, joined by short corridors with a portcullis at each end.
+- **Entering a room** drops the gate behind you. The room then sends its waves.
+- **Clearing a room** heals 35% of your health and raises the far gate. The next room is built and fades in beyond it.
+- **Stepping into the next room** closes its gate behind you. The room you left fades out and is unloaded, so only the current room and the one ahead exist at a time.
+- **Stages** are four rooms each, with the last room a guardian room: its first enemy is a larger elite with 1.7× health and damage. Each stage has its own theme (stone and brick colours, torch colour, fog, ambient light, decor), and fog and light drift to the new theme as you cross into it.
+- **Lighting:** a fixed pool of six point lights follows the torches nearest the hero, so rooms coming and going never force a shader recompile.
+- **Camera:** the south doorway turns see-through while the camera is behind it.
+
+## Animation (built)
+
+- Characters play Nightfall Settlement's Mixamo motion capture: idle, walk, run, strafe and walk-back loops, four sword attacks and slashes, a jump smash, a looping shield block, hit reactions and deaths. The brute uses the great-sword set.
+- Nightfall mirrors Mixamo so its sword sits in the +X hand. Deepward holds the sword in the anatomically right hand (-X), so the extractor mirrors it back.
+- **Attacks:** each clip is time-warped so its recorded moment of impact lands exactly on the game's hit frame. Short wind-ups feel snappy, and long enemy wind-ups play the same swing slowly, which is the telegraph.
+- **Movement:** all walking clips share one stride phase driven by real ground speed, so switching between walk, strafe, back and run doesn't hitch.
+- **Blocking while moving:** the upper body plays the block and the legs keep walking.
+- **Hand-made poses** remain for the dodge roll, stagger, guard break and posture break.
+
 ## Dungeon tiers (planned)
 
 | Tier | Dungeon | New threat | Skill it forces |

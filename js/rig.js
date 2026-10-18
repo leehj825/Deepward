@@ -76,7 +76,7 @@ const Rig = (() => {
     }[kind];
     const rig = { kind, j: {}, mats: [], glowMats: [], trail: null };
     const root = new THREE.Group(), body = joint(root, 0, 0.5, 0), hips = joint(body, 0, 0.45, 0);
-    rig.root = root; rig.body = body;
+    rig.root = root; rig.body = body; rig.j.hips = hips;
     const skin = std(S.skin, kind === 'knight' ? 0.45 : 0.8, kind === 'knight' ? 0.55 : 0), cloth = std(S.cloth), pants = std(S.pants), boot = std(S.boot, 0.9);
     const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18);
     const w = S.w, R = S.limbR, bony = kind === 'skeleton';
@@ -200,6 +200,15 @@ const Rig = (() => {
     rig.weapon = wpn; rig.glowMats.push(...wpn.glowMats);
     if (kind === 'hero') rig.shield = roundShield(rig.j.hdL, 0x2f4a6b);
     if (kind === 'knight') rig.shield = towerShield(rig.j.hdL, 0x3a3e48);
+    // Motion capture drives every rig: sword-and-shield clips for people, great-sword clips for the two-handed brute.
+    // The shield rides on the outside of the forearm, where the clips expect it (mirrored from Nightfall's rig).
+    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' ? 'gs' : 'ss';
+    if (rig.mocap && rig.shield) {
+      rig.j.elL.add(rig.shield); rig.shield.position.set(0.14, -0.2, 0.02);
+      rig.shield.rotation.set(0, Math.PI / 2, kind === 'knight' ? Math.PI / 2 : 0);    // face outward; a tall shield stands across the forearm
+    }
+    rig.tq = {}; for (const n of ['hips', ...JOINTS]) rig.tq[n] = new THREE.Quaternion();
+    rig.loco = 0;
 
     root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
@@ -337,28 +346,86 @@ const Rig = (() => {
     return { pose, rate };
   }
 
-  const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
+  // ---------------- Motion capture ----------------
+  // Attack poses map onto clips; the clip is time-warped so its moment of impact lands exactly on the game's hit frame.
+  const MOCAP_ATTACK = {
+    ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump' },
+    gs: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', thrust: 'gsAttack', heavy: 'gsJumpAttack' },
+  };
+  function locoClip(rig, st) {
+    const gs = rig.set === 'gs', run = (st.mps || 0) > 2.8, f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
+    if (gs) return { name: f < -0.5 ? 'gsWalkB' : run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
+    if (f > 0.5) return { name: run ? 'run' : 'walk', ref: run ? 4.6 : 1.6 };
+    if (f < -0.5) return { name: run ? 'runB' : 'walkB', ref: run ? 3.6 : 1.4 };
+    return { name: (run ? 'strafeRun' : 'strafeWalk') + (side > 0 ? 'N' : 'P'), ref: run ? 3.6 : 1.5 };
+  }
+  const out = { q: null, hipsY: 0.9, hipsZ: 0 };
+  // Fills rig.tq with the clip pose for this state; returns the blend rate, or 0 when a hand-made pose should be used
+  function mocapPose(rig, st, dt) {
+    const gs = rig.set === 'gs', m = st.mode;
+    out.q = rig.tq; out.hipsY = 0.9; out.hipsZ = 0;
+    const moving = (m === 'move' || m === 'block') && (st.speed || 0) > 0.05;
+    if (moving) {
+      // One shared stride phase, advanced by real ground speed, so walk / strafe / run swap without a hitch
+      const lc = locoClip(rig, st), c = Mocap.clips[lc.name];
+      rig.loco += dt * Math.min(1.8, Math.max(0.4, (st.mps || 1.5) / lc.ref)) / c.d;
+      Mocap.sample(lc.name, rig.loco * c.d, out);
+    }
+    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(gs ? 'gsIdle' : 'idle', rig.time, out);
+    if (m === 'block') {                                                    // shield up; the legs keep walking underneath when moving
+      if (gs) return 0;
+      Mocap.sample('blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES); return 20;
+    }
+    if (m === 'idle' || m === 'move' || m === 'spawn') return 16;
+    if (m === 'attack') {
+      const name = MOCAP_ATTACK[rig.set][st.atk] || (gs ? 'gsSlash' : 'attack1'), c = Mocap.clips[name];
+      const W = st.wind, A = st.active, R = st.recover, el = st.phase === 'wind' ? st.phaseT : st.phase === 'active' ? W + st.phaseT : W + A + st.phaseT;
+      const hitAt = W + A * 0.5, hitT = c.hit * c.d;
+      const ct = el <= hitAt ? hitT * el / hitAt : hitT + (c.d - hitT) * Math.min(1, (el - hitAt) / (A * 0.5 + R));
+      Mocap.sample(name, ct, out);
+      out.hipsZ = 0;                                                        // the game moves the body itself (lunges)
+      return 30;
+    }
+    if (m === 'hurt' || m === 'stagger') { Mocap.sample(gs ? 'gsImpact' : (rig.hurtVar ? 'impact2' : 'impact'), Math.min(st.t * 1.6, 0.75), out); out.hipsZ = 0; return 22; }
+    if (m === 'dead') { Mocap.sample(gs ? 'gsDie' : rig.dieVar ? 'die2' : 'die', st.t * 1.5, out); return 14; }
+    return 0;                                                                // roll, broken, guard break: hand-made poses
+  }
+
+  const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     rig.time += dt;
-    const { pose, rate } = poseFor(rig, st), k = 1 - Math.exp(-rate * dt);
-    for (const n of JOINTS) {
-      const jt = rig.j[n]; if (!jt) continue;
-      const t = pose[n] || Z3, r = jt.rotation;
-      r.x += (t[0] - r.x) * k; r.y += (t[1] - r.y) * k; r.z += (t[2] - r.z) * k;
+    let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
+    const b = rig.body, hips = rig.j.hips;
+    if (rate) {
+      // Clip-driven: the pelvis takes the clip's height (scaled to these slightly shorter legs) and the body stays put
+      const k = 1 - Math.exp(-rate * dt);
+      for (const n of ['hips', ...JOINTS]) { const jt = rig.j[n]; if (jt) jt.quaternion.slerp(rig.tq[n], k); }
+      hips.position.y += (0.45 + (out.hipsY - 0.9) * 0.95 - hips.position.y) * k;
+      hips.position.z += (out.hipsZ - hips.position.z) * k;
+      b.position.y += (0.5 - b.position.y) * k; b.position.z += (0 - b.position.z) * k; b.rotation.x = 0;
+    } else {
+      const pr = poseFor(rig, st); pose = pr.pose; rate = pr.rate;
+      const k = 1 - Math.exp(-rate * dt);
+      for (const n of JOINTS) {
+        const jt = rig.j[n]; if (!jt) continue;
+        const t = pose[n] || Z3;
+        tmpE.set(t[0], t[1], t[2], jt.rotation.order); tmpQ.setFromEuler(tmpE);
+        jt.quaternion.slerp(tmpQ, k);
+      }
+      hips.quaternion.slerp(ID, k); hips.position.y += (0.45 - hips.position.y) * k; hips.position.z += (0 - hips.position.z) * k;
+      b.position.y += (0.5 + (pose.by || 0) - b.position.y) * k;
+      b.position.z += ((pose.bfz || 0) - b.position.z) * k;
+      // The roll spin must not ease back through zero, so it is set directly
+      if (st.mode === 'roll') b.rotation.x = pose.brx; else if (st.mode === 'dead') b.rotation.x += (pose.brx - b.rotation.x) * k;
+      else b.rotation.x = 0;
+      if (st.mode === 'dead') b.position.y += (0.18 - b.position.y) * k;
     }
-    const b = rig.body;
-    b.position.y += (0.5 + (pose.by || 0) - b.position.y) * k;
-    b.position.z += ((pose.bfz || 0) - b.position.z) * k;
-    // The roll spin must not ease back through zero, so it is set directly
-    if (st.mode === 'roll') b.rotation.x = pose.brx; else if (st.mode === 'dead') b.rotation.x += (pose.brx - b.rotation.x) * k;
-    else b.rotation.x = 0;
-    if (st.mode === 'dead') b.position.y += (0.18 - b.position.y) * k;
     if (rig.j.cape) {
       const target = 0.15 + (st.speed || 0) * 0.7 + Math.sin(rig.time * 6) * 0.05 * (0.3 + (st.speed || 0));
       rig.j.cape.rotation.x += (target - rig.j.cape.rotation.x) * (1 - Math.exp(-8 * dt));
     }
-    // Shields always face the way the chest faces, turned outward unless blocking
-    if (rig.shield) {
+    // Without motion capture, shields always face the way the chest faces, turned outward unless blocking
+    if (rig.shield && !rig.mocap) {
       const want = st.mode === 'block' ? -0.15 : 0.75;
       rig.shieldYaw += (want - rig.shieldYaw) * (1 - Math.exp(-18 * dt));
       rig.root.updateMatrixWorld(true);
