@@ -22,13 +22,15 @@ const Player = (() => {
 
   // The enemy that an attack should snap toward: nearest one roughly in the direction the player is pushing
   function pickTarget(p, maxD = 5) {
-    const m = Input.move, hasDir = Math.hypot(m.x, m.z) > 0.2, dir = hasDir ? Math.atan2(m.x, m.z) : p.facing;
+    // Behind view: attacks go where the camera looks, with a little aim assist; top-down: toward the stick
+    const behind = View.mode === 'behind', m = Input.move, hasDir = !behind && Math.hypot(m.x, m.z) > 0.2;
+    const dir = behind ? View.yaw + Math.PI : hasDir ? Math.atan2(m.x, m.z) : p.facing, cone = behind ? 0.75 : 1.9;
     let best = null, bestS = Infinity;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
       const d = Combat.dist(p.pos, e.pos); if (d > maxD + e.def.radius) continue;
       const da = Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - dir));
-      if (da > 1.9) continue;
+      if (da > cone) continue;
       const s = d + da * 1.5;
       if (s < bestS) { bestS = s; best = e; }
     }
@@ -86,12 +88,19 @@ const Player = (() => {
       }
       p.blocking = wantBlock;
       if (p.blocking) p.blockT += dt;
-      const sp = p.blocking ? P.blockSpeed : P.speed;
+      // Which way the step goes relative to the body: forward / back / sideways (strafing slows you a little)
+      const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+      p.dirF = mlen > 0.05 ? (m.x * fx + m.z * fz) / mlen : 1; p.dirS = mlen > 0.05 ? (m.x * fz - m.z * fx) / mlen : 0;
+      const behind = View.mode === 'behind', dirMul = behind ? (p.dirF < -0.3 ? 0.72 : p.dirF < 0.5 ? 0.86 : 1) : 1;
+      const sp = (p.blocking ? P.blockSpeed : P.speed) * dirMul;
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * sp * dt; p.pos.z += m.z / Math.max(1, mlen) * sp * dt; moveSpeed = mlen * sp; }
       let want = null;
-      if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
-      if (want === null && mlen > 0.1) want = Math.atan2(m.x, m.z);
-      if (want !== null) p.facing += Combat.wrap(want - p.facing) * Math.min(1, P.turnRate * dt);
+      if (behind) want = View.yaw + Math.PI;                         // the body faces where the camera looks
+      else {
+        if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
+        if (want === null && mlen > 0.1) want = Math.atan2(m.x, m.z);
+      }
+      if (want !== null) p.facing += Combat.wrap(want - p.facing) * Math.min(1, (behind ? 20 : P.turnRate) * dt);
       if (mlen > 0.05) p.cycle += dt * (p.blocking ? 6 : 10.5) * Math.max(0.5, mlen);
       tryAct(p);
     } else if (p.state === 'attack') {
@@ -139,7 +148,7 @@ const Player = (() => {
     r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
     const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state;
     Rig.animate(r, {
-      mode, t: p.t, speed: p.speedK, cycle: p.cycle,
+      mode, t: p.t, speed: p.speedK, cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
       p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
       atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
     }, dt);

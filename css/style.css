@@ -86,3 +86,5 @@ body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, 
   #waveBox b { font-size: 15px; }
   body.touch #tip { top: 110px; font-size: 13px; }
 }
+#keys .vb { display: none; }
+body.behind #keys .vb { display: inline; }
