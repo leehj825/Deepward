@@ -1,0 +1,8 @@
+{
+  "appId": "com.deepward.game",
+  "appName": "Deepward",
+  "webDir": "www",
+  "backgroundColor": "#07060a",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}

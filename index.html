@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Deepward</title>
 <meta name="theme-color" content="#07060a">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,40 +15,59 @@
 <div id="hud">
   <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
   <div id="stBar" class="bar"><i id="stFill"></i></div>
+  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span></div>
+  <div id="bless"></div>
+  <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
+<div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
+<div id="prompt"></div>
+<div id="toast"></div>
 <div id="waveBox"><b id="waveN">Wave 1</b><small id="foesN"></small></div>
 <div id="corner"><button id="viewBtn" title="Switch camera (B)">🎥</button><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Mute (M)">🔊</button></div>
+<canvas id="minimap" title="Map (N)"></canvas><div id="mapInfo"></div>
 <div id="bars"></div>
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip"></div>
-<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dodge · <b>B</b> camera</div>
+<div id="lesson"></div>
+<div id="padKeys"><b>LS</b> move · <b>RS</b> camera (click: lock on) · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
+<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>F</b> ultimate · <b>E</b> talk · <b>I</b> gear · <b>T</b> talents · <b>B</b> camera · <b>C</b> lock on</div>
 
 <div id="stick"><div id="knob"></div></div>
 <div id="pad">
+  <button data-act="flask" class="b-flask">⚗</button>
+  <button data-act="bag" class="b-bag">GEAR</button>
+  <button data-act="ult" class="b-ult" style="display:none">ULT</button>
+  <button data-act="lock" class="b-lock">🎯</button>
   <button data-act="heavy" class="b-heavy">HEAVY</button>
   <button data-act="block" class="b-block">BLOCK</button>
-  <button data-act="dodge" class="b-dodge">DODGE</button>
+  <button data-act="dodge" class="b-dodge">DASH</button>
   <button data-act="light" class="b-light">ATTACK</button>
 </div>
 
 <div id="title" class="screen show"><div class="card">
   <h1>DEEPWARD</h1>
-  <p class="sub">Combat sandbox · read the telegraph, then answer it</p>
+  <p class="sub">The last camp on the rim of the Deep needs a warden</p>
   <ul class="legend">
     <li><span class="g-white">White glint</span> - block it, or block right at impact to <b>parry</b></li>
-    <li><span class="g-red">Red glow</span> - unblockable: <b>dodge</b> through it</li>
+    <li><span class="g-red">Red glow</span> - unblockable: <b>dash</b> through it</li>
     <li>Fill an enemy's <span class="g-gold">posture bar</span> to break them, then strike for a <b>critical</b></li>
   </ul>
-  <p class="ctl desk">Mouse look (click to capture) · WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dodge · B switch camera · Esc pause</p>
-  <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dodge · 🎥 switches camera</p>
-  <button id="startBtn">Enter the dungeon</button>
+  <p class="ctl desk">Mouse look (click to capture) · WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dash · R flask · F ultimate · E talk · I gear · T talents · B camera · Esc pause</p>
+  <p class="ctl padc">Controller: left stick move · right stick camera · RB / X attack · RT heavy · Y ultimate · LB / LT block (tap to parry) · A dash / talk · d-pad up flask · d-pad down gear · View camera · Menu pause · press A to start, Y for settings</p>
+  <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera</p>
+  <div class="tbtns"><button id="contBtn" style="display:none">Continue</button><button id="startBtn">Begin</button><button id="titleSetBtn" class="quiet">Settings</button></div>
 </div></div>
-<div id="pause" class="screen"><div class="card"><h2>Paused</h2><button id="resumeBtn">Resume</button></div></div>
-<div id="over" class="screen"><div class="card"><h2>You have fallen</h2><p id="overStats"></p><button id="retryBtn">Rise again</button></div></div>
+<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
+<div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
+<div id="fade"></div>
+<div id="letterbox"></div>
+<div id="arrangeBar"><span>Drag the buttons where your thumbs want them.</span><button data-pad="reset">Reset</button><button data-pad="done">Done</button></div>
 
 <script src="vendor/three.min.js"></script>
 <script src="js/config.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/items.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/anims.js"></script>
 <script src="js/mocap.js"></script>
@@ -55,7 +76,15 @@
 <script src="js/combat.js"></script>
 <script src="js/player.js"></script>
 <script src="js/enemies.js"></script>
+<script src="js/props.js"></script>
+<script src="js/camp.js"></script>
 <script src="js/world.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/map.js"></script>
+<script src="js/endless.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/codex.js"></script>
+<script src="js/touchlayout.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

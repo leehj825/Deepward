@@ -14,7 +14,7 @@ const A = load('anims.js', 'MIXAMO_CLIPS'), L = load('anims_lib.js', 'MIXAMO_LIB
 // Deepward name -> [source table, source name]
 const WANT = {
   // sword and shield
-  idle: [A, 'ssIdle'], walk: [A, 'ssWalk'], walkB: [A, 'ssWalkB'], run: [A, 'ssRun'], runB: [A, 'ssRunB'],
+  idle: [A, 'ssIdle'], idleCalm: [A, 'ssIdleCalm'], walkCalm: [A, 'walk'], runCalm: [A, 'run'], walk: [A, 'ssWalk'], walkB: [A, 'ssWalkB'], run: [A, 'ssRun'], runB: [A, 'ssRunB'],
   strafeWalkN: [A, 'ssStrafeNW'], strafeWalkP: [A, 'ssStrafePW'], strafeRunN: [A, 'ssStrafeN'], strafeRunP: [A, 'ssStrafeP'],
   attack1: [A, 'ssAttack1'], attack2: [A, 'ssAttack2'], attack3: [A, 'ssAttack3'], attackJump: [A, 'ssAttack4'],
   slash1: [L, 'ss_sword_and_shield_slash'], slash3: [L, 'ss_sword_and_shield_slash_3'], slash5: [L, 'ss_sword_and_shield_slash_5'], kick: [L, 'ss_sword_and_shield_kick'],
@@ -22,7 +22,11 @@ const WANT = {
   impact: [A, 'ssImpact'], impact2: [A, 'ssImpact2'], die: [A, 'die'], die2: [A, 'die2'],
   dive: [L, 'bow_standing_dive_forward'], dodgeB: [A, 'bowDodgeB'], dodgeP: [A, 'bowDodgeP'], dodgeN: [A, 'bowDodgeN'],
   // great sword (the brute's two-handed club)
-  gsIdle: [A, 'gsIdle'], gsWalk: [A, 'gsWalk'], gsWalkB: [A, 'gsWalkB'], gsRun: [A, 'gsRun'],
+  gsIdle: [A, 'gsIdle'], gsWalk: [A, 'gsWalk'], gsWalkB: [A, 'gsWalkB'], gsRun: [A, 'gsRun'], gsRunB: [A, 'gsRunB'],
+  gsStrafeWalkN: [A, 'gsStrafeNW'], gsStrafeWalkP: [A, 'gsStrafePW'], gsStrafeRunN: [A, 'gsStrafeN'], gsStrafeRunP: [A, 'gsStrafeP'],
+  gsBlock: [A, 'gsBlock'], gsSpin: [A, 'gsAttack4'],
+  // archer
+  shoot: [A, 'bowDraw'],
   gsAttack: [A, 'gsAttack1'], gsSlash: [A, 'gsAttack2'], gsSlash5: [A, 'gsAttack3'], gsJumpAttack: [L, 'gs_great_sword_jump_attack'],
   gsImpact: [A, 'gsImpact'], gsDie: [A, 'dieGs'],
 };

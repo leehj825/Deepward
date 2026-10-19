@@ -18,21 +18,36 @@ const Combat = (() => {
 
   // The player's swing lands: every enemy in the cone takes it
   function playerStrike(p, atk) {
+    if (atk.exec) { Enemy.execute(atk.exec, atk, p); G.onHits && G.onHits(1, true); return 1; }
     let landed = 0, blocked = 0, crit = false;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
       if (!inArc(p.pos, p.facing, e.pos, atk.range, atk.arc, e.def.radius)) continue;
-      const r = Enemy.receive(e, atk, p);
-      if (r === 'blocked') blocked++; else if (r) { landed++; if (r === 'crit') crit = true; }
+      const widow = p.S && p.S.u && p.S.u.widow && e.hp < e.maxHp * 0.3;           // Widowmaker
+      const r = Enemy.receive(e, widow ? Object.assign({}, atk, { dmg: atk.dmg * 1.6 }) : atk, p);
+      if (r === 'blocked') blocked++; else if (r === 'ward') { /* soaked by a ward */ } else if (r) { landed++; if (r === 'crit') crit = true; }
     }
+    const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
+    if (broke && !landed) FX.hitStop(0.03);
     if (landed) {
       FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
       FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
       Snd.play(crit ? 'crit' : 'hit');
+      G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
+      if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
+      if (G.onHits) G.onHits(landed, crit);
     } else if (blocked) {
       Player.recoil(p);
     }
     return landed;
+  }
+
+  // Dawnbreaker: a parry looses a blade of light down the line in front of the hero
+  function wave(p) {
+    const f = p.facing, L = 7;
+    for (let d = 0.8; d <= L; d += 0.6) FX.glint(new THREE.Vector3(p.pos.x + Math.sin(f) * d, 1.1, p.pos.z + Math.cos(f) * d), 0xfff0b0, 1.2, 0.25 + d * 0.02);
+    Snd.play('swing');
+    for (const e of G.enemies) if (Enemy.targetable(e) && inArc(p.pos, f, e.pos, L, 22, e.def.radius)) Enemy.receive(e, { dmg: 16 * (p.S ? p.S.dmg : 1), posture: 18 }, p);
   }
 
   // An enemy's swing lands: check the player is inside its reach and resolve block / parry / dodge
@@ -48,7 +63,8 @@ const Combat = (() => {
     if (!reached) return;
     const res = Player.receive(p, e, hit);
     if (res === 'parry') Enemy.parried(e);
+    else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
 
-  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike };
+  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike, wave };
 })();

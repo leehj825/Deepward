@@ -1,10 +1,9 @@
 // Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
 // The dungeon itself (rooms, gates, progression) lives in world.js.
+// G.state: title | play | pause | menu (a panel is open) · G.mode: camp | dungeon
 const G = {
-  state: 'title', time: 0, player: null, enemies: [], queue: [],
+  state: 'title', mode: 'camp', time: 0, player: null, enemies: [], queue: [], boss: null, spot: null, timers: [],
   stats: { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 }, seen: {},
-  onEnemyDeath(e) { G.stats.kills++; },
-  onPlayerDeath() { setTimeout(showGameOver, 1600); Snd.play('lose'); },
 };
 
 // ---------------- Camera view ----------------
@@ -19,14 +18,32 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
+    if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
+      const c = ev.code;
+      if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
+      else if (c === 'ArrowDown' || c === 'KeyS' || c === 'ArrowRight' || c === 'KeyD' || c === 'Tab') UI.nav(1);
+      else if (!ev.repeat && (c === 'Enter' || c === 'Space' || c === 'KeyE' || c === 'KeyJ')) UI.confirm();
+      else if (!ev.repeat && (c === 'Escape' || c === 'Backspace' || c === 'KeyI')) UI.back();
+      ev.preventDefault(); return;
+    }
     if (ev.repeat) return;
+    if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
+    if (ev.code === 'KeyN') MiniMap.toggle();
+    if (ev.code === 'KeyO' && G.state === 'play') openPanel('codex');
+    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
-    if (ev.code === 'Enter' && G.state !== 'play') startGame();
-    if (KEYMAP[ev.code] && G.state === 'play') { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
+    if (ev.code === 'Enter' && G.state === 'title') titleGo();
+    if (G.state !== 'play') return;
+    if (ev.code === 'KeyE') interact();
+    if (ev.code === 'KeyR') Player.drink(G.player);
+    if (ev.code === 'KeyF') Player.ultimate(G.player);
+    if (ev.code === 'KeyT') openPanel('talents');
+    if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
+    if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
   });
   addEventListener('keyup', ev => { Input.keys[ev.code] = false; });
   addEventListener('blur', () => { Input.keys = {}; Input.mouseBlock = false; });
@@ -59,8 +76,10 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   let stickId = null, sx = 0, sy = 0;
   let lookId = null, lx = 0, ly = 0;
   cv.addEventListener('pointerdown', ev => {
+    if (G.state === 'cine') { endCine(); return; }                          // a tap skips a guardian's entrance
     if (ev.pointerType !== 'touch') return;
-    if (ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
+    // The look side is the right of the screen, or the left in the left-handed layout
+    if (Settings.get('lefty') ? ev.clientX < innerWidth * 0.55 : ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
     if (stickId !== null) return;
     stickId = ev.pointerId; sx = ev.clientX; sy = ev.clientY;
     stickEl.style.display = 'block'; stickEl.style.left = sx + 'px'; stickEl.style.top = sy + 'px'; knob.style.transform = '';
@@ -83,30 +102,90 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     b.addEventListener('pointerdown', ev => {
       ev.preventDefault(); Snd.init(); b.classList.add('on');
       if (G.state !== 'play') return;
-      if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
+      if (act === 'light' && G.spot) interact();
+      else if (act === 'flask') Player.drink(G.player);
+      else if (act === 'ult') Player.ultimate(G.player);
+      else if (act === 'bag') openPanel('bag');
+      else if (act === 'lock') toggleLock();
+      else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
     });
     const up = () => { b.classList.remove('on'); if (act === 'block') Input.touchBlock = false; };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
   }
 })();
+// ---------------- Game controller (Xbox layout, standard mapping) ----------------
+// Left stick move · right stick camera · RB / X light · RT heavy · Y ultimate · LB / LT block · A / B dash
+// View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
+const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
+function pollPad(real) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
+  if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dash.'); }
+  const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
+  const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
+  Pad.prev = now;
+  const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
+  Pad.move.x = mx; Pad.move.z = my;
+  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  if (now.some(Boolean)) Snd.init();
+  // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
+  if (UI.open) {
+    const v = (now[12] ? -1 : now[13] ? 1 : 0) || (my < -0.5 ? -1 : my > 0.5 ? 1 : 0);
+    if (v && (v !== Pad.navDir || performance.now() > Pad.navNext)) { UI.nav(v); Pad.navNext = performance.now() + (v === Pad.navDir ? 120 : 350); }
+    Pad.navDir = v;
+    if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
+    Pad.move.x = Pad.move.z = 0; return;
+  }
+  if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
+  if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
+  if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
+  if (G.state !== 'play') return;
+  if (down(PAD_BTN.MENU)) { togglePause(); return; }
+  if (down(PAD_BTN.VIEW)) toggleView();
+  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
+  if (down(PAD_BTN.RT)) Player.press(G.player, 'heavy');
+  if (down(PAD_BTN.Y)) Player.ultimate(G.player);
+  if (down(PAD_BTN.A) && G.spot) interact();
+  else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
+  if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
+  if (down(13)) openPanel('bag');                                         // d-pad down: gear
+  if (View.mode === 'behind') {
+    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
+    turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
+  }
+}
+// Rumble on the controller, if it has motors: strong / weak in 0..1, duration in ms
+G.rumble = (strong, weak, ms) => {
+  // Phones buzz too (Settings: Vibration)
+  if (!Pad.id && document.body.classList.contains('touch') && Settings.get('haptics') && navigator.vibrate) { try { navigator.vibrate(Math.max(10, Math.round(ms * Math.max(strong, weak) * 0.5))); } catch (e) {} }
+  if (!Pad.id) return;
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.id === Pad.id);
+  const act = gp && gp.vibrationActuator;
+  if (act && act.playEffect) act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+};
+
 function readInput() {
   const k = Input.keys;
   let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
+  if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
     // Screen up = away from the camera, screen right = the camera's right
     const fx = -Math.sin(View.yaw), fz = -Math.cos(View.yaw), rx = Math.cos(View.yaw), rz = -Math.sin(View.yaw);
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock);
+  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
-renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07060a);
@@ -123,6 +202,23 @@ moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 40 });
 moon.shadow.bias = -0.0008;
 scene.add(moon, moon.target);
+// Graphics quality: high (sharp, soft 2048 shadows), medium (1.5x, 1024 shadows) or low (1x, no shadows).
+// 'auto' picks medium on touch devices (phones and tablets) and high elsewhere.
+const QUALITY = { high: { pr: 2, shadow: 2048, soft: true }, medium: { pr: 1.5, shadow: 1024, soft: false }, low: { pr: 1, shadow: 0 } };
+function quality() { const q = Settings.get('quality'); return q === 'auto' ? (('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'medium' : 'high') : q; }
+function applyQuality() {
+  const Q = QUALITY[quality()] || QUALITY.high, on = Q.shadow > 0;
+  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false);
+  if (on && moon.shadow.mapSize.x !== Q.shadow) { moon.shadow.mapSize.set(Q.shadow, Q.shadow); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } }
+  const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type) {
+    renderer.shadowMap.enabled = on; renderer.shadowMap.type = type;
+    scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
+  }
+}
+applyQuality();
+Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
+G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
 // Drifting dust motes that travel with the hero
@@ -134,8 +230,29 @@ const dust = (() => {
   scene.add(d); return d;
 })();
 
+// The air of each place: what drifts in it (colour, size, fall speed - negative falls, positive rises - and sway)
+const AIR = {
+  crypt: [0xffd8a0, 0.05, -0.05, 0.1, 0.5], keep: [0xffc890, 0.05, -0.04, 0.1, 0.45], den: [0xff9a5a, 0.05, 0.25, 0.25, 0.6],
+  camp: [0xffd8a0, 0.04, -0.03, 0.15, 0.45], depths: [0xb8a0ff, 0.07, 0.1, 0.35, 0.6], court: [0xe8e0ff, 0.04, 0.02, 0.15, 0.45],
+  temple: [0x8ae8ff, 0.05, -3.5, 0, 0.7], frost: [0xffffff, 0.09, -0.7, 0.6, 0.9], forge: [0xff7a2a, 0.07, 1.0, 0.45, 0.9],
+  orchard: [0xcfc8b0, 0.06, -0.3, 0.7, 0.6], throne: [0xffd070, 0.05, 0.06, 0.2, 0.5],
+};
+let airKey = null;
+function updateAir(dt) {
+  const th = World.theme, key = th && Object.keys(CFG.themes).find(k => CFG.themes[k] === th) || 'crypt', A = AIR[key] || AIR.crypt;
+  if (key !== airKey) { airKey = key; dust.material.color.setHex(A[0]); dust.material.size = A[1]; dust.material.opacity = A[4]; }
+  const pos = dust.geometry.attributes.position, a = pos.array, t = G.time || performance.now() / 1000;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] += A[2] * dt;
+    if (a[i + 1] < 0) a[i + 1] += 4; else if (a[i + 1] > 4) a[i + 1] -= 4;
+    if (A[3]) a[i] += Math.sin(t * 0.8 + i) * A[3] * dt;
+  }
+  pos.needsUpdate = true;
+}
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) setTimeout(() => TouchLayout.apply(), 0);
 World.init(scene, hemi);
-World.reset();
+G.scene = scene;
+World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
 
 // ---------------- Collisions ----------------
 function resolveCollisions() {
@@ -150,8 +267,8 @@ function resolveCollisions() {
     const push = (min - d), nx = dx / d, nz = dz / d, wa = a === p ? 0.7 : 0.5;
     a.pos.x -= nx * push * wa; a.pos.z -= nz * push * wa; b.pos.x += nx * push * (1 - wa); b.pos.z += nz * push * (1 - wa);
   }
-  // The hero may use any open space; enemies stay inside the room they were spawned in
-  for (const b of bodies) World.constrain(b.pos, rad(b), b === p ? null : b.room);
+  // Everyone stays inside the dungeon's sections and passages
+  for (const b of bodies) World.constrain(b.pos, rad(b));
 }
 
 // ---------------- Spawning ----------------
@@ -162,7 +279,17 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
-    if (q.guardian) { e.guardian = true; e.rig.root.scale.multiplyScalar(1.15); e.bar.classList.add('guardian'); }
+    const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
+    if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.add) e.add = true;
+    if (q.raisedBy) e.raisedBy = q.raisedBy;
+    if (q.champion) {
+      // The mid-stage champion: a named elite with its own boss bar
+      const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
+      const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
+      e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
+    } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
     G.enemies.push(e);
     return false;
   });
@@ -186,6 +313,30 @@ function updateHud() {
   $('stFill').style.width = p.st / p.maxSt * 100 + '%';
   $('stBar').classList.toggle('empty', p.st < 1);
   for (const e of G.enemies) Enemy.updateBar(e);
+  if (G.boss && G.boss.bar) G.boss.bar.style.display = 'none';
+  UI.boss(G.boss);
+  $('goldN').textContent = Items.S ? Items.S.gold : 0;
+  if (Items.S) {
+    const S = Items.S; $('xpFill').style.width = Math.min(100, S.xp / CFG.progress.xpFor(S.level) * 100) + '%'; $('lvN').textContent = S.level;
+    $('lvBox').classList.toggle('pts', S.points > 0);
+    const u = $('ultBox'); u.style.display = p.S.ult ? '' : 'none';
+    if (p.S.ult) { const ready = !(p.ultCd > 0); u.classList.toggle('ready', ready); u.textContent = ready ? '✦' : Math.ceil(p.ultCd); }
+    document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
+  }
+  $('flaskN').textContent = p.flasks;
+  // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const bl = (G.blessings || []).join();
+  if (bl !== G.shownBless) {
+    G.shownBless = bl;
+    $('bless').innerHTML = (G.blessings || []).map(id => { const b = CFG.blessings.find(x => x.id === id); return `<span title="${b.name}: ${b.desc}">${b.icon} ${b.name}</span>`; }).join('');
+  }
+  if (spot !== G.spot) {
+    G.spot = spot;
+    const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
+    UI.prompt(spot ? `<b>${pad ? 'Ⓐ' : touch ? 'TALK' : 'E'}</b> ${spot.verb} · ${spot.name}` : '');
+    document.querySelector('.b-light').textContent = spot ? 'TALK' : 'ATTACK';
+  }
 }
 function toggleMute() { const m = Snd.toggleMute(); $('muteBtn').textContent = m ? '🔇' : '🔊'; }
 $('muteBtn').textContent = Snd.muted ? '🔇' : '🔊';
@@ -197,41 +348,278 @@ function togglePause() {
   if (G.state === 'play') { G.state = 'pause'; $('pause').classList.add('show'); if (document.pointerLockElement) document.exitPointerLock(); }
   else if (G.state === 'pause') { G.state = 'play'; $('pause').classList.remove('show'); }
 }
-$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
-function bestRooms() { try { return +localStorage.getItem('dw_best_rooms') || 0; } catch (e) { return 0; } }
-function showGameOver() {
-  G.state = 'over';
-  if (document.pointerLockElement) document.exitPointerLock();
-  const s = G.stats, best = Math.max(bestRooms(), s.rooms);
-  try { localStorage.setItem('dw_best_rooms', best); } catch (e) {}
-  $('overStats').innerHTML = `Fell in <b>${World.label()}</b><br>${s.rooms} rooms cleared (best ${best})<br>${s.kills} kills · ${s.parries} parries · ${s.crits} criticals · ${s.dodges} dodges`;
-  $('over').classList.add('show');
+// Settings open over the title or the pause screen and return to it
+function openSettings() {
+  if (UI.open) return;
+  const from = G.state, scr = from === 'title' ? $('title') : from === 'pause' ? $('pause') : null;
+  if (scr) scr.classList.remove('show');
+  G.state = 'menu';
+  UI.show('settings', {}, () => { G.state = from === 'menu' ? 'play' : from; if (scr) scr.classList.add('show'); });
 }
-
+$('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+$('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
+$('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+// The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
+function musicMood() {
+  if (G.state === 'title' || G.mode === 'camp') return 'camp';
+  if (G.boss && G.boss.state !== 'dead') return 'boss';
+  if (G.enemies.some(e => e.state !== 'dead') || G.queue.length) G.calmAt = G.time;
+  return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
+}
+$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
 // ---------------- Game flow ----------------
-function startGame() {
+// Title -> (story) -> camp -> descend into a stage -> rooms -> guardian -> back to camp or press on. Falling wakes you in camp.
+function fadeTo(fn) {
+  const f = $('fade'); f.classList.add('on');
+  setTimeout(() => { fn(); setTimeout(() => f.classList.remove('on'), 60); }, 420);
+}
+function openPanel(id, opt, done) {
+  if (UI.open) return;
+  G.state = 'menu';
+  UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
+}
+const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
+// ---------------- Guardian entrances ----------------
+function startCine(e) {
+  if (G.state !== 'play') return;
+  G.cine = { e, t: 0, dur: 2.4 }; G.state = 'cine'; $('letterbox').classList.add('on'); document.body.classList.add('cine'); Input.keys = {};
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function endCine() {
+  if (G.state !== 'cine') return;
+  G.state = 'play'; G.cine = null; $('letterbox').classList.remove('on'); document.body.classList.remove('cine');
+}
+// ---------------- Lock-on ----------------
+// C, the right-stick click or 🎯 locks onto the foe nearest where you look: the camera swings to keep it in view, the
+// hero faces it and strafes around it, and attacks go to it. A gold marker spins over it. When it dies, the lock
+// moves to the next foe nearby; pressing again lets go.
+const lockMark = (() => {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.32, 4).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, depthTest: false }));
+  m.renderOrder = 10; m.visible = false; scene.add(m); return m;
+})();
+function pickLock(exclude, maxD = 16) {
+  const p = G.player; if (!p) return null;
+  const fwd = View.mode === 'behind' ? View.yaw + Math.PI : p.facing;
+  let best = null, bs = Infinity;
+  for (const e of G.enemies) {
+    if (!Enemy.targetable(e) || e === exclude) continue;
+    const d = Combat.dist(p.pos, e.pos); if (d > maxD) continue;
+    const s = d + Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - fwd)) * 6;
+    if (s < bs) { bs = s; best = e; }
+  }
+  return best;
+}
+function toggleLock() {
+  if (G.lock) { G.lock = null; return; }
+  G.lock = pickLock();
+  if (G.lock) Snd.play('glint');
+  else if (View.mode === 'behind' && G.player) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }   // nothing near: recentre
+}
+function updateLock(dt) {
+  const p = G.player; let L = G.lock;
+  if (L && (L.state === 'dead' || L.remove || Combat.dist(p.pos, L.pos) > 20)) L = G.lock = L.state === 'dead' ? pickLock(L, 10) : null;
+  lockMark.visible = !!L;
+  if (!L) return;
+  lockMark.position.set(L.pos.x, 2.15 * L.def.scale + 0.7 + Math.sin(G.time * 5) * 0.06, L.pos.z); lockMark.rotation.y += dt * 3;
+  if (View.mode === 'behind' && Combat.dist(p.pos, L.pos) > 0.8) {
+    const want = Math.atan2(p.pos.x - L.pos.x, p.pos.z - L.pos.z);           // the camera on the far side of the hero
+    View.yaw += Combat.wrap(want - View.yaw) * Math.min(1, dt * 7);
+  }
+}
+G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
+function clearEnemies() {
+  G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+function placeHero(at) {
+  const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
+  View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
+}
+// Into the camp: everything restored, Tilda's stock refreshed, the game saved
+function enterCamp(atSpawn = true) {
+  if (Tutorial.active) Tutorial.stop();
+  clearEnemies(); G.blessings = []; G.run = null;
+  const at = World.enterCamp();
+  G.mode = 'camp';
+  const S = Items.S; S.tripGold = 0;
+  const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
+  if (atSpawn) {
+    S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+    if (Math.random() < CFG.gear.uniqueStock && S.uniques.length < CFG.gear.uniques.length) {
+      const n = S.uniques.length; S.stock[0] = Items.generateUnique(tier); S.uniques.length = n;          // not "found" until bought
+    }
+  }
+  Items.save();
+  Player.refit(G.player, scene, true); Player.revive(G.player);
+  if (atSpawn) placeHero(at);
+  $('waveN').textContent = World.label(); $('foesN').textContent = '';
+}
+function titleGo() { startGame(Items.hasSave() && Items.load() ? 'continue' : 'new'); }
+function startGame(how = 'new') {
   Snd.init();
-  for (const e of G.enemies) Enemy.dispose(e, scene);
-  G.enemies = []; G.queue = [];
+  if (how === 'new' || !Items.load()) Items.newGame();
   if (G.player) { scene.remove(G.player.rig.root); scene.remove(G.player.trail.mesh); }
-  FX.clear();
-  World.reset();
   G.player = Player.create(scene);
   G.time = 0; G.seen = {};
   G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 };
-  $('title').classList.remove('show'); $('over').classList.remove('show'); $('pause').classList.remove('show');
+  $('title').classList.remove('show'); $('pause').classList.remove('show');
   G.state = 'play'; document.body.classList.add('playing');
-  View.yaw = 0; View.pitch = 0.42; camTarget.copy(G.player.pos);
-  World.begin();
+  enterCamp();
+  const S = Items.S;
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
 }
-$('startBtn').addEventListener('click', startGame);
-$('retryBtn').addEventListener('click', startGame);
+// Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
+G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
+function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
+// Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+G.descend = (k, onward) => fadeTo(() => {
+  clearEnemies(); G.blessings = []; G.run = null;
+  const at = World.startStage(k);
+  G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
+  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  G.state = 'play'; $('waveN').textContent = World.label();
+  const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
+  if (!S.story.pre[k]) {
+    S.story.pre[k] = true; Items.save();
+    const lines = st.pre[si].map(t => ['Maren', t]);
+    if (depth) lines.unshift(['Maren', st.depth.replace('{n}', depth + 1)]);
+    say(lines, null, 'Into the dark');
+  }
+});
+// A guardian enters a new phase
+G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
+// Gold from fallen enemies
+G.onEnemyDeath = e => {
+  G.stats.kills++; Codex.onKill(e);
+  if (G.boss === e) G.boss = null;
+  if (!Items.S || G.mode !== 'dungeon') return;
+  const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
+  FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
+  if (up) levelUp(up);
+  const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
+  FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
+  if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  if (e.type === 'mimic') {                                                // what a mimic swallowed
+    gemFound(1);
+    if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
+  }
+  const p = G.player; if (p.S.u && p.S.u.oath && p.state !== 'dead') { const h = p.maxHp * 0.05; p.hp = Math.min(p.maxHp, p.hp + h); FX.text(Combat.chestPos(p.pos, 2.4), '+' + Math.round(h), 'heal'); }
+};
+function levelUp(n) {
+  const S = Items.S, p = G.player;
+  banner('LEVEL ' + S.level); Snd.play('wave'); G.rumble(0.4, 0.8, 300);
+  FX.ring(p.pos, 2.2, 0xffd040, 0.8, { r0: 0.3 }); FX.burst(Combat.chestPos(p.pos, 1.2), 0xffd040, 30, 6, 0.7);
+  Player.refit(p, scene, false); p.hp = p.maxHp; p.st = p.maxSt;
+  UI.toast(`Level ${S.level}: +${n} talent point${n > 1 ? 's' : ''} (T opens Expertise)`, '#ffd040');
+  Items.save();
+}
+// Landed hits train the weapon type in hand
+G.onHits = (n, crit) => {
+  if (!Items.S || G.mode !== 'dungeon') return;
+  const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
+  if (r) {
+    const w = CFG.gear.weapons[p.S.weaponType].name, perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', '+8% posture damage'][r];
+    UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
+  }
+};
+// A cleared room's chest: gold, maybe gear; the guardian's chest always holds gear and unlocks the next stage
+G.onChest = room => {
+  const S = Items.S, big = room.chest.big, rich = room.chest.rich, k = room.inf.k, C = CFG.chest;
+  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : rich ? 2.5 : 1) * G.player.S.goldFind);
+  FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
+  FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
+  let it = null;
+  const tier = Math.min(k, CFG.gear.tierNames.length - 1), GC = CFG.gear;
+  if ((big && Math.random() < GC.uniqueChance) || (rich && Math.random() < GC.uniqueRich)) it = Items.generateUnique(tier);
+  else if (big || rich || Math.random() < C.itemChance) it = Items.generate(tier, { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
+  if (it) {
+    if (Items.add(it)) UI.toast((it.uniq ? '★ UNIQUE: ' : 'Found: ') + Items.fullName(it) + (it.uniq ? '' : ' (' + GC.rarities[it.rarity].name + ')'), Items.colorOf(it));
+    else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
+    if (it.uniq) { FX.ring(G.player.pos, 2.4, 0xff7a2a, 0.9, { r0: 0.3 }); Snd.play('wave'); }
+  }
+  if (Math.random() < GC.gemDrop.chest || big) G.after(it ? 1.2 : 0.2, () => gemFound(big ? GC.gemDrop.bigChest : 1));
+  if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
+  else if (big) {
+    S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
+    G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
+  } else Items.save();
+};
+// ---------------- The Endless Deep ----------------
+// A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
+G.enterEndless = daily => { G.run = Endless.newRun(daily); Items.S.tripGold = 0; G.goFloor(); };
+G.goFloor = () => fadeTo(() => {
+  clearEnemies(); G.blessings = [];
+  const at = Endless.start(G.run);
+  G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
+  Endless.record(G.run); Items.save();
+  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
+  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); p.flasks = Math.max(p.flasks, 1); }
+  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label();
+  if (at.lair) UI.toast('A guardian waits at the end of this floor', '#ff7a2a');
+});
+G.onFloorCleared = () => { if (G.run && !UI.open) openPanel('deeper', { floor: G.run.floor, daily: G.run.daily }); };
+G.goDeeper = () => { G.run.floor++; G.goFloor(); };
+// Loose gems go to the pouch; Bram sets them into sockets
+function gemFound(n) {
+  const got = [];
+  for (let i = 0; i < n; i++) { const k = Items.randomGem(); Items.addGem(k); got.push(CFG.gear.gems[k].icon + ' ' + CFG.gear.gems[k].name); }
+  UI.toast('Gem: ' + got.join(', '), '#9ad8ff'); Items.save();
+}
+G.returnToCamp = () => fadeTo(() => {
+  const k = G.stageK; enterCamp(); G.state = 'play';
+  const S = Items.S, si = k % CFG.stages.length;
+  if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
+  else { S.story.post[k] = true; Items.save(); }
+});
+// Press on: down the stair behind the fallen guardian into the next stage
+G.pressOn = () => G.descend(G.stageK + 1, true);
+G.onPlayerDeath = () => {
+  Snd.play('lose'); Items.S.deaths++;
+  G.after(1.6, () => {
+    const S = Items.S, lost = Math.floor(S.tripGold * CFG.camp.deathGoldLoss);
+    S.gold = Math.max(0, S.gold - lost); S.tripGold = 0; Items.save();
+    openPanel('fallen', { lost, where: 'Fell in ' + World.label() });
+  });
+};
+G.wakeInCamp = () => fadeTo(() => { enterCamp(); G.state = 'play'; });
+// Gear changed in a menu: new numbers and looks; a camp building rebuilds the camp around the hero
+G.onGearChanged = campChanged => {
+  const inCamp = G.mode === 'camp';
+  Player.refit(G.player, scene, inCamp);
+  if (campChanged && inCamp) { World.enterCamp(); }
+};
+// Talk to whoever is near in camp
+function interact() {
+  const s = G.spot; if (!s || G.state !== 'play') return;
+  Player.revive(G.player);
+  if (s.id === 'elder') {
+    const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
+    const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
+    if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
+    return say(lines);
+  }
+  if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'trainer') return openPanel('trainer');
+  openPanel(s.id);
+}
+// The training yard: Hobb's six lessons, in camp
+G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };
+G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
+// A blessing chosen at a shrine: it lasts until the hero leaves the stage
+G.bless = (id, shrine) => {
+  (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true; Codex.add('shrines');
+  Player.refit(G.player, scene, false); Snd.play('shrine');
+  const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
+  FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
+};
+$('startBtn').addEventListener('click', () => startGame('new'));
+$('contBtn').addEventListener('click', () => startGame('continue'));
+if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
 function turnView(dx, dy) {
-  View.yaw -= dx;
-  View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy));
+  const k = Settings.get('sens');
+  if (!G.lock) View.yaw -= dx * k;                                         // while locked on, the camera keeps the target in view
+  View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy * k * (Settings.get('invertY') ? -1 : 1)));
 }
 function toggleView() {
   View.mode = View.mode === 'behind' ? 'top' : 'behind';
@@ -255,10 +643,10 @@ function updateCamera(dt) {
   setFov(42);
   const want = p ? p.pos : new THREE.Vector3(0, 0, 0);
   camTarget.lerp(want, 1 - Math.exp(-6 * dt));
-  // Stay framed on the room the hero is in (in a corridor, just follow)
+  // Stay framed on the section the hero is in (in a passage, just follow)
   const r = p && World.roomOf(p.pos);
   let tx = camTarget.x, tz = camTarget.z;
-  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5); tx = Math.max(-lx, Math.min(lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
+  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);
@@ -268,12 +656,18 @@ function updateBehindCamera(dt) {
   const p = G.player, portrait = innerHeight > innerWidth;
   camTarget.lerp(p.pos, 1 - Math.exp(-14 * dt));
   setFov(portrait ? 72 : 55);
-  let d = View.dist * (portrait ? 1.15 : 1);
-  const cx = () => camTarget.x + Math.sin(View.yaw) * Math.cos(View.pitch) * d, cz = () => camTarget.z + Math.cos(View.yaw) * Math.cos(View.pitch) * d;
-  // Pull in toward the hero rather than look through a wall
-  for (let i = 0; i < 20 && !World.inSpace(cx(), cz()) && d > 1.5; i++) d *= 0.9;
+  const want = View.dist * (portrait ? 1.15 : 1), sy = Math.sin(View.yaw) * Math.cos(View.pitch), sz = Math.cos(View.yaw) * Math.cos(View.pitch);
+  // Near a wall the camera slides in toward the hero instead of looking through it: find (by halving) the longest
+  // distance that keeps it a little inside the room, then ease toward it - quickly when a wall closes in, gently when
+  // it opens up again - so backing into a wall is a smooth push-in, not a flicker between distances.
+  const inside = d => World.inSpace(camTarget.x + sy * d, camTarget.z + sz * d, -0.35);
+  let fit = want;
+  if (!inside(want)) { let lo = 0.8, hi = want; for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (inside(mid)) lo = mid; else hi = mid; } fit = lo; }
+  View.curDist = View.curDist || want;
+  View.curDist += (fit - View.curDist) * Math.min(1, dt * (fit < View.curDist ? 16 : 3));
+  const d = Math.min(View.curDist, fit + 0.05), close = Math.max(0, 1 - d / want);
   const s = FX.shakeAmt;
-  camera.position.set(cx() + (Math.random() - 0.5) * s, View.LOOK_H + Math.sin(View.pitch) * d + (Math.random() - 0.5) * s, cz());
+  camera.position.set(camTarget.x + sy * d + (Math.random() - 0.5) * s, View.LOOK_H + Math.sin(View.pitch) * d + close * 0.9 + (Math.random() - 0.5) * s, camTarget.z + sz * d);
   camLook.set(camTarget.x, View.LOOK_H, camTarget.z);
   camera.lookAt(camLook);
 }
@@ -286,7 +680,7 @@ addEventListener('resize', resize); resize();
 
 // ---------------- Main loop ----------------
 let last = performance.now();
-const idleRig = (() => { const r = Rig.build('hero'); r.root.position.set(0, 0, 2); r.root.rotation.y = 0.4; scene.add(r.root); return r; })();
+const idleRig = (() => { const r = Rig.build('hero', { look: Items.S ? Items.look() : {} }); r.root.position.set(1.7, 0, 3.3); r.root.rotation.y = -2.5; scene.add(r.root); return r; })();
 function frame(now) {
   requestAnimationFrame(frame);
   const real = Math.min(0.05, (now - last) / 1000); last = now;
@@ -294,6 +688,9 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 function step(real) {
+  pollPad(real);
+  Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
+  updateAir(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
@@ -306,28 +703,44 @@ function step(real) {
     resolveCollisions();
     World.update(dt, camera.position);
     updateSpawns();
+    Enemy.updateArrows(dt);
+    runTimers();
     FX.update(dt);
     updateHud();
+    Tutorial.update();
+    Codex.check(real);
+    updateLock(real);
     updateCamera(real);
-  } else if (G.state === 'title') {
+    MiniMap.draw(real);
+  } else if (G.state === 'cine') {
+    // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
+    const c = G.cine; c.t += real; G.time += real;
+    Enemy.update(c.e, real); World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Rig.animate(G.player.rig, { mode: 'idle', t: c.t, speed: 0 }, real);
+    const e = c.e, f = e.facing, k = Math.min(1, c.t / 0.6), out = Math.max(0, (c.t - c.dur + 0.5) / 0.5);
+    const want = new THREE.Vector3(e.pos.x + Math.sin(f) * 5.5 + Math.cos(f) * 1.5, 1.6 + 1.2 * e.def.scale, e.pos.z + Math.cos(f) * 5.5 - Math.sin(f) * 1.5);
+    camera.position.lerp(want, Math.min(1, real * 4 * (1 - out) + k * 0.02));
+    camera.lookAt(e.pos.x, 1.2 * e.def.scale, e.pos.z);
+    if (c.t >= c.dur) endCine();
+  } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
     World.update(real);
-    Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0 }, real);
+    Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);
     camTarget.set(0, 0, 2); setFov(42);
-    camera.position.set(2.5, 2.4, 6.6); camera.lookAt(0, 1.1, 2);
-  } else if (G.state === 'over') {
-    const dt = real; G.time += dt;
-    Player.update(G.player, dt);
-    for (const e of G.enemies) Enemy.update(e, dt);
-    World.update(dt, camera.position); FX.update(dt); updateHud(); updateCamera(real);
+    camera.position.set(-0.6, 2.2, 7.8); camera.lookAt(0.2, 1.2, 2.4);
+  } else if (G.state === 'menu') {
+    World.update(real, camera.position);                                 // gates, fades and the camp keep moving behind menus
+    updateCamera(real);
   }
-  if (G.state !== 'title' && idleRig.root.parent) scene.remove(idleRig.root);
+  if (G.state !== 'title' && G.player && idleRig.root.parent) scene.remove(idleRig.root);
 }
 requestAnimationFrame(frame);
 
 // Test hook: lets automated tests drive the game without a real input device
 window.__dw = {
   G, Input, CFG, step,
-  start: startGame, View, World, scene, camera, renderer,
+  start: startGame, openSettings, musicMood, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
+  // Tests: a fresh hero standing in the first room of stage k, no story, no fade
+  arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
