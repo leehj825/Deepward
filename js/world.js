@@ -525,7 +525,7 @@ const World = (() => {
       const e = all[k];
       if (!e) { L.intensity = 0; return; }
       const [t, r] = e, f = 0.85 + Math.sin(now / 90 + t.seed) * 0.08 + Math.sin(now / 37 + t.seed * 3) * 0.06;
-      L.position.copy(t.pos); L.color.setHex(t.color); L.intensity = 1.5 * f * r.fade;
+      L.position.copy(t.pos); L.color.setHex(t.color); L.intensity = 1.5 * f * r.fade * (G.torchK === undefined ? 1 : G.torchK);   // torches matter less by day
     });
   }
 
@@ -569,7 +569,7 @@ const World = (() => {
   const field = () => rooms.find(r => r.kind === 'field');
 
   function label() {
-    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : ''); } return 'Deepward Hold'; }
+    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }

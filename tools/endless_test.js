@@ -84,7 +84,7 @@ const path = require('path');
   }, plain));
   // Records by number of curses; home clears the dark
   await pg.evaluate(() => { window.__want = 'camp'; window.__floor = 0; __dw.G.returnToCamp(); }); await wait();
-  Object.assign(out, await pg.evaluate(() => ({ heat: __dw.Items.S.endless.heat[6] === 1, lightAgain: !document.body.classList.contains('lightless') && __dw.scene.fog.far === 38 })));
+  Object.assign(out, await pg.evaluate(() => ({ heat: __dw.Items.S.endless.heat[6] === 1, lightAgain: !document.body.classList.contains('lightless') && __dw.scene.fog.far >= 38 })));
   await b.close();
   const ok = !errs.length && Object.entries(out).every(([k, v]) => k === 'mult1' ? v > 1.1 : v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

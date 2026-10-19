@@ -26,6 +26,11 @@ Every model is built in code from primitives, and there are no model, texture or
 - Beasts wander their zone until you come close, then attack; hit one, or come near a wolf, and its pack comes too. Lead one too far from home and it gives up, mending as it goes back. They come back a while after they fall, and nothing follows you through the gate.
 - **Boars** gore up close, and from 5 to 10 m lower their heads and **charge** in a straight line (red, unblockable): dash out of the line. **Goblin scouts** keep their distance and throw spears you can block, parry or dash.
 - The Rim grows tougher as you go deeper below. Kills give XP, gold and weapon mastery as in the dungeon.
+- **Day and night:** the Hold and the Rim keep a ten-minute day (dawn, day, dusk, night) that runs while you are up there and is kept with the save. The sky, fog, light and sun or moon follow it; by day you see much further, at night the torches matter. The dungeon below keeps its own light.
+  - **At night** the dead rise in the Old Graveyard (by day it lies quiet) and the Meadow fills with more wolves. At dawn the dead crumble back into their graves.
+- **Field bosses** (boss bar once roused; back five minutes after they fall):
+  - **Old Tusk**, a huge armoured boar, walks the Meadow by day. Spoils: 4 tusks, 3 pelts, an epic-or-better piece and a gem.
+  - **The Grave Knight**, a life-draining knight, rises in the Old Graveyard at night. Spoils: 5 bones, 2 ore, an epic-or-better piece and a gem.
 - **Materials:** beasts drop pelts 🐾, tusks 🦷 and ore ⛏ (the dead below drop bones 🦴, less often), and the Rim has herb patches 🌿 and ore veins to gather (E / A / TALK); they grow back after a while.
   - **Bram's Craft tab** makes hunter gear: Wolfhide Wraps, Tuskbreaker Gauntlets, Hunter's Boots, a Bone Charm, the Ring of the Pack and a Tusk-plated Hauberk (at your depth, rare or epic, with fixed bonuses). **Temper** raises a worn piece one + level for ore and scrap instead of gold.
   - **Ysolde brews** any tonic from herbs for a fifth of its price.

@@ -61,7 +61,7 @@ const path = require('path');
     __dw.setView('top'); __dw.sim(0.2); o.topCamera = [__dw.camera.position.x, __dw.camera.position.y, __dw.camera.position.z].every(Number.isFinite); __dw.setView('behind');   // the field has no depth to frame (was NaN)
     // The Meadow fills with beasts that wander until the warden is near
     const mead = f.zones.find(z => z.id === 'meadow'); p.pos.set(mead.x, 0, mead.z - mead.r - 12); __dw.sim(2);
-    const beasts = () => G.enemies.filter(e => e.zone === mead && e.state !== 'dead');
+    const beasts = () => G.enemies.filter(e => e.zone === mead && e.state !== 'dead' && !e.fieldBoss);
     o.spawned = beasts().length >= 3 && beasts().length <= mead.cap;
     o.passive = beasts().every(e => !e.aggro);
     // Walking up to a wolf rouses it, and its pack with it
@@ -127,6 +127,37 @@ const path = require('path');
     o.brew = I.S.tonics.includes('stamina') && I.S.mats.herb === 3 && I.S.gold === 960 - 12; __dw.UI.close();
     return o;
   }));
+  // ---- W4: day and night, field bosses ----
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, f = __dw.World.field(), p = G.player, D = CFG.day.length; while (__dw.UI.open) __dw.UI.close(); G.state = 'play';
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    p.maxHp = p.hp = 1e5; p.pos.set(0, 0, 8);
+    I.S.clock = 0.25 * D; __dw.sim(0.2); const dayHemi = __dw.World && G.isNight() === false;
+    const c0 = I.S.clock; __dw.sim(1); o.clockRuns = I.S.clock > c0 + 0.9;
+    I.S.clock = 0.75 * D; __dw.sim(0.2); o.nightFalls = dayHemi && G.isNight() && /Night/.test(__dw.World.label());
+    // The Old Graveyard: empty by day, the dead rise at night, and crumble at dawn
+    const gy = f.zones.find(z => z.id === 'graves'), dead = () => G.enemies.filter(e => e.zone === gy && e.state !== 'dead' && !e.fieldBoss).length;
+    p.pos.set(gy.x + gy.r + 10, 0, gy.z); I.S.clock = 0.25 * D; __dw.sim(2);
+    o.graveDay = dead() === 0;
+    I.S.clock = 0.75 * D; __dw.sim(2); o.graveNight = dead() >= 3 && G.enemies.some(e => e.fieldBoss && e.fieldBoss.id === 'graveknight');
+    I.S.clock = 0.2 * D; __dw.sim(0.5); o.graveDawn = dead() === 0;
+    // Old Tusk walks the Meadow by day; roused, he gets a boss bar; felled, he pays and stays down a while
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    const mead = f.zones.find(z => z.id === 'meadow'); p.pos.set(mead.x, 0, mead.z - mead.r - 15); I.S.fieldBoss = {}; __dw.sim(1.5);
+    const tusk = G.enemies.find(e => e.fieldBoss && e.fieldBoss.id === 'oldtusk');
+    o.tuskOut = !!tusk && tusk.champion && tusk.maxHp > CFG.enemies.boar.hp * 5;
+    if (tusk) {
+      p.pos.set(tusk.pos.x, 0, tusk.pos.z + 5); __dw.sim(0.2); o.tuskBar = tusk.aggro && G.boss === tusk;
+      const tu0 = I.S.mats.tusk || 0, inv0 = I.S.inv.length; tusk.state = 'broken'; Enemy.receive(tusk, { dmg: 1e6, posture: 0 }, p); __dw.sim(0.5);
+      o.tuskSpoils = (I.S.mats.tusk || 0) >= tu0 + 4 && I.S.inv.length === inv0 + 1 && I.S.fieldBoss.oldtusk > Date.now();
+      __dw.sim(2); o.tuskStaysDown = !G.enemies.some(e => e.fieldBoss && e.fieldBoss.id === 'oldtusk' && e.state !== 'dead');
+    }
+    return o;
+  }));
+  // Below, the dungeon keeps its own light whatever the hour above
+  await pg.evaluate(() => { __dw.Items.S.clock = 0.25 * CFG.day.length; __dw.G.descend(0); });
+  await pg.waitForFunction(() => __dw.G.mode === 'dungeon' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => { __dw.sim(0.2); const s = __dw.scene; return { dungeonLight: s.fog.far === 38 && s.fog.near === 18 && __dw.G.torchK === 1 }; }));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

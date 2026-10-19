@@ -113,7 +113,7 @@ const Enemy = (() => {
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
       // Led too far from home, a beast of the Rim gives up and goes back, mending as it goes
-      if (e.zone && Math.hypot(e.pos.x - e.zone.x, e.pos.z - e.zone.z) > e.zone.r + CFG.field.leash && d > 6) { e.aggro = false; e.wanderTo = { x: e.zone.x, z: e.zone.z }; e.wanderT = 6; e.hp = e.maxHp; e.posture = 0; updateBar(e); }
+      if (e.zone && Math.hypot(e.pos.x - e.zone.x, e.pos.z - e.zone.z) > e.zone.r + CFG.field.leash && d > 6) { e.aggro = false; e.wanderTo = { x: e.zone.x, z: e.zone.z }; e.wanderT = 6; e.hp = e.maxHp; e.posture = 0; updateBar(e); if (e.fieldBoss && G.onFieldBoss) G.onFieldBoss(e, false); }
       if (e.strafeT <= 0) { e.strafeT = 1.5 + Math.random() * 2; if (Math.random() < 0.5) e.strafeDir *= -1; }
       const reach = maxReach(e) * 0.85 + CFG.player.radius;
       const playerOK = p.state !== 'dead';
@@ -233,6 +233,7 @@ const Enemy = (() => {
   // Rouse a beast of the Rim, and its pack nearby
   function rouse(e) {
     if (e.aggro) return; e.aggro = true; e.cooldown = Math.max(e.cooldown, 0.4);
+    if (e.fieldBoss && G.onFieldBoss) G.onFieldBoss(e, true);
     if (e.def.pack) for (const o of G.enemies) if (o !== e && o.zone === e.zone && !o.aggro && o.state !== 'dead' && Combat.dist(o.pos, e.pos) < 12) rouse(o);
   }
   function receive(e, atk, p) {

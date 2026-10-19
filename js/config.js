@@ -443,14 +443,26 @@ const CFG = {
   field: {
     size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
     zones: [
-      { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], cap: 5, respawn: 25, mult: 1 },
+      { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], nightMobs: ['wolf', 'wolf', 'wolf', 'boar'], cap: 5, nightCap: 6, respawn: 25, mult: 1 },
       { id: 'wood', name: 'Thornwood', x: 36, z: 52, r: 18, mobs: ['scout', 'scout', 'wolf', 'spider'], cap: 5, respawn: 30, mult: 1.3 },
-      { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4 },
+      { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4, night: true },   // the dead rise only at night
       { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
     ],
     nodes: { herb: 12, ore: 8, regrow: 150 },   // herb patches and ore veins to gather; each grows back after regrow seconds
+    // Field bosses: each keeps to its zone at its time of day, comes back respawn seconds (real time) after it falls
+    bosses: [
+      { id: 'oldtusk', name: 'Old Tusk', type: 'boar', zone: 'meadow', when: 'day', mods: ['armored'], hp: 6, scale: 1.7, respawn: 300, drops: { tusk: 4, pelt: 3 } },
+      { id: 'graveknight', name: 'The Grave Knight', type: 'knight', zone: 'graves', when: 'night', mods: ['vampiric'], hp: 6, scale: 1.35, respawn: 300, drops: { bone: 5, ore: 2 } },
+    ],
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
+  // The day in the Hold and on the Rim: length seconds from dawn to dawn (the dungeon below keeps no time). Day and
+  // night colours for the sky and fog, the light, the sun or moon, and how far the fog lets you see.
+  day: {
+    length: 600, start: 0.08,
+    sky: { day: 0x8aa2bc, dusk: 0xb07858, night: 0x0b1224 }, hemi: { day: [0xd8e4ff, 1.0], night: [0x8098c8, 0.55] },
+    sun: { day: [0xfff0d8, 1.05], dusk: [0xffa060, 0.7], night: [0xaab8e0, 0.5] }, fog: { day: [30, 85], night: [18, 38] },
   },
   // Materials: dropped by beasts (and the dead below, less often) and gathered on the Rim; Bram crafts with them and
   // Ysolde brews tonics from herbs

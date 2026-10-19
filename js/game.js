@@ -296,6 +296,10 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
+      const B = q.fieldBoss; Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp;
+      e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
+    }
     if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
@@ -487,6 +491,40 @@ function startGame(how = 'new') {
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+// ---------------- Day and night (the Hold and the Rim) ----------------
+// S.clock runs while the warden is in the Hold or on the Rim; 0 is dawn, 0.25 noon, 0.5 dusk, 0.75 midnight. The sky,
+// fog, light and sun follow it; below, the dungeon keeps its own light.
+const DAY = CFG.day, BASE_LIGHT = { hemi: 0.55, moon: 0.5, moonC: 0xaab8e0 };
+const dayT = () => { const S = Items.S; return S && S.clock !== undefined ? (S.clock / DAY.length) % 1 : DAY.start; };
+const sunUp = () => Math.sin(dayT() * Math.PI * 2);                       // > 0 by day
+G.isNight = () => sunUp() < -0.12;
+G.timeName = () => { const s = sunUp(), t = dayT(); return s > 0.35 ? 'Day' : s < -0.12 ? 'Night' : t < 0.25 || t > 0.75 ? 'Dawn' : 'Dusk'; };
+let dayOn = false, wasNight = null;
+const cA = new THREE.Color(), cB = new THREE.Color();
+function updateDay(dt) {
+  const inWorld = World.inCamp() && G.state !== 'title';
+  if (!inWorld) {
+    if (dayOn) { dayOn = false; hemi.intensity = BASE_LIGHT.hemi; moon.intensity = BASE_LIGHT.moon; moon.color.setHex(BASE_LIGHT.moonC); G.torchK = 1; curseWorld(); }
+    return;
+  }
+  dayOn = true;
+  const S = Items.S; if (S.clock === undefined) S.clock = DAY.start * DAY.length;
+  if (G.state === 'play') S.clock = (S.clock + dt) % DAY.length;
+  const s = sunUp(), L = Math.max(0, Math.min(1, (s + 0.12) / 0.47)), warm = Math.max(0, 1 - Math.abs(s) / 0.3) * (s > -0.2 ? 1 : 0);
+  // Sky and fog: night to day, with a warm band at dawn and dusk
+  cA.setHex(DAY.sky.night).lerp(cB.setHex(DAY.sky.day), L).lerp(cB.setHex(DAY.sky.dusk), warm * 0.55);
+  scene.fog.color.copy(cA); scene.background.copy(cA);
+  hemi.color.setHex(DAY.hemi.night[0]).lerp(cB.setHex(DAY.hemi.day[0]), L); hemi.intensity = DAY.hemi.night[1] + (DAY.hemi.day[1] - DAY.hemi.night[1]) * L;
+  moon.color.setHex(DAY.sun.night[0]).lerp(cB.setHex(DAY.sun.day[0]), L).lerp(cB.setHex(DAY.sun.dusk[0]), warm * 0.6);
+  moon.intensity = DAY.sun.night[1] + (DAY.sun.day[1] - DAY.sun.night[1]) * L;
+  scene.fog.near = DAY.fog.night[0] + (DAY.fog.day[0] - DAY.fog.night[0]) * L; scene.fog.far = DAY.fog.night[1] + (DAY.fog.day[1] - DAY.fog.night[1]) * L;
+  G.torchK = 1 - L * 0.65;
+  // Tell the warden when night falls and when the sun comes back
+  const night = G.isNight();
+  if (wasNight !== null && night !== wasNight && G.state === 'play') UI.toast(night ? '☾ Night falls. The dead stir in the Old Graveyard, and the wolves grow bold.' : '☀ Dawn. The dead go back to their graves.', night ? '#9aa8ff' : '#ffd890');
+  wasNight = night;
+}
+G.onFieldBoss = (e, roused) => { if (roused) { G.boss = e; banner(e.fieldBoss.name.toUpperCase()); Snd.play('slam'); } else if (G.boss === e) G.boss = null; };
 // Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
 // the Hold the gold is banked and the tonics wear off
 function checkRim() {
@@ -526,6 +564,15 @@ G.onEnemyDeath = e => {
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  // A field boss: its spoils, and when it comes back
+  if (e.fieldBoss) {
+    const B = e.fieldBoss, S = Items.S; S.fieldBoss = S.fieldBoss || {}; S.fieldBoss[B.id] = Date.now() + B.respawn * 1000;
+    S.bossKills = S.bossKills || {}; S.bossKills[B.id] = (S.bossKills[B.id] || 0) + 1;
+    for (const [k, n] of Object.entries(B.drops)) Items.addMat(k, n);
+    const it = Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { minRarity: 2, boost: 1 });
+    if (Items.add(it)) UI.toast(`${B.name} falls: ${Items.fullName(it)}`, Items.colorOf(it));
+    gemFound(1); banner(B.name.toUpperCase() + ' FALLS'); Items.save();
+  }
   // Materials: beasts of the Rim drop them; the dead below now and then
   for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
   if (e.type === 'mimic') {                                                // what a mimic swallowed
@@ -801,6 +848,7 @@ function step(real) {
     resolveCollisions();
     World.update(dt, camera.position);
     if (World.inCamp()) checkRim();
+    updateDay(dt);
     updateSpawns();
     Enemy.updateArrows(dt);
     runTimers();

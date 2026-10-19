@@ -33,7 +33,8 @@ const Field = (() => {
 
     // Ground: grass over the whole field and well beyond it, the road up to the gate
     const gt = grass().clone(); gt.needsUpdate = true; gt.repeat.set(26, 24); room.texs.push(gt);
-    add(new THREE.PlaneGeometry(hw * 2 + 60, depth + 50).rotateX(-Math.PI / 2), M(0xffffff, { map: gt, flatShading: false }), 0, 0.02, (z0 + z1) / 2, false);
+    const gs = HD + 0.9, ge = z1 + 30;                                       // from just outside the palisade (the Hold keeps its own ground)
+    add(new THREE.PlaneGeometry(hw * 2 + 60, ge - gs).rotateX(-Math.PI / 2), M(0xffffff, { map: gt, flatShading: false }), 0, 0.02, (gs + ge) / 2, false);
     const road = M(0x2a2218, { roughness: 1 });
     add(new THREE.PlaneGeometry(3.6, F.gap + 24).rotateX(-Math.PI / 2), road, 0, 0.03, HD + (F.gap + 24) / 2, false);
     // The stream across the field, with a wooden bridge where the road crosses
@@ -123,16 +124,31 @@ const Field = (() => {
     for (const n of room.nodes) if (!n.ready && (n.t -= dt) <= 0) { n.ready = true; n.g.visible = true; }
     if (!p || G.state !== 'play' || G.training) return;
     const here = p.pos.z > room.rect.z0 - 3;
+    const night = G.isNight ? G.isNight() : false;
     for (const z of room.zones) {
-      const alive = G.enemies.filter(e => e.zone === z && e.state !== 'dead').length + G.queue.filter(q => q.zone === z).length;
+      // The dead keep to the night: at dawn they crumble back into their graves
+      if (z.night && !night) { for (const e of G.enemies) if (e.zone === z && e.state !== 'dead' && !e.fieldBoss) { e.remove = true; FX.burst(Combat.chestPos(e.pos, 1), 0xd8cfb4, 14, 4, 0.5); } G.queue = G.queue.filter(q => q.zone !== z); continue; }
+      const cap = night && z.nightCap ? z.nightCap : z.cap, mobs = night && z.nightMobs ? z.nightMobs : z.mobs;
+      const alive = G.enemies.filter(e => e.zone === z && e.state !== 'dead' && !e.fieldBoss).length + G.queue.filter(q => q.zone === z && !q.fieldBoss).length;
       const near = here && Math.hypot(p.pos.x - z.x, p.pos.z - z.z) < z.r + 25;
       if (!near) continue;
-      if (alive >= z.cap) { z.filled = true; continue; }
+      if (alive >= cap) { z.filled = true; continue; }
       if (G.time < z.next) continue;
       const at = spotIn(room, z, p.pos); if (!at) continue;
-      const type = z.mobs[Math.floor(Math.random() * z.mobs.length)], m = multOf(z);
+      const type = mobs[Math.floor(Math.random() * mobs.length)], m = multOf(z);
       G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, t: G.time });
       z.next = G.time + (z.filled ? z.respawn : 0.25);
+    }
+    // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
+    const S = Items.S; S.fieldBoss = S.fieldBoss || {};
+    for (const B of F.bosses) {
+      const z = room.zones.find(q => q.id === B.zone), up = B.when === 'night' ? night : !night;
+      const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
+      if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
+      if (alive || queued || !up || Date.now() < (S.fieldBoss[B.id] || 0)) continue;
+      if (Math.hypot(p.pos.x - z.x, p.pos.z - z.z) > z.r + 25 || !here) continue;
+      const at = spotIn(room, z, p.pos); if (!at) continue;
+      const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, fieldBoss: B, t: G.time });
     }
     // Beasts left far behind (or the warden back in the Hold) are let go
     for (const e of G.enemies) if (e.zone && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
