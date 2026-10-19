@@ -55,6 +55,11 @@ const path = require('path');
   Object.assign(out, await pg.evaluate(() => {
     const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player, f = W.field();
     o.rim = !!f && f.rect.z0 > W.camp().rect.z1 && f.rect.x1 - f.rect.x0 >= 100;
+    // Walking (no dash) from the fire out through the gate onto the Rim and back: nothing on the road holds the warden
+    __dw.setView('top'); p.pos.set(0.6, 0, 8); Input.stick.z = 1; Input.stick.x = 0;
+    __dw.sim(14, () => p.pos.z > f.rect.z0 + 8); o.walkOut = p.pos.z > f.rect.z0 + 8;
+    Input.stick.z = -1; __dw.sim(14, () => p.pos.z < 8); o.walkIn = p.pos.z < 8; Input.stick.z = 0; __dw.setView('behind'); __dw.sim(0.2);
+    for (const e of G.enemies) e.remove = true; G.queue = []; for (const z of f.zones) { z.filled = false; z.next = 0; } __dw.sim(0.1);
     // Through the gate: the Rim is a little trip of its own
     I.S.gold = 500; p.maxHp = p.hp = 1e5; p.pos.set(0, 0, f.rect.z0 + 2); __dw.sim(0.3);
     o.fieldMode = G.mode === 'field' && /The Rim/.test(W.label());

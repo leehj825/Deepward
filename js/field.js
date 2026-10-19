@@ -20,7 +20,7 @@ const Field = (() => {
     const group = new THREE.Group(); scene.add(group);
     const room = {
       i: -2, kind: 'field', group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
-      rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 0.5, z1: z0 + 0.5 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
+      rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 2, z1: z0 + 2 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
       zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
     };
     const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
