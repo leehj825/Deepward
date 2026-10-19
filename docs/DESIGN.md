@@ -29,6 +29,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Attack tokens:** at most two enemies wind up or swing at once, so crowds stay readable.
 - **Feel:** hit-stop on impact, slow motion on a parry, screen shake, swing trails, sparks and floating numbers.
 
+- **Area blows are aimed once.** When a red area blow starts, the foe picks its aim at the warden and where its lunge or leap will end (`aoeTo`, never past the warden); the floor ring is drawn there (`aoeAt`) and does not move. The foe turns to that aim, lunges or leaps exactly to `aoeTo`, and the blow lands on the ring, so a dash out of the ring is always safe. `tools/aoe_test.js` checks it.
 ## Progression through the dungeon (built)
 
 - **One dungeon per stage:** a winding run of five sections heading north. Each section is a wide hall, sized from `CFG.stages` times `sectionScale` (1.3) and shifted sideways from the last so the path bends. Straight open passages (4 m wide, 8 m long) join them. There are no gates, and the whole stage is built when you arrive.

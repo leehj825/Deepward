@@ -80,7 +80,16 @@ const Enemy = (() => {
       Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 1.8 * e.def.scale), Settings.get('cues') ? '▲ PARRY!' : '!', 'amber');
       Rig.flash(e.rig, GLOW_AMBER, 0.45); e.flashT = 0.25;
     } else Snd.play('glint');
-    if (h.aoe) e.ring = FX.ring(aoeCenter(e, h), h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
+    // An area blow is aimed once, as it starts: at the warden, landing where the body will end up after its lunge or
+    // leap. The ring stays put and the blow lands on it, so a dash out of it works whatever the body does next.
+    e.aoeAt = e.aoeTo = null;
+    if (h.aoe) {
+      const p = G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const go = Math.min(h.lunge, Math.max(0, Combat.dist(e.pos, p.pos) - e.def.radius - 0.8));
+      e.aoeTo = e.pos.clone().addScaledVector(dir, go); e.aoeTo.y = 0;
+      e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
+    }
+    if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
   }
 
   function update(e, dt) {
@@ -140,17 +149,22 @@ const Enemy = (() => {
       else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.4);
     } else if (e.state === 'attack') {
       const h = e.atk.hits[e.hitIdx]; e.phaseT += dt;
+      // The lunge: an area blow goes to its planned spot and no further; any other closes on the warden
+      const lunge = sp => {
+        if (!e.aoeTo) { if (d > def.radius + 0.8) step(e.facing, sp); return; }
+        const rx = e.aoeTo.x - e.pos.x, rz = e.aoeTo.z - e.pos.z, rem = Math.hypot(rx, rz); if (rem < 0.01) return;
+        const k = Math.min(sp * slow * dt, rem) / rem; e.pos.x += rx * k; e.pos.z += rz * k;
+      };
       if (e.phase === 'wind') {
         // Tracks the player until shortly before the hit, then commits (that is the moment to roll sideways)
-        if (e.phaseT < h.wind - 0.22) turn(toP, 6);
+        if (e.phaseT < h.wind - 0.22) turn(e.aoeAt ? e.aimYaw : toP, 6);   // an area blow keeps to its ring
         Rig.glow(e.rig, glowOf(h), 0.2 + 1.3 * Math.min(1, e.phaseT / h.wind));
-        if (e.phaseT > h.wind * 0.65 && d > def.radius + 0.8 && !h.leap) step(e.facing, h.lunge / (h.wind * 0.35 + h.active));
+        if (e.phaseT > h.wind * 0.65 && !h.leap) lunge(h.lunge / (h.wind * 0.35 + h.active));
         // A feint: the swing stops short, the weapon drops, and the real blow comes quickly after
         if (h.feint && e.phaseT >= h.wind) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); return finishUpdate(e, dt, before); }
-        if (e.ring && h.aoe) { const c = aoeCenter(e, h); e.ring.m.position.set(c.x, 0.03, c.z); if (e.ring.fill) e.ring.fill.position.set(c.x, 0.025, c.z); }
         if (e.phaseT >= h.wind) { e.phase = 'active'; e.phaseT = 0; Snd.play('swing'); }
       } else if (e.phase === 'active') {
-        if (d > def.radius + 0.8) step(e.facing, h.leap ? h.lunge / h.active : h.lunge / (h.wind * 0.35 + h.active));
+        lunge(h.leap ? h.lunge / (h.active * 0.8) : h.lunge / (h.wind * 0.35 + h.active));   // a leap lands as it strikes
         if (!e.struck && e.phaseT >= h.active * (h.leap ? 0.8 : 0.5)) {
           e.struck = true;
           if (h.projectile) shoot(e, h); else if (h.raise) raise(e, h.raise); else Combat.enemyStrike(e, h);

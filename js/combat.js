@@ -55,7 +55,7 @@ const Combat = (() => {
     const p = G.player; if (!p || p.state === 'dead') return;
     let reached;
     if (hit.aoe) {
-      const c = Enemy.aoeCenter(e, hit);
+      const c = e.aoeAt || Enemy.aoeCenter(e, hit);
       reached = Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= hit.aoe.r + CFG.player.radius;
       Snd.play('slam'); FX.shake(0.35); FX.ring(c, hit.aoe.r * 1.2, 0xff6a3a, 0.4, { r0: 0.3 });
       FX.burst(new THREE.Vector3(c.x, 0.2, c.z), 0xb09070, 22, 7, 0.5);
