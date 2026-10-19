@@ -54,12 +54,12 @@ const World = (() => {
   // ---------------- Laying out a stage ----------------
   // Sizes grow by CFG.sectionScale; each section shifts sideways from the last (so the path winds) while keeping enough
   // overlap for a straight passage between them.
-  function plan(first) {
-    const count = info(first).count, out = [];
+  function plan(infos) {
+    const count = infos.length, out = [];
     let prev = null, side = Math.random() < 0.5 ? 1 : -1;
     for (let j = 0; j < count; j++) {
-      const inf = info(first + j), [hw, hd] = inf.room.size.map(v => v * CFG.sectionScale);
-      const p = { i: first + j, j, inf, hw, hd, cx: 0, doorS: null, doorN: null };
+      const inf = infos[j], [hw, hd] = inf.room.size.map(v => v * CFG.sectionScale);
+      const p = { i: j, j, inf, hw, hd, cx: 0, doorS: null, doorN: null };
       if (prev) {
         const lim = Math.max(0, Math.min(7, prev.hw + hw - DOOR * 2 - 3));
         p.cx = Math.max(-12, Math.min(12, prev.cx + side * lim * (0.5 + Math.random() * 0.5)));
@@ -76,7 +76,7 @@ const World = (() => {
     mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
-    if (count > 2) out[Math.floor(count / 2)].champion = info(first).stage.champion;          // the middle section's last wave
+    if (count > 2 && infos[0].stage.champion) out[Math.floor(count / 2)].champion = infos[0].stage.champion;          // the middle section's last wave
     return out;
   }
 
@@ -362,7 +362,7 @@ const World = (() => {
   // ---------------- Encounters ----------------
   function spawnWave(room) {
     const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
-    const mult = 1 + room.inf.loop * CFG.loopScale;
+    const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale;
     // Spawn spots: across the section, away from the hero and the pillars
     const spots = [];
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
@@ -404,7 +404,9 @@ const World = (() => {
     if (room.kind === 'side') { addChest(room, false, { x: room.dir * (room.hw - 1.3), z: room.cz }, true); banner('DEN CLEARED'); return; }
     const guardian = !!room.inf.room.guardian;
     addChest(room, guardian);
-    banner(guardian ? 'STAGE CLEARED' : 'AREA CLEARED');
+    banner(guardian ? (room.inf.custom ? 'FLOOR CLEARED' : 'STAGE CLEARED') : 'AREA CLEARED');
+    // In the Endless Deep, a floor without a guardian is done when every section is
+    if (room.inf.custom && !guardian && sections.every(r => r.state === 'cleared') && G.onFloorCleared) G.after(1.3, () => G.onFloorCleared());
   }
 
   // A chest left in each cleared section, beside the path; the guardian's is bigger and stands before the lair
@@ -514,7 +516,16 @@ const World = (() => {
     clearAll(); halted = false;
     const S = CFG.stages, per = S.reduce((n, s) => n + s.rooms.length, 0), loop = Math.floor(k / S.length), si = k % S.length;
     let idx = loop * per; for (let j = 0; j < si; j++) idx += S[j].rooms.length;
-    sections = plan(idx).map(build);
+    return begin(Array.from({ length: S[si].rooms.length }, (_, j) => info(idx + j)));
+  }
+  // A stage built from a given definition (the Endless Deep): o.si picks the guardian, o.k the loot tier and elite
+  // odds, o.mult how tough the enemies are
+  function startCustom(def, o) {
+    clearAll(); halted = false;
+    return begin(def.rooms.map((room, ri) => ({ si: o.si, ri, loop: 0, k: o.k, stage: def, room, count: def.rooms.length, mult: o.mult, custom: true })));
+  }
+  function begin(infos) {
+    sections = plan(infos).map(build);
     const r = sections[0]; applyTheme(r.th);
     active = r; r.state = 'start'; r.t = 0;
     banner(r.inf.stage.name.toUpperCase() + (r.inf.loop ? '  ·  DEPTH ' + (r.inf.loop + 1) : ''));
@@ -530,7 +541,7 @@ const World = (() => {
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, inCamp, camp,
+    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; },
   };
 })();

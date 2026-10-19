@@ -169,3 +169,12 @@ Each stage's plan picks its extras (see `CFG.features`):
   - **Where the effects live:** the parry wave and burning ground are in `combat.js` and `player.js`; thorns and life-on-kill go through `Enemy.burn` and `G.onEnemyDeath`.
   - **Repeats:** `S.uniques` lists the ones found, so all nine drop before any repeats. One in Tilda's stock only counts as found once bought.
 - **Sockets:** an item's `gems` array holds a gem kind or null for each socket, and the stats add the gems from equipped items. Bram sets, pries and adds sockets. Loose gems live in `S.gems`.
+
+## The Endless Deep (built)
+
+- **Unlock:** opens when `S.stage` reaches the number of stages.
+- **Floors:** `Endless.floorDef(floor, rng)` makes a stage definition. It picks a random stage for the theme, guardian and champion, takes section shapes from that stage's rooms, and builds waves from its enemies (every kind from floor 4). The last section is the guardian's lair every third floor; otherwise it's a two-wave fight, with the champion in the middle section.
+- **Building:** `World.startCustom` builds it. While it does, `Math.random` is swapped for the run's seeded generator, so the layout, side rooms, traps and pots repeat too. The Daily Descent seed is a hash of the date.
+- **Toughness:** enemies get `1 + 0.18 × floor`. The loot tier and elite odds use the virtual stage index (4 + floor).
+- **Between floors:** a floor is done when its guardian's chest opens, or when every section is cleared. The "deeper" panel can't be dismissed: go deeper (heal 30%, at least one flask) or return to camp.
+- **Records:** `S.endless.best` and `S.endless.daily` (date and best) are updated at the start of each floor.

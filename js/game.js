@@ -394,7 +394,7 @@ function placeHero(at) {
 }
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
-  clearEnemies(); G.blessings = [];
+  clearEnemies(); G.blessings = []; G.run = null;
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -429,7 +429,7 @@ G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies(); G.blessings = [];
+  clearEnemies(); G.blessings = []; G.run = null;
   const at = World.startStage(k);
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
@@ -490,11 +490,27 @@ G.onChest = room => {
     if (it.uniq) { FX.ring(G.player.pos, 2.4, 0xff7a2a, 0.9, { r0: 0.3 }); Snd.play('wave'); }
   }
   if (Math.random() < GC.gemDrop.chest || big) G.after(it ? 1.2 : 0.2, () => gemFound(big ? GC.gemDrop.bigChest : 1));
-  if (big) {
+  if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
+  else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
     G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
   } else Items.save();
 };
+// ---------------- The Endless Deep ----------------
+// A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
+G.enterEndless = daily => { G.run = Endless.newRun(daily); Items.S.tripGold = 0; G.goFloor(); };
+G.goFloor = () => fadeTo(() => {
+  clearEnemies(); G.blessings = [];
+  const at = Endless.start(G.run);
+  G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
+  Endless.record(G.run); Items.save();
+  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
+  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); p.flasks = Math.max(p.flasks, 1); }
+  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label();
+  if (at.lair) UI.toast('A guardian waits at the end of this floor', '#ff7a2a');
+});
+G.onFloorCleared = () => { if (G.run && !UI.open) openPanel('deeper', { floor: G.run.floor, daily: G.run.daily }); };
+G.goDeeper = () => { G.run.floor++; G.goFloor(); };
 // Loose gems go to the pouch; Bram sets them into sockets
 function gemFound(n) {
   const got = [];

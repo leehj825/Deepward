@@ -109,7 +109,19 @@ const UI = (() => {
         const s = st[k % st.length], depth = Math.floor(k / st.length), cleared = k < S.stage;
         h += `<div class="irow"><div class="iinfo"><b>${s.name}</b> <small>${depth ? 'Depth ' + (depth + 1) + ' · ' : ''}${cleared ? 'cleared' : 'not yet cleared'}</small><div class="istats">Guardian: ${esc(s.guardian)}</div></div><div class="ibtns">${btn(cleared ? 'Descend' : 'Descend ▸', 'descend', k, false, cleared ? '' : 'hot')}</div></div>`;
       }
+      // The Endless Deep, once the fifth guardian has fallen
+      const E = S.endless || { best: 0, daily: {} }, daily = E.daily && E.daily.date === Endless.today() ? E.daily.best : 0;
+      if (Endless.unlocked()) {
+        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
+        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
+      } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
+    },
+    deeper(o) {
+      const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
+      return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
+        <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
+        ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
     bag() {
       const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
@@ -213,6 +225,8 @@ const UI = (() => {
     if (a === 'open') { open.id = arg; open.opt = {}; focus = -1; return render(); }
     if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
+    if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
+    if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }
     if (a === 'wake') { close(); return G.wakeInCamp(); }
@@ -261,7 +275,7 @@ const UI = (() => {
     if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
     act(b.dataset.act, b.dataset.arg);
   }
-  function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared') return; if (open.id === 'dialogue') return act('next'); close(); }
+  function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper') return; if (open.id === 'dialogue') return act('next'); close(); }
 
   // ---------------- HUD bits ----------------
   let toastT = null;

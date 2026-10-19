@@ -256,7 +256,9 @@ const CFG = {
       warded: { name: 'Warded', color: 0xa070ff, hp: 1.0, ward: 4, wardBack: 7, desc: 'A ward soaks hits (heavies break it faster) and returns' },
     },
   },
-  championMult: 1.35,            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  championMult: 1.35,
+  // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
+  endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
   blessings: [
     { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },

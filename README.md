@@ -51,6 +51,14 @@ Every model is built in code from primitives, and there are no model, texture or
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
 - **Saving:** progress saves in the browser, and the title screen offers Continue.
 
+**The Endless Deep.** Once the fifth guardian (the Pale Duelist) falls, the camp gate offers two more ways down:
+
+- **The Endless Deep:** floor after floor of fresh dungeon, drawn from a random stage's look and enemies. It gets 18% tougher each floor and brings in enemies from every stage from floor 4.
+  - Every third floor ends in that stage's guardian (with its phases); the other floors bring its champion mid-floor.
+  - Between floors, choose to go deeper (you heal 30%) or go home and keep your gold. Fall, and you lose half of the trip's gold as usual.
+  - Loot and elite odds keep rising with depth, and your deepest floor is kept.
+- **Daily Descent:** the same climb seeded by the date, so every warden gets the same floors that day. Today's best is kept separately.
+
 **Growth.**
 
 - **Levels:** kills give XP (guardians six times as much). Each level adds health, stamina and 2.5% power, and grants a talent point.
@@ -237,6 +245,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
 | `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings |
+| `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -245,6 +254,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/boss_test.js` | Headless check of all five guardians: phases, roars, summons, Aldric's stance change, the Den Mother's rage, the Pale Duelist's blink |
 | `tools/settings_test.js` | Headless check of the settings menu, that each setting applies and is kept, and the music moods |
 | `tools/loot_test.js` | Headless check of uniques (each drops once, and each effect), gems in sockets, Bram's Gems tab and gem drops |
+| `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/build_single.py` | Builds the single-file version |
@@ -260,6 +270,7 @@ node tools/growth_test.js
 node tools/boss_test.js
 node tools/settings_test.js
 node tools/loot_test.js
+node tools/endless_test.js
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2. It also checks that the side rooms are reachable, the den's elite chases you out, the vault's spikes hurt, pots break, and a shrine's blessing applies.
