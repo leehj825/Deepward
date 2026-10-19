@@ -36,6 +36,8 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (has('map')) MiniMap.toggle();
     if (has('codex') && G.state === 'play') openPanel('codex');
     if (has('lock') && G.state === 'play') toggleLock();
+    if (G.state === 'photo') { photoKey(ev, has); return; }                // photo mode takes the keys while it is up
+    if (has('photo') && G.state === 'play') { G.photo(true); ev.preventDefault(); return; }
     // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
@@ -136,6 +138,8 @@ function pollPad(real) {
   const pressed = act => Bindings.padButtons(act).some(down), holding = act => Bindings.padButtons(act).some(btn);
   const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
   Pad.move.x = mx; Pad.move.z = my;
+  if (G.state === 'photo') { photoPad(real, mx, my, cx, cy, down, now); return; }
+  if (pressed('photo') && G.state === 'play') G.photo(true);
   Pad.block = holding('block');
   if (now.some(Boolean)) Snd.init();
   // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
@@ -332,6 +336,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
   $('stFill').style.width = p.st / p.maxSt * 100 + '%';
@@ -381,6 +386,7 @@ function openSettings() {
   UI.show('settings', {}, () => { G.state = from === 'menu' ? 'play' : from; if (scr) scr.classList.add('show'); });
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+$('photoBtn').addEventListener('click', () => { if (G.state !== 'pause') return; togglePause(); G.photo(true); });
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
@@ -491,7 +497,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('looks', { first: true })); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -578,6 +584,7 @@ G.onEnemyDeath = e => {
     const it = Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { minRarity: 2, boost: 1 });
     if (Items.add(it)) UI.toast(`${B.name} falls: ${Items.fullName(it)}`, Items.colorOf(it));
     gemFound(1); banner(B.name.toUpperCase() + ' FALLS'); Items.save();
+    if (B.id === CFG.rookQuest.chief.id) G.after(2, () => G.quest());
   }
   // Materials: beasts of the Rim drop them; the dead below now and then
   for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
@@ -632,7 +639,8 @@ G.onChest = room => {
 // Now and then, a while after the warden comes home, a band marches up the Rim road and batters the south gate
 function rollRaid() {
   const S = Items.S, R = CFG.raid;
-  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance) return;
+  const done = S.quest && S.quest.rook && S.quest.rook.step >= 5;            // the war camp burned: fewer bands come
+  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance * (done ? CFG.rookQuest.raidCut : 1)) return;
   G.raid = { on: false, at: G.time + R.delay[0] + Math.random() * (R.delay[1] - R.delay[0]) };
 }
 G.startRaid = () => {
@@ -786,6 +794,13 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
+  if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
+  if (s.id === 'totem') {
+    const q = Items.S.quest.rook; q.totems[s.totem] = true; s.g.visible = false; const f = World.field(); f.spots = f.spots.filter(x => x !== s);
+    FX.burst(new THREE.Vector3(s.x, 1.6, s.z), 0xff7a2a, 30, 6, 0.8); FX.ring(new THREE.Vector3(s.x, 0, s.z), 2, 0xff6a2a, 0.6, { r0: 0.3 }); Snd.play('slam');
+    UI.toast(`War totem burned (${q.totems.filter(Boolean).length} / ${CFG.rookQuest.totems})`, '#ff9a4a'); G.quest(); Items.save(); G.spot = null; return;
+  }
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
@@ -794,6 +809,115 @@ function interact() {
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
+// ---------------- Captain Rook's task ----------------
+// The step it is on (Items.S.quest.rook.step); G.quest(n) moves it on to n, or (no n) checks whether the war camp is
+// done. rookTalk() is what Rook says when there is news; false when he only has his usual lines.
+const RQ = () => CFG.rookQuest;
+G.quest = n => {
+  const S = Items.S, q = S.quest && S.quest.rook; if (!q) return;
+  if (n === undefined) {
+    const burned = (q.totems || []).filter(Boolean).length >= RQ().totems, chief = (S.bossKills || {})[RQ().chief.id] > 0;
+    if (q.step === 3 && burned && chief) { n = 4; banner('THE WAR CAMP BURNS'); Snd.play('achieve'); }
+    else return;
+  }
+  q.step = n; Items.save();
+  if (RQ().goals[n]) UI.toast('Captain Rook: ' + RQ().goals[n], '#f2d27a');
+};
+G.questGoal = () => { const q = Items.S && Items.S.quest && Items.S.quest.rook; return q && RQ().goals[q.step] || ''; };
+function rookTalk() {
+  const S = Items.S; S.quest = S.quest || {};
+  const q = S.quest.rook, R = 'Captain Rook';
+  if (!q && (S.raids || 0) >= 1) {
+    S.quest.rook = { step: 0 };
+    say([[R, 'Those raiders at the gate. Look at this: a red hand daubed on their shields. The Den Mother\'s mark.'], [R, 'They are not hungry goblins wandering up from the Deep. Someone sends them. Find their trail by the Broken Ridge, warden.']], () => { G.quest(1); G.onGearChanged(true); }, 'I will find it');
+    return true;
+  }
+  if (!q) return false;
+  if (q.step === 2) {
+    say([[R, 'A war band, with iron boots. Then they have a camp on the Rim, and a chief to drive them.'], [R, 'West of the ridge, by the trees. Kill the chief, burn their totems, and they will have nothing to rally to.']], () => { G.quest(3); G.onGearChanged(true); }, 'Burn it');
+    return true;
+  }
+  if (q.step === 4) {
+    const gold = Items.addGold(RQ().gold * (1 + S.stage * 0.3)), tier = Math.min(S.stage + 1, CFG.gear.tierNames.length - 1);
+    const it = Items.generate(tier, { slot: 'trinket', minRarity: 3, boost: 1 }); it.name = "Rook's Warhorn"; const got = Items.add(it);
+    say([[R, 'Gragnak dead and the totems ash. The bands will think twice before they come up that road again.'], [R, 'Take this horn. I carried it at the Keep before the Hollow King came. Blow it in the Deep and think of us.'], ['', `◆ ${gold}` + (got ? ` and ${it.name} (${CFG.gear.rarities[it.rarity].name})` : '')]], () => G.quest(5));
+    return true;
+  }
+  return false;
+}
+// ---------------- Photo mode ----------------
+// The fight holds still and the HUD hides. A free camera orbits a point (drag, right stick, arrow keys), zooms (wheel,
+// pinch, Q / E, triggers) and moves (WASD, left stick); filters tint the view and the saved picture.
+const PHOTO_FILTERS = [['None', ''], ['Warm', 'sepia(0.25) saturate(1.3) brightness(1.05)'], ['Cold', 'hue-rotate(-14deg) saturate(0.8) brightness(1.06)'],
+  ['Noir', 'grayscale(1) contrast(1.3)'], ['Old print', 'sepia(0.85) contrast(1.1) brightness(0.95)'], ['Vivid', 'saturate(1.6) contrast(1.1)']];
+const PH = { yaw: 0, pitch: 0.3, dist: 5, at: new THREE.Vector3(), filter: 0, hero: true, drag: null, pinch: 0, move: { x: 0, z: 0, y: 0 } };
+G.photo = on => {
+  const bar = $('photoBar');
+  if (on) {
+    if (G.state !== 'play') return;
+    PH.at.copy(G.player.pos).y = 1.1; PH.yaw = Math.atan2(camera.position.x - PH.at.x, camera.position.z - PH.at.z);
+    PH.dist = Math.min(14, Math.max(2, camera.position.distanceTo(PH.at))); PH.pitch = Math.asin(Math.min(0.95, Math.max(-0.2, (camera.position.y - PH.at.y) / PH.dist)));
+    G.state = 'photo'; document.body.classList.add('photo'); bar.classList.add('show'); photoBar();
+    if (document.pointerLockElement) document.exitPointerLock();
+  } else {
+    G.state = 'play'; document.body.classList.remove('photo'); bar.classList.remove('show'); $('game').style.filter = '';
+    G.player.rig.root.visible = true;
+  }
+};
+function photoBar() {
+  $('photoBar').innerHTML = `<button data-ph="filter">Filter: ${PHOTO_FILTERS[PH.filter][0]}</button><button data-ph="hero">${PH.hero ? 'Hide' : 'Show'} warden</button><button data-ph="save">Save picture</button><button data-ph="exit">Done</button><small>Drag or arrows to turn · wheel, Q / E to zoom · WASD to move</small>`;
+  $('game').style.filter = PHOTO_FILTERS[PH.filter][1]; G.player.rig.root.visible = PH.hero;
+}
+function photoAct(a) {
+  if (a === 'filter') { PH.filter = (PH.filter + 1) % PHOTO_FILTERS.length; photoBar(); }
+  if (a === 'hero') { PH.hero = !PH.hero; photoBar(); }
+  if (a === 'save') G.photoSave();
+  if (a === 'exit') G.photo(false);
+}
+// The picture: rendered now, with the filter baked in, offered as a download
+G.photoSave = () => {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d'); x.filter = PHOTO_FILTERS[PH.filter][1] || 'none'; x.drawImage(src, 0, 0);
+  const url = c.toDataURL('image/png'), d = new Date(), n = v => String(v).padStart(2, '0');
+  const a = document.createElement('a'); a.href = url; a.download = `deepward-${d.getFullYear()}${n(d.getMonth() + 1)}${n(d.getDate())}-${n(d.getHours())}${n(d.getMinutes())}${n(d.getSeconds())}.png`;
+  document.body.appendChild(a); a.click(); a.remove(); FX.flash && FX.flash(); Snd.play('glint'); UI.toast('Picture saved', '#f2d27a');
+  G.lastPhoto = url; return url;
+};
+function photoKey(ev, has) {
+  const c = ev.code;
+  if (c === 'Escape' || has('photo')) { G.photo(false); ev.preventDefault(); return; }
+  if (c === 'Enter') G.photoSave();
+}
+function photoPad(real, mx, my, cx, cy, down, now) {
+  PH.yaw -= cx * real * 2.2; PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + cy * real * 1.6));
+  PH.dist = Math.max(1.2, Math.min(18, PH.dist + ((now[6] ? 1 : 0) - (now[7] ? 1 : 0)) * real * 6));
+  PH.move.x = mx; PH.move.z = my;
+  if (down(1) || down(14)) G.photo(false); if (down(0)) G.photoSave(); if (down(2)) photoAct('filter'); if (down(3)) photoAct('hero');
+}
+function photoCam(real) {
+  const k = Input.keys, H = c => !!k[c];
+  PH.yaw += ((H('ArrowLeft') ? 1 : 0) - (H('ArrowRight') ? 1 : 0)) * real * 1.8;
+  PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + ((H('ArrowUp') ? 1 : 0) - (H('ArrowDown') ? 1 : 0)) * real * 1.2));
+  PH.dist = Math.max(1.2, Math.min(18, PH.dist + ((H('KeyE') ? 1 : 0) - (H('KeyQ') ? 1 : 0)) * real * 6));
+  const mx = (H('KeyD') ? 1 : 0) - (H('KeyA') ? 1 : 0) + PH.move.x, mz = (H('KeyS') ? 1 : 0) - (H('KeyW') ? 1 : 0) + PH.move.z;
+  const fx = -Math.sin(PH.yaw), fz = -Math.cos(PH.yaw), sp = real * 5;
+  PH.at.x += (fx * -mz + -fz * mx) * sp; PH.at.z += (fz * -mz + fx * mx) * sp;
+  PH.at.x = Math.max(G.player.pos.x - 25, Math.min(G.player.pos.x + 25, PH.at.x)); PH.at.z = Math.max(G.player.pos.z - 25, Math.min(G.player.pos.z + 25, PH.at.z));
+  const cp = Math.cos(PH.pitch);
+  camera.position.set(PH.at.x + Math.sin(PH.yaw) * cp * PH.dist, PH.at.y + Math.sin(PH.pitch) * PH.dist, PH.at.z + Math.cos(PH.yaw) * cp * PH.dist);
+  camera.lookAt(PH.at);
+}
+(function photoInput() {
+  const cv = $('game');
+  $('photoBar').addEventListener('click', ev => { const b = ev.target.closest('[data-ph]'); if (b) photoAct(b.dataset.ph); });
+  cv.addEventListener('pointerdown', ev => { if (G.state === 'photo') PH.drag = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; });
+  addEventListener('pointermove', ev => { if (G.state !== 'photo' || !PH.drag || PH.drag.id !== ev.pointerId || PH.pinch) return; PH.yaw -= (ev.clientX - PH.drag.x) * 0.006; PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + (ev.clientY - PH.drag.y) * 0.005)); PH.drag.x = ev.clientX; PH.drag.y = ev.clientY; });
+  addEventListener('pointerup', () => { PH.drag = null; });
+  cv.addEventListener('wheel', ev => { if (G.state !== 'photo') return; PH.dist = Math.max(1.2, Math.min(18, PH.dist * (ev.deltaY > 0 ? 1.1 : 0.9))); ev.preventDefault(); }, { passive: false });
+  cv.addEventListener('touchmove', ev => { if (G.state !== 'photo' || ev.touches.length !== 2) return; const [a, b] = ev.touches, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); if (PH.pinch) PH.dist = Math.max(1.2, Math.min(18, PH.dist * PH.pinch / d)); PH.pinch = d; ev.preventDefault(); }, { passive: false });
+  cv.addEventListener('touchend', () => { PH.pinch = 0; });
+})();
 // The training yard: Hobb's six lessons, in camp
 G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };
 G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
@@ -821,6 +945,7 @@ G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); start
 $('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
 titleButtons();
+I18N.start();                                                               // the chosen language, from here on
 // The keyboard hint line along the bottom follows the player's keys
 function keysBar() {
   const k = a => `<b>${Bindings.label(a, 'key')}</b>`;
@@ -936,7 +1061,8 @@ function step(real) {
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
-  if (G.state === 'play') {
+  if (G.state === 'photo') photoCam(real);                                 // the world holds still for the picture
+  else if (G.state === 'play') {
     readInput();
     const dt = FX.scaleDt(real);
     G.time += dt;

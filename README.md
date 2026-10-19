@@ -43,6 +43,7 @@ Every model is built in code from primitives, and there are no model, texture or
 - **Captives:** a vault below sometimes holds someone chained by the chest. Free them (E / A / TALK) and they come home to the Hold and walk its paths, and greet you with where you found them. The first four bring a lasting perk: **Pell the cartographer** maps every stage from the start, **Ilsa the cook** makes flasks heal 10% more, **Brother Aldo** gives +5% health, and **Mira the scout** makes the beasts of the Rim notice you later. Every rescue adds 2% gold found (up to 10%).
 - **The Ring:** Varga's arena past the dummies. Fight any guardian you have beaten again, alone in its lair, for gold and a gem (more the first time). The Ridge Horror, Mossback and the Forge Colossus join once you have felled them on the Rim, and **the Abomination**, the biggest of the great beasts, which calls trolls, wolves and goblins into the Ring, waits for whoever has beaten all three there.
 - **Raids:** now and then, a while after you come home, the horn sounds and the gate bell rings: a goblin band (wolves, boars and scouts with it, a troll chief from the Act I end) marches up the Rim road to batter the south gate. The HUD shows the band and the gate's strength, and the minimap pulses red at the gate. Captain Rook and the sentry go out past the gate and spear raiders in reach, but they cannot hold it alone. Beat them all for gold, pelts and ore; if the gate breaks, they run off with 8% of your gold (at most 400).
+- **Captain Rook's task:** after your first beaten raid, Rook shows you the red hand on the raiders' shields: the Den Mother's mark. Find the war band's trail by the Broken Ridge, report back, then burn their **war camp** at the Rim's west edge: slay **Gragnak, Hand of the Den Mother** and burn its three war totems (E / A / TALK). Rook pays well and gives you his old **Warhorn** (an epic-or-better trinket), and raids come half as often afterwards. The current step shows under the area name, and a gold diamond on the minimap shows where to go.
 - **Sefa's caravan:** some homecomings a painted wagon stands in the north-west of the Hold for two visits. Sefa sells two rare-or-better pieces a tier above your depth, bundles of materials and a loose gem, and buys spare materials.
 - **The Fen** (after the first five guardians): Captain Rook unbars the east gate onto a second, tougher field: a boardwalk over black pools, reeds, dead trees and willows. **The Reedbank** (goblins, scouts, spiders), **the Black Mire** (spiders; wolves at night), **the Drowned Hollow** around a sunken chapel (the dead, at night only) and **the Old Quarry** (brutes, goblins, shield-bearers). Field bosses: **the Mire Queen** (a huge spider, by day), **the Mirelord** (a troll boss, at night, who then joins the Ring), **the Drowned Bishop** (a warded bone caller, at night) and **the Quarry Foreman** (an armoured brute). Spiders drop **silk** 🕸, for Bram's **Fensilk Jerkin** and **Mirewalker Boots**.
 - Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
@@ -64,6 +65,12 @@ Every model is built in code from primitives, and there are no model, texture or
 6. Breaking his posture and executing him
 
 A box at the top says what to press in your own controls (keyboard, controller or touch) and counts your progress. You can skip a lesson or leave at any time. A new game offers the training after the opening story, and the trainer at the yard sign runs it again whenever you like. Finishing it the first time pays 150 gold.
+
+**Languages.** English and Korean (한국어), chosen in Settings → Language; a Korean phone starts in Korean. The game is written in English and `js/i18n.js` translates what it shows from a table per language (`js/lang_ko.js`), so a new language is one more table: run `tools/i18n_harvest.js --missing <lang>` for the texts to translate, then `tools/i18n_merge.py <lang>`. `tools/i18n_test.js` walks the screens in Korean and fails if English is left showing.
+
+**Photo mode.** Press H (D-pad left on a controller, or Photo mode on the pause screen). The fight holds still and the HUD hides; drag or use the arrow keys / right stick to turn around a point, the wheel, pinch, Q / E or the triggers to zoom, and WASD / the left stick to move it. Six filters (Warm, Cold, Noir, Old print, Vivid), the warden can be hidden, and Save picture downloads a PNG with the filter baked in. Esc, H or Ⓑ returns to the fight.
+
+**Appearance.** After the opening story you choose how the warden looks: six skin tones, eight hair colours, four hair styles (short, long, tail, shaved) and a beard (none, short, long). The gear screen's **Appearance** button changes it any time; a helm covers the hair but not the beard.
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
@@ -225,7 +232,8 @@ Each Act II stage has its own champion: the Tidecaller, the Ice Bulwark, the Sla
 - **Waves:** walking into a section wakes its monsters, wave after wave. Enemies chase you through the passages if you fall back or run ahead.
 - **Chests and healing:** each cleared section heals you a little and leaves a chest beside the path.
 - **Off the path:**
-  - **Side rooms:** two per stage, through doorways in a section's side wall. An **elite's den** holds one tougher guard (orange health bar) who drops a rich chest. A **treasure vault** holds a rich chest behind two spike plates that strike out of step.
+  - **Side rooms:** two per stage, through doorways in a section's side wall: one with treasure, one with a fight. An **elite's den** holds one tougher guard (orange health bar) who drops a rich chest. A **treasure vault** holds a rich chest behind two spike plates that strike out of step.
+  - A **gauntlet** drops a portcullis behind you: three waves of the stage's own enemies back to back, and a rich chest when the last falls. A **rune vault** shows three coloured runes lighting on its far wall in an order; step on the floor plates of the same colours in that order to open it. A wrong plate fires spikes and the order starts again.
   - **Traps:** two passages per stage. **Spike plates** glow red and rattle before they strike. **Swinging blades** sweep across the passage. Both are unblockable, so time your crossing or dash through.
   - **Shrine:** one per stage, a glowing obelisk. Walk up and press E (A, or TALK on touch) to pray, then pick one of three blessings that last until you leave the stage. The choices are Wrath, Iron Skin, Swiftness, Vigor, Mending, Fortune, Thirst and Steady Hand. Your blessings show under the gold.
   - **Pots and crates:** they line the walls. Smash them for gold, and now and then a flask refill.
@@ -244,9 +252,13 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Status and roadmap
 
-Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, camp, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, and automatic resolution for phones. Only a debug APK is built for now.
+Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, photo mode, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
-Done from the last plan: V1 (phone pass), V2 (gear depth), V3 (save safety), V4 (remapping), V5 (Endless curses), V6 (weapon arts). Still open, on purpose: **V7**, a signed release build, when you want one. Details in `docs/DESIGN.md` → Roadmap.
+Next, in order (details in `docs/DESIGN.md` → Roadmap):
+1. **Check what is built.** A real-phone pass (P1), photo saving in the Android app (P2), Korean polish (P3), the balance bot on the new content (P4).
+2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
+3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
+4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
 
 ## Run
 
@@ -419,6 +431,10 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/i18n_test.js` | Headless check of the Korean texts: every screen walked in Korean with nothing left in English, item names and number templates, and back to English |
+| `tools/rooms_test.js` | Headless check of the gauntlet (sealed, three waves, rich chest, opens again) and the rune vault (a wrong plate hurts and resets, the right order opens it) |
+| `tools/photo_test.js` | Headless check of photo mode: frozen fight, hidden HUD, orbit and zoom, filters, hiding the warden, a saved picture, and back |
+| `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |

@@ -154,6 +154,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **The Ring:** `G.arenaList()` lists beaten guardians and the `CFG.arena.monsters` (open once their field boss is in `S.bossKills`; the Abomination once the other three are in `S.arena`). `G.enterArena` builds a one-section custom stage with only the lair (`stage.monster` makes the guardian spawn take `CFG.monsterBosses[monster]`), with the strength of the foe's depth. Its big chest pays through `arenaPay` (gold by depth, ×`first` for a first win, a gem) instead of unlocking a stage, and the hero walks home from the `arenaWon` panel. `G.arena` keeps captives out of the Ring and is cleared on every trip and at home.
 - **Raids:** `enterCamp` rolls `CFG.raid.chance` (from stage `from`) into `G.raid` with a start time; `G.startRaid` queues the band for the stage (`bands`) on the Rim road with `raid: true` and a zone at the gate, the first one an elite "Raid Chief". Raiders wander toward the gate at a march (0.7 speed), are never let go by `Field.update`, and while not roused and at the gate they wear it down (`batter` per second each) and swing at it. `updateRaid` shows the band and the gate in the HUD, pays `gold` (by stage) and `mats` when none are left, or takes `steal` of the gold (up to `stealMax`) and removes the band when the gate reaches 0. `clearEnemies` drops any raid. The horn and the gate bell (`room.bell`, swung in `Camp.update`) sound at the start; the minimap draws a pulsing ring at the gate and the band in red. Rook and the sentry (`guard` NPCs) walk out to posts beyond the gate (`defend`) and thrust at the nearest raider in reach every 2–3 s for 12% of its health, then walk home when the raid ends.
 - **Sefa's caravan:** `wandererComes` (on every homecoming) keeps `S.wander` for `stays` homecomings or rolls `chance` for a new one: two pieces a tier up (rare or better, priced ×`itemMult`), three of the `bundles`, a gem. `Camp.build` adds the wagon, Sefa and her spot when `lv.wanderer`.
+- **Rook's task** (`CFG.rookQuest`, `S.quest.rook.step` 0–5): Rook's talk (`rookTalk`) opens it once `S.raids >= 1`, and moves it on at steps 2 and 4. Steps that change the Rim rebuild the camp and fields (`G.onGearChanged(true)`). `Field.build` (`rookQuest`) adds goblin tracks as a spot at step 1, and at step 3 the war camp: its zone (registered before the trees, rocks and nodes are placed, so they keep out), tents, stakes, totems as spots (burned ones are remembered in `q.totems`) and its chief as an extra field boss (`room.bosses`). `G.quest()` checks the camp is done (chief in `S.bossKills`, all totems burned). The HUD shows `goals[step]` under the label, and the minimap shows a gold diamond at the next place. Done: gold by depth, a trinket named Rook's Warhorn, and `raidCut` on the raid chance.
 - **The Fen:** `Field.buildFen` lays out a second field east of the Hold (`CFG.fen`: zones placed by `out` from the near edge and `side` along the wall from the gate), built only once `S.stage >= fen.unlock` (`World.fenOpen`); until then the east gate is barred (doors and a spot where Rook explains). Field logic is shared and works from the field's side (`room.side`, `Field.inward`, `Field.at`): spawning near the warden, letting far beasts go (each beast keeps its `home` field), the barrier at the near edge, bosses from `room.def.bosses`, regrowth from `room.def.nodes`. `World.fieldAt` gives the field the warden is out in (mode, label, gathering), and the minimap draws every field. The Mirelord is a `monsterBosses` troll and a Ring monster (`fen: true`). Silk drops from spiders; two crafts use it. Jobs can ask for Fen bosses once it is open (pay ×1.3).
 - **Map:** in the Hold and on the Rim the minimap shows the camp, the road, the field and its zones (red where beasts are roused), the camp's services, beasts and the hero.
 
@@ -194,6 +195,22 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
+## Languages (built)
+
+- The code stays in English. `I18N` (js/i18n.js) watches the page (a MutationObserver on text nodes and the title / placeholder / aria-label attributes) and swaps each text for the chosen language's from its table, caching results. Lookup order: the exact text; the text with its numbers as {0}, {1}...; phrases with name slots ("Slay {0} {a}s", "Swift {a}", the longest pattern first, the name translated in its turn); an item name (tier and piece, the "of ..." suffix moved to the front for Korean); an icon in front or punctuation at the end; and finally the parts between " · ", ": ", " — ".
+- Settings → Language (`lang`, Korean by default on Korean devices). Switching back to English reloads the page. `translate="no"` keeps an element as written (the language names).
+- `tools/i18n_harvest.js` opens every screen headless and collects every text (plus CFG's strings, fixed strings in the code, and the parts of each line); `--missing ko` writes what the table lacks. `tools/i18n_merge.py` merges translated parts into the table and drops entries whose placeholders do not match. CSS-drawn texts (`::after`) have their own `html[lang]` rules. A Korean font stack and `word-break: keep-all`.
+
+## Photo mode (built)
+
+- `G.state = 'photo'`: `step` runs only `photoCam`, so nothing in the world moves. The camera orbits `PH.at` (yaw, pitch, distance) from mouse drags, the wheel, pinch, arrow keys, Q / E, the pad's sticks and triggers; WASD moves the point (kept within 25 m of the hero). `body.photo` hides the HUD.
+- Filters are CSS filters on the canvas while looking; `G.photoSave` renders a frame and draws it through the same filter onto a 2D canvas, then downloads it as `deepward-date-time.png`. Bound as the `photo` action (H, D-pad left).
+
+## Appearance (built)
+
+- `S.looks` holds indices into `CFG.appearance` (skins, hair colours, styles, beards); `Items.look()` adds `skin`, `hair`, `hairStyle` and `beard` to the hero's look, so the rig, the gear screen's turning hero and refits all follow it. Hair styles are a few boxes on the head (a helm leaves only a tuft, or a longer fall for long hair); beards show under helms.
+- The looks panel comes after the opening story (then the training offer) and from the gear screen; on a controller it opens on its confirm button.
+
 ## Skinned bodies (built)
 
 - `Rig.skin` merges every plain mesh of a character into one `SkinnedMesh` whose bones are the rig's own joints (each vertex bound wholly to its joint, colours per vertex). The joints animate exactly as before; the body draws in one call. Glowing, textured and see-through parts (weapons, shields, eyes) stay apart, and `rig.mats` holds the one body material, so hit flashes still work.
@@ -221,6 +238,12 @@ Each stage's plan picks its extras (see `CFG.features`):
   - A dash's invulnerability gets you through either.
 - **Shrine:** one middle section without a side room gets one. It offers three of eight blessings, which stack into the hero's stats until the stage is left.
 - **Breakables:** 3 to 6 per section along the walls, off the path. They're solid until struck. Each gives a 55% chance of gold and an 8% chance of a flask refill (only if you're below your maximum).
+
+### Gauntlet and rune vault (built)
+
+- Each stage's two side rooms are one treasure room (`vault` or `puzzle`) and one fight (`den` or `gauntlet`), picked at random.
+- **Gauntlet:** three waves (2, 3, 3) drawn from the stage's own enemies. Entering drops the portcullis (a group kept out of the bake) and adds `seal` pillars across the doorway; clearing lifts both and leaves a rich chest.
+- **Rune vault** (`state: 'runes'`): three runes on the far wall and three floor plates in matching colours; `runes()` lights the runes in `seq` order on a loop, counts plates stepped in order, and on a wrong plate hurts the warden (unblockable, 12 + 4 × depth) and resets. The full order opens a rich chest.
 
 ## Elites and champions (built)
 
@@ -347,30 +370,49 @@ A Ring rematch pays about a seventh of a stage for a one-minute fight (and a gem
 
 ## Roadmap
 
-The next steps, in the order I'd take them. Each is sized like one of the S or T steps: one commit, its own test, and a debug APK.
+Each step is sized like the earlier S, T and V steps: one commit, its own test, and a debug APK.
 
-**V1. Play on a real phone.** Everything so far was measured headless. Install the debug APK on a mid-range Android phone and fix what shows up.
-- An FPS and draw-call overlay (Settings → Show performance), and dynamic resolution that drops a step when the frame time stays above 20 ms.
-- Check touch reach, text size, safe areas (notches) and the pause on app switch (Capacitor `appStateChange`).
-- Exit criterion: 50+ FPS on Medium through a full Act II stage.
+### Done
 
-**V2. Gear depth (done).** Finish the original gear plan.
-- Gloves, boots and a ring slot (eight slots total), with their own looks on the rig.
-- Weight: heavy armour slows the dash and costs more stamina; light gear the reverse.
-- Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.
-- Bram rerolls one bonus for gold and scrap.
+- **V1–V6.** Phone overlay and dynamic resolution (V1; the check on a real phone is still open, see P1), gear depth, save safety, controls everywhere, Endless curses, weapon arts.
+- **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
+- **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, photo mode, the gauntlet and the rune vault, and Korean.
 
-**V3. Save safety (done).** The save was one `localStorage` key.
-- Versioned saves with a migration step, so future changes never wipe progress.
-- Export and import the save as text (and Android share) for moving between devices.
-- Three save slots.
+### Next: check what is built
 
-**V4. Controls everywhere (done).** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
+**P1. Real-phone pass.** Every number so far is headless. Install the debug APK on a mid-range Android phone and play the Hold, the Rim during a raid, the Fen at night and a boss fight.
+- Frame rate, touch reach, text size, safe areas, and the Korean font.
+- Exit criterion: 50+ FPS on Medium in the Hold, the Fen and an Act II stage.
 
-**V5. Endless Deep with modifiers (done).** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
+**P2. Photo saving in the app.** Save picture is a browser download, which the Android WebView may not allow. Save to the gallery or open the share sheet there (Capacitor Filesystem / Share).
 
-**V6. Weapon arts (done).** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
+**P3. Korean polish.**
+- Texts built from pieces in code (key hints, tutorial lines, "Go deeper · floor 3") become whole sentences with numbered slots, so Korean word order comes out right.
+- A native read of the story lines and boss names.
+- The i18n test fails when new English shows up.
 
-**V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
+**P4. Balance bot on the new content.** Run tools/balance.js (casual and skilled) through the Fen, the gauntlet, the Ring monsters and raids; tune health and damage where it dies too often or never.
 
-Smaller ideas kept for later: hero appearance options, a photo mode, more Act II side-room types (a gauntlet room, a trap puzzle), and translations.
+### Then: feel
+
+**P5. Sound pass.** Ambient loops for the Hold (fire, chatter), the Rim (wind, birds) and the Fen (frogs, dripping water); footsteps on different ground; a boss theme for field bosses.
+
+**P6. Weather.** Rain and fog on the Rim and the Fen, changing with the day and shortening how far you see.
+
+**P7. Hold life.** Villagers gather at the fire at night and go into the cabins; shops close after dark; people react when a raid starts (run inside, Wenna stops playing).
+
+### Then: content
+
+**P8. Act III.** A third set of stages below the Throne of the Deep, with new enemy types and a final boss; the Endless Deep starts after it.
+
+**P9. More side quests like Rook's.** Maren's (the story), Bram's (a legendary forge recipe) and Ysolde's (rare herbs in the Fen at night).
+
+**P10. Companions.** A freed captive can follow the warden below as a light helper (Mira with a bow, Brother Aldo healing).
+
+**P11. Set items.** A few gear sets with bonuses for wearing two and four pieces, dropped by field bosses and Ring fights.
+
+### Later
+
+- **P12.** More languages (Japanese, Simplified Chinese, Spanish): one table each with tools/i18n_harvest.js and tools/i18n_merge.py.
+- **P13.** Cloud save, or export to a file and the Android share sheet.
+- **V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.

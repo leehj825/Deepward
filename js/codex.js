@@ -75,6 +75,7 @@ const Codex = (() => {
     ['ring1', 'Into the Ring', 'Win a fight in the Ring', () => Object.keys(S().arena || {}).length >= 1, 60],
     ['raid1', 'The Gate Holds', 'Beat a raid on the south gate', () => (S().raids || 0) >= 1, 80],
     ['raid5', 'Wall of the Hold', 'Beat five raids', () => (S().raids || 0) >= 5, 250],
+    ['rook', "The Den Mother's Hand", "Burn the goblins' war camp for Captain Rook", () => !!(S().quest && S().quest.rook && S().quest.rook.step >= 4), 200],
     ['abom', 'Abomination', 'Defeat the Abomination in the Ring', () => !!(S().arena || {}).abomination, 500],
   ].map(([id, name, desc, test, gold]) => ({ id, name, desc, test, gold }));
 

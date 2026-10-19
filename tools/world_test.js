@@ -270,7 +270,7 @@ const path = require('path');
     o.guardsFight = raiders().some(e => e.hp < e.maxHp);
     // ...and is beaten for gold and materials
     const gold0 = I.S.gold, pelt0 = I.S.mats.pelt || 0; p.pos.set(0, 0, W.field().rect.z0 + 1);
-    for (const e of raiders()) { e.state = 'broken'; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);
+    for (const e of raiders()) { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);   // a warded chief soaks the first blow
     o.raidWon = !G.raid && I.S.raids === 1 && I.S.gold > gold0 && I.S.mats.pelt >= pelt0 + 2;
     __dw.sim(4); o.guardsHome = guards.every(n => Math.hypot(n.x - n.home[0], n.z - n.home[1]) < 0.2);
     // If the gate breaks, they run off with some of the gold
@@ -313,6 +313,31 @@ const path = require('path');
     // ...and the Mirelord joins the Ring once felled in the Fen
     I.S.bossKills = { mirelord: 1 }; o.ringMirelord = !G.arenaList().find(a => a.id === 'mirelord').locked;
     for (const e of G.enemies) e.remove = true; p.pos.set(0, 0, 6); __dw.sim(0.3);
+    return o;
+  }));
+  // ---- N7: Captain Rook's task, the goblin war camp ----
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player, close = () => { while (__dw.UI.open) __dw.UI.close(); };
+    close(); for (const e of G.enemies) e.remove = true; G.queue = []; G.raid = null; __dw.sim(0.1);
+    I.S.raids = 1; I.S.quest = {}; I.S.clock = 0.25 * CFG.day.length; p.maxHp = p.hp = 1e7;
+    const talkRook = () => { const g = W.camp().spots.find(s => s.id === 'guard'); p.pos.set(g.x, 0, g.z); __dw.sim(0.3); __dw.interact(); close(); __dw.sim(0.1); };
+    talkRook(); o.questStart = I.S.quest.rook.step === 1 && /trail/.test(document.getElementById('questLine').textContent);
+    const rim = W.field(), t = rim.spots.find(s => s.id === 'tracks');
+    o.tracksShown = !!t;
+    p.pos.set(t.x, 0, t.z); __dw.sim(0.3); __dw.interact(); close(); o.tracksFound = I.S.quest.rook.step === 2;
+    p.pos.set(0, 0, 6); __dw.sim(0.3); talkRook();
+    const rim2 = W.field(), wc = rim2.zones.find(z => z.id === 'warcamp');
+    o.warCamp = I.S.quest.rook.step === 3 && !!wc && rim2.spots.filter(s => s.id === 'totem').length === CFG.rookQuest.totems;
+    // Out to the camp: goblins about it and Gragnak, who falls; then the totems burn
+    p.pos.set(wc.x + wc.r + 6, 0, wc.z); __dw.sim(2.5);
+    const chief = G.enemies.find(e => e.fieldBoss && e.fieldBoss.id === 'gragnak');
+    o.gragnak = !!chief && G.enemies.some(e => e.zone === wc && !e.fieldBoss);
+    if (chief) { chief.state = 'broken'; Enemy.receive(chief, { dmg: 1e9, posture: 0 }, p); __dw.sim(2.5); }
+    for (const s of rim2.spots.filter(s => s.id === 'totem')) { for (const e of G.enemies) e.remove = true; p.pos.set(s.x + 1, 0, s.z); __dw.sim(0.2); __dw.interact(); }
+    __dw.sim(0.3); o.campBurned = I.S.quest.rook.step === 4;
+    // Back to Rook for the reward; raids then come half as often
+    for (const e of G.enemies) e.remove = true; p.pos.set(0, 0, 6); __dw.sim(0.5); const g0 = I.S.gold; talkRook();
+    o.rookReward = I.S.quest.rook.step === 5 && I.S.gold > g0 && I.S.inv.some(it => it.name === "Rook's Warhorn") && document.getElementById('questLine').textContent === '';
     return o;
   }));
   await b.close();
