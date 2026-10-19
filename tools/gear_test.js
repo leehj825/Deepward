@@ -53,8 +53,23 @@ const path = require('path');
       });
     });
     o.preview = GearView.ready;
+    // A picture made while the hero preview is showing holds only the item (it once caught the hero's legs behind it):
+    // equip a never-seen look with the preview up, and its picture must have transparent corners and edges
+    __dw.openPanel('bag');
+    const fresh = Items.generate(5, { slot: 'armor', rarity: 3 }); Items.add(fresh);
+    o.cleanPicture = GearView.icon(fresh);
     return o;
   }));
+  Object.assign(out, await pg.evaluate(async url => {
+    const img = new Image(); img.src = url; await img.decode();
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data, W = c.width, H = c.height;
+    // The armour sits in the middle; the bottom and top rows and the outer columns must be empty
+    let edge = 0;
+    for (let i = 0; i < W; i++) for (const j of [0, 1, H - 2, H - 1]) edge += d[(j * W + i) * 4 + 3] > 0 ? 1 : 0;
+    for (let j = 0; j < H; j++) for (const i of [0, 1, W - 2, W - 1]) edge += d[(j * W + i) * 4 + 3] > 0 ? 1 : 0;
+    return { cleanPicture: edge === 0 };
+  }, out.cleanPicture));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

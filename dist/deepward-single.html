@@ -4385,11 +4385,12 @@ const GearView = (() => {
     if (icons.has(k)) return icons.get(k);
     if (!init()) return '';
     const g = Rig.item(L); scene.add(g);
+    if (doll) doll.root.visible = false;               // the turning hero shares the scene; keep it out of the picture
     cam.aspect = 1; frame(g, new THREE.Vector3(0, 0.25, 1), 0.92);
     const pr = R.getPixelRatio(); R.setPixelRatio(1); resize(ICON, ICON); R.render(scene, cam);
     const c2 = document.createElement('canvas'); c2.width = c2.height = ICON; c2.getContext('2d').drawImage(R.domElement, 0, 0);
     const url = c2.toDataURL('image/png');
-    scene.remove(g); dispose(g); R.setPixelRatio(pr); size = [0, 0];
+    scene.remove(g); dispose(g); if (doll) doll.root.visible = true; R.setPixelRatio(pr); size = [0, 0];
     icons.set(k, url);
     return url;
   }
