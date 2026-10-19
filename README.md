@@ -107,7 +107,19 @@ A box at the top says what to press in your own controls (keyboard, controller o
 **Growth.**
 
 - **Levels:** kills give XP (guardians six times as much). Each level adds health, stamina and 2.5% power, and grants a talent point.
-- **Weapon mastery:** each weapon type ranks up with the hits it lands. Rank 1 gives +4% damage, rank 2 adds a fourth finishing blow to the light combo, and rank 3 gives +8% posture damage.
+- **Weapon mastery:** each weapon type ranks up with the hits it lands. Rank 1 gives +4% damage, rank 2 adds a fourth finishing blow to the light combo, and rank 3 gives +8% posture damage and the weapon's **art**.
+- **Weapon arts:** hold block and press heavy (keyboard, controller or touch). Each costs stamina and has a cooldown; the expertise screen lists them.
+
+  | Weapon | Art | What it does | Cooldown |
+  | --- | --- | --- | --- |
+  | Sword | Falling Star | A leaping overhead that breaks guards | 8 s |
+  | Axe | Cleaving Leap | Leap in and split the ground around you | 9 s |
+  | Mace | Earthshaker | A ground shock that shatters posture all around | 9 s |
+  | Longsword | Piercing Lunge | A long dashing thrust that strikes from afar | 7 s |
+  | Greatsword | Whirlwind | Two full spins that cut everything near | 9 s |
+  | Spear | Skewer | A thrust that reaches five metres and breaks guards | 7 s |
+  | Twin daggers | Flurry | Six cuts faster than the eye | 7 s |
+
 - **Expertise:** talent points go into four trees, and you can mix at most two. Each tree has three talents of three ranks, then an ultimate once four points are spent in it:
 
   | Tree | Talents | Ultimate (F or Y) |
@@ -196,17 +208,9 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Status and roadmap
 
-Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep, camp, gear with uniques and gems, growth, the codex, the training yard, difficulty and accessibility options, and customizable touch controls. Only a debug APK is built for now.
+Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, camp, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, and automatic resolution for phones. Only a debug APK is built for now.
 
-Next, in order (details in `docs/DESIGN.md` → Roadmap):
-
-1. **V1:** play on a real phone: an FPS overlay, dynamic resolution and fixes from device testing.
-2. **V2:** gear depth: gloves, boots and ring slots, weight, elemental bonuses, rerolling a bonus.
-3. **V3:** save safety: versioned saves, export and import, save slots.
-4. **V4:** remappable keyboard and controller buttons.
-5. **V5:** Endless Deep curses for more gold.
-6. **V6:** a weapon art per weapon type at mastery rank 3.
-7. **V7:** a signed release build, when you want one.
+Done from the last plan: V1 (phone pass), V2 (gear depth), V3 (save safety), V4 (remapping), V5 (Endless curses), V6 (weapon arts). Still open, on purpose: **V7**, a signed release build, when you want one. Details in `docs/DESIGN.md` → Roadmap.
 
 ## Run
 

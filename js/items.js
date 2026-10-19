@@ -177,7 +177,7 @@ const Items = (() => {
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
       critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1) * Math.min(1.3, Math.max(0.85, 1 + LD.dashCost * over)), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, art: mr >= 3 && CFG.player.arts[type] ? type : null, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
     out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
     if (u.aegis) out.parry += 0.04;

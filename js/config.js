@@ -41,6 +41,25 @@ const CFG = {
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
     },
+    // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
+    // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
+    arts: {
+      sword: { name: 'Falling Star', cost: 30, cd: 8, desc: 'A leaping overhead that breaks guards', hits: [
+        { pose: 'overhead', wind: 0.34, active: 0.12, recover: 0.5, dmg: 46, posture: 62, range: 2.7, arc: 100, lunge: 3.2, breaksGuard: true }] },
+      axe: { name: 'Cleaving Leap', cost: 32, cd: 9, desc: 'Leap in and split the ground around you', hits: [
+        { pose: 'heavy', wind: 0.44, active: 0.14, recover: 0.55, dmg: 40, posture: 52, range: 2.8, arc: 360, lunge: 4.2, breaksGuard: true, ring: 2.8 }] },
+      mace: { name: 'Earthshaker', cost: 32, cd: 9, desc: 'A ground shock that shatters posture all around', hits: [
+        { pose: 'heavy', wind: 0.5, active: 0.14, recover: 0.6, dmg: 30, posture: 95, range: 3.6, arc: 360, lunge: 0.4, breaksGuard: true, ring: 3.6 }] },
+      longsword: { name: 'Piercing Lunge', cost: 28, cd: 7, desc: 'A long dashing thrust that strikes from afar', hits: [
+        { pose: 'thrust', wind: 0.24, active: 0.1, recover: 0.45, dmg: 40, posture: 40, range: 4.4, arc: 30, lunge: 4.6 }] },
+      greatsword: { name: 'Whirlwind', cost: 34, cd: 9, desc: 'Two full spins that cut everything near', hits: [
+        { pose: 'slashR', wind: 0.3, active: 0.14, recover: 0.04, dmg: 30, posture: 34, range: 3.1, arc: 360, lunge: 0.6 },
+        { pose: 'slashR', wind: 0.12, active: 0.14, recover: 0.55, dmg: 34, posture: 40, range: 3.1, arc: 360, lunge: 0.6, breaksGuard: true }] },
+      spear: { name: 'Skewer', cost: 28, cd: 7, desc: 'A thrust that reaches five metres and breaks guards', hits: [
+        { pose: 'thrust', wind: 0.3, active: 0.12, recover: 0.5, dmg: 38, posture: 46, range: 5.0, arc: 22, lunge: 2.0, breaksGuard: true }] },
+      daggers: { name: 'Flurry', cost: 26, cd: 7, desc: 'Six cuts faster than the eye', hits: [0, 1, 2, 3, 4, 5].map(i => (
+        { pose: i % 2 ? 'slashL' : 'slashR', wind: i ? 0.05 : 0.12, active: 0.05, recover: i < 5 ? 0.03 : 0.4, dmg: 9, posture: 8, range: 2.1, arc: 120, lunge: 0.6 })) },
+    },
     // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
     // outright (guardians and champions take execMult times a critical instead)
     execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 0.8 },

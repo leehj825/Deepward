@@ -272,7 +272,8 @@ const UI = (() => {
         const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
         const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
         return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
-      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage and the weapon\'s art (hold block and press heavy). Land hits with a weapon to train it.</p>'
+        + '<div class="arts">' + Object.entries(CFG.player.arts).map(([k, a]) => `<div class="${Items.masteryRank(k) >= 3 ? 'got' : 'dim'}"><b>${esc(CFG.gear.weapons[k].name)}: ${esc(a.name)}</b> <small>${esc(a.desc)} · ${a.cd} s</small></div>`).join('') + '</div>';
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');

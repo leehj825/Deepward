@@ -126,6 +126,11 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Rebinding:** `startListen(act, dev)`; the next key or button is captured before anything else sees it. A new key replaces the action's first key and is taken from any other action; a button becomes the action's only button (A stays shared by talk and dash). Esc, Enter and the Menu button can't be bound, and menu navigation is fixed, so nobody gets locked out.
 - **Hints:** `Bindings.fmt` turns `@heavy` and the like into the player's key or button (with the mouse for attack, block and heavy), for tips, the talk prompt, the training yard and the hint line.
 
+## Weapon arts (built)
+
+- `CFG.player.arts[type]`: a name, stamina cost, cooldown and a list of hits in the usual attack format (plus `ring` for a shockwave). `Items.stats` sets `art` when the weapon's mastery is rank 3.
+- `Player.press` turns heavy into `art` while block is held (an execution still wins). `tryAct` starts the first hit and queues the rest; each queued hit starts as the last one enters its recovery, so multi-hit arts flow without gaps. `artCd` ticks down with the other timers.
+
 ## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
@@ -317,7 +322,7 @@ The next steps, in the order I'd take them. Each is sized like one of the S or T
 
 **V5. Endless Deep with modifiers (done).** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
 
-**V6. Weapon arts.** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
+**V6. Weapon arts (done).** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
 
 **V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
 

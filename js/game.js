@@ -532,7 +532,8 @@ G.onHits = (n, crit) => {
   if (!Items.S || G.mode !== 'dungeon') return;
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
-    const w = CFG.gear.weapons[p.S.weaponType].name, perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', '+8% posture damage'][r];
+    const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
+    const perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
     UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
   }
 };

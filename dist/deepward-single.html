@@ -349,6 +349,9 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
 body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 .irow.curse.got { background: linear-gradient(90deg, rgba(192, 106, 255, 0.16), rgba(255, 255, 255, 0.03)); border-left: 3px solid #c06aff; }
+.arts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; margin: 6px 0 10px; }
+.arts .got b { color: #ffd040; }
+@media (max-width: 560px) { .arts { grid-template-columns: 1fr; } }
 
 </style>
 </head>
@@ -460,6 +463,25 @@ const CFG = {
     heavies: {
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
+    },
+    // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
+    // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
+    arts: {
+      sword: { name: 'Falling Star', cost: 30, cd: 8, desc: 'A leaping overhead that breaks guards', hits: [
+        { pose: 'overhead', wind: 0.34, active: 0.12, recover: 0.5, dmg: 46, posture: 62, range: 2.7, arc: 100, lunge: 3.2, breaksGuard: true }] },
+      axe: { name: 'Cleaving Leap', cost: 32, cd: 9, desc: 'Leap in and split the ground around you', hits: [
+        { pose: 'heavy', wind: 0.44, active: 0.14, recover: 0.55, dmg: 40, posture: 52, range: 2.8, arc: 360, lunge: 4.2, breaksGuard: true, ring: 2.8 }] },
+      mace: { name: 'Earthshaker', cost: 32, cd: 9, desc: 'A ground shock that shatters posture all around', hits: [
+        { pose: 'heavy', wind: 0.5, active: 0.14, recover: 0.6, dmg: 30, posture: 95, range: 3.6, arc: 360, lunge: 0.4, breaksGuard: true, ring: 3.6 }] },
+      longsword: { name: 'Piercing Lunge', cost: 28, cd: 7, desc: 'A long dashing thrust that strikes from afar', hits: [
+        { pose: 'thrust', wind: 0.24, active: 0.1, recover: 0.45, dmg: 40, posture: 40, range: 4.4, arc: 30, lunge: 4.6 }] },
+      greatsword: { name: 'Whirlwind', cost: 34, cd: 9, desc: 'Two full spins that cut everything near', hits: [
+        { pose: 'slashR', wind: 0.3, active: 0.14, recover: 0.04, dmg: 30, posture: 34, range: 3.1, arc: 360, lunge: 0.6 },
+        { pose: 'slashR', wind: 0.12, active: 0.14, recover: 0.55, dmg: 34, posture: 40, range: 3.1, arc: 360, lunge: 0.6, breaksGuard: true }] },
+      spear: { name: 'Skewer', cost: 28, cd: 7, desc: 'A thrust that reaches five metres and breaks guards', hits: [
+        { pose: 'thrust', wind: 0.3, active: 0.12, recover: 0.5, dmg: 38, posture: 46, range: 5.0, arc: 22, lunge: 2.0, breaksGuard: true }] },
+      daggers: { name: 'Flurry', cost: 26, cd: 7, desc: 'Six cuts faster than the eye', hits: [0, 1, 2, 3, 4, 5].map(i => (
+        { pose: i % 2 ? 'slashL' : 'slashR', wind: i ? 0.05 : 0.12, active: 0.05, recover: i < 5 ? 0.03 : 0.4, dmg: 9, posture: 8, range: 2.1, arc: 120, lunge: 0.6 })) },
     },
     // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
     // outright (guardians and champions take execMult times a critical instead)
@@ -1311,7 +1333,7 @@ const Items = (() => {
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
       critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1) * Math.min(1.3, Math.max(0.85, 1 + LD.dashCost * over)), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, art: mr >= 3 && CFG.player.arts[type] ? type : null, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
     out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
     if (u.aegis) out.parry += 0.04;
@@ -2792,7 +2814,8 @@ const Player = (() => {
 
   function setState(p, s) { p.state = s; p.t = 0; }
   function spend(p, n) { p.st = Math.max(0, p.st - n); p.stDelay = P.staminaDelay; }
-  function press(p, act) { p.buffer = { act, t: 0 }; }
+  // Heavy while holding block is the weapon art, once the weapon has earned it (an execution still comes first)
+  function press(p, act) { if (act === 'heavy' && Input.block && p.S.art && !executable(p)) act = 'art'; p.buffer = { act, t: 0 }; }
 
   // The enemy that an attack should snap toward: nearest one roughly in the direction the player is pushing
   function pickTarget(p, maxD = 5) {
@@ -2816,6 +2839,16 @@ const Player = (() => {
   function tryAct(p) {
     const b = p.buffer; if (!b) return false;
     if (b.act === 'dodge') { if (p.st <= 0) return false; startRoll(p); p.buffer = null; return true; }
+    if (b.act === 'art') {
+      p.buffer = null;
+      if (p.artCd > 0) { FX.text(Combat.chestPos(p.pos, 2.1), Math.ceil(p.artCd) + 's', 'warn'); return false; }
+      if (p.st <= 0) return false;
+      const art = P.arts[p.S.art], seq = art.hits.map((h, i) => Object.assign({}, h, { cost: i ? 0 : art.cost }));
+      p.artQueue = seq.slice(1); p.artCd = art.cd; p.combo = 0; p.blocking = false;
+      FX.text(Combat.chestPos(p.pos, 2.5), art.name.toUpperCase(), 'crit'); G.rumble(0.5, 0.5, 160); Snd.play('warn');
+      if (G.onArt) G.onArt(p.S.art);
+      startAttack(p, 'art', seq[0]); return true;
+    }
     if (b.act === 'light' || b.act === 'heavy') {
       if (p.st <= 0) return false;
       let data;
@@ -2899,7 +2932,7 @@ const Player = (() => {
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
     updateFires(p, dt);
-    for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    for (const k of ['ultCd', 'artCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
@@ -2946,10 +2979,14 @@ const Player = (() => {
       }
       if (p.phase === 'wind' && p.phaseT >= a.wind) {
         p.phase = 'active'; p.phaseT = 0;
-        Snd.play(p.atkKind === 'heavy' ? 'heavySwing' : 'swing');
+        Snd.play(p.atkKind === 'light' ? 'swing' : 'heavySwing');
       }
-      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) { p.struck = true; Combat.playerStrike(p, a); }
+      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) {
+        p.struck = true; Combat.playerStrike(p, a);
+        if (a.ring) { FX.ring(p.pos, a.ring, 0xffc870, 0.45, { r0: 0.4 }); FX.shake(0.35); Snd.play('slam'); }   // an art's shockwave
+      }
       if (p.phase === 'active' && p.phaseT >= a.active) { p.phase = 'recover'; p.phaseT = 0; }
+      if (p.phase === 'recover' && p.atkKind === 'art' && p.artQueue && p.artQueue.length) { startAttack(p, 'art', p.artQueue.shift()); }   // the art's next hit (now winding up again)
       if (p.phase === 'recover') {
         const prog = p.phaseT / a.recover;
         // Cancels: dodge at any point of the recovery, next combo hit after a moment, block late in the recovery
@@ -2957,7 +2994,7 @@ const Player = (() => {
         else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < comboLen(p)) { p.comboT = 0; tryAct(p); }
         else if (p.buffer && prog > 0.6) { p.comboT = 0; tryAct(p); }
         else if (Input.block && prog > 0.5) { p.comboT = 0; p.combo = 0; setState(p, 'free'); }
-        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
+        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind !== 'light') p.combo = 0; setState(p, 'free'); }
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
@@ -4983,7 +5020,8 @@ const UI = (() => {
         const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
         const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
         return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
-      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage and the weapon\'s art (hold block and press heavy). Land hits with a weapon to train it.</p>'
+        + '<div class="arts">' + Object.entries(CFG.player.arts).map(([k, a]) => `<div class="${Items.masteryRank(k) >= 3 ? 'got' : 'dim'}"><b>${esc(CFG.gear.weapons[k].name)}: ${esc(a.name)}</b> <small>${esc(a.desc)} · ${a.cd} s</small></div>`).join('') + '</div>';
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
@@ -6143,7 +6181,8 @@ G.onHits = (n, crit) => {
   if (!Items.S || G.mode !== 'dungeon') return;
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
-    const w = CFG.gear.weapons[p.S.weaponType].name, perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', '+8% posture damage'][r];
+    const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
+    const perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
     UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
   }
 };

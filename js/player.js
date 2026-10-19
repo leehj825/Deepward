@@ -42,7 +42,8 @@ const Player = (() => {
 
   function setState(p, s) { p.state = s; p.t = 0; }
   function spend(p, n) { p.st = Math.max(0, p.st - n); p.stDelay = P.staminaDelay; }
-  function press(p, act) { p.buffer = { act, t: 0 }; }
+  // Heavy while holding block is the weapon art, once the weapon has earned it (an execution still comes first)
+  function press(p, act) { if (act === 'heavy' && Input.block && p.S.art && !executable(p)) act = 'art'; p.buffer = { act, t: 0 }; }
 
   // The enemy that an attack should snap toward: nearest one roughly in the direction the player is pushing
   function pickTarget(p, maxD = 5) {
@@ -66,6 +67,16 @@ const Player = (() => {
   function tryAct(p) {
     const b = p.buffer; if (!b) return false;
     if (b.act === 'dodge') { if (p.st <= 0) return false; startRoll(p); p.buffer = null; return true; }
+    if (b.act === 'art') {
+      p.buffer = null;
+      if (p.artCd > 0) { FX.text(Combat.chestPos(p.pos, 2.1), Math.ceil(p.artCd) + 's', 'warn'); return false; }
+      if (p.st <= 0) return false;
+      const art = P.arts[p.S.art], seq = art.hits.map((h, i) => Object.assign({}, h, { cost: i ? 0 : art.cost }));
+      p.artQueue = seq.slice(1); p.artCd = art.cd; p.combo = 0; p.blocking = false;
+      FX.text(Combat.chestPos(p.pos, 2.5), art.name.toUpperCase(), 'crit'); G.rumble(0.5, 0.5, 160); Snd.play('warn');
+      if (G.onArt) G.onArt(p.S.art);
+      startAttack(p, 'art', seq[0]); return true;
+    }
     if (b.act === 'light' || b.act === 'heavy') {
       if (p.st <= 0) return false;
       let data;
@@ -149,7 +160,7 @@ const Player = (() => {
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
     updateFires(p, dt);
-    for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    for (const k of ['ultCd', 'artCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
@@ -196,10 +207,14 @@ const Player = (() => {
       }
       if (p.phase === 'wind' && p.phaseT >= a.wind) {
         p.phase = 'active'; p.phaseT = 0;
-        Snd.play(p.atkKind === 'heavy' ? 'heavySwing' : 'swing');
+        Snd.play(p.atkKind === 'light' ? 'swing' : 'heavySwing');
       }
-      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) { p.struck = true; Combat.playerStrike(p, a); }
+      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) {
+        p.struck = true; Combat.playerStrike(p, a);
+        if (a.ring) { FX.ring(p.pos, a.ring, 0xffc870, 0.45, { r0: 0.4 }); FX.shake(0.35); Snd.play('slam'); }   // an art's shockwave
+      }
       if (p.phase === 'active' && p.phaseT >= a.active) { p.phase = 'recover'; p.phaseT = 0; }
+      if (p.phase === 'recover' && p.atkKind === 'art' && p.artQueue && p.artQueue.length) { startAttack(p, 'art', p.artQueue.shift()); }   // the art's next hit (now winding up again)
       if (p.phase === 'recover') {
         const prog = p.phaseT / a.recover;
         // Cancels: dodge at any point of the recovery, next combo hit after a moment, block late in the recovery
@@ -207,7 +222,7 @@ const Player = (() => {
         else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < comboLen(p)) { p.comboT = 0; tryAct(p); }
         else if (p.buffer && prog > 0.6) { p.comboT = 0; tryAct(p); }
         else if (Input.block && prog > 0.5) { p.comboT = 0; p.combo = 0; setState(p, 'free'); }
-        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
+        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind !== 'light') p.combo = 0; setState(p, 'free'); }
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
