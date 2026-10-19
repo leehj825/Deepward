@@ -344,3 +344,10 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 .arts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; margin: 6px 0 10px; }
 .arts .got b { color: #ffd040; }
 @media (max-width: 560px) { .arts { grid-template-columns: 1fr; } }
+
+/* Appearance */
+.looks b { display: block; margin: 10px 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.pb.swatch { width: 34px; height: 34px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
+.pb.swatch.on { border-color: #f2d27a; box-shadow: 0 0 0 2px rgba(242, 210, 122, 0.5); }
+.looksdoll { height: clamp(220px, calc(100vh - 220px), 360px); }

@@ -232,6 +232,18 @@ const UI = (() => {
       return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
         ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
     },
+    // The warden's looks: skin, hair colour, hair, beard, with the turning hero beside them
+    looks(o = {}) {
+      const A = CFG.appearance, L = Items.S.looks = Items.S.looks || { skin: 0, hair: 0, style: 0, beard: 0 };
+      const hex = c => '#' + c.toString(16).padStart(6, '0');
+      const sw = (k, list) => list.map((c, i) => `<button class="pb swatch${L[k] === i ? ' on' : ''}" data-act="look" data-arg="${k}:${i}" style="background:${hex(c)}" aria-label="${k} ${i + 1}"></button>`).join('');
+      const opts = (k, list) => list.map(([, name], i) => btn(name, 'look', k + ':' + i, false, L[k] === i ? 'on' : '')).join('');
+      let h = `<h2>Appearance</h2><p class="sub">${o.first ? 'Before you take up the watch: how does the new warden look?' : 'Change how the warden looks. Gear covers some of it.'}</p>`;
+      h += `<div class="gwrap"><div class="gleft"><div class="gdoll looksdoll"></div></div><div class="gright looks">`;
+      h += `<b>Skin</b><div class="swatches">${sw('skin', A.skins)}</div><b>Hair colour</b><div class="swatches">${sw('hair', A.hairs)}</div>`;
+      h += `<b>Hair</b><div>${opts('style', A.styles)}</div><b>Beard</b><div>${opts('beard', A.beards)}</div></div></div>`;
+      return h + btn(o.first ? 'Take up the watch' : 'Done', o.first ? 'looksdone' : 'open', o.first ? '' : 'bag', false, 'hot');
+    },
     trainOffer() {
       return `<h2>Before the Deep</h2><p>Maren: "Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense."</p>
         ${btn('Train now', 'train', '', false, 'hot')}${btn('Later', 'close')}`;
@@ -266,7 +278,7 @@ const UI = (() => {
       h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
-      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks');
       return h + btn('Close', 'close', '', false, 'leave');
     },
     // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
@@ -451,6 +463,8 @@ const UI = (() => {
     if (a === 'wbundle') { const b = S.wander && S.wander.bundles[+arg]; if (b && !b.sold && S.gold >= b.gold) { S.gold -= b.gold; Items.addMat(b.id, b.n); b.sold = true; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wgem') { const W = S.wander; if (W && W.gem && S.gold >= CFG.wanderer.gem) { S.gold -= CFG.wanderer.gem; Items.addGem(W.gem); toast('Gem: ' + CFG.gear.gems[W.gem].name, '#9ad8ff'); W.gem = null; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
+    if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
+    if (a === 'looksdone') { close(); return show('trainOffer'); }
     if (a === 'jobin') { const r = Jobs.turnIn(+arg); if (r) { Snd.play('glint'); toast(`Job done: ◆ ${r.gold}` + (r.gem ? ` and ${CFG.gear.gems[r.gem].icon} ${CFG.gear.gems[r.gem].name}` : ''), '#ffd040'); changed(); } return render(); }
     if (a === 'jobdrop') { Jobs.drop(+arg); Items.save(); return render(); }
     if (a === 'ring') { const A = G.arenaList().find(x => x.id === arg); if (A && !A.locked) { close(); G.enterArena(A); } return; }
@@ -548,7 +562,8 @@ const UI = (() => {
     card.innerHTML = PANELS[open.id](open.opt || {});
     const doll = card.querySelector('.gdoll'); if (doll && typeof GearView !== 'undefined') GearView.mount(doll);
     const bs = buttons();
-    if (focus < 0) focus = Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
+    if (focus < 0) focus = open && open.id === 'looks' ? bs.findIndex(b => b.classList.contains('hot'))   // a controller confirms the looks straight away
+      : Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
     focus = Math.max(0, Math.min(focus, bs.length - 1));
     // Keep focus on an enabled button
     if (bs[focus] && bs[focus].disabled) { const i = bs.findIndex(b => !b.disabled); if (i >= 0) focus = i; }

@@ -492,7 +492,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('looks', { first: true })); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });

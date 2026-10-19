@@ -195,6 +195,11 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
+## Appearance (built)
+
+- `S.looks` holds indices into `CFG.appearance` (skins, hair colours, styles, beards); `Items.look()` adds `skin`, `hair`, `hairStyle` and `beard` to the hero's look, so the rig, the gear screen's turning hero and refits all follow it. Hair styles are a few boxes on the head (a helm leaves only a tuft, or a longer fall for long hair); beards show under helms.
+- The looks panel comes after the opening story (then the training offer) and from the gear screen; on a controller it opens on its confirm button.
+
 ## Skinned bodies (built)
 
 - `Rig.skin` merges every plain mesh of a character into one `SkinnedMesh` whose bones are the rig's own joints (each vertex bound wholly to its joint, colours per vertex). The joints animate exactly as before; the body draws in one call. Glowing, textured and see-through parts (weapons, shields, eyes) stay apart, and `rig.mats` holds the one body material, so hit flashes still work.

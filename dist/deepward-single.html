@@ -355,6 +355,13 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 .arts .got b { color: #ffd040; }
 @media (max-width: 560px) { .arts { grid-template-columns: 1fr; } }
 
+/* Appearance */
+.looks b { display: block; margin: 10px 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.pb.swatch { width: 34px; height: 34px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
+.pb.swatch.on { border-color: #f2d27a; box-shadow: 0 0 0 2px rgba(242, 210, 122, 0.5); }
+.looksdoll { height: clamp(220px, calc(100vh - 220px), 360px); }
+
 </style>
 </head>
 <body>
@@ -924,6 +931,13 @@ const CFG = {
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // The warden's looks: chosen after the opening story, changed any time from the gear screen
+  appearance: {
+    skins: [0xe2a982, 0xf1c9a0, 0xc88b63, 0xa86a40, 0x7a4a2a, 0x5a3a22],
+    hairs: [0x3b2416, 0x1a1210, 0x6a4a2a, 0xa0703a, 0xd8b060, 0x8a2a1a, 0x9a9a9a, 0xe8e0d0],
+    styles: [['short', 'Short'], ['long', 'Long'], ['tail', 'Tail'], ['shaved', 'Shaved']],
+    beards: [['none', 'None'], ['short', 'Short beard'], ['long', 'Long beard']],
+  },
   // Captain Rook's task: the raiders carry the Den Mother's mark. Steps: 1 find their trail by the Broken Ridge,
   // 2 tell Rook, 3 burn their war camp on the Rim (slay its chief, burn its totems), 4 report back, 5 done. Offered once
   // a raid has been beaten. Afterwards raids come half as often. Places are on the Rim (z from its near edge).
@@ -1424,7 +1438,7 @@ const Items = (() => {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   function fresh() {
     return {
-      gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1,
+      gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1, looks: { skin: 0, hair: 0, style: 0, beard: 0 },
       camp: { forge: 0, apothecary: 0, yard: 0 },
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
@@ -1623,7 +1637,7 @@ const Items = (() => {
       trinket: it.slot === 'ring' || / Ring$| Ring /.test(it.name) ? 'Ring' : it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
   }
   function look() {
-    const E = S.equip;
+    const E = S.equip, AP = CFG.appearance, lk = S.looks || {};
     return {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
@@ -1633,6 +1647,8 @@ const Items = (() => {
       armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && wcOf(E.armor) === 2, mail: !!E.armor && wcOf(E.armor) === 1,
       helm: E.helm ? wcOf(E.helm) : -1, trinket: !!E.trinket, ring: !!E.ring,
       gloves: E.gloves ? wcOf(E.gloves) : -1, boots: E.boots ? wcOf(E.boots) : -1,
+      // the warden's own looks
+      skin: AP.skins[lk.skin] || AP.skins[0], hair: AP.hairs[lk.hair] || AP.hairs[0], hairStyle: (AP.styles[lk.style] || AP.styles[0])[0], beard: (AP.beards[lk.beard] || AP.beards[0])[0],
     };
   }
 
@@ -2211,7 +2227,7 @@ const Rig = (() => {
     const L = o.look || {}, N = o.npc || {}, VAR = o.variant || 'horror';       // VAR: a big monster's form (horror / troll / golem)
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
-      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
+      hero: { skin: L.skin || 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
       goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
@@ -2374,15 +2390,19 @@ const Rig = (() => {
         for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
         box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
         if (kind === 'hero' || kind === 'npc') {
-          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : (L.hair || 0x3b2416), 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          const style = kind === 'hero' ? L.hairStyle || 'short' : 'short', beard = kind === 'npc' ? (N.beard ? 'short' : 'none') : L.beard || 'none';
           // Under a helm only a short tuft shows at the back; the helm encloses the rest (the head is a box, so its
           // corners reach 0.19 m from the middle and a round helm must be wider than that)
-          if (helmed) box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115);
+          if (helmed) { if (style !== 'shaved') box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115); if (style === 'long') box(head, 0.22, 0.2, 0.05, hair, 0, -0.17, -0.12); }
+          else if (style === 'shaved') box(head, 0.252, 0.03, 0.252, hair, 0, 0.115, 0);                  // a close crop
           else {
             box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
             for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+            if (style === 'long') { box(head, 0.25, 0.26, 0.06, hair, 0, -0.16, -0.12); for (const s of [1, -1]) box(head, 0.035, 0.24, 0.12, hair, 0.125 * s, -0.08, -0.06); }
+            if (style === 'tail') { box(head, 0.07, 0.07, 0.08, hair, 0, 0.06, -0.16); box(head, 0.06, 0.24, 0.05, hair, 0, -0.08, -0.19); }
           }
-          if (N.beard) { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, 0.08, 0.05, hair, 0, -0.18, 0.1); }
+          if (beard !== 'none') { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, beard === 'long' ? 0.18 : 0.08, 0.05, hair, 0, beard === 'long' ? -0.23 : -0.18, 0.1); }
           if (helmed) helmet(head, L.helm, { steel, leather, dark });
           else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
         }
@@ -6052,6 +6072,18 @@ const UI = (() => {
       return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
         ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
     },
+    // The warden's looks: skin, hair colour, hair, beard, with the turning hero beside them
+    looks(o = {}) {
+      const A = CFG.appearance, L = Items.S.looks = Items.S.looks || { skin: 0, hair: 0, style: 0, beard: 0 };
+      const hex = c => '#' + c.toString(16).padStart(6, '0');
+      const sw = (k, list) => list.map((c, i) => `<button class="pb swatch${L[k] === i ? ' on' : ''}" data-act="look" data-arg="${k}:${i}" style="background:${hex(c)}" aria-label="${k} ${i + 1}"></button>`).join('');
+      const opts = (k, list) => list.map(([, name], i) => btn(name, 'look', k + ':' + i, false, L[k] === i ? 'on' : '')).join('');
+      let h = `<h2>Appearance</h2><p class="sub">${o.first ? 'Before you take up the watch: how does the new warden look?' : 'Change how the warden looks. Gear covers some of it.'}</p>`;
+      h += `<div class="gwrap"><div class="gleft"><div class="gdoll looksdoll"></div></div><div class="gright looks">`;
+      h += `<b>Skin</b><div class="swatches">${sw('skin', A.skins)}</div><b>Hair colour</b><div class="swatches">${sw('hair', A.hairs)}</div>`;
+      h += `<b>Hair</b><div>${opts('style', A.styles)}</div><b>Beard</b><div>${opts('beard', A.beards)}</div></div></div>`;
+      return h + btn(o.first ? 'Take up the watch' : 'Done', o.first ? 'looksdone' : 'open', o.first ? '' : 'bag', false, 'hot');
+    },
     trainOffer() {
       return `<h2>Before the Deep</h2><p>Maren: "Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense."</p>
         ${btn('Train now', 'train', '', false, 'hot')}${btn('Later', 'close')}`;
@@ -6086,7 +6118,7 @@ const UI = (() => {
       h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
-      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks');
       return h + btn('Close', 'close', '', false, 'leave');
     },
     // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
@@ -6271,6 +6303,8 @@ const UI = (() => {
     if (a === 'wbundle') { const b = S.wander && S.wander.bundles[+arg]; if (b && !b.sold && S.gold >= b.gold) { S.gold -= b.gold; Items.addMat(b.id, b.n); b.sold = true; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wgem') { const W = S.wander; if (W && W.gem && S.gold >= CFG.wanderer.gem) { S.gold -= CFG.wanderer.gem; Items.addGem(W.gem); toast('Gem: ' + CFG.gear.gems[W.gem].name, '#9ad8ff'); W.gem = null; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
+    if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
+    if (a === 'looksdone') { close(); return show('trainOffer'); }
     if (a === 'jobin') { const r = Jobs.turnIn(+arg); if (r) { Snd.play('glint'); toast(`Job done: ◆ ${r.gold}` + (r.gem ? ` and ${CFG.gear.gems[r.gem].icon} ${CFG.gear.gems[r.gem].name}` : ''), '#ffd040'); changed(); } return render(); }
     if (a === 'jobdrop') { Jobs.drop(+arg); Items.save(); return render(); }
     if (a === 'ring') { const A = G.arenaList().find(x => x.id === arg); if (A && !A.locked) { close(); G.enterArena(A); } return; }
@@ -6368,7 +6402,8 @@ const UI = (() => {
     card.innerHTML = PANELS[open.id](open.opt || {});
     const doll = card.querySelector('.gdoll'); if (doll && typeof GearView !== 'undefined') GearView.mount(doll);
     const bs = buttons();
-    if (focus < 0) focus = Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
+    if (focus < 0) focus = open && open.id === 'looks' ? bs.findIndex(b => b.classList.contains('hot'))   // a controller confirms the looks straight away
+      : Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
     focus = Math.max(0, Math.min(focus, bs.length - 1));
     // Keep focus on an enabled button
     if (bs[focus] && bs[focus].disabled) { const i = bs.findIndex(b => !b.disabled); if (i >= 0) focus = i; }
@@ -7424,7 +7459,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('looks', { first: true })); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });

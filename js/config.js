@@ -499,6 +499,13 @@ const CFG = {
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // The warden's looks: chosen after the opening story, changed any time from the gear screen
+  appearance: {
+    skins: [0xe2a982, 0xf1c9a0, 0xc88b63, 0xa86a40, 0x7a4a2a, 0x5a3a22],
+    hairs: [0x3b2416, 0x1a1210, 0x6a4a2a, 0xa0703a, 0xd8b060, 0x8a2a1a, 0x9a9a9a, 0xe8e0d0],
+    styles: [['short', 'Short'], ['long', 'Long'], ['tail', 'Tail'], ['shaved', 'Shaved']],
+    beards: [['none', 'None'], ['short', 'Short beard'], ['long', 'Long beard']],
+  },
   // Captain Rook's task: the raiders carry the Den Mother's mark. Steps: 1 find their trail by the Broken Ridge,
   // 2 tell Rook, 3 burn their war camp on the Rim (slay its chief, burn its totems), 4 report back, 5 done. Offered once
   // a raid has been beaten. Afterwards raids come half as often. Places are on the Rim (z from its near edge).

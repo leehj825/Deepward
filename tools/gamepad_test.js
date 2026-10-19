@@ -21,7 +21,7 @@ const path = require('path');
     __dw.setView('behind');
     out.padClass = (sim(0.1), document.body.classList.contains('pad'));
     tap(0); out.startedWithA = G.state === 'menu' && __dw.G.mode === 'camp';      // a new game opens on the camp and its story
-    for (let i = 0; i < 8 && G.state === 'menu'; i++) tap(0);                   // A pages through the story
+    for (let i = 0; i < 12 && G.state === 'menu'; i++) tap(0);                  // A pages through the story and the looks
     out.storyDone = G.state === 'play';
     __dw.arena(0); __dw.World.halt(); G.queue = []; G.player.pos.set(0, 0, 4);
     __pad.axes[1] = -1; sim(0.5); __pad.axes[1] = 0; sim(0.1);

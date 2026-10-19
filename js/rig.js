@@ -243,7 +243,7 @@ const Rig = (() => {
     const L = o.look || {}, N = o.npc || {}, VAR = o.variant || 'horror';       // VAR: a big monster's form (horror / troll / golem)
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
-      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
+      hero: { skin: L.skin || 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
       goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
@@ -406,15 +406,19 @@ const Rig = (() => {
         for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
         box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
         if (kind === 'hero' || kind === 'npc') {
-          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : (L.hair || 0x3b2416), 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          const style = kind === 'hero' ? L.hairStyle || 'short' : 'short', beard = kind === 'npc' ? (N.beard ? 'short' : 'none') : L.beard || 'none';
           // Under a helm only a short tuft shows at the back; the helm encloses the rest (the head is a box, so its
           // corners reach 0.19 m from the middle and a round helm must be wider than that)
-          if (helmed) box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115);
+          if (helmed) { if (style !== 'shaved') box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115); if (style === 'long') box(head, 0.22, 0.2, 0.05, hair, 0, -0.17, -0.12); }
+          else if (style === 'shaved') box(head, 0.252, 0.03, 0.252, hair, 0, 0.115, 0);                  // a close crop
           else {
             box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
             for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+            if (style === 'long') { box(head, 0.25, 0.26, 0.06, hair, 0, -0.16, -0.12); for (const s of [1, -1]) box(head, 0.035, 0.24, 0.12, hair, 0.125 * s, -0.08, -0.06); }
+            if (style === 'tail') { box(head, 0.07, 0.07, 0.08, hair, 0, 0.06, -0.16); box(head, 0.06, 0.24, 0.05, hair, 0, -0.08, -0.19); }
           }
-          if (N.beard) { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, 0.08, 0.05, hair, 0, -0.18, 0.1); }
+          if (beard !== 'none') { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, beard === 'long' ? 0.18 : 0.08, 0.05, hair, 0, beard === 'long' ? -0.23 : -0.18, 0.1); }
           if (helmed) helmet(head, L.helm, { steel, leather, dark });
           else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
         }

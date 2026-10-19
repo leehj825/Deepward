@@ -66,6 +66,8 @@ Every model is built in code from primitives, and there are no model, texture or
 
 A box at the top says what to press in your own controls (keyboard, controller or touch) and counts your progress. You can skip a lesson or leave at any time. A new game offers the training after the opening story, and the trainer at the yard sign runs it again whenever you like. Finishing it the first time pays 150 gold.
 
+**Appearance.** After the opening story you choose how the warden looks: six skin tones, eight hair colours, four hair styles (short, long, tail, shaved) and a beard (none, short, long). The gear screen's **Appearance** button changes it any time; a helm covers the hair but not the beard.
+
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
 - **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass. People stand, sit and kneel in their own ways: Wenna and two villagers sit on the logs by the fire, Nell works seated at her bench, a gardener kneels at the vegetable patch, Maren stoops, Bram looks over his work, and the guards stand alert.
@@ -420,6 +422,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |

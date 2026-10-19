@@ -14,7 +14,7 @@ const Items = (() => {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   function fresh() {
     return {
-      gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1,
+      gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1, looks: { skin: 0, hair: 0, style: 0, beard: 0 },
       camp: { forge: 0, apothecary: 0, yard: 0 },
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
@@ -213,7 +213,7 @@ const Items = (() => {
       trinket: it.slot === 'ring' || / Ring$| Ring /.test(it.name) ? 'Ring' : it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
   }
   function look() {
-    const E = S.equip;
+    const E = S.equip, AP = CFG.appearance, lk = S.looks || {};
     return {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
@@ -223,6 +223,8 @@ const Items = (() => {
       armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && wcOf(E.armor) === 2, mail: !!E.armor && wcOf(E.armor) === 1,
       helm: E.helm ? wcOf(E.helm) : -1, trinket: !!E.trinket, ring: !!E.ring,
       gloves: E.gloves ? wcOf(E.gloves) : -1, boots: E.boots ? wcOf(E.boots) : -1,
+      // the warden's own looks
+      skin: AP.skins[lk.skin] || AP.skins[0], hair: AP.hairs[lk.hair] || AP.hairs[0], hairStyle: (AP.styles[lk.style] || AP.styles[0])[0], beard: (AP.beards[lk.beard] || AP.beards[0])[0],
     };
   }
 
