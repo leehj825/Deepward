@@ -62,7 +62,7 @@ const World = (() => {
       // The corridor south of the room overlaps both rooms by a metre so you can walk from one rectangle into the next
       corr: i > 0 ? { x0: -DOOR + 0.1, x1: DOOR - 0.1, z0: southZ - 1, z1: southZ + CORR_LEN + 1 } : null,
     };
-    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); room.mats.push(m); return m; };
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); m.userData.op = o.opacity === undefined ? 1 : o.opacity; room.mats.push(m); return m; };
     const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
     const texFor = (t, rx, ry) => { const c = t.clone(); c.needsUpdate = true; c.repeat.set(rx, ry); room.texs.push(c); return c; };
 
@@ -142,8 +142,10 @@ const World = (() => {
     if (room.corr) torch(-(DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
 
     // Scattered decor in the theme of the stage
-    const decorM = th.decor === 'bones' ? M(0xcfc6aa) : th.decor === 'crates' ? M(0x6a4a2c) : M(rgbHex(th.wall, 4));
+    const decorM = th.decor === 'bones' ? M(0xcfc6aa) : th.decor === 'crates' ? M(0x6a4a2c) : th.decor === 'court' ? M(0x8a8690) : M(rgbHex(th.wall, 4));
     const decorM2 = M(rgbHex(th.wall, -6));
+    const webM = M(0xd8d8e8, { transparent: true, opacity: 0.35, side: THREE.DoubleSide }), goldM = M(0xc9a23a, { metalness: 0.6, roughness: 0.4 });
+    const candleM = new THREE.MeshBasicMaterial({ color: 0xfff0c0 }); room.mats.push(candleM);
     for (let k = 0; k < Math.round(hw * hd * 0.35); k++) {
       const x = (Math.random() * 2 - 1) * (hw - 0.8), z = cz + (Math.random() * 2 - 1) * (hd - 0.8);
       if (Math.abs(x) < DOOR + 0.6) continue;                             // keep the walkway between the gates clear
@@ -158,6 +160,16 @@ const World = (() => {
           if (r < 0.3) add(new THREE.BoxGeometry(0.7, 0.7, 0.7), decorM, x, 0.35, z).rotation.y = Math.random();
           else add(new THREE.CylinderGeometry(0.32, 0.32, 0.8, 9), decorM, x, 0.4, z);
         } else add(new THREE.DodecahedronGeometry(0.12 + Math.random() * 0.15, 0), decorM2, x, 0.08, z);
+      } else if (th.decor === 'webs') {
+        if (r < 0.35) { const sac = add(new THREE.SphereGeometry(0.22 + Math.random() * 0.12, 8, 6), webM, x, 0.2, z, false); sac.scale.y = 1.3; }
+        else if (r < 0.6) { const w = add(new THREE.PlaneGeometry(1.4, 1.0), webM, x, 0.9, z, false); w.rotation.set(0, Math.random() * 3, (Math.random() - 0.5) * 0.6); }
+        else add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.3, 0), decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      } else if (th.decor === 'court') {
+        if (Math.abs(x) > hw - 2.4 && r < 0.4) {                          // candelabras and broken statues line the walls
+          add(new THREE.CylinderGeometry(0.04, 0.12, 1.4, 6), goldM, x, 0.7, z);
+          for (const dx of [-0.15, 0, 0.15]) add(new THREE.ConeGeometry(0.03, 0.08, 5), candleM, x + dx, 1.48, z, false);
+        } else if (r < 0.55 && Math.abs(x) > hw - 2.4) { add(new THREE.BoxGeometry(0.6, 0.5, 0.6), decorM, x, 0.25, z); add(new THREE.BoxGeometry(0.3, 0.9, 0.25), decorM, x, 0.95, z).rotation.z = 0.3; }
+        else add(new THREE.BoxGeometry(0.3 + Math.random() * 0.3, 0.06, 0.2), decorM2, x, 0.03, z).rotation.y = Math.random() * 3;
       } else {
         add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.35, 0), r < 0.5 ? decorM : decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
       }
@@ -174,8 +186,9 @@ const World = (() => {
     room.fade = f;
     const see = f < 0.999;
     for (const m of room.mats) {
-      m.opacity = f;
-      if (m.transparent !== see) { m.transparent = see; m.needsUpdate = true; }
+      const op = m.userData.op === undefined ? 1 : m.userData.op, t = see || op < 1;     // see-through materials (webs) keep their own opacity
+      m.opacity = f * op;
+      if (m.transparent !== t) { m.transparent = t; m.needsUpdate = true; }
     }
     room.group.visible = f > 0.01;
   }

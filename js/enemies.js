@@ -2,10 +2,12 @@
 // and react to damage with flinches, guard blocks and posture breaks.
 // States: spawn, hunt, attack, stagger, broken, dead.
 const Enemy = (() => {
-  const GLOW_OK = 0xfff0c0, GLOW_RED = 0xff2a10;
+  const GLOW_OK = 0xfff0c0, GLOW_RED = 0xff2a10, GLOW_AMBER = 0xffa010;   // blockable / unblockable / parry-only
+  const glowOf = h => h.unblockable ? GLOW_RED : h.parryOnly ? GLOW_AMBER : GLOW_OK;
+  const BONE = { skeleton: 1, archer: 1 };
 
   function spawn(scene, type, pos, mult = 1) {
-    const def = CFG.enemies[type], rig = Rig.build(type);
+    const def = CFG.enemies[type], rig = Rig.build(def.rig || type);
     scene.add(rig.root);
     const e = {
       type, def, rig, trail: Rig.makeTrail(scene, type === 'brute' ? 0xff7a50 : 0xfff0c0),
@@ -24,7 +26,7 @@ const Enemy = (() => {
   }
 
   const targetable = e => e.state !== 'dead' && e.state !== 'spawn';
-  const attacking = () => G.enemies.reduce((n, o) => n + (o.state === 'attack' ? 1 : 0), 0);
+  const attacking = () => G.enemies.reduce((n, o) => n + (o.state === 'attack' && !o.def.solo ? 1 : 0), 0);
   const guardUp = e => e.def.guard && e.state === 'hunt';
   function aoeCenter(e, h) { return new THREE.Vector3(e.pos.x + Math.sin(e.facing) * h.aoe.fwd, 0, e.pos.z + Math.cos(e.facing) * h.aoe.fwd); }
   function maxReach(e) { return Math.max(...e.def.attacks.flatMap(a => a.hits.map(h => h.aoe ? h.aoe.fwd + h.aoe.r * 0.5 : h.range))); }
@@ -53,10 +55,13 @@ const Enemy = (() => {
     e.phase = 'wind'; e.phaseT = 0; e.struck = false;
     // The telegraph: a glint on the weapon (white = blockable, red = unblockable) and a floor ring for area attacks
     const tipPos = () => e.rig.weapon.tip.getWorldPosition(new THREE.Vector3());
-    FX.glint(tipPos(), h.unblockable ? GLOW_RED : GLOW_OK, h.unblockable ? 2.2 : 1.3, Math.min(0.5, h.wind * 0.6), tipPos);
+    FX.glint(tipPos(), glowOf(h), h.unblockable || h.parryOnly ? 2.2 : 1.3, Math.min(0.5, h.wind * 0.6), tipPos);
     if (h.unblockable) {
       Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), '!', 'danger');
       Rig.flash(e.rig, GLOW_RED, 0.5); e.flashT = 0.25;
+    } else if (h.parryOnly) {
+      Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 1.8 * e.def.scale), '!', 'amber');
+      Rig.flash(e.rig, GLOW_AMBER, 0.45); e.flashT = 0.25;
     } else Snd.play('glint');
     if (h.aoe) e.ring = FX.ring(aoeCenter(e, h), h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
   }
@@ -79,7 +84,15 @@ const Enemy = (() => {
       turn(toP, 7);
       const reach = maxReach(e) * 0.85 + CFG.player.radius;
       const playerOK = p.state !== 'dead';
-      if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers) startAttack(e);
+      if (def.ranged) {
+        // Archers hold the middle distance: back off when crowded, close in when too far, shoot whenever ready
+        const [near, far] = def.ranged;
+        if (playerOK && e.cooldown <= 0 && d <= far + 1.5 && d > 2) startAttack(e);
+        else if (d < near) step(toP + Math.PI + 0.4 * e.strafeDir, def.speed * 0.85);
+        else if (d > far) step(toP, def.speed);
+        else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.45);
+      }
+      else if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers) startAttack(e);
       else if (!playerOK) { /* stand and gloat */ }
       else if (e.cooldown <= 0 && d > reach) step(toP, def.speed);
       else if (d > def.approach + 1.2) step(toP, def.speed);
@@ -90,13 +103,19 @@ const Enemy = (() => {
       if (e.phase === 'wind') {
         // Tracks the player until shortly before the hit, then commits (that is the moment to roll sideways)
         if (e.phaseT < h.wind - 0.22) turn(toP, 6);
-        Rig.glow(e.rig, h.unblockable ? GLOW_RED : GLOW_OK, 0.2 + 1.3 * Math.min(1, e.phaseT / h.wind));
-        if (e.phaseT > h.wind * 0.65 && d > def.radius + 0.8) step(e.facing, h.lunge / (h.wind * 0.35 + h.active));
+        Rig.glow(e.rig, glowOf(h), 0.2 + 1.3 * Math.min(1, e.phaseT / h.wind));
+        if (e.phaseT > h.wind * 0.65 && d > def.radius + 0.8 && !h.leap) step(e.facing, h.lunge / (h.wind * 0.35 + h.active));
+        // A feint: the swing stops short, the weapon drops, and the real blow comes quickly after
+        if (h.feint && e.phaseT >= h.wind) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); return finishUpdate(e, dt, before); }
         if (e.ring && h.aoe) { const c = aoeCenter(e, h); e.ring.m.position.set(c.x, 0.03, c.z); if (e.ring.fill) e.ring.fill.position.set(c.x, 0.025, c.z); }
         if (e.phaseT >= h.wind) { e.phase = 'active'; e.phaseT = 0; Snd.play('swing'); }
       } else if (e.phase === 'active') {
-        if (d > def.radius + 0.8) step(e.facing, h.lunge / (h.wind * 0.35 + h.active));
-        if (!e.struck && e.phaseT >= h.active * 0.5) { e.struck = true; Combat.enemyStrike(e, h); if (e.state !== 'attack') return finishUpdate(e, dt, before); }
+        if (d > def.radius + 0.8) step(e.facing, h.leap ? h.lunge / h.active : h.lunge / (h.wind * 0.35 + h.active));
+        if (!e.struck && e.phaseT >= h.active * (h.leap ? 0.8 : 0.5)) {
+          e.struck = true;
+          if (h.projectile) shoot(e, h); else Combat.enemyStrike(e, h);
+          if (e.state !== 'attack') return finishUpdate(e, dt, before);
+        }
         if (e.phaseT >= h.active) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); }
       } else if (e.phase === 'recover') {
         if (e.phaseT >= h.recover) {
@@ -123,6 +142,10 @@ const Enemy = (() => {
     if (e.speedK > 0.05) e.cycle += dt * 9 * Math.max(0.5, e.speedK);
     const r = e.rig;
     r.root.position.x = e.pos.x; r.root.position.z = e.pos.z; r.root.rotation.y = e.facing;
+    // A pounce arcs through the air
+    const hh = e.atk && e.atk.hits[e.hitIdx];
+    if (e.state === 'attack' && e.phase === 'active' && hh && hh.leap) r.root.position.y = Math.sin(Math.min(1, e.phaseT / hh.active) * Math.PI) * 0.9;
+    else if (e.state !== 'spawn' && e.state !== 'dead') r.root.position.y = 0;
     const near = Combat.dist(e.pos, G.player.pos) < 5;
     let mode = e.state;
     if (e.state === 'hunt' || e.state === 'spawn') mode = guardUp(e) && near ? 'block' : e.speedK > 0.08 ? 'move' : 'idle';
@@ -133,7 +156,7 @@ const Enemy = (() => {
       phaseT: e.phaseT, wind: h && h.wind, active: h && h.active, recover: h && h.recover,
       windRate: h ? 2.6 / h.wind : 12,
     }, dt);
-    Rig.updateTrail(e.trail, r.weapon, e.state === 'attack' && e.phase === 'active', h && h.unblockable ? 0xff5030 : undefined);
+    if (r.weapon) Rig.updateTrail(e.trail, r.weapon, e.state === 'attack' && e.phase === 'active' && !(h && h.projectile), h && (h.unblockable || h.parryOnly) ? glowOf(h) : undefined);
     if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, 0, 0); }
   }
 
@@ -181,7 +204,7 @@ const Enemy = (() => {
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
     const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0));
     if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
-    FX.burst(at, e.type === 'skeleton' ? 0xe8e0c8 : 0xc0201a, 10, 5);
+    FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
     hurtFlash(e);
     damage(e, dmg, back ? 'back' : '');
     if (e.state === 'dead') return 'hit';
@@ -198,7 +221,7 @@ const Enemy = (() => {
   }
   function die(e) {
     e.hp = 0; e.rig.dieVar = Math.random() < 0.5; setState(e, 'dead');
-    Snd.play('die'); FX.burst(Combat.chestPos(e.pos, 1.0), e.type === 'skeleton' ? 0xd8cfb4 : 0x6a1a1a, 24, 6, 0.6);
+    Snd.play('die'); FX.burst(Combat.chestPos(e.pos, 1.0), BONE[e.type] ? 0xd8cfb4 : e.type === 'spider' ? 0x4a8a3a : 0x6a1a1a, 24, 6, 0.6);
     e.bar.remove();
     G.onEnemyDeath(e);
   }
@@ -225,5 +248,38 @@ const Enemy = (() => {
     scene.remove(e.rig.root); scene.remove(e.trail.mesh); if (e.bar) e.bar.remove(); endTelegraph(e);
   }
 
-  return { spawn, update, receive, parried, targetable, aoeCenter, updateBar, dispose };
+  // ---------------- Arrows ----------------
+  // Real projectiles: they fly from the bow toward where the hero stood, and can be blocked, parried (knocked aside) or dashed through
+  const arrows = [];
+  let arrowGeo = null;
+  function shoot(e, h) {
+    if (!arrowGeo) {
+      const shaft = new THREE.CylinderGeometry(0.012, 0.012, 0.7, 5).rotateX(Math.PI / 2), head = new THREE.ConeGeometry(0.035, 0.12, 4).rotateX(Math.PI / 2).translate(0, 0, 0.4);
+      arrowGeo = [shaft, head];
+    }
+    const from = e.rig.weapon.group.getWorldPosition(new THREE.Vector3()); from.y = Math.max(1.1, from.y);
+    const p = G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
+    const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
+    g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron));
+    g.position.copy(from); g.lookAt(from.clone().add(dir)); e.rig.root.parent.add(g);
+    arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: h.projectile.speed, hit: h, mult: e.mult, gone: 0, mats: [wood, iron] });
+    Snd.play('swing');
+  }
+  function updateArrows(dt) {
+    const p = G.player;
+    for (let i = arrows.length - 1; i >= 0; i--) {
+      const a = arrows[i]; let done = false;
+      a.pos.addScaledVector(a.dir, a.speed * dt); a.gone += a.speed * dt; a.g.position.copy(a.pos);
+      if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
+        const res = Player.receive(p, { pos: a.origin, mult: a.mult }, a.hit);
+        if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
+        if (res !== 'dodge') done = true;
+      }
+      if (a.gone > 18 || a.pos.y < 0 || !World.inSpace(a.pos.x, a.pos.z, 0.2)) done = true;
+      if (done) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); arrows.splice(i, 1); }
+    }
+  }
+  function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
+
+  return { spawn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

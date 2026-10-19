@@ -231,7 +231,7 @@ const Player = (() => {
       return 'dodge';
     }
     // Bulwark: every blockable hit is turned aside for free, from any side
-    if (p.bulwarkT > 0 && !hit.unblockable) {
+    if (p.bulwarkT > 0 && !hit.unblockable && !hit.parryOnly) {
       Snd.play('block'); FX.burst(shieldPos, 0x9ad8ff, 10, 5); knock(p, e.pos, 1.5);
       return 'block';
     }
@@ -245,6 +245,8 @@ const Player = (() => {
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
         return 'parry';
+      } else if (hit.parryOnly) {
+        FX.text(Combat.chestPos(p.pos, 2.4), 'SHIELD SMASHED', 'warn'); FX.burst(shieldPos, 0xffa010, 12, 6);      // only a parry stops a pounce
       } else {
         const cost = dmg * P.block.staminaPerDmg * p.S.guard * (hit.blockMult || 1);
         if (p.st >= cost) {

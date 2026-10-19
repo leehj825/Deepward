@@ -25,6 +25,8 @@ const WANT = {
   gsIdle: [A, 'gsIdle'], gsWalk: [A, 'gsWalk'], gsWalkB: [A, 'gsWalkB'], gsRun: [A, 'gsRun'], gsRunB: [A, 'gsRunB'],
   gsStrafeWalkN: [A, 'gsStrafeNW'], gsStrafeWalkP: [A, 'gsStrafePW'], gsStrafeRunN: [A, 'gsStrafeN'], gsStrafeRunP: [A, 'gsStrafeP'],
   gsBlock: [A, 'gsBlock'], gsSpin: [A, 'gsAttack4'],
+  // archer
+  shoot: [A, 'bowDraw'],
   gsAttack: [A, 'gsAttack1'], gsSlash: [A, 'gsAttack2'], gsSlash5: [A, 'gsAttack3'], gsJumpAttack: [L, 'gs_great_sword_jump_attack'],
   gsImpact: [A, 'gsImpact'], gsDie: [A, 'dieGs'],
 };

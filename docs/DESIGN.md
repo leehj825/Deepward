@@ -48,28 +48,30 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Blocking while moving:** the upper body plays the block and the legs keep walking.
 - **Hand-made poses** remain for the dodge roll, stagger, guard break and posture break.
 
-## Dungeon tiers (planned)
+## Stages and enemies (built)
 
-| Tier | Dungeon | New threat | Skill it forces |
-|---|---|---|---|
-| 1 | Crypt | Slow skeletons | Basic attacks and spacing |
-| 2 | Goblin Warren | Fast swarms, archers | Dodge |
-| 3 | Iron Keep | Shield knights | Block and heavy attacks |
-| 4 | Spider Depths | Pounces that can only be parried | Parry timing |
-| 5 | Forge of Golems | Unblockable slams mixed with blockable swings | Telling blockable from unblockable |
-| 6 | Shadow Court | Feints and delayed attacks | Patience |
-| 7 | Dragon's Maw | Multi-phase boss | Everything |
+| Stage | Theme | Enemies | Skill it forces | Guardian |
+|---|---|---|---|---|
+| 1 | The Crypt | Skeletons, skeleton archers | Spacing; closing on or blocking arrows | The Bone Warden |
+| 2 | The Iron Keep | Shield knights, archers | Block and heavy attacks | Sir Aldric the Hollow |
+| 3 | The Ogre Den | Goblin swarms, brutes | Dash; crowd reading | The Den Mother |
+| 4 | The Spider Depths | Spiders whose pounce can only be parried | Parry timing | The Brood Queen |
+| 5 | The Shadow Court | Feinting duelists | Patience | The Pale Duelist |
 
-Each dungeon has 5 to 8 rooms from hand-tuned templates, one optional elite, and a boss. Cleared dungeons can be replayed at higher ranks for better loot.
+- **Archers** keep 5.5 to 10 m away, back off when you close in, and loose an arrow after a long draw. Arrows can be blocked, parried or dashed through. Archers don't take one of the two attack tokens, so they add pressure on top of the melee foes.
+- **Goblins** are small and fast, with quick thrusts and two-hit slashes; they come in packs.
+- **Spiders** are code-built eight-legged rigs. Their bite is ordinary, but the pounce glows **amber**: a block alone is smashed aside and the hit lands anyway. Only a parry (or a dash) answers it.
+- **Duelists** open with a raised overhead that is a **feint**: the wind-up stops short and the real slash follows quickly. Raising the guard on the feint wastes the parry window.
+- After the fifth stage the stages repeat with tougher enemies.
 
 ## Story, camp and gear (built)
 
-- **Story:** an opening (the Deep under Varrow Hill; Deepward, the last camp on its rim). Maren speaks before each stage, again after each guardian falls, and at every new depth as the stages repeat. The guardians are the Bone Warden, Sir Aldric the Hollow and the Den Mother; each has a boss bar.
+- **Story:** an opening (the Deep under Varrow Hill; Deepward, the last camp on its rim). Maren speaks before each stage, again after each guardian falls, and at every new depth as the stages repeat. The guardians are the Bone Warden, Sir Aldric the Hollow, the Den Mother, the Brood Queen and the Pale Duelist; each has a boss bar.
 - **Camp:** a hub between stages. You talk to Maren, Bram (forge, upgrade, salvage) and Tilda (buy and sell), use the ledger to build up the forge, apothecary and training yard, and take the gate down to any unlocked stage. Each building's level shows in the camp.
 - **Loop:** clearing a stage's guardian offers a choice: return to camp, banking gold, or press on. Falling wakes you in camp with half the trip's gold lost. Progress saves in the browser.
 - **Gear as built:**
   - Five slots: weapon, shield, armour, helm and trinket.
-  - Weapon types: sword, axe, mace and longsword.
+  - Weapon types: sword, axe, mace, longsword and the two-handed greatsword.
   - Tiers by depth, four rarities, eight bonus types, and smith upgrades up to +8 with the best forge.
   - Gear changes the hero's look: blade, weapon model, tunic colour, plate, helm style, shield face and amulet.
 

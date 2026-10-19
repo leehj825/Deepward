@@ -22,7 +22,7 @@ const Rig = (() => {
   function sword(hand, o) {
     const g = joint(hand, 0, -0.03, 0);
     const steel = std(o.blade || 0xc9ced6, 0.35, 0.6), grip = std(o.grip || 0x3a2416), guard = std(o.guard || 0xb08a3a, 0.5, 0.4);
-    const len = o.len || 0.92, two = !!o.twoHanded, gl = two ? 0.46 : 0.2, bw = two ? 0.1 : 0.075;     // a two-handed grip is long enough for both fists
+    const len = o.len || 0.92, two = !!o.twoHanded, gl = two ? 0.46 : 0.2, bw = two ? 0.1 : o.thin ? 0.035 : 0.075;     // a two-handed grip is long enough for both fists
     mesh(new THREE.CylinderGeometry(0.024, 0.024, gl, 6).rotateX(Math.PI / 2), grip, g, 0, 0, 0.1 - gl / 2);
     ball(g, two ? 0.045 : 0.035, guard, 0, 0, 0.09 - gl, 6, 5);
     box(g, two ? 0.4 : 0.26, 0.045, 0.06, guard, 0, 0, 0.11);
@@ -68,6 +68,14 @@ const Rig = (() => {
     box(g, 0.1, 0.1, 0.22, iron, 0, 0, 0.42).rotation.y = Math.PI / 2;
     return { group: g, glowMats: [iron], tip: joint(g, 0, 0, 0.5), base: joint(g, 0, 0, 0.3) };
   }
+  // A bow held at its middle; when the arm points forward the limbs stand upright (hand +Z) and the string is near the body
+  function bow(hand) {
+    const g = joint(hand, 0, -0.03, 0), wood = std(0x4a3420), R = 0.5;
+    mesh(new THREE.TorusGeometry(R, 0.025, 5, 16, Math.PI).rotateY(-Math.PI / 2).rotateX(Math.PI).translate(0, R * 0.92, 0), wood, g, 0, 0, 0);
+    box(g, 0.008, 0.008, R * 2, std(0xd8d0b8), 0, R * 0.92, 0);
+    const tip = joint(g, 0, R * 0.92, R), base = joint(g, 0, R * 0.92, -R);
+    return { group: g, glowMats: [wood], tip, base };
+  }
   function roundShield(hand, c) {
     const g = new THREE.Group(); hand.add(g);
     const face = std(c, 0.8), rim = std(0x8a8f99, 0.45, 0.5), boss = std(0xc9a23a, 0.4, 0.5);
@@ -92,11 +100,15 @@ const Rig = (() => {
   // One humanoid skeleton of joints; "kind" picks proportions, materials and armour.
   // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
   function build(kind, o = {}) {
+    if (kind === 'spider') return buildSpider();
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
       hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
+      archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
+      goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
+      duelist: { skin: 0xe8e2d8, cloth: 0x2a2032, pants: 0x1e1a24, boot: 0x16141a, w: 0.95, limbR: 0.92 },
       knight: { skin: 0x5a606c, cloth: 0x6a1a1a, pants: 0x3a3e48, boot: 0x2a2c32, w: 1.08, limbR: 1.1 },
       brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
     }[kind];
@@ -105,7 +117,7 @@ const Rig = (() => {
     rig.root = root; rig.body = body; rig.j.hips = hips;
     const skin = std(S.skin, kind === 'knight' ? 0.45 : 0.8, kind === 'knight' ? 0.55 : 0), cloth = std(S.cloth), pants = std(S.pants), boot = std(S.boot, 0.9);
     const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18);
-    const w = S.w, R = S.limbR, bony = kind === 'skeleton';
+    const w = S.w, R = S.limbR, bony = kind === 'skeleton' || kind === 'archer';
 
     // Pelvis and legs
     if (bony) { box(hips, 0.26, 0.1, 0.12, skin, 0, -0.02, 0); mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.34, 7, 1, true), std(0x3a2f2a, 1), hips, 0, -0.14, 0).material.side = THREE.DoubleSide; }
@@ -151,6 +163,12 @@ const Rig = (() => {
         box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
         if (L.trinket) { ball(chest, 0.035, std(0xd9a92a, 0.3, 0.6), 0, 0.12, 0.15, 6, 5); ball(chest, 0.018, glowMat(0x7fe8ff), 0, 0.12, 0.18, 5, 4); }
       }
+      if (kind === 'duelist') {
+        mesh(new THREE.CylinderGeometry(0.2, 0.32, 0.9, 10, 1, true), cloth, chest, 0, -0.42, -0.02).material.side = THREE.DoubleSide;   // long coat
+        box(chest, 0.26, 0.2, 0.03, std(0xc9a23a, 0.4, 0.5), 0, 0.12, 0.13);                     // gilded breast
+        box(chest, 0.36, 0.16, 0.26, cloth, 0, 0.3, -0.02);                                        // high collar
+      }
+      if (kind === 'goblin') { const v = box(chest, 0.34, 0.3, 0.26, std(0x5a4430), 0, 0.06, 0); v.rotation.z = 0.08; }
       if (kind === 'npc') {
         if (N.apron) box(chest, 0.3, 0.55, 0.03, std(0x4a3420), 0, -0.05, 0.15);
         if (N.elder) mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 9, 1, true), cloth, chest, 0, -0.32, 0).material.side = THREE.DoubleSide;   // long robe
@@ -175,6 +193,18 @@ const Rig = (() => {
       box(head, 0.16, 0.07, 0.12, skin, 0, -0.1, 0.04);
       for (const s of [1, -1]) { ball(head, 0.035, dark, 0.05 * s, 0.02, 0.11, 6, 5); ball(head, 0.016, glowMat(0x7fe8ff), 0.05 * s, 0.02, 0.135, 5, 4); }
       box(head, 0.03, 0.04, 0.02, dark, 0, -0.04, 0.135);
+      if (kind === 'archer') { const hood = mesh(new THREE.SphereGeometry(0.17, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.62), cloth, head, 0, 0.03, -0.02); hood.scale.set(1, 1.1, 1.15); mesh(new THREE.ConeGeometry(0.1, 0.18, 6), cloth, head, 0, 0.0, -0.17).rotation.x = -1.9; }
+    } else if (kind === 'goblin') {
+      box(head, 0.24, 0.22, 0.22, skin, 0, 0, 0);
+      for (const sd of [1, -1]) { const ear = mesh(new THREE.ConeGeometry(0.05, 0.26, 5), skin, head, 0.15 * sd, 0.04, -0.02); ear.rotation.z = -sd * 1.3; ball(head, 0.025, glowMat(0xffd040), 0.06 * sd, 0.03, 0.115, 5, 4); }
+      mesh(new THREE.ConeGeometry(0.035, 0.12, 5), skin, head, 0, -0.02, 0.15).rotation.x = Math.PI / 2;
+      const hood = mesh(new THREE.SphereGeometry(0.15, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), std(0x3a2a1e), head, 0, 0.05, -0.01); hood.scale.set(1, 0.9, 1.1);
+    } else if (kind === 'duelist') {
+      box(head, 0.22, 0.26, 0.23, std(0x2a2026), 0, 0, 0);
+      const mask = box(head, 0.2, 0.22, 0.04, std(0xf2eee6, 0.25, 0.1), 0, -0.01, 0.12);
+      for (const sd of [1, -1]) box(head, 0.05, 0.015, 0.02, dark, 0.05 * sd, 0.03, 0.142);
+      mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 12), std(0x1a161e), head, 0, 0.14, 0);
+      mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.16, 10), std(0x1a161e), head, 0, 0.22, 0);
     } else {
       box(head, 0.23, 0.26, 0.24, skin, 0, 0, 0);
       if (kind === 'knight') {
@@ -238,6 +268,9 @@ const Rig = (() => {
     let wpn = null;
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
     else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
+    else if (kind === 'archer') wpn = bow(rig.j.hdL);
+    else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
+    else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
     else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
     else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen, twoHanded: L.twoHanded });
@@ -260,9 +293,61 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     rig.time = Math.random() * 10;
     rig.shieldYaw = 0;
-    if (kind === 'brute') root.scale.setScalar(CFG.enemies.brute.scale);
-    if (kind === 'knight') root.scale.setScalar(CFG.enemies.knight.scale);
+    if (CFG.enemies[kind] && CFG.enemies[kind].scale) root.scale.setScalar(CFG.enemies[kind].scale);
     return rig;
+  }
+
+  // ---------------- The spider (no skeleton clips: legs and body are posed by hand) ----------------
+  function buildSpider() {
+    const rig = { kind: 'spider', j: {}, mats: [], glowMats: [], spider: true, legs: [], time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), body = joint(root, 0, 0.55, 0); rig.root = root; rig.body = body;
+    const chitin = std(0x2a2232, 0.5, 0.2), mark = std(0x6a3a8a, 0.6), fangM = std(0xe8e0c8, 0.4);
+    ball(body, 0.3, chitin, 0, 0, 0.05, 10, 8).scale.set(1, 0.7, 1.1);
+    const abd = ball(body, 0.46, chitin, 0, 0.12, -0.6, 12, 9); abd.scale.set(1, 0.82, 1.2);
+    for (let k = 0; k < 3; k++) box(body, 0.3 - k * 0.07, 0.03, 0.06, mark, 0, 0.5 - k * 0.04, -0.45 - k * 0.2);
+    const head = joint(body, 0, 0.0, 0.36); rig.j.head = head;
+    ball(head, 0.17, chitin, 0, 0, 0, 9, 7);
+    for (const [x, y] of [[0.06, 0.06], [-0.06, 0.06], [0.11, 0.02], [-0.11, 0.02], [0.04, 0.11], [-0.04, 0.11]]) ball(head, 0.025, glowMat(0xff3a2a), x, y, 0.15, 5, 4);
+    for (const sd of [1, -1]) { const f = mesh(new THREE.ConeGeometry(0.035, 0.18, 5), fangM, head, 0.06 * sd, -0.1, 0.13); f.rotation.x = Math.PI - 0.4; }
+    const tip = joint(head, 0, -0.16, 0.2), base = joint(head, 0, 0, 0);
+    rig.weapon = { group: head, tip, base, glowMats: [fangM] }; rig.glowMats.push(fangM);
+    const upG = new THREE.CylinderGeometry(0.045, 0.035, 0.6, 6).rotateZ(-Math.PI / 2).translate(0.3, 0, 0), loG = new THREE.CylinderGeometry(0.035, 0.012, 0.85, 6).rotateZ(-Math.PI / 2).translate(0.42, 0, 0);
+    [0.24, 0.08, -0.08, -0.24].forEach((z, i) => {
+      for (const side of [1, -1]) {
+        const hip = joint(body, 0.16 * side, 0, z, 'YXZ'), base = side > 0 ? [-0.7, -0.25, 0.25, 0.7][i] : Math.PI + [0.7, 0.25, -0.25, -0.7][i];
+        hip.rotation.y = base;
+        const up = joint(hip, 0, 0, 0); mesh(upG, chitin, up); const knee = joint(up, 0.6, 0, 0); mesh(loG, chitin, knee);
+        ball(up, 0.05, chitin, 0.6, 0, 0, 6, 5);
+        rig.legs.push({ hip, up, knee, base, phase: i * 1.6 + (side > 0 ? 0 : Math.PI), front: i === 0 });
+      }
+    });
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  function animateSpider(rig, st, dt) {
+    rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0);
+    rig.loco += dt * (2 + 13 * sp);
+    let y = 0.55 + Math.sin(T * 2) * 0.01, pitch = 0, roll = 0, lift = 0, frontLift = 0, splay = 0, headZ = 0.36;
+    if (m === 'attack') {
+      if (st.phase === 'wind') { y = 0.38; pitch = st.atk === 'pounce' ? -0.35 : 0.1; frontLift = st.atk === 'pounce' ? 0.9 : 0.5; }
+      else if (st.phase === 'active') { y = 0.5; pitch = 0.3; frontLift = 0.6; splay = 0.4; headZ = st.atk === 'bite' ? 0.52 : 0.36; }
+      else { y = 0.5; pitch = 0.05; }
+    } else if (m === 'stagger') { roll = Math.sin(T * 40) * 0.15 * Math.max(0, 1 - st.t * 2); y = 0.45; }
+    else if (m === 'broken') { y = 0.28; splay = 0.5; pitch = 0.2; }
+    else if (m === 'dead') { y = 0.32; roll = Math.PI * Math.min(1, st.t * 2); lift = 1.0; }
+    const k = 1 - Math.exp(-14 * dt), b = rig.body;
+    b.position.y += (y + (m === 'move' ? Math.abs(Math.sin(rig.loco)) * 0.03 * sp : 0) - b.position.y) * k;
+    b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.head.position.z += (headZ - rig.j.head.position.z) * Math.min(1, dt * 20);
+    for (const L of rig.legs) {
+      const ph = rig.loco + L.phase, walk = m === 'move' || m === 'idle' ? sp : 0;
+      const swing = Math.sin(ph) * 0.4 * walk, up = Math.max(0, Math.cos(ph)) * 0.45 * walk;
+      L.hip.rotation.y += (L.base + swing * (L.base > 1 ? -1 : 1) - L.hip.rotation.y) * k;
+      const wantUp = 0.6 + up + lift + (L.front ? frontLift : 0) + splay * 0.3;
+      L.up.rotation.z += (wantUp - L.up.rotation.z) * k;
+      L.knee.rotation.z += ((-2.0 - lift * 0.8 + splay * 0.4) - L.knee.rotation.z) * k;
+    }
   }
 
   // ---------------- Flash and glow ----------------
@@ -411,7 +496,7 @@ const Rig = (() => {
   // ---------------- Motion capture ----------------
   // Attack poses map onto clips; the clip is time-warped so its moment of impact lands exactly on the game's hit frame.
   const MOCAP_ATTACK = {
-    ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump' },
+    ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump', shoot: 'shoot' },
     gs: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', thrust: 'gsAttack', heavy: 'gsJumpAttack' },
     gsHero: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', heavy: 'gsSpin' },
   };
@@ -463,6 +548,7 @@ const Rig = (() => {
 
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
+    if (rig.spider) return animateSpider(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
     const b = rig.body, hips = rig.j.hips;

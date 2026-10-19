@@ -78,6 +78,56 @@ const SCENARIOS = {
     }
     return { log, kills: G.stats.kills, rooms: G.stats.rooms, children: __dw.sceneSize() };
   })()`,
+  // An archer's arrow is stopped by a raised shield
+  arrowBlock: `(() => {
+    const e = __dw.spawn('archer', 0, -3.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
+    __dw.Input.keys.KeyL = true; __dw.sim(0.5);
+    __dw.sim(3, () => __dw.G.player.hp < 100);
+    __dw.Input.keys.KeyL = false;
+    return { hp: Math.round(__dw.G.player.hp), hitsTaken: __dw.G.stats.hitsTaken, blocked: __dw.G.player.hp < 100 };
+  })()`,
+  // An arrow you ignore hurts
+  arrowHit: `(() => {
+    const e = __dw.spawn('archer', 0, -3.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
+    __dw.sim(3, () => __dw.G.stats.hitsTaken > 0);
+    return { hitsTaken: __dw.G.stats.hitsTaken };
+  })()`,
+  // A spider's pounce smashes through a held shield...
+  pounceBlock: `(() => {
+    const e = __dw.spawn('spider', 0, 1.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
+    e.def = Object.assign({}, e.def, { attacks: [e.def.attacks[1]] });
+    __dw.Input.keys.KeyL = true; __dw.sim(0.5);
+    __dw.sim(3, () => e.state === 'attack' && e.phase === 'recover');
+    __dw.Input.keys.KeyL = false;
+    return { hitsTaken: __dw.G.stats.hitsTaken, parries: __dw.G.stats.parries };
+  })()`,
+  // ...but a last-instant parry stops it
+  pounceParry: `(() => {
+    const e = __dw.spawn('spider', 0, 1.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
+    e.def = Object.assign({}, e.def, { attacks: [e.def.attacks[1]] });
+    let pressed = false;
+    __dw.sim(3, () => {
+      const h = e.atk && e.atk.hits[0];
+      if (!pressed && e.state === 'attack' && e.phase === 'active' && e.phaseT > h.active * 0.62) { pressed = true; __dw.Input.keys.KeyL = true; }
+      return __dw.G.stats.parries > 0 || __dw.G.stats.hitsTaken > 0;
+    });
+    __dw.Input.keys.KeyL = false;
+    return { hitsTaken: __dw.G.stats.hitsTaken, parries: __dw.G.stats.parries };
+  })()`,
+  // A duelist's feint does no harm; only the real blow after it lands
+  feint: `(() => {
+    const e = __dw.spawn('duelist', 0, 2.2); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
+    e.def = Object.assign({}, e.def, { attacks: [e.def.attacks[1]], cooldown: [9, 9] });
+    let feinted = false;
+    __dw.sim(3, () => { if (e.state === 'attack' && e.hitIdx === 1) feinted = true; return e.state === 'hunt' && feinted; });
+    return { hitsTaken: __dw.G.stats.hitsTaken, feinted, hp: Math.round(__dw.G.player.hp) };
+  })()`,
+  // Goblins come in quick and die quick
+  goblin: `(() => {
+    const e = __dw.spawn('goblin', 0, 2.5); e.state = 'hunt'; e.cooldown = 9; e.rig.root.position.y = 0;
+    __dw.press('light'); __dw.sim(0.5); __dw.press('light'); __dw.sim(0.6);
+    return { kills: __dw.G.stats.kills, state: e.state };
+  })()`,
   // Mash light attacks into a skeleton until it dies
   combo: `(() => {
     const e = __dw.spawn('skeleton', 0, 2.4); e.state = 'hunt'; e.cooldown = 9; e.rig.root.position.y = 0;
@@ -119,6 +169,12 @@ const CHECKS = {
   hit: r => r.hitsTaken >= 1 && r.hp <= 88,
   dodge: r => r.dodges === 1 && r.hitsTaken === 0 && r.hp === 100,
   combo: r => r.kills === 1,
+  arrowBlock: r => r.hitsTaken === 0 && r.blocked,
+  arrowHit: r => r.hitsTaken === 1,
+  pounceBlock: r => r.hitsTaken === 1 && r.parries === 0,
+  pounceParry: r => r.parries === 1 && r.hitsTaken === 0,
+  feint: r => r.feinted && r.hitsTaken === 1,
+  goblin: r => r.kills === 1,
   progress: r => r.skipped || (r.rooms === 5 && r.log.length === 6 && r.log[5].room === 5 && r.log[3] === 'guardian cleared, chest: true' && r.log[5].stage === 'The Iron Keep' && r.log.every(l => typeof l === 'string' || (l.live && !l.live.split(',').includes(String(l.room - 1))))),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

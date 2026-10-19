@@ -299,7 +299,7 @@ function openPanel(id, opt, done) {
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
-function clearEnemies() { for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+function clearEnemies() { Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -518,6 +518,7 @@ function step(real) {
     resolveCollisions();
     World.update(dt, camera.position);
     updateSpawns();
+    Enemy.updateArrows(dt);
     runTimers();
     FX.update(dt);
     updateHud();

@@ -61,6 +61,50 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // Keeps its distance and looses arrows (blockable; a parry just knocks the arrow aside). Does not wait its turn.
+    archer: {
+      name: 'Skeleton Archer', hp: 30, posture: 35, postureRegen: 14, speed: 2.6, radius: 0.42, scale: 1,
+      flinch: true, ranged: [5.5, 10], solo: true, approach: 8, cooldown: [1.5, 2.5], xp: 12, gold: 7,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.9, active: 0.08, recover: 0.7, dmg: 11, posture: 10, range: 12, arc: 30, lunge: 0, projectile: { speed: 16 } }] }],
+    },
+    // Small, quick and fragile; comes in packs
+    goblin: {
+      name: 'Goblin', hp: 22, posture: 26, postureRegen: 18, speed: 4.3, radius: 0.36, scale: 0.72,
+      flinch: true, approach: 1.4, cooldown: [0.5, 1.1], xp: 6, gold: 4,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'thrust', wind: 0.42, active: 0.08, recover: 0.4, dmg: 7, posture: 6, range: 1.6, arc: 80, lunge: 1.6 }] },
+        { weight: 2, hits: [
+          { pose: 'slashR', wind: 0.4, active: 0.08, recover: 0.12, dmg: 6, posture: 5, range: 1.5, arc: 100, lunge: 0.8 },
+          { pose: 'slashL', wind: 0.22, active: 0.08, recover: 0.55, dmg: 6, posture: 5, range: 1.5, arc: 100, lunge: 0.8 },
+        ] },
+      ],
+    },
+    // Skitters and pounces. The pounce (amber) smashes through a raised shield: parry it at the last instant, or dash.
+    spider: {
+      name: 'Cave Spider', hp: 40, posture: 40, postureRegen: 16, speed: 3.9, radius: 0.6, scale: 1, rig: 'spider',
+      flinch: true, approach: 3.2, cooldown: [1.1, 1.9], xp: 14, gold: 9,
+      attacks: [
+        { weight: 2, hits: [{ pose: 'bite', wind: 0.5, active: 0.1, recover: 0.45, dmg: 10, posture: 10, range: 1.9, arc: 90, lunge: 0.8 }] },
+        { weight: 3, hits: [{ pose: 'pounce', wind: 0.8, active: 0.3, recover: 0.75, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true }] },
+      ],
+    },
+    // Feints: the first glint may be a fake, the real blow comes fast after it
+    duelist: {
+      name: 'Hollow Duelist', hp: 62, posture: 60, postureRegen: 18, speed: 3.0, radius: 0.45, scale: 1.02,
+      flinch: true, approach: 2.0, cooldown: [0.9, 1.6], xp: 20, gold: 14,
+      attacks: [
+        { weight: 2, hits: [{ pose: 'thrust', wind: 0.5, active: 0.1, recover: 0.55, dmg: 14, posture: 14, range: 2.6, arc: 50, lunge: 1.6 }] },
+        { weight: 3, hits: [
+          { pose: 'overhead', wind: 0.6, active: 0.05, recover: 0.28, feint: true, dmg: 0, posture: 0, range: 2.2, arc: 70, lunge: 0.3 },
+          { pose: 'slashR', wind: 0.3, active: 0.1, recover: 0.65, dmg: 16, posture: 16, range: 2.3, arc: 110, lunge: 1.3 },
+        ] },
+        { weight: 2, hits: [
+          { pose: 'slashR', wind: 0.45, active: 0.1, recover: 0.15, dmg: 11, posture: 10, range: 2.2, arc: 100, lunge: 0.9 },
+          { pose: 'slashL', wind: 0.28, active: 0.1, recover: 0.5, dmg: 11, posture: 10, range: 2.2, arc: 100, lunge: 0.9 },
+          { pose: 'thrust', wind: 0.75, active: 0.1, recover: 0.7, dmg: 16, posture: 16, range: 2.6, arc: 50, lunge: 1.8 },
+        ] },
+      ],
+    },
   },
   maxAttackers: 2,               // enemies that may be winding up or swinging at the same time
   // The dungeon is a chain of rooms heading north. Each stage is a run of rooms in its own theme, ending in a
@@ -69,29 +113,44 @@ const CFG = {
   stages: [
     { name: 'The Crypt', theme: 'crypt', guardian: 'The Bone Warden', rooms: [
       { size: [7, 6], waves: [['skeleton']] },
-      { size: [8, 7], waves: [['skeleton', 'skeleton']] },
-      { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'skeleton']] },
+      { size: [8, 7], waves: [['skeleton', 'archer']] },
+      { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'archer']] },
       { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton', 'skeleton']] },
     ] },
     { name: 'The Iron Keep', theme: 'keep', guardian: 'Sir Aldric the Hollow', rooms: [
       { size: [8, 7], waves: [['knight']] },
-      { size: [9, 7], waves: [['skeleton', 'knight']] },
-      { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight']] },
+      { size: [9, 7], waves: [['knight', 'archer']] },
+      { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight', 'archer', 'archer']] },
       { size: [10, 8], guardian: true, waves: [['knight', 'knight', 'skeleton']] },
     ] },
     { name: 'The Ogre Den', theme: 'den', guardian: 'The Den Mother', rooms: [
-      { size: [9, 8], waves: [['brute']] },
-      { size: [10, 8], pillars: true, waves: [['brute', 'skeleton']] },
-      { size: [10, 9], waves: [['knight', 'brute'], ['skeleton', 'skeleton']] },
-      { size: [11, 9], guardian: true, waves: [['brute', 'knight', 'knight']] },
+      { size: [9, 8], waves: [['goblin', 'goblin', 'goblin']] },
+      { size: [10, 8], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
+      { size: [10, 9], waves: [['goblin', 'goblin', 'goblin', 'goblin'], ['brute', 'archer']] },
+      { size: [11, 9], guardian: true, waves: [['brute', 'goblin', 'goblin']] },
+    ] },
+    { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', rooms: [
+      { size: [9, 8], waves: [['spider']] },
+      { size: [10, 8], pillars: true, waves: [['spider', 'spider']] },
+      { size: [10, 9], waves: [['spider', 'goblin', 'goblin'], ['spider', 'spider']] },
+      { size: [11, 9], guardian: true, waves: [['spider', 'spider', 'spider']] },
+    ] },
+    { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', rooms: [
+      { size: [9, 8], waves: [['duelist']] },
+      { size: [10, 8], pillars: true, waves: [['duelist', 'archer']] },
+      { size: [10, 9], waves: [['duelist', 'knight'], ['duelist', 'duelist']] },
+      { size: [11, 9], guardian: true, waves: [['duelist', 'duelist', 'archer']] },
     ] },
   ],
+
   // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
   themes: {
     crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
     keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
     den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks' },
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
+    depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs' },
+    court: { stone: [72, 68, 76], wall: [42, 38, 48], torch: 0xe8e0ff, fog: 0x07060c, hemi: 0x9090b0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
@@ -100,6 +159,10 @@ const CFG = {
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
+    archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
+    goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
+    spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
+    duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
     brute: 'A RED glow is UNBLOCKABLE. DASH (Space) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
@@ -210,12 +273,16 @@ const CFG = {
     pre: [
       ['The Crypt is the first ring. The dead there are slow, but they never tire.', 'When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.'],
       ['Below the Crypt stands the Iron Keep: the garrison that marched down to seal the Deep and never marched back.', 'Their shields still hold. A heavy blow breaks a guard, or get behind them.'],
-      ['Past the Keep the tunnels open into the Den. Something big has been feeding there.', 'When its weapon burns red, do not block. Roll through it.'],
+      ['Past the Keep the tunnels open into the Den. Something big has been feeding there, and goblins scurry at its heels.', 'When its weapon burns red, do not block. Dash through it.'],
+      ['Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.', 'Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.'],
+      ['The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.', 'They lie with their blades. Watch the first swing, but answer the second.'],
     ],
     post: [
       ['The Bone Warden is dust? Then the Crypt sleeps for a while.', 'Bram says the iron you hauled up is good. Spend your gold on the camp: a better forge makes better blades.'],
       ['Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.', 'Rest. Mend your gear. The Den waits below the Keep.'],
-      ['The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.', 'There are deeper rings, warden. Older things. Every time you go down, they will be stronger.'],
+      ['The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.', 'Below the Den the walls are webbed. Rest first, warden.'],
+      ['The Brood Queen... Bram will drink to that tonight, for his brother.', 'One ring remains that we know of. The Court. Go carefully.'],
+      ['The Pale Duelist bowed before she fell, they say. Courteous to the end.', 'The rings have no bottom, warden. Every time you go down, they will be stronger. But Deepward stands because of you.'],
     ],
     depth: 'Depth {n}. The rings have shifted again and their dead have grown stronger. Take care, warden.',
   },

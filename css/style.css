@@ -163,3 +163,4 @@ body:not(.playing) #padKeys { display: none !important; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
 .tree h3 { display: flex; justify-content: space-between; }
 .warnc { color: #ff9a5a; }
+.ftxt.amber { color: #ffa010; font-size: 30px; }
