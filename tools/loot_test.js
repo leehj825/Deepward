@@ -21,8 +21,11 @@ const path = require('path');
     out.allUniques = ids.size === CFG.gear.uniques.length && S.uniques.length === CFG.gear.uniques.length;
     const U = id => I.generateUnique(2, { id });
     // Gambler's Coin and Heart of the Deep change the numbers
-    const crit0 = p().S.crit, hp0 = p().maxHp, fl0 = p().S.flasks;
-    wear(U('coin')); out.coin = p().S.crit > crit0 + 0.14 && p().maxHp < hp0;
+    const fl0 = p().S.flasks;
+    // (compared with the same trinket minus its unique effect, as its random bonuses can include health)
+    const coin = U('coin'); wear(coin); const withC = { crit: p().S.crit, hp: p().maxHp };
+    delete coin.uniq; G.onGearChanged(); const without = { crit: p().S.crit, hp: p().maxHp }; coin.uniq = 'coin'; G.onGearChanged();
+    out.coin = withC.crit > without.crit + 0.14 && withC.hp < without.hp;
     wear(U('heart')); out.heart = p().S.flasks === fl0 + 1;
     // Dawnbreaker: a parry sends a blade of light that hits a foe 5 m down the line
     wear(U('dawn')); reset();
