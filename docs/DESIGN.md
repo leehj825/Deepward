@@ -112,6 +112,14 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Reroll:** `Items.reroll(it, i)` picks a kind that fits the slot and is not on the piece; cost grows with `it.rerolls`.
 - **Looks:** gloves tint the hands and add cuffs (steel when heavy), boots recolour the lower legs (heavy adds greaves and sabaton plates), medium armour shows a mail shirt and heavy armour plate.
 
+## Saves (built)
+
+- **Slots:** `Items.useSlot(n)` picks one of three keys (slot 1 keeps the original `dw_save_v1`, so existing saves land there); `dw_slot` remembers the last played.
+- **Versions:** each save stores `v`. `parse` runs `MIGRATE[v]` for every version up to the current one (v1 to v2 fixes weight classes on old pieces), then `withDefaults` fills in fields added since, one level into objects.
+- **Backup:** a save that loads cleanly is copied to `<key>_bak`; if the main save is ever unreadable, `load` uses the backup.
+- **Export:** `DEEPWARD1:` plus the save as base64 (UTF-8 safe). Import checks the prefix, decodes, parses and migrates before writing anything.
+- Key presses inside the code box are ignored by the game's key handling.
+
 ## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
@@ -292,7 +300,7 @@ The next steps, in the order I'd take them. Each is sized like one of the S or T
 - Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.
 - Bram rerolls one bonus for gold and scrap.
 
-**V3. Save safety.** The save is one `localStorage` key.
+**V3. Save safety (done).** The save was one `localStorage` key.
 - Versioned saves with a migration step, so future changes never wipe progress.
 - Export and import the save as text (and Android share) for moving between devices.
 - Three save slots.

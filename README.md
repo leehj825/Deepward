@@ -81,7 +81,10 @@ A box at the top says what to press in your own controls (keyboard, controller o
 - **Loot:** enemies drop gold, every cleared room leaves a chest, and guardians (the Bone Warden, Sir Aldric the Hollow, the Den Mother, the Brood Queen, the Pale Duelist) drop guaranteed rare-or-better gear and have a boss health bar.
 - **Returning to camp:** after a stage's guardian, choose to **return to camp** (banks your gold; Maren has words) or **press on** into the next stage. The gate in camp descends to any stage you've unlocked.
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
-- **Saving:** progress saves in the browser, and the title screen offers Continue.
+- **Saving:** progress saves on the device as you play. The title's **Continue** picks up the last-played slot; **Saves** shows all three slots.
+  - **Three slots:** each with its level, stage, gold and when it was saved. Play one, start a new game in an empty one, or delete one (it asks twice).
+  - **Export / Import:** Export shows a `DEEPWARD1:` code you can copy (or share on a phone); Import pastes one into any slot. Use it to back up a warden or move it to another device. A bad code is refused.
+  - **Safety:** every save carries a version, and older saves are upgraded when loaded, so updates don't wipe progress. A copy of the last save that loaded cleanly is kept and used if the main one is ever damaged.
 
 **The Endless Deep.** Once the last guardian (the Hollow King) falls, the camp gate offers two more ways down:
 
@@ -358,6 +361,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/codex_test.js` | Headless check of records, the bestiary, achievements paying once, and opening the codex from the gear and pause screens |
 | `tools/touch_test.js` | Headless check of the touch controls on a phone screen: size, opacity, left-handed, dragging a button, keeping it, Reset |
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
+| `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -379,6 +383,7 @@ node tools/tutorial_test.js
 node tools/codex_test.js
 node tools/touch_test.js
 node tools/gear_test.js
+node tools/save_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

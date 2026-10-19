@@ -276,6 +276,21 @@ const UI = (() => {
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    // The three save slots: play or start one, export it as a code, import a code into it, delete it (asked twice)
+    saves() {
+      const ago = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+      let h = '<h2>Saves</h2><p class="sub">Three wardens, kept on this device. Export a save as a code to keep it safe or move it to another device.</p>';
+      for (let n = 1; n <= Items.SLOTS; n++) {
+        const s = Items.slotInfo(n), st = s && CFG.stages[Math.min(s.stage, CFG.stages.length - 1)];
+        h += `<div class="irow save${n === Items.slot ? ' cur' : ''}"><div class="iinfo"><b>Slot ${n}</b>${n === Items.slot ? ' <small class="goldc">last played</small>' : ''}`
+          + (s ? `<div class="istats">Level ${s.level} · ${esc(st ? st.name : '')} · ◆ ${s.gold}${s.best ? ' · deepest floor ' + s.best : ''} · saved ${ago(s.savedAt)}</div>` : '<div class="istats dim">Empty</div>')
+          + `</div><div class="ibtns">${s ? btn('Play', 'saveplay', n, false, 'hot') + btn('Export', 'saveexport', n) + btn('Import', 'saveimport', n) + btn(tab.saveDel === n ? 'Sure? Delete' : 'Delete', 'savedel', n, false, tab.saveDel === n ? 'warn' : '')
+            : btn('New game', 'savenew', n, false, 'hot') + btn('Import', 'saveimport', n)}</div></div>`;
+        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${navigator.share ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
+        if (tab.saveImport === n) h += `<div class="savecode"><textarea rows="3" placeholder="Paste a DEEPWARD1: code here"></textarea><div class="tact">${btn(s ? 'Load (replaces this slot)' : 'Load', 'saveimportgo', n, false, 'hot')}${tab.importBad ? '<small class="warnc">That code does not work.</small>' : ''}</div></div>`;
+      }
+      return h + btn('Back', 'close', '', false, 'leave');
+    },
     shrine(o) {
       let h = `<h2>Shrine of the Deep</h2><p class="sub">The stone hums. Choose one blessing; it holds until you leave this stage.</p>`;
       for (const b of o.offers) h += `<div class="irow"><div class="iinfo"><b>${b.icon} ${esc(b.name)}</b><div class="istats">${esc(b.desc)}</div></div><div class="ibtns">${btn('Choose', 'bless', b.id, false, 'hot')}</div></div>`;
@@ -345,6 +360,18 @@ const UI = (() => {
     if (a === 'bagsalvage') {
       const v = bagView(S.inv, tab.bagSort || 'new', tab.bagFilter || 'all'), i = v.findIndex(x => x.id === +arg), it = Items.remove(+arg);
       if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
+      return render();
+    }
+    if (a === 'saveplay') return G.playSlot(+arg, false);
+    if (a === 'savenew') return G.playSlot(+arg, true);
+    if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }
+    if (a === 'saveexport') { tab.saveExport = tab.saveExport === +arg ? 0 : +arg; tab.saveImport = 0; return render(); }
+    if (a === 'saveimport') { tab.saveImport = tab.saveImport === +arg ? 0 : +arg; tab.saveExport = 0; tab.importBad = false; return render(); }
+    if (a === 'savecopy') { const t = el('pcard').querySelector('.savecode textarea'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand && document.execCommand('copy'); } toast('Save code copied'); return; }
+    if (a === 'saveshare') { try { navigator.share({ title: 'Deepward save', text: Items.exportSlot(+arg) }); } catch (e) {} return; }
+    if (a === 'saveimportgo') {
+      const t = el('pcard').querySelector('.savecode textarea'), ok = Items.importSlot(+arg, t ? t.value : '');
+      tab.importBad = !ok; if (ok) { tab.saveImport = 0; Snd.play('parry'); toast('Save imported into slot ' + arg); }
       return render();
     }
     if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }

@@ -1,7 +1,13 @@
 // Deepward - gear, gold and the saved game: item generation, what equipped gear does to the hero, the inventory,
 // the smith's and trader's sums, camp building levels and story progress. Everything persists in localStorage.
 const Items = (() => {
-  const C = CFG.gear, SAVE_KEY = 'dw_save_v1';
+  const C = CFG.gear;
+  // Three save slots. Slot 1 keeps the original key so older saves land there. Each save carries a version; loading
+  // runs every migration from its version up, then fills in anything missing from a fresh save. A copy of the last save
+  // that loaded cleanly is kept as a backup and used if the main one is ever unreadable.
+  const VERSION = 2, SLOTS = 3, keyOf = n => n === 1 ? 'dw_save_v1' : 'dw_save_' + n;
+  let slot = 1; try { slot = Math.min(SLOTS, Math.max(1, +localStorage.getItem('dw_slot') || 1)); } catch (e) {}
+  const SAVE_KEY_OF = () => keyOf(slot);
   let S = null;                                     // the saved state (see fresh())
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -233,11 +239,54 @@ const Items = (() => {
   const maxPlus = () => C.maxUpgrade[S.camp.forge];
 
   // ---------------- Saving ----------------
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
-  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function save() { if (!S) return; S.v = VERSION; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY_OF(), JSON.stringify(S)); } catch (e) {} }
+  const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  function hasSave(n = slot) { return !!read(keyOf(n)); }
+  // Older saves step up one version at a time
+  const MIGRATE = {
+    1: d => {                                                               // v1 -> v2: weight classes are fixed on each piece
+      for (const it of [...(d.inv || []), ...Object.values(d.equip || {}), ...(d.stock || [])]) if (it && C.weightSlots.includes(it.slot) && it.wc === undefined) it.wc = wcOf(it);
+    },
+  };
+  // Fill in fields a newer version added, without touching what the save has (one level into plain objects)
+  function withDefaults(d) {
+    const f = fresh();
+    for (const k in f) {
+      if (d[k] === undefined) d[k] = f[k];
+      else if (f[k] && typeof f[k] === 'object' && !Array.isArray(f[k]) && d[k] && typeof d[k] === 'object') for (const j in f[k]) if (d[k][j] === undefined) d[k][j] = f[k][j];
+    }
+    return d;
+  }
+  function parse(text) {
+    try { const d = JSON.parse(text); if (!d || !d.equip || !d.camp) return null; for (let v = d.v || 1; v < VERSION; v++) if (MIGRATE[v]) MIGRATE[v](d); d.v = VERSION; return withDefaults(d); } catch (e) { return null; }
+  }
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.equip && d.camp) { S = Object.assign(fresh(), d); return true; } } catch (e) {}
-    return false;
+    const k = SAVE_KEY_OF(), main = read(k);
+    let d = main && parse(main);
+    if (d) { try { localStorage.setItem(k + '_bak', main); } catch (e) {} }   // the last save that loaded cleanly
+    else if (main) { const b = read(k + '_bak'); d = b && parse(b); }            // unreadable: fall back to the backup
+    if (!d) return false;
+    S = d; return true;
+  }
+  // ---------------- Save slots ----------------
+  function useSlot(n) { slot = Math.min(SLOTS, Math.max(1, n)); try { localStorage.setItem('dw_slot', String(slot)); } catch (e) {} }
+  // A summary of a slot for the saves screen (null when empty)
+  function slotInfo(n) {
+    const d = parse(read(keyOf(n)) || ''); if (!d) return null;
+    return { level: d.level, stage: d.stage, gold: d.gold, savedAt: d.savedAt || 0, deaths: d.deaths || 0, best: d.endless ? d.endless.best : 0 };
+  }
+  function deleteSlot(n) { try { localStorage.removeItem(keyOf(n)); localStorage.removeItem(keyOf(n) + '_bak'); } catch (e) {} if (n === slot) S = null; }
+  // Export: a text code to keep or move to another device; import checks it before writing it into a slot
+  const PREFIX = 'DEEPWARD1:';
+  function exportSlot(n) { const t = read(keyOf(n)); if (!t || !parse(t)) return ''; return PREFIX + btoa(unescape(encodeURIComponent(t))); }
+  function importSlot(n, code) {
+    code = String(code || '').trim().replace(/\s+/g, '');
+    if (!code.startsWith(PREFIX)) return false;
+    let text; try { text = decodeURIComponent(escape(atob(code.slice(PREFIX.length)))); } catch (e) { return false; }
+    const d = parse(text); if (!d) return false;
+    try { localStorage.setItem(keyOf(n), JSON.stringify(d)); } catch (e) { return false; }
+    if (n === slot) S = d;
+    return true;
   }
   function newGame() {
     S = fresh();
@@ -245,11 +294,11 @@ const Items = (() => {
     S.equip.shield = generate(0, { slot: 'shield', rarity: 0 });
     save();
   }
-  function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function wipe() { try { localStorage.removeItem(SAVE_KEY_OF()); } catch (e) {} }
 
   return {
     get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
-    upgradeCost, maxPlus, rerollCost, reroll, wcOf, save, load, hasSave, newGame, wipe, rollRarity,
+    upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();

@@ -325,3 +325,9 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .gload { grid-column: 1 / -1; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-top: -2px; }
 .gload.l0 { color: #9fe89f; } .gload.l1 { color: #e8d89f; } .gload.l2 { color: #ffaa7a; }
 .pcard.smith .ibtns { flex-wrap: wrap; justify-content: flex-end; }
+.irow.save.cur { border-left: 3px solid #f2d27a; }
+.savecode { margin: -2px 0 8px; padding: 8px 10px; background: rgba(255, 255, 255, 0.03); border-radius: 5px; }
+.savecode textarea { width: 100%; box-sizing: border-box; font: 11px/1.4 ui-monospace, monospace; background: #0d0b10; color: #d8d0c0; border: 1px solid rgba(242, 210, 122, 0.3); border-radius: 4px; padding: 6px; resize: vertical; word-break: break-all; }
+.savecode .tact { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.pb.warn { background: #8a2a1a; border-color: #ff7a5a; color: #fff; }
+.pcard.saves .ibtns { flex-wrap: wrap; justify-content: flex-end; }

@@ -335,6 +335,12 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .gload { grid-column: 1 / -1; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-top: -2px; }
 .gload.l0 { color: #9fe89f; } .gload.l1 { color: #e8d89f; } .gload.l2 { color: #ffaa7a; }
 .pcard.smith .ibtns { flex-wrap: wrap; justify-content: flex-end; }
+.irow.save.cur { border-left: 3px solid #f2d27a; }
+.savecode { margin: -2px 0 8px; padding: 8px 10px; background: rgba(255, 255, 255, 0.03); border-radius: 5px; }
+.savecode textarea { width: 100%; box-sizing: border-box; font: 11px/1.4 ui-monospace, monospace; background: #0d0b10; color: #d8d0c0; border: 1px solid rgba(242, 210, 122, 0.3); border-radius: 4px; padding: 6px; resize: vertical; word-break: break-all; }
+.savecode .tact { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.pb.warn { background: #8a2a1a; border-color: #ff7a5a; color: #fff; }
+.pcard.saves .ibtns { flex-wrap: wrap; justify-content: flex-end; }
 
 </style>
 </head>
@@ -1024,7 +1030,13 @@ const Settings = (() => {
 // Deepward - gear, gold and the saved game: item generation, what equipped gear does to the hero, the inventory,
 // the smith's and trader's sums, camp building levels and story progress. Everything persists in localStorage.
 const Items = (() => {
-  const C = CFG.gear, SAVE_KEY = 'dw_save_v1';
+  const C = CFG.gear;
+  // Three save slots. Slot 1 keeps the original key so older saves land there. Each save carries a version; loading
+  // runs every migration from its version up, then fills in anything missing from a fresh save. A copy of the last save
+  // that loaded cleanly is kept as a backup and used if the main one is ever unreadable.
+  const VERSION = 2, SLOTS = 3, keyOf = n => n === 1 ? 'dw_save_v1' : 'dw_save_' + n;
+  let slot = 1; try { slot = Math.min(SLOTS, Math.max(1, +localStorage.getItem('dw_slot') || 1)); } catch (e) {}
+  const SAVE_KEY_OF = () => keyOf(slot);
   let S = null;                                     // the saved state (see fresh())
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -1256,11 +1268,54 @@ const Items = (() => {
   const maxPlus = () => C.maxUpgrade[S.camp.forge];
 
   // ---------------- Saving ----------------
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
-  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function save() { if (!S) return; S.v = VERSION; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY_OF(), JSON.stringify(S)); } catch (e) {} }
+  const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  function hasSave(n = slot) { return !!read(keyOf(n)); }
+  // Older saves step up one version at a time
+  const MIGRATE = {
+    1: d => {                                                               // v1 -> v2: weight classes are fixed on each piece
+      for (const it of [...(d.inv || []), ...Object.values(d.equip || {}), ...(d.stock || [])]) if (it && C.weightSlots.includes(it.slot) && it.wc === undefined) it.wc = wcOf(it);
+    },
+  };
+  // Fill in fields a newer version added, without touching what the save has (one level into plain objects)
+  function withDefaults(d) {
+    const f = fresh();
+    for (const k in f) {
+      if (d[k] === undefined) d[k] = f[k];
+      else if (f[k] && typeof f[k] === 'object' && !Array.isArray(f[k]) && d[k] && typeof d[k] === 'object') for (const j in f[k]) if (d[k][j] === undefined) d[k][j] = f[k][j];
+    }
+    return d;
+  }
+  function parse(text) {
+    try { const d = JSON.parse(text); if (!d || !d.equip || !d.camp) return null; for (let v = d.v || 1; v < VERSION; v++) if (MIGRATE[v]) MIGRATE[v](d); d.v = VERSION; return withDefaults(d); } catch (e) { return null; }
+  }
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.equip && d.camp) { S = Object.assign(fresh(), d); return true; } } catch (e) {}
-    return false;
+    const k = SAVE_KEY_OF(), main = read(k);
+    let d = main && parse(main);
+    if (d) { try { localStorage.setItem(k + '_bak', main); } catch (e) {} }   // the last save that loaded cleanly
+    else if (main) { const b = read(k + '_bak'); d = b && parse(b); }            // unreadable: fall back to the backup
+    if (!d) return false;
+    S = d; return true;
+  }
+  // ---------------- Save slots ----------------
+  function useSlot(n) { slot = Math.min(SLOTS, Math.max(1, n)); try { localStorage.setItem('dw_slot', String(slot)); } catch (e) {} }
+  // A summary of a slot for the saves screen (null when empty)
+  function slotInfo(n) {
+    const d = parse(read(keyOf(n)) || ''); if (!d) return null;
+    return { level: d.level, stage: d.stage, gold: d.gold, savedAt: d.savedAt || 0, deaths: d.deaths || 0, best: d.endless ? d.endless.best : 0 };
+  }
+  function deleteSlot(n) { try { localStorage.removeItem(keyOf(n)); localStorage.removeItem(keyOf(n) + '_bak'); } catch (e) {} if (n === slot) S = null; }
+  // Export: a text code to keep or move to another device; import checks it before writing it into a slot
+  const PREFIX = 'DEEPWARD1:';
+  function exportSlot(n) { const t = read(keyOf(n)); if (!t || !parse(t)) return ''; return PREFIX + btoa(unescape(encodeURIComponent(t))); }
+  function importSlot(n, code) {
+    code = String(code || '').trim().replace(/\s+/g, '');
+    if (!code.startsWith(PREFIX)) return false;
+    let text; try { text = decodeURIComponent(escape(atob(code.slice(PREFIX.length)))); } catch (e) { return false; }
+    const d = parse(text); if (!d) return false;
+    try { localStorage.setItem(keyOf(n), JSON.stringify(d)); } catch (e) { return false; }
+    if (n === slot) S = d;
+    return true;
   }
   function newGame() {
     S = fresh();
@@ -1268,11 +1323,11 @@ const Items = (() => {
     S.equip.shield = generate(0, { slot: 'shield', rarity: 0 });
     save();
   }
-  function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function wipe() { try { localStorage.removeItem(SAVE_KEY_OF()); } catch (e) {} }
 
   return {
     get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
-    upgradeCost, maxPlus, rerollCost, reroll, wcOf, save, load, hasSave, newGame, wipe, rollRarity,
+    upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();
@@ -4819,6 +4874,21 @@ const UI = (() => {
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    // The three save slots: play or start one, export it as a code, import a code into it, delete it (asked twice)
+    saves() {
+      const ago = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+      let h = '<h2>Saves</h2><p class="sub">Three wardens, kept on this device. Export a save as a code to keep it safe or move it to another device.</p>';
+      for (let n = 1; n <= Items.SLOTS; n++) {
+        const s = Items.slotInfo(n), st = s && CFG.stages[Math.min(s.stage, CFG.stages.length - 1)];
+        h += `<div class="irow save${n === Items.slot ? ' cur' : ''}"><div class="iinfo"><b>Slot ${n}</b>${n === Items.slot ? ' <small class="goldc">last played</small>' : ''}`
+          + (s ? `<div class="istats">Level ${s.level} · ${esc(st ? st.name : '')} · ◆ ${s.gold}${s.best ? ' · deepest floor ' + s.best : ''} · saved ${ago(s.savedAt)}</div>` : '<div class="istats dim">Empty</div>')
+          + `</div><div class="ibtns">${s ? btn('Play', 'saveplay', n, false, 'hot') + btn('Export', 'saveexport', n) + btn('Import', 'saveimport', n) + btn(tab.saveDel === n ? 'Sure? Delete' : 'Delete', 'savedel', n, false, tab.saveDel === n ? 'warn' : '')
+            : btn('New game', 'savenew', n, false, 'hot') + btn('Import', 'saveimport', n)}</div></div>`;
+        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${navigator.share ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
+        if (tab.saveImport === n) h += `<div class="savecode"><textarea rows="3" placeholder="Paste a DEEPWARD1: code here"></textarea><div class="tact">${btn(s ? 'Load (replaces this slot)' : 'Load', 'saveimportgo', n, false, 'hot')}${tab.importBad ? '<small class="warnc">That code does not work.</small>' : ''}</div></div>`;
+      }
+      return h + btn('Back', 'close', '', false, 'leave');
+    },
     shrine(o) {
       let h = `<h2>Shrine of the Deep</h2><p class="sub">The stone hums. Choose one blessing; it holds until you leave this stage.</p>`;
       for (const b of o.offers) h += `<div class="irow"><div class="iinfo"><b>${b.icon} ${esc(b.name)}</b><div class="istats">${esc(b.desc)}</div></div><div class="ibtns">${btn('Choose', 'bless', b.id, false, 'hot')}</div></div>`;
@@ -4888,6 +4958,18 @@ const UI = (() => {
     if (a === 'bagsalvage') {
       const v = bagView(S.inv, tab.bagSort || 'new', tab.bagFilter || 'all'), i = v.findIndex(x => x.id === +arg), it = Items.remove(+arg);
       if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
+      return render();
+    }
+    if (a === 'saveplay') return G.playSlot(+arg, false);
+    if (a === 'savenew') return G.playSlot(+arg, true);
+    if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }
+    if (a === 'saveexport') { tab.saveExport = tab.saveExport === +arg ? 0 : +arg; tab.saveImport = 0; return render(); }
+    if (a === 'saveimport') { tab.saveImport = tab.saveImport === +arg ? 0 : +arg; tab.saveExport = 0; tab.importBad = false; return render(); }
+    if (a === 'savecopy') { const t = el('pcard').querySelector('.savecode textarea'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand && document.execCommand('copy'); } toast('Save code copied'); return; }
+    if (a === 'saveshare') { try { navigator.share({ title: 'Deepward save', text: Items.exportSlot(+arg) }); } catch (e) {} return; }
+    if (a === 'saveimportgo') {
+      const t = el('pcard').querySelector('.savecode textarea'), ok = Items.importSlot(+arg, t ? t.value : '');
+      tab.importBad = !ok; if (ok) { tab.saveImport = 0; Snd.play('parry'); toast('Save imported into slot ' + arg); }
       return render();
     }
     if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
@@ -5394,6 +5476,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
+    if (ev.target && /^(TEXTAREA|INPUT)$/.test(ev.target.tagName)) return;   // typing a save code
     if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
       const c = ev.code;
       if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
@@ -5831,7 +5914,7 @@ function enterCamp(atSpawn = true) {
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
-function titleGo() { startGame(Items.hasSave() && Items.load() ? 'continue' : 'new'); }
+function titleGo() { if (Items.hasSave() && Items.load()) startGame('continue'); else if (anySave()) openSaves(); else startGame('new'); }
 function startGame(how = 'new') {
   Snd.init();
   if (how === 'new' || !Items.load()) Items.newGame();
@@ -5989,9 +6072,23 @@ G.bless = (id, shrine) => {
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
 };
-$('startBtn').addEventListener('click', () => startGame('new'));
+// The title: Continue plays the last-used slot; Saves (or Begin, with no saves at all) opens the three slots
+function anySave() { for (let n = 1; n <= Items.SLOTS; n++) if (Items.slotInfo(n)) return true; return false; }
+function titleButtons() {
+  const cont = Items.hasSave() && !!Items.slotInfo(Items.slot);
+  $('contBtn').style.display = cont ? '' : 'none';
+  $('startBtn').textContent = anySave() ? 'Saves' : 'Begin'; $('startBtn').classList.toggle('quiet', cont);
+}
+function openSaves() {
+  if (UI.open) return;
+  $('title').classList.remove('show'); G.state = 'menu';
+  UI.show('saves', {}, () => { if (G.state === 'menu') { G.state = 'title'; $('title').classList.add('show'); titleButtons(); } });
+}
+// From the saves screen: play a slot, or start a new game in it
+G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); startGame(fresh ? 'new' : 'continue'); };
+$('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
-if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }
+titleButtons();
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
@@ -6149,6 +6246,7 @@ window.__dw = {
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
   arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
+  openSaves, titleButtons,
   perf: () => ({ resScale, pr: renderer.getPixelRatio(), text: $('perf').textContent }), perfTick, togglePause,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },

@@ -18,6 +18,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
+    if (ev.target && /^(TEXTAREA|INPUT)$/.test(ev.target.tagName)) return;   // typing a save code
     if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
       const c = ev.code;
       if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
@@ -455,7 +456,7 @@ function enterCamp(atSpawn = true) {
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
-function titleGo() { startGame(Items.hasSave() && Items.load() ? 'continue' : 'new'); }
+function titleGo() { if (Items.hasSave() && Items.load()) startGame('continue'); else if (anySave()) openSaves(); else startGame('new'); }
 function startGame(how = 'new') {
   Snd.init();
   if (how === 'new' || !Items.load()) Items.newGame();
@@ -613,9 +614,23 @@ G.bless = (id, shrine) => {
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
 };
-$('startBtn').addEventListener('click', () => startGame('new'));
+// The title: Continue plays the last-used slot; Saves (or Begin, with no saves at all) opens the three slots
+function anySave() { for (let n = 1; n <= Items.SLOTS; n++) if (Items.slotInfo(n)) return true; return false; }
+function titleButtons() {
+  const cont = Items.hasSave() && !!Items.slotInfo(Items.slot);
+  $('contBtn').style.display = cont ? '' : 'none';
+  $('startBtn').textContent = anySave() ? 'Saves' : 'Begin'; $('startBtn').classList.toggle('quiet', cont);
+}
+function openSaves() {
+  if (UI.open) return;
+  $('title').classList.remove('show'); G.state = 'menu';
+  UI.show('saves', {}, () => { if (G.state === 'menu') { G.state = 'title'; $('title').classList.add('show'); titleButtons(); } });
+}
+// From the saves screen: play a slot, or start a new game in it
+G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); startGame(fresh ? 'new' : 'continue'); };
+$('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
-if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }
+titleButtons();
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
@@ -773,6 +788,7 @@ window.__dw = {
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
   arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
+  openSaves, titleButtons,
   perf: () => ({ resScale, pr: renderer.getPixelRatio(), text: $('perf').textContent }), perfTick, togglePause,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
