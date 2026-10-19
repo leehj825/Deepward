@@ -89,7 +89,15 @@ const Enemy = (() => {
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
     const turn = (want, rate) => { e.facing += Combat.wrap(want - e.facing) * Math.min(1, rate * dt); };
-    const step = (ang, sp) => { e.pos.x += Math.sin(ang) * sp * dt; e.pos.z += Math.cos(ang) * sp * dt; };
+    // Frost slows every step; burning ticks twice a second until its damage is spent
+    const slow = e.chillT > 0 ? 1 - e.chill : 1;
+    if (e.chillT > 0 && (e.chillT -= dt) <= 0) e.chill = 0;
+    if (e.burnT > 0 && e.state !== 'dead') {
+      e.burnTick = (e.burnTick || 0) + dt; e.burnT -= dt;
+      if (e.burnTick >= 0.5 || e.burnT <= 0) { const n = e.burnLeft * Math.min(1, e.burnTick / Math.max(0.5, e.burnT + e.burnTick)); e.burnLeft -= n; e.burnTick = 0; if (n >= 0.5) burn(e, n, 0xff6a1a); }
+      if (e.burnT <= 0) e.burnLeft = 0;
+    }
+    const step = (ang, sp) => { e.pos.x += Math.sin(ang) * sp * slow * dt; e.pos.z += Math.cos(ang) * sp * slow * dt; };
 
     if (e.state === 'spawn') {
       e.rig.root.position.y = -1.9 * def.scale * Math.max(0, 1 - e.t / 0.9);
@@ -256,7 +264,9 @@ const Enemy = (() => {
     hurtFlash(e);
     damage(e, dmg, back ? 'back' : '');
     if (e.state === 'dead' || e.state === 'roar') return 'hit';
+    const jolt = elements(e, atk, dmg);
     if (addPosture(e, atk.posture)) return 'hit';
+    if (jolt) { stun(e, 0.45); return 'hit'; }
     const armored = def.hyperArmor && e.state === 'attack';
     if ((def.flinch && !armored) || (atk.breaksGuard && e.state !== 'attack')) stun(e, atk.breaksGuard ? 0.6 : 0.35);
     return 'hit';
@@ -279,6 +289,18 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // A weapon's elements on a landed hit: fire burns for a share of the hit over 2 s, frost slows the foe for 2 s, shock
+  // may jolt it (a short stun; guardians and champions only shudder). Returns true for a jolt.
+  function elements(e, atk, dmg) {
+    const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
+    if (atk.burn) { e.burnLeft = (e.burnLeft || 0) + dmg * atk.burn; e.burnT = 2; FX.burst(at, 0xff6a1a, 6, 3, 0.4); }
+    if (atk.chill) { e.chill = Math.max(e.chill || 0, atk.chill); e.chillT = 2; FX.burst(at, 0x9ae0ff, 6, 3, 0.4); }
+    if (atk.shock && Math.random() < atk.shock) {
+      FX.burst(at, 0xd8e8ff, 12, 6, 0.3); FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'JOLT', 'parry');
+      return !e.boss && !e.champion && e.state !== 'broken';
+    }
+    return false;
+  }
   // Damage that bypasses guard and flinch (burning ground, thorns)
   function burn(e, n, color = 0xff7a20) {
     if (!targetable(e) || e.state === 'roar' || !e.def) return;

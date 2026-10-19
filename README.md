@@ -6,7 +6,7 @@ Every model is built in code from primitives, and there are no model, texture or
 
 **Gear screen.** Open it with I (or Tab, d-pad down on a controller, GEAR on touch):
 
-- **The hero in 3D,** wearing exactly what you have on. It turns slowly; drag it to turn it yourself. The five slots sit around it (helm, armour and trinket on the left; weapon and shield on the right), each showing a rendered picture of the piece, its upgrade level and its sockets. Your numbers (health, stamina, damage, posture, block, armour, critical chance, flasks) sit below the weapon.
+- **The hero in 3D,** wearing exactly what you have on. It turns slowly; drag it to turn it yourself. The eight slots sit around it (helm, armour, gloves and boots on the left; weapon, shield, trinket and ring on the right), each showing a rendered picture of the piece, its upgrade level and its sockets. Your numbers (health, stamina, damage, posture, block, armour, critical chance, flasks) sit beside it, and a line below shows your load (Light, Medium or Heavy) and what it does to the dash and the walk.
 - **The bag** is a grid of pictures, framed in the rarity's colour (orange for uniques). A green ▲ marks a piece that beats what you wear in that slot.
 - **Details:** select a piece to see everything about it, with Equip or Take off. Selecting it again (A on a controller, Enter on the keyboard) does the same.
 - **Comparison:** under the details, green ▲ and red ▼ show exactly how your numbers would change if you wore it instead (health, stamina, damage, posture, swing speed, reach, block, armour, critical chance, parry window, stamina regen, life on hit, gold found, flasks), and whether a two-handed weapon would leave your shield unused. For a worn piece it shows what taking it off would cost.
@@ -42,7 +42,11 @@ A box at the top says what to press in your own controls (keyboard, controller o
   - **Forge:** better upgrades and better odds of rare work.
   - **Apothecary:** more and stronger healing flasks.
   - **Training yard:** more health and stamina.
-- **Gear:** five slots (weapon, shield, armour, helm and trinket).
+- **Gear:** eight slots (weapon, shield, armour, helm, gloves, boots, trinket and ring).
+  - **Gloves** add damage and posture damage; **boots** add health and stamina; a **ring** carries two bonuses (an amulet or charm in the trinket slot does too).
+  - **Weight:** armour, helms, gloves and boots come Light, Medium or Heavy (Jerkin / Hauberk / Brigandine, Cap / Helm / Great Helm, Wraps / Gloves / Gauntlets, Shoes / Boots / Sabatons). Heavy pieces give 25% more and light ones 20% less, but they add up to a load: past a light load (2.5) each point makes the dash cost 8% more stamina and reach 3% less, and the walk 2% slower (capped). A full heavy set is a tank that dashes short; a light set dances.
+  - **Elements** roll only on weapons: **Fire** burns the foe for a share of each hit over 2 s, **Frost** slows it for 2 s, **Shock** has a chance to jolt it into a stagger (guardians and champions only shudder).
+  - **Bram's Reroll tab** swaps one bonus of a worn piece for a different kind, rolled fresh for its tier (gold and scrap, dearer each time for the same piece).
   - Seven weapon types play differently:
     - **Sword:** the all-rounder.
     - **Axe:** more posture damage.

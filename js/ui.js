@@ -8,7 +8,7 @@ const UI = (() => {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
   // An item's picture (rendered by GearView), or a plain glyph when there is no WebGL
-  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', trinket: '💍' };
+  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', gloves: '🧤', boots: '👢', trinket: '📿', ring: '💍' };
   const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
@@ -79,14 +79,15 @@ const UI = (() => {
   // points, s seconds, m metres
   const CMP = [['maxHp', 'Health', 'n'], ['maxSt', 'Stamina', 'n'], ['dmg', 'Damage', 'x'], ['posture', 'Posture damage', 'x'], ['speed', 'Swing speed', 'p'],
     ['range', 'Reach', 'm'], ['block', 'Block', 'p'], ['dr', 'Armour', 'p'], ['crit', 'Critical chance', 'p'], ['parry', 'Parry window', 's'],
-    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n']];
-  const UNIT = { n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
+    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n'], ['burn', 'Fire', 'p'], ['chill', 'Frost', 'p'], ['shock', 'Shock', 'p'],
+    ['move', 'Walk speed', 'p'], ['dashDist', 'Dash reach', 'p'], ['dashCost', 'Dash stamina', 'p', true], ['load', 'Load', 'w', true]];
+  const UNIT = { w: d => d.toFixed(1), n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
   function compare(a, b) {
     const rows = [];
-    for (const [k, name, u] of CMP) {
-      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d));
+    for (const [k, name, u, lowGood] of CMP) {
+      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d)), good = lowGood ? d < 0 : d > 0;
       if (!parseFloat(shown)) continue;                                    // too small to show
-      rows.push(`<span class="${d > 0 ? 'cup' : 'cdown'}">${d > 0 ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
+      rows.push(`<span class="${good ? 'cup' : 'cdown'}">${good ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
     }
     if (!a.twoHanded && !a.dual && (b.twoHanded || b.dual)) rows.push('<span class="cdown">✋ Both hands full: the shield goes unused</span>');
     if ((a.twoHanded || a.dual) && !b.twoHanded && !b.dual) rows.push('<span class="cup">🛡 The shield is used again</span>');
@@ -116,7 +117,7 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
@@ -128,6 +129,14 @@ const UI = (() => {
           h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
           if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
+        }
+      } else if (t === 'reroll') {
+        h += '<p>"Don\'t like a bonus? I\'ll rework it." Bram swaps one bonus of a worn piece for a different kind, rolled fresh for its tier. Each rework of the same piece costs more.</p>';
+        const eq = CFG.gear.slots.map(s => S.equip[s]).filter(it => it && it.aff.length);
+        if (!eq.length) h += '<p class="dim">Nothing you wear has a bonus to rework.</p>';
+        for (const it of eq) {
+          const c = Items.rerollCost(it), ok = S.gold >= c.gold && S.scrap >= c.scrap;
+          h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
         }
       } else if (t === 'gems') {
         const GM = CFG.gear.gems, SC = CFG.gear.sockets;
@@ -224,8 +233,8 @@ const UI = (() => {
       const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
         return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
           + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
-      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('trinket')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}`;
-      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div></div><div class="gright">`;
+      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('gloves')}${slot('boots')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}${slot('trinket')}${slot('ring')}`;
+      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div><div class="gload l${st.loadClass}">⚖ ${CFG.gear.weightNames[st.loadClass]} load ${st.load} · dash ${Math.round(st.dashDist * 100)}% reach, ${Math.round(st.dashCost * 100)}% stamina · walk ${Math.round(st.move * 100)}%</div></div><div class="gright">`;
       const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
       h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="bagbar">`
         + ['all', ...C.slots].map(k => btn(k === 'all' ? 'All' : GLYPH[k], 'bagfilter', k, false, 'chip' + (filt === k ? ' on' : ''))).join('')
@@ -313,6 +322,11 @@ const UI = (() => {
       if (S.gold < cost || S.inv.length >= CFG.gear.invSize) { if (S.inv.length >= CFG.gear.invSize) toast('Your bag is full'); return render(); }
       S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
+    }
+    if (a === 'reroll') {
+      const [id, i] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
+      if (it && Items.reroll(it, +i)) { Snd.play('parry'); toast('Reworked: ' + Items.describe(it).slice(-it.aff.length)[+i], R[it.rarity].color); changed(); }
+      return render();
     }
     if (a === 'gem' || a === 'pry' || a === 'socket') {
       const [id, kind] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);

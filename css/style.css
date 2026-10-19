@@ -322,3 +322,6 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .pb.chip.sort { margin-left: auto; }
 #perf { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(4px + env(safe-area-inset-bottom)); z-index: 40; padding: 2px 8px; font: 11px/1.4 ui-monospace, monospace; color: #9fe89f; background: rgba(0, 0, 0, 0.6); border-radius: 4px; pointer-events: none; white-space: nowrap; }
 #perf.show { display: block; }
+.gload { grid-column: 1 / -1; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-top: -2px; }
+.gload.l0 { color: #9fe89f; } .gload.l1 { color: #e8d89f; } .gload.l2 { color: #ffaa7a; }
+.pcard.smith .ibtns { flex-wrap: wrap; justify-content: flex-end; }

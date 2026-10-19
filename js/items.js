@@ -57,7 +57,12 @@ const Items = (() => {
     for (let i = 0; i < R.length; i++) { x -= w[i]; if (x <= 0) return i; }
     return minR;
   }
-  const SUFFIX = { crit: 'of Ruin', posture: 'of the Ram', regen: 'of Second Wind', hp: 'of the Oak', stamina: 'of the Long Road', parry: 'of the Wall', lifesteal: 'of Thirst', gold: 'of Fortune' };
+  const SUFFIX = { crit: 'of Ruin', posture: 'of the Ram', regen: 'of Second Wind', hp: 'of the Oak', stamina: 'of the Long Road', parry: 'of the Wall', lifesteal: 'of Thirst', gold: 'of Fortune', fire: 'of Embers', frost: 'of Rime', shock: 'of Storms' };
+  // A piece's weight class: 0 light, 1 medium, 2 heavy (older saves: helms by style, armour by tier band)
+  const wcOf = it => it.wc !== undefined ? it.wc : it.slot === 'helm' ? (it.style || 0) : Math.min(2, Math.floor(it.tier / 2));
+  // A random bonus that may go on this slot, rolled for the tier
+  const affixKeys = slot => Object.keys(C.affixes).filter(k => !C.affixes[k].only || C.affixes[k].only.includes(slot));
+  function rollAffix(k, tier) { const a = C.affixes[k]; return { k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }; }
   function generate(tier, opt = {}) {
     tier = Math.max(0, Math.min(C.tierNames.length - 1, tier));
     const slot = opt.slot || pick(C.slots), rarity = opt.rarity !== undefined ? opt.rarity : rollRarity(opt.minRarity || 0, opt.boost || 0);
@@ -66,10 +71,15 @@ const Items = (() => {
     if (slot === 'weapon') { it.type = opt.type || pick(Object.keys(C.weapons)); it.name = tn + ' ' + C.weapons[it.type].name; }
     else if (slot === 'shield') it.name = tn + ' ' + C.shields[band];
     else if (slot === 'armor') it.name = tn + ' ' + C.armors[band];
-    else if (slot === 'helm') { it.style = band; it.name = tn + ' ' + C.helms[band]; }
-    else it.name = tn + ' ' + pick(C.trinkets);
-    const nAff = C.rarities[rarity].affixes + (slot === 'trinket' ? 1 : 0), keys = Object.keys(C.affixes).sort(() => Math.random() - 0.5).slice(0, nAff);
-    for (const k of keys) { const a = C.affixes[k]; it.aff.push({ k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }); }
+    else if (slot === 'trinket') it.name = tn + ' ' + pick(C.trinkets);
+    else if (slot === 'ring') it.name = tn + ' ' + pick(C.rings);
+    if (C.weightSlots.includes(slot)) {                                     // light, medium or heavy
+      it.wc = opt.wc !== undefined ? opt.wc : Math.floor(Math.random() * 3);
+      const names = { armor: C.armors, helm: C.helms, gloves: C.gloves, boots: C.boots }[slot];
+      it.name = tn + ' ' + names[it.wc]; if (slot === 'helm') it.style = it.wc;
+    }
+    const nAff = C.rarities[rarity].affixes + (slot === 'trinket' || slot === 'ring' ? 1 : 0), keys = affixKeys(slot).sort(() => Math.random() - 0.5).slice(0, nAff);
+    for (const k of keys) it.aff.push(rollAffix(k, tier));
     if (rarity >= 2 && it.aff.length) it.name += ' ' + SUFFIX[it.aff[0].k];
     if (C.sockets.slots.includes(slot)) { const [a, b] = C.sockets.byRarity[rarity]; it.gems = new Array(a + Math.floor(Math.random() * (b - a + 1))).fill(null); }
     return it;
@@ -101,8 +111,11 @@ const Items = (() => {
     const m = C.rarities[it.rarity].mult * (1 + C.upgradeStep * it.plus), t = it.tier;
     if (it.slot === 'weapon') return { dmg: (1 + 0.16 * t) * m };
     if (it.slot === 'shield') return { block: Math.min(0.95, 0.7 + 0.035 * t * m + 0.03 * (m - 1)), guard: Math.max(0.5, 1.2 - 0.07 * t * m - 0.2 * (m - 1)) };
-    if (it.slot === 'armor') return { hp: Math.round((14 + 12 * t) * m), dr: Math.min(0.3, (0.03 + 0.02 * t) * m) };
-    if (it.slot === 'helm') return { hp: Math.round((8 + 7 * t) * m), stamina: Math.round((5 + 4 * t) * m) };
+    const wm = C.weightSlots.includes(it.slot) ? C.weightMult[wcOf(it)] : 1;
+    if (it.slot === 'armor') return { hp: Math.round((14 + 12 * t) * m * wm), dr: Math.min(0.3, (0.03 + 0.02 * t) * m * wm) };
+    if (it.slot === 'helm') return { hp: Math.round((8 + 7 * t) * m * wm), stamina: Math.round((5 + 4 * t) * m) };
+    if (it.slot === 'gloves') return { dmg: (0.02 + 0.008 * t) * m * wm, posture: (0.03 + 0.01 * t) * m * wm };
+    if (it.slot === 'boots') return { hp: Math.round((5 + 4 * t) * m * wm), stamina: Math.round((4 + 3 * t) * m) };
     return {};
   }
   // Short text lines describing an item
@@ -119,6 +132,9 @@ const Items = (() => {
     if (it.slot === 'shield') L.push(`Blocks ${Math.round(m.block * 100)}% of damage`, `Stamina per block x${m.guard.toFixed(2)}`);
     if (it.slot === 'armor') L.push(`+${m.hp} health`, `${Math.round(m.dr * 100)}% damage reduction`);
     if (it.slot === 'helm') L.push(`+${m.hp} health`, `+${m.stamina} stamina`);
+    if (it.slot === 'gloves') L.push(`+${Math.round(m.dmg * 100)}% damage`, `+${Math.round(m.posture * 100)}% posture damage`);
+    if (it.slot === 'boots') L.push(`+${m.hp} health`, `+${m.stamina} stamina`);
+    if (C.weightSlots.includes(it.slot)) L.push(`${C.weightNames[wcOf(it)]} · weight ${C.weight[it.slot][wcOf(it)]}`);
     for (const a of it.aff) { const d = C.affixes[a.k]; L.push(`+${a.v}${d.unit === 's' ? ' s' : d.unit} ${d.name.toLowerCase()}`); }
     return L;
   }
@@ -132,22 +148,29 @@ const Items = (() => {
     const A = {}; for (const k in C.affixes) A[k] = 0;
     for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
+    const glv = E.gloves ? main(E.gloves) : { dmg: 0, posture: 0 }, bts = E.boots ? main(E.boots) : { hp: 0, stamina: 0 };
+    // The load of what is worn: over 'light' it makes the dash dearer and shorter and the walk a little slower
+    let load = 0; for (const s of C.weightSlots) if (E[s]) load += C.weight[s][wcOf(E[s])];
+    const LD = C.load, over = load - LD.light;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
     // Gems in equipped sockets, and the uniques worn
     const G2 = { ruby: 0, sapphire: 0, emerald: 0, topaz: 0, onyx: 0 }, u = {};
     for (const s of C.slots) { const it = E[s]; if (!it || (s === 'shield' && free)) continue; for (const g of it.gems || []) if (g) G2[g]++; if (it.uniq) u[it.uniq] = true; }
     const out = {
-      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp + lv * L.hp),
-      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
-      dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
-      posture: wt.posture * (1 + A.posture / 100) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + bts.hp + A.hp + lv * L.hp),
+      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + bts.stamina + A.stamina + lv * L.stamina),
+      dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)) * (1 + glv.dmg),
+      posture: wt.posture * (1 + A.posture / 100 + glv.posture) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      load: +load.toFixed(1), loadClass: load <= LD.light ? 0 : load <= LD.heavy ? 1 : 2,
+      dashDist: Math.min(1.06, Math.max(0.88, 1 - LD.dashDist * over)), move: Math.min(1.03, Math.max(0.94, 1 - LD.move * over)),
+      burn: A.fire / 100, chill: A.frost / 100, shock: A.shock / 100,
       crit: A.crit / 100 + 0.04 * R('precision'), block: free ? wt.block : shm ? shm.block : 0.5,
       guard: (free ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
       regen: (1 + A.regen / 100) * (1 + 0.1 * R('focus')), dr: arm.dr - (two ? wt.exposed : 0) + 0.05 * R('ward'), twoHanded: two,
       lifesteal: A.lifesteal / 100 + 0.02 * R('thirst'), goldFind: 1 + A.gold / 100,
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
-      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
+      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1) * Math.min(1.3, Math.max(0.85, 1 + LD.dashCost * over)), counter: 0.3 * R('counter'),
       fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
     out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
@@ -169,8 +192,8 @@ const Items = (() => {
   function itemLook(it) {
     const w = it.slot === 'weapon' ? C.weapons[it.type] : null;
     return { slot: it.slot, type: it.type, len: w ? w.len : 0, twoHanded: !!(w && w.twoHanded), blade: rc(it.rarity), glow: it.rarity >= 2 ? rc(it.rarity) : 0,
-      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: it.tier >= 2, helm: it.style || 0,
-      trinket: it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
+      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: C.weightSlots.includes(it.slot) ? wcOf(it) === 2 : it.tier >= 2, helm: it.slot === 'helm' ? wcOf(it) : 0, wc: C.weightSlots.includes(it.slot) ? wcOf(it) : 0,
+      trinket: it.slot === 'ring' || / Ring$| Ring /.test(it.name) ? 'Ring' : it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
   }
   function look() {
     const E = S.equip;
@@ -180,8 +203,9 @@ const Items = (() => {
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
       dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
       shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? SHIELD_FACE[E.shield.rarity] : 0,
-      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
-      helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
+      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && wcOf(E.armor) === 2, mail: !!E.armor && wcOf(E.armor) === 1,
+      helm: E.helm ? wcOf(E.helm) : -1, trinket: !!E.trinket, ring: !!E.ring,
+      gloves: E.gloves ? wcOf(E.gloves) : -1, boots: E.boots ? wcOf(E.boots) : -1,
     };
   }
 
@@ -195,6 +219,16 @@ const Items = (() => {
   function unequip(slot) { const it = S.equip[slot]; if (!it || S.inv.length >= C.invSize) return; delete S.equip[slot]; S.inv.push(it); }
   function remove(id) { const i = S.inv.findIndex(x => x.id === id); return i < 0 ? null : S.inv.splice(i, 1)[0]; }
   function addGold(n) { n = Math.round(n); S.gold += n; S.tripGold += n; return n; }
+  // Bram rerolls one bonus: a different kind that fits the slot and is not already on the piece, rolled for its tier
+  const rerollCost = it => { const R = C.reroll, k = 1 + R.growth * (it.rerolls || 0); return { gold: Math.round(R.gold * (it.tier + 1) * k), scrap: Math.round(R.scrap * k) }; };
+  function reroll(it, i) {
+    const c = rerollCost(it), cur = it.aff[i]; if (!cur || S.gold < c.gold || S.scrap < c.scrap) return false;
+    const have = it.aff.map(a => a.k), keys = affixKeys(it.slot).filter(k => !have.includes(k));
+    if (!keys.length) return false;
+    S.gold -= c.gold; S.scrap -= c.scrap; it.rerolls = (it.rerolls || 0) + 1;
+    it.aff[i] = rollAffix(pick(keys), it.tier);
+    return true;
+  }
   function upgradeCost(it) { return { gold: Math.round(40 * (it.tier + 1) * (1 + it.rarity * 0.5) * (1 + it.plus * 0.6)), scrap: 2 + it.plus * 2 + it.rarity }; }
   const maxPlus = () => C.maxUpgrade[S.camp.forge];
 
@@ -215,7 +249,7 @@ const Items = (() => {
 
   return {
     get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
-    upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
+    upgradeCost, maxPlus, rerollCost, reroll, wcOf, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();

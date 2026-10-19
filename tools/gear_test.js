@@ -15,7 +15,7 @@ const path = require('path');
     for (const s of ['armor', 'helm', 'trinket', 'shield']) I.add(I.generate(3, { slot: s, rarity: 1 }));
     __dw.openPanel('bag');
     o.doll = !!q('.gdoll canvas');
-    o.slots = qa('.gslot').length === 5;
+    o.slots = qa('.gslot').length === CFG.gear.slots.length && CFG.gear.slots.length === 8;
     o.cells = qa('.pb.icell').length === I.S.inv.length;
     o.pictures = qa('.pb.icell img.ipic').length === I.S.inv.length && qa('.gslot img.ipic').length === 2;     // sword and shield worn
     // Different items get different pictures; the same look reuses one

@@ -420,8 +420,14 @@ const CFG = {
   // ---------------- Gear ----------------
   // Item power grows with tier (the stage depth it was found at); rarity adds a multiplier and random bonuses.
   gear: {
-    slots: ['weapon', 'shield', 'armor', 'helm', 'trinket'],
-    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', trinket: 'Trinket' },
+    slots: ['weapon', 'shield', 'armor', 'helm', 'gloves', 'boots', 'trinket', 'ring'],
+    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', gloves: 'Gloves', boots: 'Boots', trinket: 'Trinket', ring: 'Ring' },
+    // Armour, helms, gloves and boots come light, medium or heavy (it.wc). Heavier pieces give more (mult), but the
+    // load they add up to makes the dash cost more and reach less, and slows the walk a little (see Items.stats).
+    weightSlots: ['armor', 'helm', 'gloves', 'boots'],
+    weight: { armor: [1, 2, 3.2], helm: [0.4, 0.8, 1.2], gloves: [0.2, 0.4, 0.7], boots: [0.3, 0.6, 1.0] },
+    weightMult: [0.8, 1, 1.25], weightNames: ['Light', 'Medium', 'Heavy'],
+    load: { light: 2.5, heavy: 4.5, dashCost: 0.08, dashDist: 0.03, move: 0.02 },   // per point of load over 'light'
     rarities: [
       { id: 'common', name: 'Common', color: '#cfc8b8', mult: 1, affixes: 0, weight: 62 },
       { id: 'rare', name: 'Rare', color: '#5aa8ff', mult: 1.12, affixes: 1, weight: 27 },
@@ -446,7 +452,10 @@ const CFG = {
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],
     helms: ['Cap', 'Helm', 'Great Helm'],
-    trinkets: ['Ring', 'Amulet', 'Charm'],
+    gloves: ['Wraps', 'Gloves', 'Gauntlets'],
+    boots: ['Shoes', 'Boots', 'Sabatons'],
+    trinkets: ['Amulet', 'Charm'],
+    rings: ['Band', 'Signet', 'Loop'],
     // Random bonuses: [min, max] per tier step added on top
     // Named legendaries, each with an effect of its own (the fight reads S.u). They drop from guardians' chests (uniqueChance)
     // and rich chests (uniqueRich), and Tilda now and then has one (uniqueStock). Each is found once before any repeats.
@@ -481,7 +490,13 @@ const CFG = {
       parry: { name: 'Parry window', unit: 's', min: 0.02, max: 0.04, step: 0.004 },
       lifesteal: { name: 'Life on hit', unit: '%', min: 2, max: 4, step: 0.3 },
       gold: { name: 'Gold found', unit: '%', min: 10, max: 22, step: 2 },
+      // Weapons only: elements carried by every hit that lands
+      fire: { name: 'Fire (burns over 2 s)', unit: '%', min: 15, max: 25, step: 1.5, only: ['weapon'] },
+      frost: { name: 'Frost (slows for 2 s)', unit: '%', min: 20, max: 30, step: 1, only: ['weapon'] },
+      shock: { name: 'Shock (chance to jolt)', unit: '%', min: 8, max: 14, step: 0.8, only: ['weapon'] },
     },
+    // Bram rerolls one bonus of a worn piece: base cost times (tier + 1), more each time that piece is rerolled
+    reroll: { gold: 45, scrap: 3, growth: 0.5 },
     maxUpgrade: [2, 4, 6, 8],   // highest +level the smith can reach at each forge level (0-3)
     upgradeStep: 0.08,          // each +level adds 8% to the item's main stats
     invSize: 24,

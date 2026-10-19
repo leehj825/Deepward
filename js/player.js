@@ -5,7 +5,7 @@ const Player = (() => {
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
-    critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
+    critMult: P.critMult, dashCost: 1, dashDist: 1, load: 0, loadClass: 0, burn: 0, chill: 0, shock: 0, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
   // Gear, levels and talents, then any shrine blessings for this stage
   function gearStats() {
     const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
@@ -102,7 +102,7 @@ const Player = (() => {
     const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
     if (kind === 'heavy' && S.u && S.u.sky && !data.exec) data = Object.assign({}, data, { range: data.range + 2, arc: 26 });    // Skypiercer
     p.atk = Object.assign({}, data, {
-      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
+      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire, burn: S.burn, chill: S.chill, shock: S.shock,
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
     if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
@@ -203,8 +203,9 @@ const Player = (() => {
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
-      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * D.dist * ease;
-      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
+      const reach = D.dist * (p.S.dashDist || 1);                          // a heavy load shortens the dash
+      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * reach * ease;
+      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * reach * ease;
       moveSpeed = P.speed;
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       // Emberwake: the dash leaves burning ground

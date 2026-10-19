@@ -88,7 +88,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Camp:** a hub between stages. You talk to Maren, Bram (forge, upgrade, salvage) and Tilda (buy and sell), use the ledger to build up the forge, apothecary and training yard, and take the gate down to any unlocked stage. Each building's level shows in the camp.
 - **Loop:** clearing a stage's guardian offers a choice: return to camp, banking gold, or press on. Falling wakes you in camp with half the trip's gold lost. Progress saves in the browser.
 - **Gear as built:**
-  - Five slots: weapon, shield, armour, helm and trinket.
+  - Eight slots: weapon, shield, armour, helm, gloves, boots, trinket and ring.
   - Weapon types: sword, axe, mace, longsword and the two-handed greatsword.
   - Tiers by depth, four rarities, eight bonus types, and smith upgrades up to +8 with the best forge.
   - Gear changes the hero's look: blade, weapon model, tunic colour, plate, helm style, shield face and amulet.
@@ -97,12 +97,20 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 
 | Planned | Status |
 | --- | --- |
-| Eight slots (weapon, off-hand, helm, chest, gloves, boots, ring, amulet) | Five built (weapon, shield, armour, helm, trinket); gloves, boots and a ring are on the roadmap (V2) |
+| Eight slots (weapon, off-hand, helm, chest, gloves, boots, ring, amulet) | Built: weapon, shield, armour, helm, gloves, boots, trinket and ring |
 | Weapon types with their own moves | Built: sword, axe, mace, longsword, greatsword, spear and twin daggers; spear and daggers have their own combos and heavies |
-| Four rarities with random bonuses; legendaries with unique effects | Built, plus nine named uniques and gem sockets. Elemental damage is not built (V2) |
-| Weight slows the dash | Not built (V2) |
-| Forge: upgrade, salvage, reroll one bonus | Upgrade, salvage, gems and sockets built; reroll is not (V2) |
+| Four rarities with random bonuses; legendaries with unique effects | Built, plus nine named uniques, gem sockets and weapon elements (fire, frost, shock) |
+| Weight slows the dash | Built: weight classes and load (below) |
+| Forge: upgrade, salvage, reroll one bonus | Built, plus gems and sockets |
 | Every equipped piece shown on the rig | Built |
+
+## Gear depth (built)
+
+- **Weight classes:** `it.wc` (0 light, 1 medium, 2 heavy) on armour, helms, gloves and boots; older saves derive it (helms from their style, armour from its tier band). `main()` multiplies the piece's numbers by `CFG.gear.weightMult`.
+- **Load:** the sum of `CFG.gear.weight[slot][wc]` over worn pieces. Over `load.light`, `stats()` raises `dashCost` and lowers `dashDist` and `move`, each capped. The player's dash multiplies its distance by `dashDist`.
+- **Elements:** affixes with `only: ['weapon']`. They ride on the attack (`atk.burn`, `chill`, `shock`), and `Enemy.receive` calls `elements()` on a landed hit: burning damage is spread over 2 s in half-second ticks, frost scales every enemy step, a shock jolt is a 0.45 s stagger except on guardians and champions.
+- **Reroll:** `Items.reroll(it, i)` picks a kind that fits the slot and is not on the piece; cost grows with `it.rerolls`.
+- **Looks:** gloves tint the hands and add cuffs (steel when heavy), boots recolour the lower legs (heavy adds greaves and sabaton plates), medium armour shows a mail shirt and heavy armour plate.
 
 ## Progression (built)
 
@@ -278,7 +286,7 @@ The next steps, in the order I'd take them. Each is sized like one of the S or T
 - Check touch reach, text size, safe areas (notches) and the pause on app switch (Capacitor `appStateChange`).
 - Exit criterion: 50+ FPS on Medium through a full Act II stage.
 
-**V2. Gear depth.** Finish the original gear plan.
+**V2. Gear depth (done).** Finish the original gear plan.
 - Gloves, boots and a ring slot (eight slots total), with their own looks on the rig.
 - Weight: heavy armour slows the dash and costs more stamina; light gear the reverse.
 - Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.

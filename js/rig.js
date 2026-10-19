@@ -174,6 +174,25 @@ const Rig = (() => {
       const wood = std(0x3a2c24, 0.9);                                       // a dark wooden stand's head, so the helm reads as worn
       box(hold, 0.23, 0.26, 0.24, wood, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.12, 8), wood, hold, 0, -0.18, 0);
       helmet(hold, L.helm, { steel, leather, dark }); hold.rotation.y = 0.5;
+    } else if (L.slot === 'gloves') {                                     // a pair: wraps, leather gloves or steel gauntlets
+      const m = [leather, std(0x3a2a1e), steel][L.wc];
+      for (const sd of [-1, 1]) {
+        const h = new THREE.Group(); hold.add(h); h.position.x = sd * 0.11; h.rotation.z = sd * 0.15;
+        box(h, 0.12, 0.13, 0.05, m, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.1, 8), m, h, 0, -0.11, 0);
+        for (let f = 0; f < 4; f++) box(h, 0.024, 0.07, 0.04, m, -0.045 + f * 0.03, 0.095, 0);
+        box(h, 0.03, 0.06, 0.04, m, sd * -0.075, 0.02, 0.01).rotation.z = sd * 0.6;                        // thumb
+        if (L.wc === 2) box(h, 0.13, 0.04, 0.06, dark, 0, -0.03, 0.005);
+      }
+      hold.rotation.x = -0.2;
+    } else if (L.slot === 'boots') {                                      // a pair: shoes, boots or sabatons
+      const m = [leather, std(0x3a2618), steel][L.wc], tall = [0.1, 0.24, 0.26][L.wc];
+      for (const sd of [-1, 1]) {
+        const b = new THREE.Group(); hold.add(b); b.position.x = sd * 0.09;
+        mesh(new THREE.CylinderGeometry(0.065, 0.06, tall, 8), m, b, 0, tall / 2, 0);
+        box(b, 0.11, 0.07, 0.24, m, 0, 0.035, 0.06);
+        if (L.wc === 2) { box(b, 0.12, 0.2, 0.03, steel, 0, 0.15, 0.065); box(b, 0.12, 0.03, 0.2, dark, 0, 0.075, 0.08); }
+      }
+      hold.rotation.y = 0.6;
     } else {
       const gem = glowMat(L.uniq === 'heart' ? 0xff4a4a : 0x7fe8ff);
       if (L.trinket === 'Ring') { mesh(new THREE.TorusGeometry(0.1, 0.026, 8, 18), gold, hold); ball(hold, 0.035, gem, 0, 0.12, 0, 8, 6); hold.rotation.x = 0.5; }
@@ -194,7 +213,7 @@ const Rig = (() => {
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
-      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
       goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
@@ -228,8 +247,10 @@ const Rig = (() => {
       ball(knee, 0.07 * R, bony ? skin : (kind === 'knight' ? steel : pants), 0, 0, 0.01);
       limb(knee, 0.4, 0.07 * R, 0.058 * R, bony ? skin : boot);
       if (!bony) mesh(new THREE.CylinderGeometry(0.078 * R, 0.07 * R, 0.16, 8), boot, knee, 0, -0.08, 0);
+      if (kind === 'hero' && L.boots === 2) box(knee, 0.11, 0.3, 0.05, steel, 0, -0.2, 0.06);           // greaves
       const ankle = joint(knee, 0, -0.42, 0);
       box(ankle, 0.11 * R, 0.08, 0.25, boot, 0, 0.0, 0.05);
+      if (kind === 'hero' && L.boots === 2) box(ankle, 0.13, 0.04, 0.2, steel, 0, 0.05, 0.08);         // sabaton plate
       rig.j['hip' + n] = hip; rig.j['kn' + n] = knee;
     }
 
@@ -253,6 +274,7 @@ const Rig = (() => {
       if (kind === 'hero') {
         if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, chest, 0, 0.09, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(chest, 0.12, steel, 0.21 * s, 0.22, 0, 8, 6).scale.set(1, 0.65, 1); }
         else { const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7; ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1); }
+        if (L.mail) { const ml = mesh(new THREE.CylinderGeometry(0.205, 0.17, 0.3, 9), std(0x7a7e86, 0.6, 0.45), chest, 0, 0.04, 0); ml.scale.z = 0.75; }   // a mail shirt under the strap
         box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
         if (L.trinket) { ball(chest, 0.035, std(0xd9a92a, 0.3, 0.6), 0, 0.12, 0.15, 6, 5); ball(chest, 0.018, glowMat(0x7fe8ff), 0, 0.12, 0.18, 5, 4); }
       }
@@ -357,7 +379,9 @@ const Rig = (() => {
       limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
       if (kind === 'hero' || kind === 'brute' || kind === 'npc') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
       const hd = joint(el, 0, -0.29, 0);
-      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : skin, 0, 0, 0.0, 8, 6);
+      const glove = kind === 'hero' && L.gloves >= 0 ? [leather, std(0x3a2a1e), steel][L.gloves] : null;
+      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : glove || skin, 0, 0, 0.0, 8, 6);
+      if (glove) mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.09, 8), glove, el, 0, -0.25, 0);         // cuff
       rig.j['sh' + n] = sh; rig.j['el' + n] = el; rig.j['hd' + n] = hd;
     }
 

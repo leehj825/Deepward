@@ -332,6 +332,9 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .pb.chip.sort { margin-left: auto; }
 #perf { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(4px + env(safe-area-inset-bottom)); z-index: 40; padding: 2px 8px; font: 11px/1.4 ui-monospace, monospace; color: #9fe89f; background: rgba(0, 0, 0, 0.6); border-radius: 4px; pointer-events: none; white-space: nowrap; }
 #perf.show { display: block; }
+.gload { grid-column: 1 / -1; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-top: -2px; }
+.gload.l0 { color: #9fe89f; } .gload.l1 { color: #e8d89f; } .gload.l2 { color: #ffaa7a; }
+.pcard.smith .ibtns { flex-wrap: wrap; justify-content: flex-end; }
 
 </style>
 </head>
@@ -823,8 +826,14 @@ const CFG = {
   // ---------------- Gear ----------------
   // Item power grows with tier (the stage depth it was found at); rarity adds a multiplier and random bonuses.
   gear: {
-    slots: ['weapon', 'shield', 'armor', 'helm', 'trinket'],
-    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', trinket: 'Trinket' },
+    slots: ['weapon', 'shield', 'armor', 'helm', 'gloves', 'boots', 'trinket', 'ring'],
+    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', gloves: 'Gloves', boots: 'Boots', trinket: 'Trinket', ring: 'Ring' },
+    // Armour, helms, gloves and boots come light, medium or heavy (it.wc). Heavier pieces give more (mult), but the
+    // load they add up to makes the dash cost more and reach less, and slows the walk a little (see Items.stats).
+    weightSlots: ['armor', 'helm', 'gloves', 'boots'],
+    weight: { armor: [1, 2, 3.2], helm: [0.4, 0.8, 1.2], gloves: [0.2, 0.4, 0.7], boots: [0.3, 0.6, 1.0] },
+    weightMult: [0.8, 1, 1.25], weightNames: ['Light', 'Medium', 'Heavy'],
+    load: { light: 2.5, heavy: 4.5, dashCost: 0.08, dashDist: 0.03, move: 0.02 },   // per point of load over 'light'
     rarities: [
       { id: 'common', name: 'Common', color: '#cfc8b8', mult: 1, affixes: 0, weight: 62 },
       { id: 'rare', name: 'Rare', color: '#5aa8ff', mult: 1.12, affixes: 1, weight: 27 },
@@ -849,7 +858,10 @@ const CFG = {
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],
     helms: ['Cap', 'Helm', 'Great Helm'],
-    trinkets: ['Ring', 'Amulet', 'Charm'],
+    gloves: ['Wraps', 'Gloves', 'Gauntlets'],
+    boots: ['Shoes', 'Boots', 'Sabatons'],
+    trinkets: ['Amulet', 'Charm'],
+    rings: ['Band', 'Signet', 'Loop'],
     // Random bonuses: [min, max] per tier step added on top
     // Named legendaries, each with an effect of its own (the fight reads S.u). They drop from guardians' chests (uniqueChance)
     // and rich chests (uniqueRich), and Tilda now and then has one (uniqueStock). Each is found once before any repeats.
@@ -884,7 +896,13 @@ const CFG = {
       parry: { name: 'Parry window', unit: 's', min: 0.02, max: 0.04, step: 0.004 },
       lifesteal: { name: 'Life on hit', unit: '%', min: 2, max: 4, step: 0.3 },
       gold: { name: 'Gold found', unit: '%', min: 10, max: 22, step: 2 },
+      // Weapons only: elements carried by every hit that lands
+      fire: { name: 'Fire (burns over 2 s)', unit: '%', min: 15, max: 25, step: 1.5, only: ['weapon'] },
+      frost: { name: 'Frost (slows for 2 s)', unit: '%', min: 20, max: 30, step: 1, only: ['weapon'] },
+      shock: { name: 'Shock (chance to jolt)', unit: '%', min: 8, max: 14, step: 0.8, only: ['weapon'] },
     },
+    // Bram rerolls one bonus of a worn piece: base cost times (tier + 1), more each time that piece is rerolled
+    reroll: { gold: 45, scrap: 3, growth: 0.5 },
     maxUpgrade: [2, 4, 6, 8],   // highest +level the smith can reach at each forge level (0-3)
     upgradeStep: 0.08,          // each +level adds 8% to the item's main stats
     invSize: 24,
@@ -1062,7 +1080,12 @@ const Items = (() => {
     for (let i = 0; i < R.length; i++) { x -= w[i]; if (x <= 0) return i; }
     return minR;
   }
-  const SUFFIX = { crit: 'of Ruin', posture: 'of the Ram', regen: 'of Second Wind', hp: 'of the Oak', stamina: 'of the Long Road', parry: 'of the Wall', lifesteal: 'of Thirst', gold: 'of Fortune' };
+  const SUFFIX = { crit: 'of Ruin', posture: 'of the Ram', regen: 'of Second Wind', hp: 'of the Oak', stamina: 'of the Long Road', parry: 'of the Wall', lifesteal: 'of Thirst', gold: 'of Fortune', fire: 'of Embers', frost: 'of Rime', shock: 'of Storms' };
+  // A piece's weight class: 0 light, 1 medium, 2 heavy (older saves: helms by style, armour by tier band)
+  const wcOf = it => it.wc !== undefined ? it.wc : it.slot === 'helm' ? (it.style || 0) : Math.min(2, Math.floor(it.tier / 2));
+  // A random bonus that may go on this slot, rolled for the tier
+  const affixKeys = slot => Object.keys(C.affixes).filter(k => !C.affixes[k].only || C.affixes[k].only.includes(slot));
+  function rollAffix(k, tier) { const a = C.affixes[k]; return { k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }; }
   function generate(tier, opt = {}) {
     tier = Math.max(0, Math.min(C.tierNames.length - 1, tier));
     const slot = opt.slot || pick(C.slots), rarity = opt.rarity !== undefined ? opt.rarity : rollRarity(opt.minRarity || 0, opt.boost || 0);
@@ -1071,10 +1094,15 @@ const Items = (() => {
     if (slot === 'weapon') { it.type = opt.type || pick(Object.keys(C.weapons)); it.name = tn + ' ' + C.weapons[it.type].name; }
     else if (slot === 'shield') it.name = tn + ' ' + C.shields[band];
     else if (slot === 'armor') it.name = tn + ' ' + C.armors[band];
-    else if (slot === 'helm') { it.style = band; it.name = tn + ' ' + C.helms[band]; }
-    else it.name = tn + ' ' + pick(C.trinkets);
-    const nAff = C.rarities[rarity].affixes + (slot === 'trinket' ? 1 : 0), keys = Object.keys(C.affixes).sort(() => Math.random() - 0.5).slice(0, nAff);
-    for (const k of keys) { const a = C.affixes[k]; it.aff.push({ k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }); }
+    else if (slot === 'trinket') it.name = tn + ' ' + pick(C.trinkets);
+    else if (slot === 'ring') it.name = tn + ' ' + pick(C.rings);
+    if (C.weightSlots.includes(slot)) {                                     // light, medium or heavy
+      it.wc = opt.wc !== undefined ? opt.wc : Math.floor(Math.random() * 3);
+      const names = { armor: C.armors, helm: C.helms, gloves: C.gloves, boots: C.boots }[slot];
+      it.name = tn + ' ' + names[it.wc]; if (slot === 'helm') it.style = it.wc;
+    }
+    const nAff = C.rarities[rarity].affixes + (slot === 'trinket' || slot === 'ring' ? 1 : 0), keys = affixKeys(slot).sort(() => Math.random() - 0.5).slice(0, nAff);
+    for (const k of keys) it.aff.push(rollAffix(k, tier));
     if (rarity >= 2 && it.aff.length) it.name += ' ' + SUFFIX[it.aff[0].k];
     if (C.sockets.slots.includes(slot)) { const [a, b] = C.sockets.byRarity[rarity]; it.gems = new Array(a + Math.floor(Math.random() * (b - a + 1))).fill(null); }
     return it;
@@ -1106,8 +1134,11 @@ const Items = (() => {
     const m = C.rarities[it.rarity].mult * (1 + C.upgradeStep * it.plus), t = it.tier;
     if (it.slot === 'weapon') return { dmg: (1 + 0.16 * t) * m };
     if (it.slot === 'shield') return { block: Math.min(0.95, 0.7 + 0.035 * t * m + 0.03 * (m - 1)), guard: Math.max(0.5, 1.2 - 0.07 * t * m - 0.2 * (m - 1)) };
-    if (it.slot === 'armor') return { hp: Math.round((14 + 12 * t) * m), dr: Math.min(0.3, (0.03 + 0.02 * t) * m) };
-    if (it.slot === 'helm') return { hp: Math.round((8 + 7 * t) * m), stamina: Math.round((5 + 4 * t) * m) };
+    const wm = C.weightSlots.includes(it.slot) ? C.weightMult[wcOf(it)] : 1;
+    if (it.slot === 'armor') return { hp: Math.round((14 + 12 * t) * m * wm), dr: Math.min(0.3, (0.03 + 0.02 * t) * m * wm) };
+    if (it.slot === 'helm') return { hp: Math.round((8 + 7 * t) * m * wm), stamina: Math.round((5 + 4 * t) * m) };
+    if (it.slot === 'gloves') return { dmg: (0.02 + 0.008 * t) * m * wm, posture: (0.03 + 0.01 * t) * m * wm };
+    if (it.slot === 'boots') return { hp: Math.round((5 + 4 * t) * m * wm), stamina: Math.round((4 + 3 * t) * m) };
     return {};
   }
   // Short text lines describing an item
@@ -1124,6 +1155,9 @@ const Items = (() => {
     if (it.slot === 'shield') L.push(`Blocks ${Math.round(m.block * 100)}% of damage`, `Stamina per block x${m.guard.toFixed(2)}`);
     if (it.slot === 'armor') L.push(`+${m.hp} health`, `${Math.round(m.dr * 100)}% damage reduction`);
     if (it.slot === 'helm') L.push(`+${m.hp} health`, `+${m.stamina} stamina`);
+    if (it.slot === 'gloves') L.push(`+${Math.round(m.dmg * 100)}% damage`, `+${Math.round(m.posture * 100)}% posture damage`);
+    if (it.slot === 'boots') L.push(`+${m.hp} health`, `+${m.stamina} stamina`);
+    if (C.weightSlots.includes(it.slot)) L.push(`${C.weightNames[wcOf(it)]} · weight ${C.weight[it.slot][wcOf(it)]}`);
     for (const a of it.aff) { const d = C.affixes[a.k]; L.push(`+${a.v}${d.unit === 's' ? ' s' : d.unit} ${d.name.toLowerCase()}`); }
     return L;
   }
@@ -1137,22 +1171,29 @@ const Items = (() => {
     const A = {}; for (const k in C.affixes) A[k] = 0;
     for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
+    const glv = E.gloves ? main(E.gloves) : { dmg: 0, posture: 0 }, bts = E.boots ? main(E.boots) : { hp: 0, stamina: 0 };
+    // The load of what is worn: over 'light' it makes the dash dearer and shorter and the walk a little slower
+    let load = 0; for (const s of C.weightSlots) if (E[s]) load += C.weight[s][wcOf(E[s])];
+    const LD = C.load, over = load - LD.light;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
     // Gems in equipped sockets, and the uniques worn
     const G2 = { ruby: 0, sapphire: 0, emerald: 0, topaz: 0, onyx: 0 }, u = {};
     for (const s of C.slots) { const it = E[s]; if (!it || (s === 'shield' && free)) continue; for (const g of it.gems || []) if (g) G2[g]++; if (it.uniq) u[it.uniq] = true; }
     const out = {
-      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp + lv * L.hp),
-      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
-      dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
-      posture: wt.posture * (1 + A.posture / 100) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + bts.hp + A.hp + lv * L.hp),
+      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + bts.stamina + A.stamina + lv * L.stamina),
+      dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)) * (1 + glv.dmg),
+      posture: wt.posture * (1 + A.posture / 100 + glv.posture) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      load: +load.toFixed(1), loadClass: load <= LD.light ? 0 : load <= LD.heavy ? 1 : 2,
+      dashDist: Math.min(1.06, Math.max(0.88, 1 - LD.dashDist * over)), move: Math.min(1.03, Math.max(0.94, 1 - LD.move * over)),
+      burn: A.fire / 100, chill: A.frost / 100, shock: A.shock / 100,
       crit: A.crit / 100 + 0.04 * R('precision'), block: free ? wt.block : shm ? shm.block : 0.5,
       guard: (free ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
       regen: (1 + A.regen / 100) * (1 + 0.1 * R('focus')), dr: arm.dr - (two ? wt.exposed : 0) + 0.05 * R('ward'), twoHanded: two,
       lifesteal: A.lifesteal / 100 + 0.02 * R('thirst'), goldFind: 1 + A.gold / 100,
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
-      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
+      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1) * Math.min(1.3, Math.max(0.85, 1 + LD.dashCost * over)), counter: 0.3 * R('counter'),
       fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
     out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
@@ -1174,8 +1215,8 @@ const Items = (() => {
   function itemLook(it) {
     const w = it.slot === 'weapon' ? C.weapons[it.type] : null;
     return { slot: it.slot, type: it.type, len: w ? w.len : 0, twoHanded: !!(w && w.twoHanded), blade: rc(it.rarity), glow: it.rarity >= 2 ? rc(it.rarity) : 0,
-      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: it.tier >= 2, helm: it.style || 0,
-      trinket: it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
+      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: C.weightSlots.includes(it.slot) ? wcOf(it) === 2 : it.tier >= 2, helm: it.slot === 'helm' ? wcOf(it) : 0, wc: C.weightSlots.includes(it.slot) ? wcOf(it) : 0,
+      trinket: it.slot === 'ring' || / Ring$| Ring /.test(it.name) ? 'Ring' : it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
   }
   function look() {
     const E = S.equip;
@@ -1185,8 +1226,9 @@ const Items = (() => {
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
       dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
       shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? SHIELD_FACE[E.shield.rarity] : 0,
-      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
-      helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
+      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && wcOf(E.armor) === 2, mail: !!E.armor && wcOf(E.armor) === 1,
+      helm: E.helm ? wcOf(E.helm) : -1, trinket: !!E.trinket, ring: !!E.ring,
+      gloves: E.gloves ? wcOf(E.gloves) : -1, boots: E.boots ? wcOf(E.boots) : -1,
     };
   }
 
@@ -1200,6 +1242,16 @@ const Items = (() => {
   function unequip(slot) { const it = S.equip[slot]; if (!it || S.inv.length >= C.invSize) return; delete S.equip[slot]; S.inv.push(it); }
   function remove(id) { const i = S.inv.findIndex(x => x.id === id); return i < 0 ? null : S.inv.splice(i, 1)[0]; }
   function addGold(n) { n = Math.round(n); S.gold += n; S.tripGold += n; return n; }
+  // Bram rerolls one bonus: a different kind that fits the slot and is not already on the piece, rolled for its tier
+  const rerollCost = it => { const R = C.reroll, k = 1 + R.growth * (it.rerolls || 0); return { gold: Math.round(R.gold * (it.tier + 1) * k), scrap: Math.round(R.scrap * k) }; };
+  function reroll(it, i) {
+    const c = rerollCost(it), cur = it.aff[i]; if (!cur || S.gold < c.gold || S.scrap < c.scrap) return false;
+    const have = it.aff.map(a => a.k), keys = affixKeys(it.slot).filter(k => !have.includes(k));
+    if (!keys.length) return false;
+    S.gold -= c.gold; S.scrap -= c.scrap; it.rerolls = (it.rerolls || 0) + 1;
+    it.aff[i] = rollAffix(pick(keys), it.tier);
+    return true;
+  }
   function upgradeCost(it) { return { gold: Math.round(40 * (it.tier + 1) * (1 + it.rarity * 0.5) * (1 + it.plus * 0.6)), scrap: 2 + it.plus * 2 + it.rarity }; }
   const maxPlus = () => C.maxUpgrade[S.camp.forge];
 
@@ -1220,7 +1272,7 @@ const Items = (() => {
 
   return {
     get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
-    upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
+    upgradeCost, maxPlus, rerollCost, reroll, wcOf, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();
@@ -1626,6 +1678,25 @@ const Rig = (() => {
       const wood = std(0x3a2c24, 0.9);                                       // a dark wooden stand's head, so the helm reads as worn
       box(hold, 0.23, 0.26, 0.24, wood, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.12, 8), wood, hold, 0, -0.18, 0);
       helmet(hold, L.helm, { steel, leather, dark }); hold.rotation.y = 0.5;
+    } else if (L.slot === 'gloves') {                                     // a pair: wraps, leather gloves or steel gauntlets
+      const m = [leather, std(0x3a2a1e), steel][L.wc];
+      for (const sd of [-1, 1]) {
+        const h = new THREE.Group(); hold.add(h); h.position.x = sd * 0.11; h.rotation.z = sd * 0.15;
+        box(h, 0.12, 0.13, 0.05, m, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.1, 8), m, h, 0, -0.11, 0);
+        for (let f = 0; f < 4; f++) box(h, 0.024, 0.07, 0.04, m, -0.045 + f * 0.03, 0.095, 0);
+        box(h, 0.03, 0.06, 0.04, m, sd * -0.075, 0.02, 0.01).rotation.z = sd * 0.6;                        // thumb
+        if (L.wc === 2) box(h, 0.13, 0.04, 0.06, dark, 0, -0.03, 0.005);
+      }
+      hold.rotation.x = -0.2;
+    } else if (L.slot === 'boots') {                                      // a pair: shoes, boots or sabatons
+      const m = [leather, std(0x3a2618), steel][L.wc], tall = [0.1, 0.24, 0.26][L.wc];
+      for (const sd of [-1, 1]) {
+        const b = new THREE.Group(); hold.add(b); b.position.x = sd * 0.09;
+        mesh(new THREE.CylinderGeometry(0.065, 0.06, tall, 8), m, b, 0, tall / 2, 0);
+        box(b, 0.11, 0.07, 0.24, m, 0, 0.035, 0.06);
+        if (L.wc === 2) { box(b, 0.12, 0.2, 0.03, steel, 0, 0.15, 0.065); box(b, 0.12, 0.03, 0.2, dark, 0, 0.075, 0.08); }
+      }
+      hold.rotation.y = 0.6;
     } else {
       const gem = glowMat(L.uniq === 'heart' ? 0xff4a4a : 0x7fe8ff);
       if (L.trinket === 'Ring') { mesh(new THREE.TorusGeometry(0.1, 0.026, 8, 18), gold, hold); ball(hold, 0.035, gem, 0, 0.12, 0, 8, 6); hold.rotation.x = 0.5; }
@@ -1646,7 +1717,7 @@ const Rig = (() => {
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
-      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
       goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
@@ -1680,8 +1751,10 @@ const Rig = (() => {
       ball(knee, 0.07 * R, bony ? skin : (kind === 'knight' ? steel : pants), 0, 0, 0.01);
       limb(knee, 0.4, 0.07 * R, 0.058 * R, bony ? skin : boot);
       if (!bony) mesh(new THREE.CylinderGeometry(0.078 * R, 0.07 * R, 0.16, 8), boot, knee, 0, -0.08, 0);
+      if (kind === 'hero' && L.boots === 2) box(knee, 0.11, 0.3, 0.05, steel, 0, -0.2, 0.06);           // greaves
       const ankle = joint(knee, 0, -0.42, 0);
       box(ankle, 0.11 * R, 0.08, 0.25, boot, 0, 0.0, 0.05);
+      if (kind === 'hero' && L.boots === 2) box(ankle, 0.13, 0.04, 0.2, steel, 0, 0.05, 0.08);         // sabaton plate
       rig.j['hip' + n] = hip; rig.j['kn' + n] = knee;
     }
 
@@ -1705,6 +1778,7 @@ const Rig = (() => {
       if (kind === 'hero') {
         if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, chest, 0, 0.09, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(chest, 0.12, steel, 0.21 * s, 0.22, 0, 8, 6).scale.set(1, 0.65, 1); }
         else { const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7; ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1); }
+        if (L.mail) { const ml = mesh(new THREE.CylinderGeometry(0.205, 0.17, 0.3, 9), std(0x7a7e86, 0.6, 0.45), chest, 0, 0.04, 0); ml.scale.z = 0.75; }   // a mail shirt under the strap
         box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
         if (L.trinket) { ball(chest, 0.035, std(0xd9a92a, 0.3, 0.6), 0, 0.12, 0.15, 6, 5); ball(chest, 0.018, glowMat(0x7fe8ff), 0, 0.12, 0.18, 5, 4); }
       }
@@ -1809,7 +1883,9 @@ const Rig = (() => {
       limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
       if (kind === 'hero' || kind === 'brute' || kind === 'npc') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
       const hd = joint(el, 0, -0.29, 0);
-      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : skin, 0, 0, 0.0, 8, 6);
+      const glove = kind === 'hero' && L.gloves >= 0 ? [leather, std(0x3a2a1e), steel][L.gloves] : null;
+      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : glove || skin, 0, 0, 0.0, 8, 6);
+      if (glove) mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.09, 8), glove, el, 0, -0.25, 0);         // cuff
       rig.j['sh' + n] = sh; rig.j['el' + n] = el; rig.j['hd' + n] = hd;
     }
 
@@ -2519,7 +2595,7 @@ const Player = (() => {
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
-    critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
+    critMult: P.critMult, dashCost: 1, dashDist: 1, load: 0, loadClass: 0, burn: 0, chill: 0, shock: 0, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
   // Gear, levels and talents, then any shrine blessings for this stage
   function gearStats() {
     const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
@@ -2616,7 +2692,7 @@ const Player = (() => {
     const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
     if (kind === 'heavy' && S.u && S.u.sky && !data.exec) data = Object.assign({}, data, { range: data.range + 2, arc: 26 });    // Skypiercer
     p.atk = Object.assign({}, data, {
-      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
+      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire, burn: S.burn, chill: S.chill, shock: S.shock,
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
     if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
@@ -2717,8 +2793,9 @@ const Player = (() => {
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
-      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * D.dist * ease;
-      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
+      const reach = D.dist * (p.S.dashDist || 1);                          // a heavy load shortens the dash
+      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * reach * ease;
+      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * reach * ease;
       moveSpeed = P.speed;
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       // Emberwake: the dash leaves burning ground
@@ -2998,7 +3075,15 @@ const Enemy = (() => {
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
     const turn = (want, rate) => { e.facing += Combat.wrap(want - e.facing) * Math.min(1, rate * dt); };
-    const step = (ang, sp) => { e.pos.x += Math.sin(ang) * sp * dt; e.pos.z += Math.cos(ang) * sp * dt; };
+    // Frost slows every step; burning ticks twice a second until its damage is spent
+    const slow = e.chillT > 0 ? 1 - e.chill : 1;
+    if (e.chillT > 0 && (e.chillT -= dt) <= 0) e.chill = 0;
+    if (e.burnT > 0 && e.state !== 'dead') {
+      e.burnTick = (e.burnTick || 0) + dt; e.burnT -= dt;
+      if (e.burnTick >= 0.5 || e.burnT <= 0) { const n = e.burnLeft * Math.min(1, e.burnTick / Math.max(0.5, e.burnT + e.burnTick)); e.burnLeft -= n; e.burnTick = 0; if (n >= 0.5) burn(e, n, 0xff6a1a); }
+      if (e.burnT <= 0) e.burnLeft = 0;
+    }
+    const step = (ang, sp) => { e.pos.x += Math.sin(ang) * sp * slow * dt; e.pos.z += Math.cos(ang) * sp * slow * dt; };
 
     if (e.state === 'spawn') {
       e.rig.root.position.y = -1.9 * def.scale * Math.max(0, 1 - e.t / 0.9);
@@ -3165,7 +3250,9 @@ const Enemy = (() => {
     hurtFlash(e);
     damage(e, dmg, back ? 'back' : '');
     if (e.state === 'dead' || e.state === 'roar') return 'hit';
+    const jolt = elements(e, atk, dmg);
     if (addPosture(e, atk.posture)) return 'hit';
+    if (jolt) { stun(e, 0.45); return 'hit'; }
     const armored = def.hyperArmor && e.state === 'attack';
     if ((def.flinch && !armored) || (atk.breaksGuard && e.state !== 'attack')) stun(e, atk.breaksGuard ? 0.6 : 0.35);
     return 'hit';
@@ -3188,6 +3275,18 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // A weapon's elements on a landed hit: fire burns for a share of the hit over 2 s, frost slows the foe for 2 s, shock
+  // may jolt it (a short stun; guardians and champions only shudder). Returns true for a jolt.
+  function elements(e, atk, dmg) {
+    const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
+    if (atk.burn) { e.burnLeft = (e.burnLeft || 0) + dmg * atk.burn; e.burnT = 2; FX.burst(at, 0xff6a1a, 6, 3, 0.4); }
+    if (atk.chill) { e.chill = Math.max(e.chill || 0, atk.chill); e.chillT = 2; FX.burst(at, 0x9ae0ff, 6, 3, 0.4); }
+    if (atk.shock && Math.random() < atk.shock) {
+      FX.burst(at, 0xd8e8ff, 12, 6, 0.3); FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'JOLT', 'parry');
+      return !e.boss && !e.champion && e.state !== 'broken';
+    }
+    return false;
+  }
   // Damage that bypasses guard and flinch (burning ground, thorns)
   function burn(e, n, color = 0xff7a20) {
     if (!targetable(e) || e.state === 'roar' || !e.def) return;
@@ -4388,7 +4487,7 @@ const GearView = (() => {
   function dispose(o) { o.traverse(m => { if (m.isMesh) { m.geometry.dispose(); } }); }
 
   // ---------------- Item pictures ----------------
-  const keyOf = L => [L.slot, L.type, L.helm, L.trinket, L.blade, L.face, L.armor, L.plate, L.glow, L.uniq].join('|');
+  const keyOf = L => [L.slot, L.type, L.helm, L.wc, L.trinket, L.blade, L.face, L.armor, L.plate, L.glow, L.uniq].join('|');
   // Frames an object from the front and a little above, filling the picture
   function frame(obj, dir, fill) {
     const b = new THREE.Box3().setFromObject(obj), c = b.getCenter(new THREE.Vector3()), r = b.getBoundingSphere(new THREE.Sphere()).radius;
@@ -4452,7 +4551,7 @@ const UI = (() => {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
   // An item's picture (rendered by GearView), or a plain glyph when there is no WebGL
-  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', trinket: '💍' };
+  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', gloves: '🧤', boots: '👢', trinket: '📿', ring: '💍' };
   const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
@@ -4523,14 +4622,15 @@ const UI = (() => {
   // points, s seconds, m metres
   const CMP = [['maxHp', 'Health', 'n'], ['maxSt', 'Stamina', 'n'], ['dmg', 'Damage', 'x'], ['posture', 'Posture damage', 'x'], ['speed', 'Swing speed', 'p'],
     ['range', 'Reach', 'm'], ['block', 'Block', 'p'], ['dr', 'Armour', 'p'], ['crit', 'Critical chance', 'p'], ['parry', 'Parry window', 's'],
-    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n']];
-  const UNIT = { n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
+    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n'], ['burn', 'Fire', 'p'], ['chill', 'Frost', 'p'], ['shock', 'Shock', 'p'],
+    ['move', 'Walk speed', 'p'], ['dashDist', 'Dash reach', 'p'], ['dashCost', 'Dash stamina', 'p', true], ['load', 'Load', 'w', true]];
+  const UNIT = { w: d => d.toFixed(1), n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
   function compare(a, b) {
     const rows = [];
-    for (const [k, name, u] of CMP) {
-      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d));
+    for (const [k, name, u, lowGood] of CMP) {
+      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d)), good = lowGood ? d < 0 : d > 0;
       if (!parseFloat(shown)) continue;                                    // too small to show
-      rows.push(`<span class="${d > 0 ? 'cup' : 'cdown'}">${d > 0 ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
+      rows.push(`<span class="${good ? 'cup' : 'cdown'}">${good ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
     }
     if (!a.twoHanded && !a.dual && (b.twoHanded || b.dual)) rows.push('<span class="cdown">✋ Both hands full: the shield goes unused</span>');
     if ((a.twoHanded || a.dual) && !b.twoHanded && !b.dual) rows.push('<span class="cup">🛡 The shield is used again</span>');
@@ -4560,7 +4660,7 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
@@ -4572,6 +4672,14 @@ const UI = (() => {
           h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
           if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
+        }
+      } else if (t === 'reroll') {
+        h += '<p>"Don\'t like a bonus? I\'ll rework it." Bram swaps one bonus of a worn piece for a different kind, rolled fresh for its tier. Each rework of the same piece costs more.</p>';
+        const eq = CFG.gear.slots.map(s => S.equip[s]).filter(it => it && it.aff.length);
+        if (!eq.length) h += '<p class="dim">Nothing you wear has a bonus to rework.</p>';
+        for (const it of eq) {
+          const c = Items.rerollCost(it), ok = S.gold >= c.gold && S.scrap >= c.scrap;
+          h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
         }
       } else if (t === 'gems') {
         const GM = CFG.gear.gems, SC = CFG.gear.sockets;
@@ -4668,8 +4776,8 @@ const UI = (() => {
       const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
         return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
           + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
-      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('trinket')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}`;
-      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div></div><div class="gright">`;
+      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('gloves')}${slot('boots')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}${slot('trinket')}${slot('ring')}`;
+      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div><div class="gload l${st.loadClass}">⚖ ${CFG.gear.weightNames[st.loadClass]} load ${st.load} · dash ${Math.round(st.dashDist * 100)}% reach, ${Math.round(st.dashCost * 100)}% stamina · walk ${Math.round(st.move * 100)}%</div></div><div class="gright">`;
       const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
       h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="bagbar">`
         + ['all', ...C.slots].map(k => btn(k === 'all' ? 'All' : GLYPH[k], 'bagfilter', k, false, 'chip' + (filt === k ? ' on' : ''))).join('')
@@ -4757,6 +4865,11 @@ const UI = (() => {
       if (S.gold < cost || S.inv.length >= CFG.gear.invSize) { if (S.inv.length >= CFG.gear.invSize) toast('Your bag is full'); return render(); }
       S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
+    }
+    if (a === 'reroll') {
+      const [id, i] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
+      if (it && Items.reroll(it, +i)) { Snd.play('parry'); toast('Reworked: ' + Items.describe(it).slice(-it.aff.length)[+i], R[it.rarity].color); changed(); }
+      return render();
     }
     if (a === 'gem' || a === 'pry' || a === 'socket') {
       const [id, kind] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);

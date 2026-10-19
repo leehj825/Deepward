@@ -28,7 +28,7 @@ const GearView = (() => {
   function dispose(o) { o.traverse(m => { if (m.isMesh) { m.geometry.dispose(); } }); }
 
   // ---------------- Item pictures ----------------
-  const keyOf = L => [L.slot, L.type, L.helm, L.trinket, L.blade, L.face, L.armor, L.plate, L.glow, L.uniq].join('|');
+  const keyOf = L => [L.slot, L.type, L.helm, L.wc, L.trinket, L.blade, L.face, L.armor, L.plate, L.glow, L.uniq].join('|');
   // Frames an object from the front and a little above, filling the picture
   function frame(obj, dir, fill) {
     const b = new THREE.Box3().setFromObject(obj), c = b.getCenter(new THREE.Vector3()), r = b.getBoundingSphere(new THREE.Sphere()).radius;
