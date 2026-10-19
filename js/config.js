@@ -127,6 +127,44 @@ const CFG = {
       flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.6, 2.6], xp: 12, gold: 8, aggro: 12,
       attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.8, active: 0.1, recover: 0.7, dmg: 11, posture: 10, range: 13, arc: 30, lunge: 0, projectile: { speed: 12 } }] }],
     },
+    // A hulking mutant from the Deep (its motion capture is the Creature Pack): claw swipes and punches, a leaping slam
+    // that shakes the ground around it (unblockable), and from 5-11 m a long leap onto the warden
+    mutant: {
+      name: 'Deep Mutant', rig: 'mutant', look: { variant: 'horror' }, hp: 260, posture: 160, postureRegen: 12, speed: 3.2, radius: 1.1, scale: 1.5,
+      flinch: false, hyperArmor: true, approach: 2.5, cooldown: [1.0, 1.8], xp: 80, gold: 50, aggro: 13, charge: [5, 11, 3],
+      attacks: [
+        { weight: 3, hits: [{ pose: 'swipe', wind: 0.75, active: 0.14, recover: 0.7, dmg: 26, posture: 30, range: 3.0, arc: 150, lunge: 1.2 }] },
+        { weight: 3, hits: [
+          { pose: 'punch', wind: 0.55, active: 0.1, recover: 0.2, dmg: 18, posture: 22, range: 2.8, arc: 70, lunge: 1.4 },
+          { pose: 'swipe', wind: 0.45, active: 0.14, recover: 0.7, dmg: 22, posture: 26, range: 3.0, arc: 150, lunge: 1.0 },
+        ] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.1, active: 0.22, recover: 1.0, dmg: 38, posture: 0, range: 3.2, arc: 360, aoe: { fwd: 2.0, r: 2.8 }, unblockable: true, lunge: 3.0, leap: true }] },
+        { weight: 0, hits: [{ pose: 'leap', wind: 0.9, active: 0.4, recover: 0.9, dmg: 30, posture: 0, range: 3.0, arc: 360, aoe: { fwd: 0.6, r: 3.0 }, unblockable: true, lunge: 9, leap: true }] },
+      ],
+    },
+    // The same great body as a cave troll: knuckle-fists in long combos, a ground slam, and it regenerates when left alone
+    troll: {
+      name: 'Cave Troll', rig: 'mutant', look: { variant: 'troll' }, hp: 300, posture: 150, postureRegen: 14, speed: 3.0, radius: 1.15, scale: 1.55,
+      flinch: false, hyperArmor: true, approach: 2.5, cooldown: [1.0, 1.9], xp: 85, gold: 50, aggro: 11, regen: 0.02,
+      attacks: [
+        { weight: 3, hits: [
+          { pose: 'punch', wind: 0.6, active: 0.1, recover: 0.18, dmg: 18, posture: 24, range: 2.9, arc: 70, lunge: 1.4 },
+          { pose: 'punch', wind: 0.4, active: 0.1, recover: 0.18, dmg: 18, posture: 24, range: 2.9, arc: 70, lunge: 1.2 },
+          { pose: 'swipe', wind: 0.5, active: 0.14, recover: 0.8, dmg: 26, posture: 32, range: 3.1, arc: 150, lunge: 1.0 },
+        ] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.15, active: 0.22, recover: 1.1, dmg: 40, posture: 0, range: 3.2, arc: 360, aoe: { fwd: 2.0, r: 3.0 }, unblockable: true, lunge: 2.6, leap: true }] },
+      ],
+    },
+    // ...and as a stone golem: slow boulder-fists that crush a guard, a quake that reaches far, and a stone hide (dr)
+    golem: {
+      name: 'Stone Golem', rig: 'mutant', look: { variant: 'golem' }, hp: 360, posture: 240, postureRegen: 10, speed: 2.3, radius: 1.25, scale: 1.65,
+      flinch: false, hyperArmor: true, approach: 2.6, cooldown: [1.3, 2.2], xp: 95, gold: 60, aggro: 10, dr: 0.25,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'punch', wind: 0.9, active: 0.12, recover: 0.8, dmg: 30, posture: 40, blockMult: 1.8, range: 3.0, arc: 80, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'swipe', wind: 1.0, active: 0.16, recover: 0.9, dmg: 28, posture: 36, blockMult: 1.5, range: 3.3, arc: 170, lunge: 0.8 }] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.3, active: 0.24, recover: 1.2, dmg: 44, posture: 0, range: 3.4, arc: 360, aoe: { fwd: 1.6, r: 3.8 }, unblockable: true, lunge: 1.6, leap: true }] },
+      ],
+    },
     // ---- Act II ----
     // Throws slow orbs from afar; a parry sends an orb back at the caster
     caster: {
@@ -452,6 +490,9 @@ const CFG = {
     // Field bosses: each keeps to its zone at its time of day, comes back respawn seconds (real time) after it falls
     bosses: [
       { id: 'oldtusk', name: 'Old Tusk', type: 'boar', zone: 'meadow', when: 'day', mods: ['armored'], hp: 6, scale: 1.7, respawn: 300, drops: { tusk: 4, pelt: 3 } },
+      { id: 'ridgehorror', name: 'The Ridge Horror', type: 'mutant', boss: 'horror', zone: 'ridge', when: 'day', respawn: 420, drops: { bone: 4, ore: 4, tusk: 2 } },
+      { id: 'colossus', name: 'The Forge Colossus', type: 'golem', boss: 'golem', zone: 'ridge', when: 'night', respawn: 420, drops: { ore: 8 } },
+      { id: 'mossback', name: 'Mossback', type: 'troll', boss: 'troll', zone: 'wood', when: 'any', respawn: 360, drops: { pelt: 4, herb: 4, tusk: 2 } },
       { id: 'graveknight', name: 'The Grave Knight', type: 'knight', zone: 'graves', when: 'night', mods: ['vampiric'], hp: 6, scale: 1.35, respawn: 300, drops: { bone: 5, ore: 2 } },
     ],
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
@@ -484,6 +525,24 @@ const CFG = {
     { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
   ],
   temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
+  // The big monsters as bosses (Enemy.makeBoss takes these whole): grown, with phases like the guardians
+  monsterBosses: {
+    horror: { name: 'The Ridge Horror', scale: 1.15, hp: 3.5, posture: 1.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'THE HORROR ROARS', faster: 0.85, def: { speed: 3.8, cooldown: [0.7, 1.3] } },
+        { at: 0.3, shout: 'IT TEARS LOOSE', enrage: true, faster: 0.85, summon: ['wolf', 'wolf'] },
+      ] },
+    troll: { name: 'Mossback', scale: 1.15, hp: 3.5, posture: 1.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'MOSSBACK BELLOWS', def: { regen: 0.04 }, summon: ['scout', 'scout'] },
+        { at: 0.3, shout: 'HE WILL NOT FALL', enrage: true, faster: 0.8, def: { speed: 3.6 } },
+      ] },
+    golem: { name: 'The Forge Colossus', scale: 1.15, hp: 3.5, posture: 1.5, reach: 1.15,
+      phases: [
+        { at: 0.6, shout: 'THE CORE FLARES', faster: 0.85, def: { dr: 0.35 } },
+        { at: 0.3, shout: 'IT BREAKS OPEN', enrage: true, faster: 0.75, def: { dr: 0.1, speed: 3.0, cooldown: [0.8, 1.4] } },
+      ] },
+  },
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [

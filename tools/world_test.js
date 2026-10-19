@@ -154,6 +154,35 @@ const path = require('path');
     }
     return o;
   }));
+  // The big monsters (the Creature Pack's motion capture on code-built bodies): field bosses with phases
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, f = __dw.World.field(), p = G.player, D = CFG.day.length;
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    o.clips = ['mIdle', 'mWalk', 'mRun', 'brawlSwipe', 'brawlPunch', 'mJumpAttack', 'mRoar', 'mDie'].every(n => Mocap.has(n));
+    // Mossback the troll keeps to Thornwood; he is a phased boss and knits back together when left alone
+    const wood = f.zones.find(z => z.id === 'wood'); I.S.fieldBoss = {}; I.S.clock = 0.25 * D; p.pos.set(wood.x - wood.r - 14, 0, wood.z); __dw.sim(1.5);
+    const troll = G.enemies.find(e => e.fieldBoss && e.fieldBoss.id === 'mossback');
+    o.troll = !!troll && troll.type === 'troll' && !!troll.boss && troll.rig.set === 'mu';
+    if (troll) {
+      troll.hp = troll.maxHp * 0.5; troll.postureT = 9; __dw.sim(1); o.regen = troll.hp > troll.maxHp * 0.5;
+      p.pos.set(troll.pos.x, 0, troll.pos.z + 6); __dw.sim(0.1); troll.hp = troll.maxHp * 0.62; Enemy.receive(troll, { dmg: troll.maxHp * 0.05, posture: 0 }, p);
+      o.phase = troll.state === 'roar';
+    }
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    // The Forge Colossus walks the ridge at night; its stone hide turns part of every blow
+    const ridge = f.zones.find(z => z.id === 'ridge'); I.S.clock = 0.75 * D; p.pos.set(ridge.x, 0, ridge.z - ridge.r - 14); __dw.sim(1.5);
+    const gol = G.enemies.find(e => e.fieldBoss && e.fieldBoss.id === 'colossus');
+    o.golem = !!gol && gol.def.dr > 0;
+    if (gol) { gol.facing = Combat.yawTo(gol.pos, p.pos); const h0 = gol.hp; gol.state = 'hunt'; Enemy.receive(gol, { dmg: 100, posture: 0 }, p); o.stoneHide = Math.abs((h0 - gol.hp) - 100 * (1 - gol.def.dr)) < 1; }
+    // ...and by day the Ridge Horror
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1); I.S.clock = 0.25 * D; __dw.sim(1.5);
+    o.horror = G.enemies.some(e => e.fieldBoss && e.fieldBoss.id === 'ridgehorror' && e.type === 'mutant');
+    // Endless floors from 4 sometimes bring one as their champion
+    const kinds = new Set(); for (let s = 1; s < 60; s++) { const c = Endless.floorDef(5, Endless.rng(s)).def.champion; if (c) kinds.add(c.kind); }
+    o.endlessMonsters = ['mutant', 'troll', 'golem'].every(k => kinds.has(k));
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1); p.pos.set(0, 0, 8); __dw.sim(0.3);
+    return o;
+  }));
   // Below, the dungeon keeps its own light whatever the hour above
   await pg.evaluate(() => { __dw.Items.S.clock = 0.25 * CFG.day.length; __dw.G.descend(0); });
   await pg.waitForFunction(() => __dw.G.mode === 'dungeon' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });

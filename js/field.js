@@ -142,7 +142,7 @@ const Field = (() => {
     // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
     const S = Items.S; S.fieldBoss = S.fieldBoss || {};
     for (const B of F.bosses) {
-      const z = room.zones.find(q => q.id === B.zone), up = B.when === 'night' ? night : !night;
+      const z = room.zones.find(q => q.id === B.zone), up = B.when === 'any' || (B.when === 'night' ? night : !night);
       const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
       if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
       if (alive || queued || !up || Date.now() < (S.fieldBoss[B.id] || 0)) continue;

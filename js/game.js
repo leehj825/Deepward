@@ -297,8 +297,10 @@ function updateSpawns() {
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
-      const B = q.fieldBoss; Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp;
-      e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
+      const B = q.fieldBoss;
+      if (B.boss) Enemy.makeBoss(e, CFG.monsterBosses[B.boss]);             // a big monster: grown, with phases
+      else { Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp; e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; }
+      e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
     }
     if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;

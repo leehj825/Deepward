@@ -88,6 +88,7 @@ const Enemy = (() => {
     const p = G.player, d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
+    if (def.regen && e.state !== 'dead' && e.postureT > 3 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regen * dt); updateBar(e); }   // a troll knits back together when left alone
     const turn = (want, rate) => { e.facing += Combat.wrap(want - e.facing) * Math.min(1, rate * dt); };
     // Frost slows every step; burning ticks twice a second until its damage is spent
     const slow = e.chillT > 0 ? 1 - e.chill : 1;
@@ -197,7 +198,7 @@ const Enemy = (() => {
     const near = Combat.dist(e.pos, G.player.pos) < 5;
     let mode = e.state;
     if (e.state === 'hunt' || e.state === 'spawn') mode = guardUp(e) && near ? 'block' : e.speedK > 0.08 ? 'move' : 'idle';
-    const h = e.state === 'roar' ? ROAR[e.type === 'spider' ? 'spider' : 'other'] : e.atk && e.atk.hits[e.hitIdx];
+    const h = e.state === 'roar' ? ROAR[e.type === 'spider' ? 'spider' : e.type === 'mutant' ? 'mutant' : 'other'] : e.atk && e.atk.hits[e.hitIdx];
     if (e.state === 'roar') { mode = 'attack'; e.phase = 'wind'; e.phaseT = e.t; }
     Rig.animate(r, {
       mode, t: e.t, speed: e.speedK, mps: e.speedK * e.def.speed, cycle: e.cycle, dirF: e.dirF, dirS: e.dirS,
@@ -274,7 +275,7 @@ const Enemy = (() => {
     }
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
     const shelter = sheltered(e);
-    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1);
+    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1) * (1 - (def.dr || 0));   // dr: a stone hide
     if (shelter) FX.burst(Combat.chestPos(e.pos, 1.3 * def.scale), 0x6a9aff, 8, 4);
     if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
     FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
@@ -381,21 +382,21 @@ const Enemy = (() => {
 
   // ---------------- Guardians ----------------
   // A guardian is its kind grown into a boss (CFG.bosses): bigger, tougher, with its own moves and phases.
-  const ROAR = { other: { pose: 'heavy', wind: 1.4, active: 0.1, recover: 0.1 }, spider: { pose: 'pounce', wind: 1.4, active: 0.1, recover: 0.1 } };
+  const ROAR = { other: { pose: 'heavy', wind: 1.4, active: 0.1, recover: 0.1 }, mutant: { pose: 'roar', wind: 1.4, active: 0.1, recover: 0.1 }, spider: { pose: 'pounce', wind: 1.4, active: 0.1, recover: 0.1 } };
   const clone = o => JSON.parse(JSON.stringify(o));
   function scaleHits(attacks, reach) {
     for (const a of attacks) for (const h of a.hits) { h.range *= reach; if (h.aoe) { h.aoe.fwd *= reach; h.aoe.r *= reach; } }
     return attacks;
   }
   function makeBoss(e, si) {
-    const B = CFG.bosses[si];
+    const B = typeof si === 'object' ? si : CFG.bosses[si];                 // a stage's guardian, or a boss given whole (the big monsters)
     if (!B) { e.rig.root.scale.multiplyScalar(1.15); return; }
     const def = e.def = clone(e.def);                                       // this one enemy gets its own copy to grow and change
     def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture; def.flinch = false;      // guardians shrug off light hits
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
-    e.boss = { B, next: 0 }; e.bossIdx = si;
+    e.boss = { B, next: 0 }; if (typeof si === 'number') e.bossIdx = si;
   }
   function checkPhase(e) {
     const ph = e.boss.B.phases[e.boss.next];

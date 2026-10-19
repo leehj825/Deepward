@@ -1,0 +1,14 @@
+{
+ "mIdle": ["mutant breathing idle", true, 48],
+ "mIdle2": ["mutant idle", true, 64],
+ "mWalk": ["mutant walking", true, 40],
+ "mRun": ["mutant run", true, 32],
+ "brawlSwipe": ["mutant swiping", false, 48],
+ "brawlPunch": ["mutant punch", false, 40],
+ "mJumpAttack": ["mutant jump attack", false, 60],
+ "mJumpAttack2": ["jump attack", false, 60],
+ "mJump": ["mutant jumping", false, 48],
+ "mRoar": ["mutant roaring", false, 60],
+ "mFlex": ["mutant flexing muscles", false, 60],
+ "mDie": ["mutant dying", false, 60]
+}
