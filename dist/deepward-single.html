@@ -170,9 +170,49 @@ body:not(.playing) #padKeys { display: none !important; }
 #ultBox.ready { color: #ffd040; border-color: #ffd040; box-shadow: 0 0 10px rgba(255, 208, 64, 0.6); }
 .ftxt.xp { color: #9ad8ff; font-size: 13px; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
-.tree h3 { display: flex; justify-content: space-between; }
 .warnc { color: #ff9a5a; }
 .ftxt.amber { color: #ffa010; font-size: 30px; }
+
+/* Expertise: skill-tree nodes */
+.tgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 4px; }
+.tcol { display: flex; flex-direction: column; align-items: center; padding: 8px 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); }
+.tcol.shut { opacity: 0.35; }
+.thead { text-align: center; margin-bottom: 8px; line-height: 1.1; }
+.thead b { display: block; color: var(--tc); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.thead small { font-size: 11px; opacity: 0.6; }
+.pb.tnode { position: relative; width: 52px; height: 52px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(10, 8, 12, 0.8); display: flex; align-items: center; justify-content: center; }
+.pb.tnode .ic { font-size: 22px; line-height: 1; filter: grayscale(1) brightness(0.7); }
+.pb.tnode.ult { border-radius: 10px; transform: rotate(45deg); width: 48px; height: 48px; margin: 4px 0; }
+.pb.tnode.ult .ic { transform: rotate(-45deg); }
+.pb.tnode.open { border-color: var(--tc); box-shadow: 0 0 10px -2px var(--tc); animation: tpulse 1.6s ease-in-out infinite; }
+.pb.tnode.open .ic, .pb.tnode.part .ic, .pb.tnode.full .ic { filter: none; }
+.pb.tnode.part { border-color: var(--tc); }
+.pb.tnode.full { border-color: var(--tc); background: radial-gradient(color-mix(in srgb, var(--tc) 55%, transparent), rgba(10, 8, 12, 0.9)); box-shadow: 0 0 12px -2px var(--tc); }
+.pb.tnode.sel, .pb.tnode.focus { outline: 2px solid #fff; outline-offset: 3px; }
+.pb.tnode:disabled { opacity: 1; }
+@keyframes tpulse { 50% { box-shadow: 0 0 16px 1px var(--tc); } }
+.pips { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: #2a2430; border: 1px solid rgba(255, 255, 255, 0.35); }
+.pips i.on { background: var(--tc); border-color: var(--tc); }
+.tname { font-size: 11px; text-align: center; margin: 9px 0 0; opacity: 0.8; line-height: 1.15; min-height: 2.3em; }
+.tlink { display: block; width: 3px; height: 14px; background: rgba(255, 255, 255, 0.12); border-radius: 2px; position: relative; }
+.tlink.lit { background: var(--tc); box-shadow: 0 0 6px var(--tc); }
+.tlink.tolt { height: 22px; }
+.tlink em { position: absolute; left: 8px; top: 4px; font-size: 10px; font-style: normal; opacity: 0.6; white-space: nowrap; }
+.tdetail { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--tc) 60%, transparent); border-left: 4px solid var(--tc); border-radius: 6px; background: rgba(255, 255, 255, 0.04); }
+.tdh { display: flex; gap: 10px; align-items: center; }
+.tdh .ic { font-size: 26px; }
+.tdh b { display: block; color: var(--tc); font-size: 16px; }
+.tdh small { opacity: 0.7; font-size: 12px; }
+.tdetail p { margin: 8px 0 4px; }
+.tnums { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: #d8e8c8; margin-bottom: 6px; }
+.tact { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.mgrid { display: grid; gap: 4px; }
+.mrow { display: grid; grid-template-columns: 90px 1fr 92px; align-items: center; gap: 8px; font-size: 13px; }
+.mrow small { opacity: 0.7; text-align: right; }
+.mbar { height: 6px; background: rgba(0, 0, 0, 0.5); border-radius: 3px; overflow: hidden; }
+.mbar i { display: block; height: 100%; background: linear-gradient(90deg, #4a8ac8, #9ad8ff); }
+@media (max-width: 480px) { .pb.tnode { width: 44px; height: 44px; } .pb.tnode.ult { width: 40px; height: 40px; } .pb.tnode .ic { font-size: 18px; } .tname { font-size: 10px; } .thead b { font-size: 11px; } }
 
 </style>
 </head>
@@ -3029,6 +3069,35 @@ const UI = (() => {
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
   const tabs = (name, list) => `<div class="tabs">${list.map(([id, label]) => btn(label, 'tab', name + ':' + id, false, tab[name] === id ? 'on' : '')).join('')}</div>`;
 
+  // ---------------- Expertise nodes ----------------
+  const ICON = { steady: '🛡', keen: '👁', riposte: '⚔', bulwark: '🏰', feet: '👣', counter: '🌀', precision: '🎯', dance: '💫',
+    fury: '💢', breaker: '🔨', thirst: '🩸', rage: '👹', ember: '🔥', ward: '❄', focus: '🔮', nova: '💥' };
+  const talentById = id => { for (const [k, t] of Object.entries(CFG.trees)) { const x = t.talents.find(y => y.id === id) || (t.ult.id === id && t.ult); if (x) return { x, k, t, ult: x === t.ult }; } };
+  function firstOpenTalent() {
+    for (const t of Object.values(CFG.trees)) for (const x of [...t.talents, t.ult]) if (!Items.blocked(x.id)) return x.id;
+    return CFG.trees.guardian.talents[0].id;
+  }
+  function node(x, r, max, ult) {
+    const why = Items.blocked(x.id), state = r >= max ? 'full' : r > 0 ? 'part' : !why ? 'open' : 'locked';
+    const pips = ult ? '' : `<span class="pips">${[0, 1, 2].map(i => `<i class="${i < r ? 'on' : ''}"></i>`).join('')}</span>`;
+    return `<button class="pb tnode ${state}${ult ? ' ult' : ''}${tab.talent === x.id ? ' sel' : ''}" data-act="tsel" data-arg="${x.id}" title="${esc(x.name)}"><span class="ic">${ICON[x.id] || '✦'}</span>${pips}</button><div class="tname">${esc(x.name)}</div>`;
+  }
+  // "+4% damage per rank" at rank 2 reads "+8% damage"
+  const atRank = (desc, r) => desc.replace(/(\d+(?:\.\d+)?)(%| s)/, (m, n, u) => +(n * r).toFixed(2) + u).replace(/ per rank/, '');
+  function talentDetail(id) {
+    const f = talentById(id); if (!f) return '';
+    const { x, t, ult } = f, S = Items.S, r = Items.rank(id), max = ult ? 1 : 3, why = Items.blocked(id);
+    let h = `<div class="tdetail" style="--tc:${t.color}"><div class="tdh"><span class="ic">${ICON[id] || '✦'}</span><div><b>${esc(x.name)}</b><small>${t.name} · ${ult ? `ultimate · ${x.cd} s cooldown` : `rank ${r} / 3`}</small></div></div>`;
+    h += `<p>${esc(x.desc)}</p>`;
+    if (!ult) h += `<div class="tnums">${r ? `<span>Now: ${esc(atRank(x.desc, r))}</span>` : ''}${r < 3 ? `<span>${r ? 'Next' : 'Rank 1'}: ${esc(atRank(x.desc, r + 1))}</span>` : ''}</div>`;
+    if (ult && !r) h += `<p class="dim">Needs ${CFG.progress.ultimateNeeds} points spent in ${t.name} (${Items.spentIn(f.k)} so far). Use it with F, Y on a controller, or the ULT button.</p>`;
+    let b;
+    if (ult && r) b = S.ult === id ? '<small class="goldc">Equipped (F / Y)</small>' : btn('Equip', 'ult', id);
+    else if (r >= max) b = '<small class="goldc">Mastered</small>';
+    else b = btn(`Learn${ult ? '' : ' rank ' + (r + 1)} · 1 point`, 'learn', id, !!why, why ? '' : 'hot') + (why && why !== 'Mastered' ? ` <small class="warnc">${esc(why)}</small>` : '');
+    return h + `<div class="tact">${b}</div></div>`;
+  }
+
   // ---------------- Panels ----------------
   const PANELS = {
     dialogue(o) {
@@ -3089,17 +3158,28 @@ const UI = (() => {
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
+    // learn. Clicking (or confirming) a node shows its details below, with the Learn / Equip button.
     talents(o) {
-      const S = Items.S, T = CFG.trees, need = CFG.progress.xpFor(S.level);
-      let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p>`;
+      const S = Items.S, T = CFG.trees, need = CFG.progress.xpFor(S.level), used = Items.treesUsed();
+      const sel = tab.talent || (tab.talent = firstOpenTalent());
+      let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p><div class="tgrid">`;
       for (const [k, t] of Object.entries(T)) {
-        h += `<div class="tree"><h3 style="color:${t.color}">${t.name}<small>${Items.spentIn(k)} spent</small></h3>`;
-        for (const x of t.talents) { const r = Items.rank(x.id), why = Items.blocked(x.id);
-          h += `<div class="irow"><div class="iinfo"><b>${x.name}</b> <small>${r} / 3</small><div class="istats">${esc(x.desc)}</div></div><div class="ibtns">${btn(r >= 3 ? 'Mastered' : 'Learn', 'learn', x.id, !!why)}</div></div>`; }
-        const u = t.ult, learned = Items.rank(u.id) > 0, why = Items.blocked(u.id);
-        h += `<div class="irow ult"><div class="iinfo"><b style="color:${t.color}">✦ ${u.name}</b> <small>ultimate · ${u.cd} s cooldown</small><div class="istats">${esc(u.desc)}${!learned && why && why !== 'No talent points' ? ' · ' + esc(why) : ''}</div></div><div class="ibtns">${learned ? (S.ult === u.id ? '<small class="goldc">Equipped (F / Y)</small>' : btn('Equip', 'ult', u.id)) : btn('Learn', 'learn', u.id, !!why)}</div></div></div>`;
+        const spent = Items.spentIn(k), shut = !used.includes(k) && used.length >= CFG.progress.maxTrees;
+        h += `<div class="tcol${shut ? ' shut' : ''}" style="--tc:${t.color}"><div class="thead"><b>${t.name}</b><small>${shut ? 'closed' : spent + ' spent'}</small></div>`;
+        t.talents.forEach((x, i) => {
+          const r = Items.rank(x.id), lit = i === 0 ? spent > 0 : Items.rank(t.talents[i - 1].id) > 0;
+          if (i) h += `<i class="tlink${lit ? ' lit' : ''}"></i>`;
+          h += node(x, r, 3, false);
+        });
+        h += `<i class="tlink tolt${spent >= CFG.progress.ultimateNeeds ? ' lit' : ''}"><em>${Math.min(spent, CFG.progress.ultimateNeeds)}/${CFG.progress.ultimateNeeds}</em></i>` + node(t.ult, Items.rank(t.ult.id), 1, true) + '</div>';
       }
-      h += '<h3>Weapon mastery</h3><div class="statline">' + Object.entries(CFG.gear.weapons).map(([k, w]) => { const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r]; return `${w.name} rank ${r}${nx ? ` (${n}/${nx})` : ' (max)'}`; }).join(' · ') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      h += '</div>' + talentDetail(sel);
+      h += '<h3>Weapon mastery</h3><div class="mgrid">' + Object.entries(CFG.gear.weapons).map(([k, w]) => {
+        const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
+        const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
+        return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
+      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
@@ -3133,6 +3213,7 @@ const UI = (() => {
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'tsel') { tab.talent = arg; Snd.play('glint'); return render(); }
     if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
@@ -3181,7 +3262,12 @@ const UI = (() => {
     for (let k = 0; k < bs.length; k++) { focus = (focus + dir + bs.length) % bs.length; if (!bs[focus].disabled) break; }
     highlight();
   }
-  function confirm() { const b = buttons()[focus]; if (open && b && !b.disabled) act(b.dataset.act, b.dataset.arg); }
+  function confirm() {
+    const b = buttons()[focus]; if (!open || !b || b.disabled) return;
+    // On a controller or keyboard, confirming the node that is already selected learns it
+    if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
+    act(b.dataset.act, b.dataset.arg);
+  }
   function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared') return; if (open.id === 'dialogue') return act('next'); close(); }
 
   // ---------------- HUD bits ----------------

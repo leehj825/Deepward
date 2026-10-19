@@ -37,6 +37,7 @@ Every model is built in code from primitives, and there are no model, texture or
   | Berserker | more damage (double below 40% health), posture damage, life on hit | **Bloodrage:** 8 s of +40% damage, faster swings, no stagger |
   | Arcanist | fire damage, damage reduction, stamina regen | **Nova:** a blast of force that hurts, breaks guards and throws foes back |
 
+- **The Expertise screen** draws each tree as a column of nodes joined by lines that light up as you learn. Nodes you can learn now pulse, and dots under a node show its rank. Click a node (or select it with the d-pad and press A) to see its details below the trees: what it does now, what the next rank adds, and what is stopping you, with the Learn or Equip button. Pressing A again on the selected node learns it.
 - **Respec:** the training yard in camp shows everything and unlearns talents for gold. T opens Expertise anywhere.
 
 **Guardians.** Each stage ends with a boss that fights in phases. At each mark on its health bar it roars (it can't be hurt, and the shockwave throws you back), then changes:

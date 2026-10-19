@@ -162,6 +162,46 @@ body:not(.playing) #padKeys { display: none !important; }
 #ultBox.ready { color: #ffd040; border-color: #ffd040; box-shadow: 0 0 10px rgba(255, 208, 64, 0.6); }
 .ftxt.xp { color: #9ad8ff; font-size: 13px; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
-.tree h3 { display: flex; justify-content: space-between; }
 .warnc { color: #ff9a5a; }
 .ftxt.amber { color: #ffa010; font-size: 30px; }
+
+/* Expertise: skill-tree nodes */
+.tgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 4px; }
+.tcol { display: flex; flex-direction: column; align-items: center; padding: 8px 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); }
+.tcol.shut { opacity: 0.35; }
+.thead { text-align: center; margin-bottom: 8px; line-height: 1.1; }
+.thead b { display: block; color: var(--tc); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.thead small { font-size: 11px; opacity: 0.6; }
+.pb.tnode { position: relative; width: 52px; height: 52px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(10, 8, 12, 0.8); display: flex; align-items: center; justify-content: center; }
+.pb.tnode .ic { font-size: 22px; line-height: 1; filter: grayscale(1) brightness(0.7); }
+.pb.tnode.ult { border-radius: 10px; transform: rotate(45deg); width: 48px; height: 48px; margin: 4px 0; }
+.pb.tnode.ult .ic { transform: rotate(-45deg); }
+.pb.tnode.open { border-color: var(--tc); box-shadow: 0 0 10px -2px var(--tc); animation: tpulse 1.6s ease-in-out infinite; }
+.pb.tnode.open .ic, .pb.tnode.part .ic, .pb.tnode.full .ic { filter: none; }
+.pb.tnode.part { border-color: var(--tc); }
+.pb.tnode.full { border-color: var(--tc); background: radial-gradient(color-mix(in srgb, var(--tc) 55%, transparent), rgba(10, 8, 12, 0.9)); box-shadow: 0 0 12px -2px var(--tc); }
+.pb.tnode.sel, .pb.tnode.focus { outline: 2px solid #fff; outline-offset: 3px; }
+.pb.tnode:disabled { opacity: 1; }
+@keyframes tpulse { 50% { box-shadow: 0 0 16px 1px var(--tc); } }
+.pips { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: #2a2430; border: 1px solid rgba(255, 255, 255, 0.35); }
+.pips i.on { background: var(--tc); border-color: var(--tc); }
+.tname { font-size: 11px; text-align: center; margin: 9px 0 0; opacity: 0.8; line-height: 1.15; min-height: 2.3em; }
+.tlink { display: block; width: 3px; height: 14px; background: rgba(255, 255, 255, 0.12); border-radius: 2px; position: relative; }
+.tlink.lit { background: var(--tc); box-shadow: 0 0 6px var(--tc); }
+.tlink.tolt { height: 22px; }
+.tlink em { position: absolute; left: 8px; top: 4px; font-size: 10px; font-style: normal; opacity: 0.6; white-space: nowrap; }
+.tdetail { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--tc) 60%, transparent); border-left: 4px solid var(--tc); border-radius: 6px; background: rgba(255, 255, 255, 0.04); }
+.tdh { display: flex; gap: 10px; align-items: center; }
+.tdh .ic { font-size: 26px; }
+.tdh b { display: block; color: var(--tc); font-size: 16px; }
+.tdh small { opacity: 0.7; font-size: 12px; }
+.tdetail p { margin: 8px 0 4px; }
+.tnums { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: #d8e8c8; margin-bottom: 6px; }
+.tact { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.mgrid { display: grid; gap: 4px; }
+.mrow { display: grid; grid-template-columns: 90px 1fr 92px; align-items: center; gap: 8px; font-size: 13px; }
+.mrow small { opacity: 0.7; text-align: right; }
+.mbar { height: 6px; background: rgba(0, 0, 0, 0.5); border-radius: 3px; overflow: hidden; }
+.mbar i { display: block; height: 100%; background: linear-gradient(90deg, #4a8ac8, #9ad8ff); }
+@media (max-width: 480px) { .pb.tnode { width: 44px; height: 44px; } .pb.tnode.ult { width: 40px; height: 40px; } .pb.tnode .ic { font-size: 18px; } .tname { font-size: 10px; } .thead b { font-size: 11px; } }

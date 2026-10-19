@@ -15,6 +15,35 @@ const UI = (() => {
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
   const tabs = (name, list) => `<div class="tabs">${list.map(([id, label]) => btn(label, 'tab', name + ':' + id, false, tab[name] === id ? 'on' : '')).join('')}</div>`;
 
+  // ---------------- Expertise nodes ----------------
+  const ICON = { steady: '🛡', keen: '👁', riposte: '⚔', bulwark: '🏰', feet: '👣', counter: '🌀', precision: '🎯', dance: '💫',
+    fury: '💢', breaker: '🔨', thirst: '🩸', rage: '👹', ember: '🔥', ward: '❄', focus: '🔮', nova: '💥' };
+  const talentById = id => { for (const [k, t] of Object.entries(CFG.trees)) { const x = t.talents.find(y => y.id === id) || (t.ult.id === id && t.ult); if (x) return { x, k, t, ult: x === t.ult }; } };
+  function firstOpenTalent() {
+    for (const t of Object.values(CFG.trees)) for (const x of [...t.talents, t.ult]) if (!Items.blocked(x.id)) return x.id;
+    return CFG.trees.guardian.talents[0].id;
+  }
+  function node(x, r, max, ult) {
+    const why = Items.blocked(x.id), state = r >= max ? 'full' : r > 0 ? 'part' : !why ? 'open' : 'locked';
+    const pips = ult ? '' : `<span class="pips">${[0, 1, 2].map(i => `<i class="${i < r ? 'on' : ''}"></i>`).join('')}</span>`;
+    return `<button class="pb tnode ${state}${ult ? ' ult' : ''}${tab.talent === x.id ? ' sel' : ''}" data-act="tsel" data-arg="${x.id}" title="${esc(x.name)}"><span class="ic">${ICON[x.id] || '✦'}</span>${pips}</button><div class="tname">${esc(x.name)}</div>`;
+  }
+  // "+4% damage per rank" at rank 2 reads "+8% damage"
+  const atRank = (desc, r) => desc.replace(/(\d+(?:\.\d+)?)(%| s)/, (m, n, u) => +(n * r).toFixed(2) + u).replace(/ per rank/, '');
+  function talentDetail(id) {
+    const f = talentById(id); if (!f) return '';
+    const { x, t, ult } = f, S = Items.S, r = Items.rank(id), max = ult ? 1 : 3, why = Items.blocked(id);
+    let h = `<div class="tdetail" style="--tc:${t.color}"><div class="tdh"><span class="ic">${ICON[id] || '✦'}</span><div><b>${esc(x.name)}</b><small>${t.name} · ${ult ? `ultimate · ${x.cd} s cooldown` : `rank ${r} / 3`}</small></div></div>`;
+    h += `<p>${esc(x.desc)}</p>`;
+    if (!ult) h += `<div class="tnums">${r ? `<span>Now: ${esc(atRank(x.desc, r))}</span>` : ''}${r < 3 ? `<span>${r ? 'Next' : 'Rank 1'}: ${esc(atRank(x.desc, r + 1))}</span>` : ''}</div>`;
+    if (ult && !r) h += `<p class="dim">Needs ${CFG.progress.ultimateNeeds} points spent in ${t.name} (${Items.spentIn(f.k)} so far). Use it with F, Y on a controller, or the ULT button.</p>`;
+    let b;
+    if (ult && r) b = S.ult === id ? '<small class="goldc">Equipped (F / Y)</small>' : btn('Equip', 'ult', id);
+    else if (r >= max) b = '<small class="goldc">Mastered</small>';
+    else b = btn(`Learn${ult ? '' : ' rank ' + (r + 1)} · 1 point`, 'learn', id, !!why, why ? '' : 'hot') + (why && why !== 'Mastered' ? ` <small class="warnc">${esc(why)}</small>` : '');
+    return h + `<div class="tact">${b}</div></div>`;
+  }
+
   // ---------------- Panels ----------------
   const PANELS = {
     dialogue(o) {
@@ -75,17 +104,28 @@ const UI = (() => {
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
+    // learn. Clicking (or confirming) a node shows its details below, with the Learn / Equip button.
     talents(o) {
-      const S = Items.S, T = CFG.trees, need = CFG.progress.xpFor(S.level);
-      let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p>`;
+      const S = Items.S, T = CFG.trees, need = CFG.progress.xpFor(S.level), used = Items.treesUsed();
+      const sel = tab.talent || (tab.talent = firstOpenTalent());
+      let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p><div class="tgrid">`;
       for (const [k, t] of Object.entries(T)) {
-        h += `<div class="tree"><h3 style="color:${t.color}">${t.name}<small>${Items.spentIn(k)} spent</small></h3>`;
-        for (const x of t.talents) { const r = Items.rank(x.id), why = Items.blocked(x.id);
-          h += `<div class="irow"><div class="iinfo"><b>${x.name}</b> <small>${r} / 3</small><div class="istats">${esc(x.desc)}</div></div><div class="ibtns">${btn(r >= 3 ? 'Mastered' : 'Learn', 'learn', x.id, !!why)}</div></div>`; }
-        const u = t.ult, learned = Items.rank(u.id) > 0, why = Items.blocked(u.id);
-        h += `<div class="irow ult"><div class="iinfo"><b style="color:${t.color}">✦ ${u.name}</b> <small>ultimate · ${u.cd} s cooldown</small><div class="istats">${esc(u.desc)}${!learned && why && why !== 'No talent points' ? ' · ' + esc(why) : ''}</div></div><div class="ibtns">${learned ? (S.ult === u.id ? '<small class="goldc">Equipped (F / Y)</small>' : btn('Equip', 'ult', u.id)) : btn('Learn', 'learn', u.id, !!why)}</div></div></div>`;
+        const spent = Items.spentIn(k), shut = !used.includes(k) && used.length >= CFG.progress.maxTrees;
+        h += `<div class="tcol${shut ? ' shut' : ''}" style="--tc:${t.color}"><div class="thead"><b>${t.name}</b><small>${shut ? 'closed' : spent + ' spent'}</small></div>`;
+        t.talents.forEach((x, i) => {
+          const r = Items.rank(x.id), lit = i === 0 ? spent > 0 : Items.rank(t.talents[i - 1].id) > 0;
+          if (i) h += `<i class="tlink${lit ? ' lit' : ''}"></i>`;
+          h += node(x, r, 3, false);
+        });
+        h += `<i class="tlink tolt${spent >= CFG.progress.ultimateNeeds ? ' lit' : ''}"><em>${Math.min(spent, CFG.progress.ultimateNeeds)}/${CFG.progress.ultimateNeeds}</em></i>` + node(t.ult, Items.rank(t.ult.id), 1, true) + '</div>';
       }
-      h += '<h3>Weapon mastery</h3><div class="statline">' + Object.entries(CFG.gear.weapons).map(([k, w]) => { const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r]; return `${w.name} rank ${r}${nx ? ` (${n}/${nx})` : ' (max)'}`; }).join(' · ') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      h += '</div>' + talentDetail(sel);
+      h += '<h3>Weapon mastery</h3><div class="mgrid">' + Object.entries(CFG.gear.weapons).map(([k, w]) => {
+        const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
+        const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
+        return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
+      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
@@ -119,6 +159,7 @@ const UI = (() => {
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'tsel') { tab.talent = arg; Snd.play('glint'); return render(); }
     if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
@@ -167,7 +208,12 @@ const UI = (() => {
     for (let k = 0; k < bs.length; k++) { focus = (focus + dir + bs.length) % bs.length; if (!bs[focus].disabled) break; }
     highlight();
   }
-  function confirm() { const b = buttons()[focus]; if (open && b && !b.disabled) act(b.dataset.act, b.dataset.arg); }
+  function confirm() {
+    const b = buttons()[focus]; if (!open || !b || b.disabled) return;
+    // On a controller or keyboard, confirming the node that is already selected learns it
+    if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
+    act(b.dataset.act, b.dataset.arg);
+  }
   function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared') return; if (open.id === 'dialogue') return act('next'); close(); }
 
   // ---------------- HUD bits ----------------
