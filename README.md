@@ -39,6 +39,18 @@ Every model is built in code from primitives, and there are no model, texture or
 
 - **Respec:** the training yard in camp shows everything and unlearns talents for gold. T opens Expertise anywhere.
 
+**Guardians.** Each stage ends with a boss that fights in phases. At each mark on its health bar it roars (it can't be hurt, and the shockwave throws you back), then changes:
+
+| Stage | Guardian | Phases |
+| --- | --- | --- |
+| The Crypt | **The Bone Warden**, a giant skeleton with an unblockable ground slam | 65%: raises two skeletons. 30%: calls an archer and a skeleton, and swings faster. |
+| The Iron Keep | **Sir Aldric the Hollow**, a shield knight | 50%: throws his shield down and takes his sword in both hands: no more guard, heavy blows that cost a lot to block, and an unblockable spin. |
+| The Ogre Den | **The Den Mother**, a huge brute with a goblin at her side | 65%: a pack of three goblins. 30%: she rages: red, faster, and an unblockable charge. |
+| The Spider Depths | **The Brood Queen**, a spider twice your height | 66% and 33%: hatchlings; at 33% she also pounces twice in a row. |
+| The Shadow Court | **The Pale Duelist** | 60%: vanishes and strikes from behind you. 30%: two shadow duelists join. |
+
+When a guardian falls, the adds it summoned crumble with it.
+
 **Dungeon progression.** You fight your way north through a chain of sealed rooms. Each cleared room raises its far gate and the next room fades in out of the dark. Once you step through, the gate drops behind you and the room you left fades out and is unloaded. Stages change every four rooms (The Crypt, The Iron Keep, The Ogre Den, The Spider Depths, The Shadow Court), each with its own stone, torchlight, fog and enemies, and each ends in a guardian room. After the last stage they repeat with tougher enemies. See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Run
@@ -131,6 +143,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
 | `tools/growth_test.js` | Headless check of levels, talent rules, every ultimate, mastery's fourth blow and respec |
+| `tools/boss_test.js` | Headless check of all five guardians: phases, roars, summons, Aldric's stance change, the Den Mother's rage, the Pale Duelist's blink |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
@@ -142,6 +155,7 @@ node tools/combat_test.js     # set NODE_PATH=$(npm root -g) if Playwright is in
 node tools/gamepad_test.js
 node tools/camp_test.js
 node tools/growth_test.js
+node tools/boss_test.js
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also plays through five rooms into stage 2 and checks that the gates open and the rooms behind unload.

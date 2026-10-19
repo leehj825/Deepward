@@ -181,6 +181,11 @@ const UI = (() => {
     const b = el('bossBar');
     if (!e || e.state === 'dead') { b.classList.remove('show'); return; }
     b.classList.add('show'); el('bossName').textContent = e.guardian;
+    if (b.dataset.for !== e.guardian) {                                    // a tick on the bar where each phase begins
+      b.dataset.for = e.guardian; const tr = b.querySelector('.track');
+      tr.querySelectorAll('.tick').forEach(t => t.remove());
+      for (const ph of e.boss ? e.boss.B.phases : []) { const t = document.createElement('b'); t.className = 'tick'; t.style.left = ph.at * 100 + '%'; tr.appendChild(t); }
+    }
     el('bossFill').style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
     el('bossPost').style.width = Math.min(100, e.posture / (e.def.posture * e.mult) * 100) + '%';
   }

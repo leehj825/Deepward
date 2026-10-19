@@ -115,33 +115,81 @@ const CFG = {
       { size: [7, 6], waves: [['skeleton']] },
       { size: [8, 7], waves: [['skeleton', 'archer']] },
       { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'archer']] },
-      { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton', 'skeleton']] },
+      { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton']] },
     ] },
     { name: 'The Iron Keep', theme: 'keep', guardian: 'Sir Aldric the Hollow', rooms: [
       { size: [8, 7], waves: [['knight']] },
       { size: [9, 7], waves: [['knight', 'archer']] },
       { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight', 'archer', 'archer']] },
-      { size: [10, 8], guardian: true, waves: [['knight', 'knight', 'skeleton']] },
+      { size: [10, 8], guardian: true, waves: [['knight']] },
     ] },
     { name: 'The Ogre Den', theme: 'den', guardian: 'The Den Mother', rooms: [
       { size: [9, 8], waves: [['goblin', 'goblin', 'goblin']] },
       { size: [10, 8], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
       { size: [10, 9], waves: [['goblin', 'goblin', 'goblin', 'goblin'], ['brute', 'archer']] },
-      { size: [11, 9], guardian: true, waves: [['brute', 'goblin', 'goblin']] },
+      { size: [11, 9], guardian: true, waves: [['brute', 'goblin']] },
     ] },
     { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', rooms: [
       { size: [9, 8], waves: [['spider']] },
       { size: [10, 8], pillars: true, waves: [['spider', 'spider']] },
       { size: [10, 9], waves: [['spider', 'goblin', 'goblin'], ['spider', 'spider']] },
-      { size: [11, 9], guardian: true, waves: [['spider', 'spider', 'spider']] },
+      { size: [11, 9], guardian: true, waves: [['spider']] },
     ] },
     { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', rooms: [
       { size: [9, 8], waves: [['duelist']] },
       { size: [10, 8], pillars: true, waves: [['duelist', 'archer']] },
       { size: [10, 9], waves: [['duelist', 'knight'], ['duelist', 'duelist']] },
-      { size: [11, 9], guardian: true, waves: [['duelist', 'duelist', 'archer']] },
+      { size: [11, 9], guardian: true, waves: [['duelist']] },
     ] },
   ],
+
+  // Guardians: the first enemy of each stage's last room, grown into a boss. scale: size on top of its kind; hp / posture:
+  // multipliers on top of guardianMult; reach: hit range multiplier; attacks: replace the kind's moves.
+  // Each phase starts when health drops to `at`: the boss roars (untouchable, a shockwave throws you back), then takes
+  // the phase's changes: summon (adds that crumble when it falls), def (overrides), attacks, faster (wind-ups x), stance, enrage.
+  bosses: [
+    { name: 'The Bone Warden', scale: 1.4, hp: 1.6, posture: 1.4, reach: 1.25,
+      add: [{ weight: 2, hits: [{ pose: 'heavy', wind: 1.1, active: 0.14, recover: 0.9, dmg: 24, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.6, r: 2.2 }, unblockable: true, lunge: 0.8 }] }],
+      phases: [
+        { at: 0.65, shout: 'RISE, MY DEAD', summon: ['skeleton', 'skeleton'] },
+        { at: 0.3, shout: 'THE CRYPT ANSWERS', summon: ['archer', 'skeleton'], faster: 0.85, def: { cooldown: [0.6, 1.2], speed: 3.2 } },
+      ] },
+    { name: 'Sir Aldric the Hollow', scale: 1.2, hp: 1.7, posture: 1.3, reach: 1.15,
+      phases: [
+        { at: 0.5, shout: 'THE SHIELD FALLS', stance: 'twoHanded',
+          def: { guard: false, flinch: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] },
+          attacks: [
+            { weight: 3, hits: [
+              { pose: 'slashR', wind: 0.6, active: 0.12, recover: 0.16, dmg: 18, posture: 22, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+              { pose: 'slashL', wind: 0.4, active: 0.12, recover: 0.75, dmg: 18, posture: 22, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+            ] },
+            { weight: 2, hits: [{ pose: 'overhead', wind: 0.9, active: 0.12, recover: 0.8, dmg: 30, posture: 34, blockMult: 2, range: 2.6, arc: 70, lunge: 1.6 }] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 28, posture: 0, range: 2.8, arc: 360, aoe: { fwd: 0, r: 2.8 }, unblockable: true, lunge: 0.4 }] },
+          ] },
+      ] },
+    { name: 'The Den Mother', scale: 1.15, hp: 1.4, posture: 1.3, reach: 1.1,
+      phases: [
+        { at: 0.65, shout: 'THE PACK COMES', summon: ['goblin', 'goblin', 'goblin'] },
+        { at: 0.3, shout: 'THE DEN MOTHER RAGES', enrage: true, faster: 0.75, def: { speed: 3.3, cooldown: [0.5, 1.0] },
+          add: [{ weight: 2, hits: [{ pose: 'slashR', wind: 0.9, active: 0.3, recover: 0.9, dmg: 26, posture: 0, range: 2.6, arc: 120, unblockable: true, lunge: 6.5 }] }] },
+      ] },
+    { name: 'The Brood Queen', scale: 1.75, hp: 2.2, posture: 1.5, reach: 1.35,
+      phases: [
+        { at: 0.66, shout: 'THE BROOD HATCHES', summon: ['spider', 'spider'] },
+        { at: 0.33, shout: 'THE QUEEN SHRIEKS', summon: ['spider', 'spider'], faster: 0.85,
+          add: [{ weight: 3, hits: [
+            { pose: 'pounce', wind: 0.75, active: 0.3, recover: 0.2, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true },
+            { pose: 'pounce', wind: 0.45, active: 0.3, recover: 0.8, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true },
+          ] }] },
+      ] },
+    { name: 'The Pale Duelist', scale: 1.12, hp: 2.0, posture: 1.4, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'NOW YOU SEE ME', faster: 0.9,
+          add: [{ weight: 3, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 18, posture: 18, range: 2.6, arc: 60, lunge: 1.4, blink: true }] }] },
+        { at: 0.3, shout: 'SHADOWS, TO ME', summon: ['duelist', 'duelist'], faster: 0.85, def: { cooldown: [0.6, 1.1] } },
+      ] },
+  ],
+  addMult: 0.6,                  // summoned adds are this strong relative to the room's normal enemies
 
   // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
   themes: {

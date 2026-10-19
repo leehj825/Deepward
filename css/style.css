@@ -104,8 +104,9 @@ body:not(.playing) #padKeys { display: none !important; }
 #bossBar { position: fixed; bottom: calc(46px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); display: none; pointer-events: none; text-align: center; }
 #bossBar.show { display: block; }
 #bossName { display: block; font-size: 15px; letter-spacing: 0.18em; color: #f2d27a; text-shadow: 0 2px 3px #000; margin-bottom: 4px; text-transform: uppercase; }
-#bossBar .track { height: 10px; background: rgba(0, 0, 0, 0.7); border: 1px solid rgba(255, 220, 160, 0.35); border-radius: 2px; overflow: hidden; }
+#bossBar .track { position: relative; height: 10px; background: rgba(0, 0, 0, 0.7); border: 1px solid rgba(255, 220, 160, 0.35); border-radius: 2px; overflow: hidden; }
 #bossBar .ptrack { height: 4px; margin: 3px auto 0; width: 70%; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; }
+#bossBar .tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255, 230, 180, 0.75); }
 #bossFill { display: block; height: 100%; background: linear-gradient(#e0483a, #8a1a14); transition: width 0.15s; }
 #bossPost { display: block; height: 100%; background: #e8c060; }
 #prompt { position: fixed; bottom: calc(96px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); padding: 8px 16px; background: rgba(12, 10, 14, 0.85); border: 1px solid rgba(242, 210, 122, 0.5); border-radius: 20px; font-size: 15px; opacity: 0; pointer-events: none; transition: opacity 0.2s; white-space: nowrap; }

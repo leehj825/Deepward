@@ -1,6 +1,6 @@
 // Deepward - enemies: approach and circle the player, take turns attacking (attack tokens), telegraph every hit,
 // and react to damage with flinches, guard blocks and posture breaks.
-// States: spawn, hunt, attack, stagger, broken, dead.
+// States: spawn, hunt, attack, stagger, broken, roar (a guardian changing phase), dead.
 const Enemy = (() => {
   const GLOW_OK = 0xfff0c0, GLOW_RED = 0xff2a10, GLOW_AMBER = 0xffa010;   // blockable / unblockable / parry-only
   const glowOf = h => h.unblockable ? GLOW_RED : h.parryOnly ? GLOW_AMBER : GLOW_OK;
@@ -53,6 +53,7 @@ const Enemy = (() => {
   function beginHit(e) {
     const h = e.atk.hits[e.hitIdx];
     e.phase = 'wind'; e.phaseT = 0; e.struck = false;
+    if (h.blink) blink(e);
     // The telegraph: a glint on the weapon (white = blockable, red = unblockable) and a floor ring for area attacks
     const tipPos = () => e.rig.weapon.tip.getWorldPosition(new THREE.Vector3());
     FX.glint(tipPos(), glowOf(h), h.unblockable || h.parryOnly ? 2.2 : 1.3, Math.min(0.5, h.wind * 0.6), tipPos);
@@ -123,6 +124,11 @@ const Enemy = (() => {
           else { e.cooldown = def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0]); setState(e, 'hunt'); }
         }
       }
+    } else if (e.state === 'roar') {
+      // A guardian changes phase: rears up untouchable, the shockwave throws the hero back, then the changes take hold
+      turn(toP, 4);
+      if (e.t >= 0.5 && !e.roared) { e.roared = true; applyPhase(e, e.roarPh); }
+      if (e.t >= 1.4) { setState(e, 'hunt'); e.cooldown = 0.4; }
     } else if (e.state === 'stagger') {
       if (e.t >= e.stunFor) setState(e, 'hunt');
     } else if (e.state === 'broken') {
@@ -149,7 +155,8 @@ const Enemy = (() => {
     const near = Combat.dist(e.pos, G.player.pos) < 5;
     let mode = e.state;
     if (e.state === 'hunt' || e.state === 'spawn') mode = guardUp(e) && near ? 'block' : e.speedK > 0.08 ? 'move' : 'idle';
-    const h = e.atk && e.atk.hits[e.hitIdx];
+    const h = e.state === 'roar' ? ROAR[e.type === 'spider' ? 'spider' : 'other'] : e.atk && e.atk.hits[e.hitIdx];
+    if (e.state === 'roar') { mode = 'attack'; e.phase = 'wind'; e.phaseT = e.t; }
     Rig.animate(r, {
       mode, t: e.t, speed: e.speedK, mps: e.speedK * e.def.speed, cycle: e.cycle, dirF: e.dirF, dirS: e.dirS,
       atk: h && h.pose, phase: e.phase, p: e.phase === 'recover' && h ? e.phaseT / h.recover : 0,
@@ -157,7 +164,7 @@ const Enemy = (() => {
       windRate: h ? 2.6 / h.wind : 12,
     }, dt);
     if (r.weapon) Rig.updateTrail(e.trail, r.weapon, e.state === 'attack' && e.phase === 'active' && !(h && h.projectile), h && (h.unblockable || h.parryOnly) ? glowOf(h) : undefined);
-    if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, 0, 0); }
+    if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, e.enraged ? 0x5a0c06 : 0, e.enraged ? 1 : 0); }
   }
 
   function hurtFlash(e, c = 0xffffff, a = 0.45) { Rig.flash(e.rig, c, a); e.flashT = 0.1; }
@@ -175,7 +182,7 @@ const Enemy = (() => {
 
   // The player's attack reaches this enemy. Returns 'crit', 'hit', 'blocked' or null.
   function receive(e, atk, p) {
-    if (!targetable(e)) return null;
+    if (!targetable(e) || e.state === 'roar') return null;
     const def = e.def, frontal = Combat.facingCheck(e.pos, e.facing, p.pos, def.guardAngle || 140);
     const at = Combat.chestPos(e.pos, 1.2 * def.scale);
     if (e.state === 'broken') {
@@ -185,7 +192,7 @@ const Enemy = (() => {
       FX.burst(at, 0xffd040, 26, 9); FX.glint(at, 0xffffff, 3.2, 0.3); FX.slowmo(0.25, 0.3);
       hurtFlash(e, 0xffe0a0, 1.2); G.stats.crits++;
       e.posture = 0; damage(e, dmg);
-      if (e.state !== 'dead') stun(e, 0.6);
+      if (e.state !== 'dead' && e.state !== 'roar') stun(e, 0.6);
       return 'crit';
     }
     if (guardUp(e) && frontal) {
@@ -194,7 +201,7 @@ const Enemy = (() => {
         FX.text(Combat.chestPos(e.pos, 2.3 * def.scale), 'GUARD BREAK', 'crit'); FX.burst(shield, 0xffb060, 18, 7);
         Snd.play('guardBreak');
         damage(e, atk.dmg * 0.6);
-        if (e.state !== 'dead' && !addPosture(e, atk.posture * 1.6)) stun(e, 0.9);
+        if (e.state !== 'dead' && e.state !== 'roar' && !addPosture(e, atk.posture * 1.6)) stun(e, 0.9);
         return 'hit';
       }
       FX.burst(shield, 0xfff0d0, 10, 5);
@@ -207,7 +214,7 @@ const Enemy = (() => {
     FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
     hurtFlash(e);
     damage(e, dmg, back ? 'back' : '');
-    if (e.state === 'dead') return 'hit';
+    if (e.state === 'dead' || e.state === 'roar') return 'hit';
     if (addPosture(e, atk.posture)) return 'hit';
     const armored = def.hyperArmor && e.state === 'attack';
     if ((def.flinch && !armored) || (atk.breaksGuard && e.state !== 'attack')) stun(e, atk.breaksGuard ? 0.6 : 0.35);
@@ -217,13 +224,15 @@ const Enemy = (() => {
   function damage(e, n, cls = '') {
     e.hp -= n;
     FX.text(Combat.chestPos(e.pos, 2.0 * e.def.scale), Math.round(n) + (cls === 'back' ? '!' : ''), 'dmg');
-    if (e.hp <= 0) die(e);
+    if (e.hp <= 0) die(e); else if (e.boss) checkPhase(e);
   }
   function die(e) {
     e.hp = 0; e.rig.dieVar = Math.random() < 0.5; setState(e, 'dead');
     Snd.play('die'); FX.burst(Combat.chestPos(e.pos, 1.0), BONE[e.type] ? 0xd8cfb4 : e.type === 'spider' ? 0x4a8a3a : 0x6a1a1a, 24, 6, 0.6);
     e.bar.remove();
     G.onEnemyDeath(e);
+    // A fallen guardian takes its summoned adds with it
+    if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
   // The player parried this enemy's hit: heavy posture damage and an opening
@@ -246,6 +255,73 @@ const Enemy = (() => {
 
   function dispose(e, scene) {
     scene.remove(e.rig.root); scene.remove(e.trail.mesh); if (e.bar) e.bar.remove(); endTelegraph(e);
+    if (e.dropped) scene.remove(e.dropped);
+  }
+
+  // ---------------- Guardians ----------------
+  // A guardian is its kind grown into a boss (CFG.bosses): bigger, tougher, with its own moves and phases.
+  const ROAR = { other: { pose: 'heavy', wind: 1.4, active: 0.1, recover: 0.1 }, spider: { pose: 'pounce', wind: 1.4, active: 0.1, recover: 0.1 } };
+  const clone = o => JSON.parse(JSON.stringify(o));
+  function scaleHits(attacks, reach) {
+    for (const a of attacks) for (const h of a.hits) { h.range *= reach; if (h.aoe) { h.aoe.fwd *= reach; h.aoe.r *= reach; } }
+    return attacks;
+  }
+  function makeBoss(e, si) {
+    const B = CFG.bosses[si];
+    if (!B) { e.rig.root.scale.multiplyScalar(1.15); return; }
+    const def = e.def = clone(e.def);                                       // this one enemy gets its own copy to grow and change
+    def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture;
+    def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
+    e.hp = e.maxHp = e.maxHp * B.hp;
+    e.rig.root.scale.multiplyScalar(B.scale);
+    e.boss = { B, next: 0 };
+  }
+  function checkPhase(e) {
+    const ph = e.boss.B.phases[e.boss.next];
+    if (!ph || e.hp > e.maxHp * ph.at) return;
+    e.boss.next++; e.roarPh = ph; e.roared = false; e.atk = null; e.posture = 0;
+    setState(e, 'roar');
+    Rig.flash(e.rig, ph.enrage ? 0xff2010 : 0xffe0a0, 0.9); e.flashT = 1.2;
+    Snd.play('warn'); FX.shake(0.3);
+    if (G.onBossPhase) G.onBossPhase(e, ph);
+  }
+  function applyPhase(e, ph) {
+    const def = e.def, B = e.boss.B, p = G.player;
+    if (ph.def) Object.assign(def, clone(ph.def));
+    if (ph.attacks) def.attacks = scaleHits(clone(ph.attacks), B.reach);
+    if (ph.add) def.attacks = def.attacks.concat(scaleHits(clone(ph.add), B.reach));
+    if (ph.faster) for (const a of def.attacks) for (const h of a.hits) h.wind *= ph.faster;
+    if (ph.stance === 'twoHanded') dropShield(e);
+    if (ph.enrage) e.enraged = true;
+    // Shockwave
+    const d = Combat.dist(e.pos, p.pos);
+    FX.ring(e.pos, 4.5, ph.enrage ? 0xff4020 : 0xffd0a0, 0.6, { r0: 0.5 }); FX.burst(Combat.chestPos(e.pos, 1.2 * def.scale), 0xffe0a0, 30, 8, 0.6);
+    FX.shake(0.5); Snd.play('slam');
+    if (d < 4.5 && p.state !== 'dead') { const a = Combat.yawTo(e.pos, p.pos), k = 10 * (1 - d / 6); p.kb.set(Math.sin(a) * k, 0, Math.cos(a) * k); }
+    // Summoned adds climb out of the floor around the guardian
+    (ph.summon || []).forEach((type, i, all) => {
+      const a = e.facing + Math.PI / 2 + i * Math.PI * 2 / all.length, r = 2.6 * B.scale;
+      const at = new THREE.Vector3(e.pos.x + Math.sin(a) * r, 0, e.pos.z + Math.cos(a) * r);
+      if (!World.inSpace(at.x, at.z, 0.6)) at.set(e.pos.x + (Math.random() - 0.5) * 2, 0, e.pos.z + (Math.random() - 0.5) * 2);
+      G.queue.push({ type, at, mult: e.mult / CFG.guardianMult * CFG.addMult, room: e.room, add: true, t: G.time + 0.2 + i * 0.35 });
+    });
+  }
+  // Sir Aldric casts his shield aside and takes his sword in both hands
+  function dropShield(e) {
+    const r = e.rig; r.set = 'gs'; r.twoHand = true;
+    if (!r.shield) return;
+    const s = r.shield, w = s.getWorldPosition(new THREE.Vector3());
+    s.parent.remove(s); r.root.parent.add(s); r.shield = null; e.dropped = s;
+    s.position.set(w.x, 0.06, w.z); s.rotation.set(-Math.PI / 2, 0, Math.random() * 6); s.scale.copy(r.root.scale);
+  }
+  // The Pale Duelist steps through the dark and strikes from behind the hero
+  function blink(e) {
+    const p = G.player, a = p.facing + Math.PI, x = p.pos.x + Math.sin(a) * 2.1, z = p.pos.z + Math.cos(a) * 2.1;
+    if (!World.inSpace(x, z, e.def.radius)) return;
+    FX.burst(Combat.chestPos(e.pos, 1.0), 0x8070b0, 24, 5, 0.6);
+    e.pos.set(x, 0, z); e.facing = Combat.yawTo(e.pos, p.pos);
+    FX.burst(Combat.chestPos(e.pos, 1.0), 0x8070b0, 24, 5, 0.6); FX.ring(e.pos, 1.2, 0x9080d0, 0.5, { r0: 0.2 });
+    Snd.play('warn');
   }
 
   // ---------------- Arrows ----------------
@@ -281,5 +357,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

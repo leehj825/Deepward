@@ -232,7 +232,8 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
-    if (q.guardian) { e.guardian = q.guardian; e.rig.root.scale.multiplyScalar(1.15); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.add) e.add = true;
     G.enemies.push(e);
     return false;
   });
@@ -349,6 +350,8 @@ G.descend = k => fadeTo(() => {
     say(lines, null, 'Into the dark');
   }
 });
+// A guardian enters a new phase
+G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++;

@@ -64,6 +64,17 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Duelists** open with a raised overhead that is a **feint**: the wind-up stops short and the real slash follows quickly. Raising the guard on the feint wastes the parry window.
 - After the fifth stage the stages repeat with tougher enemies.
 
+## Guardians (built)
+
+- The first enemy of each stage's last room is grown into a boss from `CFG.bosses`: bigger, with more health, posture and reach, sometimes extra moves, and a boss bar with a tick at each phase mark.
+- **Phases:** when health drops past a mark, the guardian roars for 1.4 s. It can't be hurt, and halfway through a shockwave throws the hero back. Then the phase's changes apply: summoned adds (60% strength, crumbling when the guardian dies), stat overrides, new or replacement attacks, faster wind-ups, a stance change, or a rage tint.
+- **The five:**
+  - **Bone Warden:** a ground slam, then adds twice.
+  - **Sir Aldric:** drops the shield at half health (it stays on the floor) and switches to the great-sword motion capture with an unblockable spin.
+  - **Den Mother:** goblins, then rage with an unblockable charge.
+  - **Brood Queen:** hatchlings, then a double pounce (both parry-only).
+  - **Pale Duelist:** a blink that reappears behind the hero before a thrust, then two shadow duelists.
+
 ## Story, camp and gear (built)
 
 - **Story:** an opening (the Deep under Varrow Hill; Deepward, the last camp on its rim). Maren speaks before each stage, again after each guardian falls, and at every new depth as the stages repeat. The guardians are the Bone Warden, Sir Aldric the Hollow, the Den Mother, the Brood Queen and the Pale Duelist; each has a boss bar.
