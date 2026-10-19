@@ -133,8 +133,8 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
-  if (G.state === 'title') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
-  if (G.state === 'pause') { if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
+  if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
+  if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
   if (down(PAD_BTN.VIEW)) toggleView();
@@ -287,6 +287,23 @@ function togglePause() {
   if (G.state === 'play') { G.state = 'pause'; $('pause').classList.add('show'); if (document.pointerLockElement) document.exitPointerLock(); }
   else if (G.state === 'pause') { G.state = 'play'; $('pause').classList.remove('show'); }
 }
+// Settings open over the title or the pause screen and return to it
+function openSettings() {
+  if (UI.open) return;
+  const from = G.state, scr = from === 'title' ? $('title') : from === 'pause' ? $('pause') : null;
+  if (scr) scr.classList.remove('show');
+  G.state = 'menu';
+  UI.show('settings', {}, () => { G.state = from === 'menu' ? 'play' : from; if (scr) scr.classList.add('show'); });
+}
+$('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+$('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+// The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
+function musicMood() {
+  if (G.state === 'title' || G.mode === 'camp') return 'camp';
+  if (G.boss && G.boss.state !== 'dead') return 'boss';
+  if (G.enemies.some(e => e.state !== 'dead') || G.queue.length) G.calmAt = G.time;
+  return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
+}
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
 // ---------------- Game flow ----------------
 // Title -> (story) -> camp -> descend into a stage -> rooms -> guardian -> back to camp or press on. Falling wakes you in camp.
@@ -438,8 +455,9 @@ if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('start
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
 function turnView(dx, dy) {
-  View.yaw -= dx;
-  View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy));
+  const k = Settings.get('sens');
+  View.yaw -= dx * k;
+  View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy * k * (Settings.get('invertY') ? -1 : 1)));
 }
 function toggleView() {
   View.mode = View.mode === 'behind' ? 'top' : 'behind';
@@ -509,6 +527,7 @@ function frame(now) {
 }
 function step(real) {
   pollPad(real);
+  Snd.music(musicMood());
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
@@ -526,7 +545,7 @@ function step(real) {
     FX.update(dt);
     updateHud();
     updateCamera(real);
-  } else if (G.state === 'title') {
+  } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
     World.update(real);
     Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);
     camTarget.set(0, 0, 2); setFov(42);
@@ -535,14 +554,14 @@ function step(real) {
     World.update(real, camera.position);                                 // gates, fades and the camp keep moving behind menus
     updateCamera(real);
   }
-  if (G.state !== 'title' && idleRig.root.parent) scene.remove(idleRig.root);
+  if (G.state !== 'title' && G.player && idleRig.root.parent) scene.remove(idleRig.root);
 }
 requestAnimationFrame(frame);
 
 // Test hook: lets automated tests drive the game without a real input device
 window.__dw = {
   G, Input, CFG, step,
-  start: startGame, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
+  start: startGame, openSettings, musicMood, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
   arena(k = 0) { Items.wipe(); startGame('new'); UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,

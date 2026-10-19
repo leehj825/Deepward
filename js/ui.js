@@ -44,6 +44,8 @@ const UI = (() => {
     return h + `<div class="tact">${b}</div></div>`;
   }
 
+  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2] };      // min, max, step
+
   // ---------------- Panels ----------------
   const PANELS = {
     dialogue(o) {
@@ -130,6 +132,17 @@ const UI = (() => {
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    settings() {
+      const pct = v => Math.round(v * 100) + '%';
+      const row = (k, label, fmt) => {
+        const v = Settings.get(k), [lo, hi, st] = LIM[k];
+        return `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn('−', 'set', k + ':-1', v <= lo + 1e-6)}<span class="sval"><i style="width:${(v - lo) / (hi - lo) * 100}%"></i><em>${fmt(v)}</em></span>${btn('+', 'set', k + ':1', v >= hi - 1e-6)}</div></div>`;
+      };
+      const tog = (k, label, on, off) => `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn(Settings.get(k) ? on : off, 'toggle', k, false, Settings.get(k) ? 'on' : '')}</div></div>`;
+      return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
+        + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
+        + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
+    },
     cleared(o) {
       const next = CFG.stages[(o.k + 1) % CFG.stages.length];
       return `<h2>Stage cleared</h2><p class="sub">${esc(o.guardian)} has fallen. The way deeper is open.</p>${money()}
@@ -159,6 +172,9 @@ const UI = (() => {
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
+    if (a === 'toggle') { Settings.set(arg, !Settings.get(arg)); Snd.play('glint'); return render(); }
+    if (a === 'sreset') { Settings.reset(); Snd.play('glint'); return render(); }
     if (a === 'tsel') { tab.talent = arg; Snd.play('glint'); return render(); }
     if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
     if (a === 'ult') { S.ult = arg; changed(); return render(); }

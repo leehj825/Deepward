@@ -108,7 +108,7 @@ const FX = (() => {
 
   return {
     init, burst, glint, ring, killRing, ghost, text, update, scaleDt, project,
-    shake(a) { cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
+    shake(a) { if (!Settings.get('shake')) return; cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
     hitStop(t) { time.stop = Math.max(time.stop, t); },
     slowmo(t, s) { time.slow = t; time.slowScale = s; },
     get shakeAmt() { return cam.shake; },
