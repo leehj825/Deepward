@@ -230,7 +230,8 @@ Each Act II stage has its own champion: the Tidecaller, the Ice Bulwark, the Sla
 - **Waves:** walking into a section wakes its monsters, wave after wave. Enemies chase you through the passages if you fall back or run ahead.
 - **Chests and healing:** each cleared section heals you a little and leaves a chest beside the path.
 - **Off the path:**
-  - **Side rooms:** two per stage, through doorways in a section's side wall. An **elite's den** holds one tougher guard (orange health bar) who drops a rich chest. A **treasure vault** holds a rich chest behind two spike plates that strike out of step.
+  - **Side rooms:** two per stage, through doorways in a section's side wall: one with treasure, one with a fight. An **elite's den** holds one tougher guard (orange health bar) who drops a rich chest. A **treasure vault** holds a rich chest behind two spike plates that strike out of step.
+  - A **gauntlet** drops a portcullis behind you: three waves of the stage's own enemies back to back, and a rich chest when the last falls. A **rune vault** shows three coloured runes lighting on its far wall in an order; step on the floor plates of the same colours in that order to open it. A wrong plate fires spikes and the order starts again.
   - **Traps:** two passages per stage. **Spike plates** glow red and rattle before they strike. **Swinging blades** sweep across the passage. Both are unblockable, so time your crossing or dash through.
   - **Shrine:** one per stage, a glowing obelisk. Walk up and press E (A, or TALK on touch) to pray, then pick one of three blessings that last until you leave the stage. The choices are Wrath, Iron Skin, Swiftness, Vigor, Mending, Fortune, Thirst and Steady Hand. Your blessings show under the gold.
   - **Pots and crates:** they line the walls. Smash them for gold, and now and then a flask refill.
@@ -424,6 +425,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/rooms_test.js` | Headless check of the gauntlet (sealed, three waves, rich chest, opens again) and the rune vault (a wrong plate hurts and resets, the right order opens it) |
 | `tools/photo_test.js` | Headless check of photo mode: frozen fight, hidden HUD, orbit and zoom, filters, hiding the warden, a saved picture, and back |
 | `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |

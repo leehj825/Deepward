@@ -233,6 +233,12 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Shrine:** one middle section without a side room gets one. It offers three of eight blessings, which stack into the hero's stats until the stage is left.
 - **Breakables:** 3 to 6 per section along the walls, off the path. They're solid until struck. Each gives a 55% chance of gold and an 8% chance of a flask refill (only if you're below your maximum).
 
+### Gauntlet and rune vault (built)
+
+- Each stage's two side rooms are one treasure room (`vault` or `puzzle`) and one fight (`den` or `gauntlet`), picked at random.
+- **Gauntlet:** three waves (2, 3, 3) drawn from the stage's own enemies. Entering drops the portcullis (a group kept out of the bake) and adds `seal` pillars across the doorway; clearing lifts both and leaves a rich chest.
+- **Rune vault** (`state: 'runes'`): three runes on the far wall and three floor plates in matching colours; `runes()` lights the runes in `seq` order on a loop, counts plates stepped in order, and on a wrong plate hurts the warden (unblockable, 12 + 4 × depth) and resets. The full order opens a rich chest.
+
 ## Elites and champions (built)
 
 - **Chance:** a regular spawn rolls `CFG.elites.chance[stage]`, plus 8% for each repeat of the stages. Den guards always get one modifier, or two when deeper.

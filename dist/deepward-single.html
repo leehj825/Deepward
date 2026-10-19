@@ -5247,7 +5247,9 @@ const World = (() => {
     }
     // Extras: side rooms (an elite's den, then a trapped vault) off middle sections, traps in some passages, one shrine
     const mids = out.filter(p => p.j > 0 && p.j < count - 1).sort(() => Math.random() - 0.5);
-    mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
+    // Side rooms: one with treasure (a trapped vault or a rune vault), one with a fight (an elite's den or a gauntlet)
+    const kinds = [Math.random() < 0.5 ? 'vault' : 'puzzle', Math.random() < 0.5 ? 'den' : 'gauntlet'];
+    mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: kinds[k % 2] }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
     if (infos[0].si >= 5 && mids.length) mids[mids.length - 1].mimic = true;                 // Act II: one chest is not a chest
@@ -5442,12 +5444,16 @@ const World = (() => {
     const room = {
       kind: 'side', sideKind: kind, dir, parent: par, i: par.i, j: par.j, inf: par.inf, th, hw: shw, hd: shd, cx: sx, cz,
       southZ: cz + shd, northZ: cz - shd, group, mats: [], geos: [], texs: [], torches: [], pillars: [], occluders: [],
-      fade: 1, fadeDir: 1, occl: 1, state: kind === 'vault' ? 'vault' : 'ahead', t: 0, wave: 0, waveDelay: 0, offPath: () => true,
+      fade: 1, fadeDir: 1, occl: 1, state: kind === 'vault' ? 'vault' : kind === 'puzzle' ? 'puzzle' : 'ahead', t: 0, wave: 0, waveDelay: 0, offPath: () => true,
       rect: { x0: sx - shw, x1: sx + shw, z0: cz - shd, z1: cz + shd },
       corr: { x0: Math.min(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), x1: Math.max(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), z0: cz - SIDE_DOOR + 0.1, z1: cz + SIDE_DOOR - 0.1 },
       exitAt: new THREE.Vector3(par.cx + dir * (par.hw - 1.6), 0, cz), entryAt: new THREE.Vector3(par.cx + dir * (par.hw + 1 + SIDE_LEN / 2), 0, cz),
     };
     if (kind === 'den') { const main = par.inf.stage.rooms[0].waves[0][0]; room.waves = [[main]]; room.elite = true; }
+    if (kind === 'gauntlet') {                                                 // three waves of the stage's own, back to back
+      const pool = [...new Set(par.inf.stage.rooms.flatMap(r => r.waves.flat()))], pick = () => pool[Math.floor(Math.random() * pool.length)];
+      room.waves = [2, 3, 3].map(n => Array.from({ length: n }, pick));
+    }
     const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); m.userData.op = 1; room.mats.push(m); return m; };
     const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
     const texFor = (t, rx, ry) => { const c = t.clone(); c.needsUpdate = true; c.repeat.set(rx, ry); room.texs.push(c); return c; };
@@ -5471,7 +5477,7 @@ const World = (() => {
     box(1, WALL_H - 2.8, SIDE_DOOR * 2, nx, 2.8 + (WALL_H - 2.8) / 2, cz);
     for (const s of [-1, 1]) box(SIDE_LEN, WALL_H, 1, pc, WALL_H / 2, cz + s * (SIDE_DOOR + 0.5));
     // Torches on the north wall
-    const flameM = new THREE.MeshBasicMaterial({ color: kind === 'vault' ? 0xffd040 : 0xff5030 }); room.mats.push(flameM);
+    const flameM = new THREE.MeshBasicMaterial({ color: kind === 'vault' || kind === 'puzzle' ? 0xffd040 : 0xff5030 }); room.mats.push(flameM);
     for (const s of [-1, 1]) {
       const fl = add(new THREE.ConeGeometry(0.1, 0.32, 6), flameM, s * shw * 0.5, 2.5, cz - shd + 0.1, false);
       room.torches.push({ pos: new THREE.Vector3(sx + s * shw * 0.5, 2.6, cz - shd + 0.7), fl, seed: Math.random() * 10, color: kind === 'vault' ? 0xffc060 : 0xff6040 });
@@ -5486,6 +5492,27 @@ const World = (() => {
       t2.t = t1.t + (FE.spikes.idle + FE.spikes.warn + FE.spikes.up) / 2;
       addChest(room, false, { x: dir * (shw - 1.3), z: cz }, true);
       if (!G.arena && Math.random() < CFG.rescues.chance) Props.captive(room, dir * (shw - 1.2), cz + (shd - 1.0));   // someone chained by the chest
+    }
+    if (kind === 'gauntlet') {
+      // A portcullis over the doorway: up until the warden is in, down until the last wave falls
+      const bars = new THREE.Group(), iron = new THREE.MeshStandardMaterial({ color: 0x3a3a40, metalness: 0.6, roughness: 0.5 }); room.mats.push(iron);
+      for (let k = -4; k <= 4; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 0.1), iron); b.position.set(0, 1.4, k * 0.38); bars.add(b); room.geos.push(b.geometry); }
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, SIDE_DOOR * 2), iron); cross.position.y = 1.0; bars.add(cross); room.geos.push(cross.geometry);
+      bars.position.set(-dir * (shw + 0.5), 2.6, cz); group.add(bars); room.portcullis = bars; room.seal = [];
+      for (let k = -2; k <= 2; k++) room.seal.push([sx - dir * (shw + 0.5), cz + k * 0.75, 0.55]);
+    }
+    if (kind === 'puzzle') {
+      // Three runes on the far wall light up in an order; three plates of the same colours on the floor
+      const cols = [0xff5a4a, 0x5aff8a, 0x5aa8ff], stone = new THREE.MeshStandardMaterial({ color: 0x5a5a62, roughness: 0.9, flatShading: true }); room.mats.push(stone);
+      room.runes = []; room.plates = [];
+      cols.forEach((c, k) => {
+        const z = cz + (k - 1) * 2.4, rm = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.15 }), pm = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.1, roughness: 0.6 }); room.mats.push(rm, pm);
+        const r = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), rm); r.position.set(dir * (shw - 0.05), 2.2, z); group.add(r); room.geos.push(r.geometry);
+        const base = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.08, 1.3), stone); base.position.set(-dir * 0.6, 0.04, z); group.add(base); room.geos.push(base.geometry);
+        const inlay = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.8), pm); inlay.position.set(-dir * 0.6, 0.05, z); group.add(inlay); room.geos.push(inlay.geometry);
+        room.runes.push(rm); room.plates.push({ x: sx - dir * 0.6, z, m: pm, mesh: inlay });
+      });
+      room.seq = [0, 1, 2].sort(() => Math.random() - 0.5); room.step = 0; room.on = -1; room.show = 0;
     }
     setFade(room, 1);
     rooms.push(room); sides.push(room);
@@ -5592,8 +5619,10 @@ const World = (() => {
 
   function enter(room) {
     if (room.kind === 'side') {
-      banner(room.sideKind === 'den' ? "ELITE'S DEN" : 'TREASURE VAULT');
-      if (room.sideKind === 'den') { room.state = 'start'; room.t = 0; }
+      banner({ den: "ELITE'S DEN", gauntlet: 'GAUNTLET: SURVIVE', puzzle: 'RUNE VAULT', vault: 'TREASURE VAULT' }[room.sideKind]);
+      if (room.sideKind === 'den' || room.sideKind === 'gauntlet') { room.state = 'start'; room.t = 0; }
+      if (room.sideKind === 'gauntlet') { room.pillars.push(...room.seal); room.gateTo = 0; Snd.play('gate'); FX.shake(0.2); }
+      if (room.sideKind === 'puzzle') showTip('Watch the runes light, then step on the plates of the same colours in that order.');
       return;
     }
     room.state = 'start'; room.t = 0;
@@ -5603,11 +5632,34 @@ const World = (() => {
     else banner('AREA ' + (inf.ri + 1) + ' / ' + inf.count);
   }
 
+  // The rune vault: the runes show their order over and over; each plate stepped on in turn lights; a wrong one fires
+  // spikes from the floor and starts the order again; the whole order opens the vault
+  function runes(r, dt, p) {
+    r.show += dt; const per = 0.7, cyc = r.seq.length * per + 1.4, t = r.show % cyc, lit = t < r.seq.length * per ? r.seq[Math.floor(t / per)] : -1;
+    r.runes.forEach((m, k) => { m.emissiveIntensity = k === lit ? 1.6 : 0.15; });
+    const on = r.plates.findIndex(q => Math.abs(p.pos.x - q.x) < 0.75 && Math.abs(p.pos.z - q.z) < 0.75);
+    if (on !== r.on && on >= 0) {
+      if (on === r.seq[r.step]) {
+        r.plates[on].m.emissiveIntensity = 1.2; r.plates[on].mesh.position.y = 0.02; r.step++; Snd.play('glint');
+        if (r.step === r.seq.length) { r.state = 'cleared'; addChest(r, false, { x: r.dir * (r.hw - 1.3), z: r.cz }, true); banner('RUNE VAULT OPENS'); Snd.play('shrine'); G.stats.rooms++; }
+      } else if (!r.plates[on].mesh.position.y || r.plates[on].mesh.position.y > 0.03) {
+        const q = r.plates[on]; FX.burst(new THREE.Vector3(q.x, 0.4, q.z), 0xb0b0b8, 16, 5); Snd.play('spikes'); FX.shake(0.2);
+        Player.receive(p, { pos: new THREE.Vector3(q.x, 0, q.z + 1), mult: 1 }, { dmg: 12 + (r.inf.k || 0) * 4, posture: 0, unblockable: true, aoe: true });
+        r.step = 0; r.show = 0; for (const x of r.plates) { x.m.emissiveIntensity = 0.1; x.mesh.position.y = 0.05; }
+      }
+    }
+    r.on = on;
+  }
+
   function clearRoom(room) {
     room.state = 'cleared';
     const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.roomHeal);
     G.stats.rooms++;
-    if (room.kind === 'side') { addChest(room, false, { x: room.dir * (room.hw - 1.3), z: room.cz }, true); banner('DEN CLEARED'); return; }
+    if (room.kind === 'side') {
+      addChest(room, false, { x: room.dir * (room.hw - 1.3), z: room.cz }, true); banner(room.sideKind === 'gauntlet' ? 'GAUNTLET CLEARED' : 'DEN CLEARED');
+      if (room.seal) { room.pillars = room.pillars.filter(q => !room.seal.includes(q)); room.gateTo = 2.6; Snd.play('gate'); }
+      return;
+    }
     const guardian = !!room.inf.room.guardian;
     addChest(room, guardian);
     banner(guardian ? (room.inf.custom ? 'FLOOR CLEARED' : 'STAGE CLEARED') : 'AREA CLEARED');
@@ -5665,6 +5717,11 @@ const World = (() => {
       for (const r of areas) {
         if (r.state === 'ahead' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) enter(r);
         else if (r.state === 'vault' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) { enter(r); r.state = 'cleared'; }
+        else if (r.state === 'puzzle' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) { enter(r); r.state = 'runes'; }
+      }
+      for (const r of sides) {
+        if (r.portcullis && r.gateTo !== undefined) r.portcullis.position.y += (r.gateTo - r.portcullis.position.y) * Math.min(1, dt * 10);
+        if (r.state === 'runes') runes(r, dt, p);
       }
       for (const a of areas) {
         if (a.state === 'ahead' || a.state === 'cleared') continue;
