@@ -32,7 +32,10 @@ const UI = (() => {
       } else if (t === 'forge') {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
-        for (const slot of CFG.gear.slots) h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'sword, axe, mace or longsword' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
+        for (const slot of CFG.gear.slots) {
+          h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'sword, axe, mace, longsword or greatsword' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
+          if (slot === 'weapon') h += `<div class="irow"><div class="iinfo"><b>Greatsword</b> <small>two-handed: big hits and reach, no shield</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', 'greatsword', S.gold < cost * 1.3)}</div></div>`;
+        }
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
       }
@@ -66,7 +69,7 @@ const UI = (() => {
     bag() {
       const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
       let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s)) : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
+      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && st.twoHanded ? ' · <b class="warnc">unused while you hold a two-handed weapon</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
       h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       return h + btn('Close', 'close', '', false, 'leave');
@@ -90,9 +93,9 @@ const UI = (() => {
     if (a === 'next') { const o = open.opt; if (o.i < o.lines.length - 1) { o.i++; return render(); } return close(); }
     if (a === 'upgrade') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), c = it && Items.upgradeCost(it); if (it && S.gold >= c.gold && S.scrap >= c.scrap && it.plus < Items.maxPlus()) { S.gold -= c.gold; S.scrap -= c.scrap; it.plus++; Snd.play('block'); toast(`${Items.fullName(it)}`, R[it.rarity].color); changed(); } return render(); }
     if (a === 'forge') {
-      const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1), cost = CFG.camp.forgeCost[tier];
+      const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1), two = arg === 'greatsword', cost = Math.round(CFG.camp.forgeCost[tier] * (two ? 1.3 : 1));
       if (S.gold < cost || S.inv.length >= CFG.gear.invSize) { if (S.inv.length >= CFG.gear.invSize) toast('Your bag is full'); return render(); }
-      S.gold -= cost; const it = Items.generate(tier, { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
+      S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: 'greatsword', boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
     }
     if (a === 'salvage') { const it = Items.remove(+arg); if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); changed(); } return render(); }

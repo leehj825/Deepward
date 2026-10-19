@@ -22,7 +22,9 @@ const WANT = {
   impact: [A, 'ssImpact'], impact2: [A, 'ssImpact2'], die: [A, 'die'], die2: [A, 'die2'],
   dive: [L, 'bow_standing_dive_forward'], dodgeB: [A, 'bowDodgeB'], dodgeP: [A, 'bowDodgeP'], dodgeN: [A, 'bowDodgeN'],
   // great sword (the brute's two-handed club)
-  gsIdle: [A, 'gsIdle'], gsWalk: [A, 'gsWalk'], gsWalkB: [A, 'gsWalkB'], gsRun: [A, 'gsRun'],
+  gsIdle: [A, 'gsIdle'], gsWalk: [A, 'gsWalk'], gsWalkB: [A, 'gsWalkB'], gsRun: [A, 'gsRun'], gsRunB: [A, 'gsRunB'],
+  gsStrafeWalkN: [A, 'gsStrafeNW'], gsStrafeWalkP: [A, 'gsStrafePW'], gsStrafeRunN: [A, 'gsStrafeN'], gsStrafeRunP: [A, 'gsStrafeP'],
+  gsBlock: [A, 'gsBlock'], gsSpin: [A, 'gsAttack4'],
   gsAttack: [A, 'gsAttack1'], gsSlash: [A, 'gsAttack2'], gsSlash5: [A, 'gsAttack3'], gsJumpAttack: [L, 'gs_great_sword_jump_attack'],
   gsImpact: [A, 'gsImpact'], gsDie: [A, 'dieGs'],
 };

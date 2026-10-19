@@ -2,7 +2,7 @@
 
 A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128, no build step). No town, no army: the whole game is the fight. Every enemy attack is telegraphed, and each dungeon tier demands a skill the last one didn't: spacing, then dodging, blocking, parrying, and reading feints.
 
-Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dodge roll and the stagger poses are still hand-made.
+Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
@@ -15,7 +15,8 @@ Every model is built in code from primitives, and there are no model, texture or
   - **Apothecary:** more and stronger healing flasks.
   - **Training yard:** more health and stamina.
 - **Gear:** five slots (weapon, shield, armour, helm and trinket).
-  - Four weapon types play differently: sword, axe (posture), mace (more posture, short) and longsword (reach, slower).
+  - Five weapon types play differently: sword, axe (posture), mace (more posture, short), longsword (reach, slower), and the two-handed **greatsword**.
+  - The greatsword deals 1.5× damage with more posture and reach, and swaps the hero to the great-sword motion capture with both hands on the hilt. It leaves no room for a shield: the blade blocks only 55% of a blow, blocking costs more stamina, and you take 10% more damage. Bram forges one on request.
   - Rarities run from Common to Legendary, with random bonuses: critical chance, posture, stamina regen, health, stamina, parry window, life on hit and gold find.
   - Gear power rises with the stage it came from, and what you wear shows on the hero.
 - **Loot:** enemies drop gold, every cleared room leaves a chest, and guardians (the Bone Warden, Sir Aldric the Hollow, the Den Mother) drop guaranteed rare-or-better gear and have a boss health bar.
@@ -57,7 +58,7 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
 
 There are two views; switch with **B** or the 🎥 button, and the game remembers your choice.
 
-- **Behind (default):** an orbit camera over the hero's shoulder, like Nightfall Settlement's normal view. The mouse turns the camera (click once to capture it; Esc releases it and pauses). On touch, drag the right side of the screen. The scroll wheel zooms. The hero always faces where the camera looks, so WASD strafes and walks backward; backing up and sidestepping are a little slower. Attacks go where you look, with light aim assist.
+- **Behind (default):** an orbit camera over the hero's shoulder. Backed against a wall, it slides in smoothly and rises over the shoulder rather than clipping into the wall, like Nightfall Settlement's normal view. The mouse turns the camera (click once to capture it; Esc releases it and pauses). On touch, drag the right side of the screen. The scroll wheel zooms. The hero always faces where the camera looks, so WASD strafes and walks backward; backing up and sidestepping are a little slower. Attacks go where you look, with light aim assist.
 - **Top-down:** the fixed high quarter view. The hero faces the way it walks and turns toward the nearest enemy while blocking.
 
 ## Controls
@@ -70,7 +71,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
 | Heavy attack (breaks guards) | K / Q / middle-click | RT or Y | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
-| Dodge roll (invulnerable mid-roll) | Space | A or B | DODGE |
+| Dash in any direction (invulnerable for most of it) | Space | A or B | DASH |
 | Healing flask | R | D-pad up | ⚗ |
 | Talk / use (camp) | E | A (when a prompt shows) | ATTACK becomes TALK |
 | Gear (equipment and bag) | I or Tab | D-pad down | GEAR |
@@ -82,8 +83,8 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 ## How a fight works
 
 - **White glint** on an enemy weapon: the attack can be blocked. Raise the block within 0.2 s of impact to **parry**. A parry takes no damage and deals heavy posture damage.
-- **Red glow** (and a red floor ring for area attacks): the attack is **unblockable**, so roll through it.
-- **Stamina** pays for attacks, rolls and every blocked hit. If a block runs out of stamina, your guard breaks and you're stunned.
+- **Red glow** (and a red floor ring for area attacks): the attack is **unblockable**, so **dash** through it. The dash covers about 2.6 m in 0.3 s, leaves after-images, and in the behind view keeps you facing forward, so you can dash sideways or back.
+- **Stamina** pays for attacks, dashes and every blocked hit. If a block runs out of stamina, your guard breaks and you're stunned.
 - **Posture:** the yellow bar under an enemy's health. It fills from hits, parries and blocked blows. When it's full the enemy is **broken**, and your next hit is a 3× critical.
 - **Shield knights** block light attacks from the front, so use a heavy attack or get behind them. **Brutes** don't flinch while they swing.
 

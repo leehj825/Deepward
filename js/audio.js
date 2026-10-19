@@ -43,7 +43,7 @@ const Snd = (() => {
     parry: () => { for (const [f, d] of [[1320, 0], [1980, 0.01], [2640, 0.02]]) tone(f, 0.5, 'triangle', 0.13, f * 0.99, d); noise(0.05, 0.3, 'highpass', 5000, 3000); },
     guardBreak: () => { tone(300, 0.35, 'sawtooth', 0.2, 80); noise(0.25, 0.35, 'lowpass', 1500, 100); },
     hurt: () => { tone(220, 0.2, 'sawtooth', 0.15, 90); noise(0.12, 0.35, 'lowpass', 1200, 150); },
-    roll: () => noise(0.25, 0.15, 'lowpass', 900, 200),
+    roll: () => { noise(0.18, 0.22, 'bandpass', 1800, 400); noise(0.1, 0.12, 'lowpass', 600, 150, 0.04); },
     warn: () => { tone(160, 0.32, 'sawtooth', 0.12, 150); tone(240, 0.32, 'square', 0.06, 230); },
     glint: () => tone(2200, 0.12, 'sine', 0.06, 2600),
     die: () => { noise(0.4, 0.3, 'lowpass', 800, 80); for (let i = 0; i < 4; i++) tone(400 - i * 60, 0.08, 'square', 0.05, 200, i * 0.05); },

@@ -22,11 +22,11 @@ const Rig = (() => {
   function sword(hand, o) {
     const g = joint(hand, 0, -0.03, 0);
     const steel = std(o.blade || 0xc9ced6, 0.35, 0.6), grip = std(o.grip || 0x3a2416), guard = std(o.guard || 0xb08a3a, 0.5, 0.4);
-    const len = o.len || 0.92;
-    mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.2, 6).rotateX(Math.PI / 2), grip, g, 0, 0, 0);
-    ball(g, 0.035, guard, 0, 0, -0.11, 6, 5);
-    box(g, 0.26, 0.04, 0.05, guard, 0, 0, 0.11);
-    const blade = box(g, 0.075, 0.018, len, steel, 0, 0, 0.13 + len / 2);
+    const len = o.len || 0.92, two = !!o.twoHanded, gl = two ? 0.46 : 0.2, bw = two ? 0.1 : 0.075;     // a two-handed grip is long enough for both fists
+    mesh(new THREE.CylinderGeometry(0.024, 0.024, gl, 6).rotateX(Math.PI / 2), grip, g, 0, 0, 0.1 - gl / 2);
+    ball(g, two ? 0.045 : 0.035, guard, 0, 0, 0.09 - gl, 6, 5);
+    box(g, two ? 0.4 : 0.26, 0.045, 0.06, guard, 0, 0, 0.11);
+    const blade = box(g, bw, 0.02, len, steel, 0, 0, 0.13 + len / 2);
     mesh(new THREE.ConeGeometry(0.053, 0.16, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 0.34, 1), steel, g, 0, 0, 0.13 + len + 0.08);
     box(g, 0.012, 0.022, len * 0.85, std(0x8a9099, 0.4, 0.5), 0, 0, 0.13 + len * 0.45);   // fuller
     const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
@@ -240,14 +240,15 @@ const Rig = (() => {
     else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
     else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
-    else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen });
+    else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen, twoHanded: L.twoHanded });
     rig.weapon = wpn; if (wpn) rig.glowMats.push(...wpn.glowMats);
     if (wpn && L.glow) for (const m of wpn.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.25; }     // rare-and-better weapons shimmer faintly
     if (kind === 'hero' && L.shield !== false) rig.shield = roundShield(rig.j.hdL, L.shieldFace || 0x2f4a6b);
     if (kind === 'knight') rig.shield = towerShield(rig.j.hdL, 0x3a3e48);
     // Motion capture drives every rig: sword-and-shield clips for people, great-sword clips for the two-handed brute.
     // The shield rides on the outside of the forearm, where the clips expect it (mirrored from Nightfall's rig).
-    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' ? 'gs' : 'ss'; rig.calm = kind === 'npc';
+    // A two-handed hero uses the great-sword clips, with the left hand held on the grip (gripIK)
+    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' || L.twoHanded ? 'gs' : 'ss'; rig.calm = kind === 'npc'; rig.twoHand = kind === 'hero' && !!L.twoHanded;
     if (rig.mocap && rig.shield) {
       rig.j.elL.add(rig.shield); rig.shield.position.set(0.14, -0.2, 0.02);
       rig.shield.rotation.set(0, Math.PI / 2, kind === 'knight' ? Math.PI / 2 : 0);    // face outward; a tall shield stands across the forearm
@@ -371,6 +372,17 @@ const Rig = (() => {
       });
       rate = 40;
     }
+    if (st.mode === 'dash') {
+      // Low and leaning into the dash, whichever way it goes relative to the body (dirF forward, dirS toward +X)
+      const k = Math.sin(Math.min(1, st.p * 1.15) * Math.PI), f = st.dirF === undefined ? 1 : st.dirF, sd = st.dirS || 0;
+      pose = merge(pose, {
+        spine: [0.15 + 0.4 * f * k, 0, -0.35 * sd * k], neck: [-0.25 * f * k, 0, 0.25 * sd * k],
+        shR: [0.5 * f * k - 0.2, 0, -0.55 * k - 0.1], elR: [-0.7, 0, 0], shL: [0.5 * f * k - 0.2, 0, 0.55 * k + 0.1], elL: [-0.7, 0, 0],
+        hipL: [-0.75 * f * k - 0.25 * k, 0, 0.4 * sd * k], knL: [0.95 * k, 0, 0], hipR: [0.55 * f * k - 0.2 * k, 0, 0.4 * sd * k], knR: [0.7 * k, 0, 0],
+        by: -0.17 * k,
+      });
+      rate = 36;
+    }
     if (st.mode === 'stagger' || st.mode === 'hurt') {
       const k = Math.max(0, 1 - st.t * 2.5);
       pose = merge(pose, { spine: [-0.45 * k + 0.05, 0.25 * k, 0], neck: [-0.3 * k, 0, 0], shR: [-0.6, 0, -0.9 * k - 0.2], shL: [-0.4, 0, 0.9 * k + 0.2], by: -0.06 });
@@ -401,10 +413,15 @@ const Rig = (() => {
   const MOCAP_ATTACK = {
     ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump' },
     gs: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', thrust: 'gsAttack', heavy: 'gsJumpAttack' },
+    gsHero: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', heavy: 'gsSpin' },
   };
   function locoClip(rig, st) {
     const gs = rig.set === 'gs', run = (st.mps || 0) > 2.8, f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
-    if (gs) return { name: f < -0.5 ? 'gsWalkB' : run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
+    if (gs) {
+      if (f > 0.5 || (rig.calm || st.calm)) return { name: run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
+      if (f < -0.5) return { name: run ? 'gsRunB' : 'gsWalkB', ref: run ? 3.6 : 1.4 };
+      return { name: (run ? 'gsStrafeRun' : 'gsStrafeWalk') + (side > 0 ? 'N' : 'P'), ref: run ? 3.6 : 1.5 };
+    }
     if ((rig.calm || st.calm) && f > 0.5) return { name: run ? 'runCalm' : 'walkCalm', ref: run ? 4.6 : 1.6 };
     if (f > 0.5) return { name: run ? 'run' : 'walk', ref: run ? 4.6 : 1.6 };
     if (f < -0.5) return { name: run ? 'runB' : 'walkB', ref: run ? 3.6 : 1.4 };
@@ -423,13 +440,15 @@ const Rig = (() => {
       Mocap.sample(lc.name, rig.loco * c.d, out);
     }
     if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(gs ? 'gsIdle' : (rig.calm || st.calm) ? 'idleCalm' : 'idle', rig.time, out);
-    if (m === 'block') {                                                    // shield up; the legs keep walking underneath when moving
-      if (gs) return 0;
-      Mocap.sample('blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES); return 20;
+    if (m === 'block') {                                                    // guard up; the legs keep walking underneath when moving
+      if (gs && !rig.twoHand) return 0;
+      if (gs) Mocap.sample('gsBlock', Math.min(st.blockT || 0, 0.45), out, moving ? Mocap.UPPER : Mocap.BONES);
+      else Mocap.sample('blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES);
+      return 20;
     }
     if (m === 'idle' || m === 'move' || m === 'spawn') return 16;
     if (m === 'attack') {
-      const name = MOCAP_ATTACK[rig.set][st.atk] || (gs ? 'gsSlash' : 'attack1'), c = Mocap.clips[name];
+      const name = MOCAP_ATTACK[rig.twoHand ? 'gsHero' : rig.set][st.atk] || (gs ? 'gsSlash' : 'attack1'), c = Mocap.clips[name];
       const W = st.wind, A = st.active, R = st.recover, el = st.phase === 'wind' ? st.phaseT : st.phase === 'active' ? W + st.phaseT : W + A + st.phaseT;
       const hitAt = W + A * 0.5, hitT = c.hit * c.d;
       const ct = el <= hitAt ? hitT * el / hitAt : hitT + (c.d - hitT) * Math.min(1, (el - hitAt) / (A * 0.5 + R));
@@ -471,6 +490,12 @@ const Rig = (() => {
       else b.rotation.x = 0;
       if (st.mode === 'dead') b.position.y += (0.18 - b.position.y) * k;
     }
+    // Two-handed grip: the left fist is drawn onto the hilt below the right one
+    if (rig.twoHand) {
+      const on = st.mode === 'idle' || st.mode === 'move' || st.mode === 'block' || st.mode === 'attack';
+      rig.ikW = (rig.ikW || 0) + ((on ? 1 : 0) - (rig.ikW || 0)) * Math.min(1, dt * 12);
+      gripIK(rig, rig.ikW);
+    }
     if (rig.j.cape) {
       const target = 0.15 + (st.speed || 0) * 0.7 + Math.sin(rig.time * 6) * 0.05 * (0.3 + (st.speed || 0));
       rig.j.cape.rotation.x += (target - rig.j.cape.rotation.x) * (1 - Math.exp(-8 * dt));
@@ -485,6 +510,33 @@ const Rig = (() => {
       yawQ.setFromAxisAngle(Y, rig.shieldYaw);
       rig.shield.quaternion.copy(tmpQ2.invert().multiply(tmpQ).multiply(yawQ));
     }
+  }
+
+  // ---------------- Two-bone arm IK ----------------
+  // Puts the left hand on the two-handed grip: solves the elbow from the arm lengths with the elbow bent down and out,
+  // then aims the upper arm and forearm at it (twist is not needed for these round limbs). w blends from the clip pose.
+  const ikS = new THREE.Vector3(), ikT = new THREE.Vector3(), ikE = new THREE.Vector3(), ikU = new THREE.Vector3(), ikP = new THREE.Vector3(), ikD = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0);
+  const iqA = new THREE.Quaternion(), iqB = new THREE.Quaternion();
+  function aimLimb(jt, dir, w) {
+    jt.parent.getWorldQuaternion(iqA); iqB.setFromUnitVectors(DOWN, dir);
+    jt.quaternion.slerp(iqA.invert().multiply(iqB), w);
+    jt.updateMatrixWorld(true);
+  }
+  function gripIK(rig, w) {
+    if (w < 0.01 || !rig.weapon) return;
+    const sh = rig.j.shL, el = rig.j.elL, a = 0.3, b = 0.29;
+    rig.root.updateMatrixWorld(true);
+    ikT.set(0, 0, -0.2); rig.weapon.group.localToWorld(ikT);
+    sh.getWorldPosition(ikS);
+    ikU.subVectors(ikT, ikS); const raw = ikU.length(); ikU.divideScalar(raw || 1);
+    const d = Math.min(a + b - 0.005, Math.max(Math.abs(a - b) + 0.01, raw));
+    const cosA = (a * a + d * d - b * b) / (2 * a * d), sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+    rig.root.getWorldQuaternion(iqA); ikP.set(0.5, -1, -0.2).applyQuaternion(iqA);       // pole: down and out to the left side
+    ikP.addScaledVector(ikU, -ikP.dot(ikU)).normalize();
+    ikE.copy(ikS).addScaledVector(ikU, a * cosA).addScaledVector(ikP, a * sinA);
+    aimLimb(sh, ikD.subVectors(ikE, ikS).normalize(), w);
+    el.getWorldPosition(ikE);
+    aimLimb(el, ikD.subVectors(ikT, ikE).normalize(), w);
   }
 
   // ---------------- Swing trail ----------------

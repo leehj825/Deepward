@@ -5,7 +5,8 @@ const CFG = {
     staminaRegen: 38, staminaDelay: 0.55,          // per second, after this long without spending any
     speed: 5.4, blockSpeed: 2.2, turnRate: 16,
     radius: 0.45,
-    dodge: { time: 0.46, dist: 5.2, iStart: 0.03, iEnd: 0.34, cost: 20 },
+    // A quick ground dash in any direction (keeps facing the camera in the behind view); invulnerable for most of it
+    dodge: { time: 0.3, dist: 2.6, iStart: 0.02, iEnd: 0.24, cost: 18 },
     block: {
       reduce: 0.85,              // share of damage a block absorbs
       staminaPerDmg: 1.15,       // stamina lost per point of damage blocked
@@ -98,8 +99,8 @@ const CFG = {
   fadeTime: 1.4,                 // seconds for a room to fade in ahead of you, or out behind you
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
-    knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or roll behind them.',
-    brute: 'A RED glow is UNBLOCKABLE. DODGE (Space) through it - you are invulnerable mid-roll.',
+    knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
+    brute: 'A RED glow is UNBLOCKABLE. DASH (Space) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 
@@ -121,6 +122,9 @@ const CFG = {
       axe: { name: 'Axe', dmg: 1.06, posture: 1.35, speed: 0.92, range: -0.05, len: 0.8 },
       mace: { name: 'Mace', dmg: 0.92, posture: 1.65, speed: 0.94, range: -0.1, len: 0.72 },
       longsword: { name: 'Longsword', dmg: 1.12, posture: 1.05, speed: 0.88, range: 0.45, len: 1.2 },
+      // Two hands: big hits and reach, but no shield. The blade blocks only part of a blow, blocking costs more
+      // stamina, and the bare off side takes extra damage.
+      greatsword: { name: 'Greatsword', dmg: 1.5, posture: 1.45, speed: 0.84, range: 0.55, len: 1.4, twoHanded: true, block: 0.55, guard: 1.45, exposed: 0.1 },
     },
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],

@@ -114,7 +114,7 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dodge.'); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dash.'); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
@@ -442,12 +442,18 @@ function updateBehindCamera(dt) {
   const p = G.player, portrait = innerHeight > innerWidth;
   camTarget.lerp(p.pos, 1 - Math.exp(-14 * dt));
   setFov(portrait ? 72 : 55);
-  let d = View.dist * (portrait ? 1.15 : 1);
-  const cx = () => camTarget.x + Math.sin(View.yaw) * Math.cos(View.pitch) * d, cz = () => camTarget.z + Math.cos(View.yaw) * Math.cos(View.pitch) * d;
-  // Pull in toward the hero rather than look through a wall
-  for (let i = 0; i < 20 && !World.inSpace(cx(), cz()) && d > 1.5; i++) d *= 0.9;
+  const want = View.dist * (portrait ? 1.15 : 1), sy = Math.sin(View.yaw) * Math.cos(View.pitch), sz = Math.cos(View.yaw) * Math.cos(View.pitch);
+  // Near a wall the camera slides in toward the hero instead of looking through it: find (by halving) the longest
+  // distance that keeps it a little inside the room, then ease toward it - quickly when a wall closes in, gently when
+  // it opens up again - so backing into a wall is a smooth push-in, not a flicker between distances.
+  const inside = d => World.inSpace(camTarget.x + sy * d, camTarget.z + sz * d, -0.35);
+  let fit = want;
+  if (!inside(want)) { let lo = 0.8, hi = want; for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (inside(mid)) lo = mid; else hi = mid; } fit = lo; }
+  View.curDist = View.curDist || want;
+  View.curDist += (fit - View.curDist) * Math.min(1, dt * (fit < View.curDist ? 16 : 3));
+  const d = Math.min(View.curDist, fit + 0.05), close = Math.max(0, 1 - d / want);
   const s = FX.shakeAmt;
-  camera.position.set(cx() + (Math.random() - 0.5) * s, View.LOOK_H + Math.sin(View.pitch) * d + (Math.random() - 0.5) * s, cz());
+  camera.position.set(camTarget.x + sy * d + (Math.random() - 0.5) * s, View.LOOK_H + Math.sin(View.pitch) * d + close * 0.9 + (Math.random() - 0.5) * s, camTarget.z + sz * d);
   camLook.set(camTarget.x, View.LOOK_H, camTarget.z);
   camera.lookAt(camLook);
 }

@@ -46,6 +46,13 @@ const FX = (() => {
     return o;
   }
   function killRing(o) { o.life = 0; }
+  // An after-image: a frozen copy of a character in one see-through glowing material, fading out (geometry is shared)
+  const ghosts = [];
+  function ghost(root, color, life) {
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+    const g = root.clone(); g.traverse(o => { if (o.isMesh) { o.material = m; o.castShadow = false; } });
+    scene.add(g); ghosts.push({ g, m, life, max: life });
+  }
 
   function text(pos, str, cls = '') {
     const d = document.createElement('div'); d.className = 'ftxt ' + cls; d.textContent = str; layer.appendChild(d);
@@ -78,6 +85,10 @@ const FX = (() => {
       if (r.fill) r.fill.material.opacity = 0.1 + 0.25 * (1 - k);
       if (r.life <= 0) { scene.remove(r.m); r.m.geometry.dispose(); if (r.fill) { scene.remove(r.fill); r.fill.geometry.dispose(); } rings.splice(i, 1); }
     }
+    for (let i = ghosts.length - 1; i >= 0; i--) {
+      const h = ghosts[i]; h.life -= dt; h.m.opacity = 0.35 * Math.max(0, h.life / h.max);
+      if (h.life <= 0) { scene.remove(h.g); h.m.dispose(); ghosts.splice(i, 1); }
+    }
     for (let i = texts.length - 1; i >= 0; i--) {
       const t = texts[i]; t.life -= dt; const k = 1 - t.life / t.max;
       const s = project(t.pos);
@@ -96,7 +107,7 @@ const FX = (() => {
   }
 
   return {
-    init, burst, glint, ring, killRing, text, update, scaleDt, project,
+    init, burst, glint, ring, killRing, ghost, text, update, scaleDt, project,
     shake(a) { cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
     hitStop(t) { time.stop = Math.max(time.stop, t); },
     slowmo(t, s) { time.slow = t; time.slowScale = s; },
@@ -106,6 +117,7 @@ const FX = (() => {
       for (const r of rings) { scene.remove(r.m); if (r.fill) scene.remove(r.fill); } rings.length = 0;
       for (const g of glints) scene.remove(g.s); glints.length = 0;
       for (const t of texts) t.d.remove(); texts.length = 0;
+      for (const h of ghosts) { scene.remove(h.g); h.m.dispose(); } ghosts.length = 0;
       time.stop = time.slow = 0;
     },
   };

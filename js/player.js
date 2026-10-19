@@ -4,7 +4,7 @@ const Player = (() => {
   const P = CFG.player;
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
-  const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4 };
+  const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false };
   const gearStats = () => (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE;
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
 
@@ -70,14 +70,19 @@ const Player = (() => {
     setState(p, 'attack');
   }
 
+  // The dash (state 'roll'): a short burst along the stick. In the behind view the hero keeps facing the camera's way,
+  // so it can dash sideways or backwards; in the top-down view it turns to face the dash.
   function startRoll(p) {
     spend(p, P.dodge.cost);
     const m = Input.move;
     p.rollDir = Math.hypot(m.x, m.z) > 0.2 ? Math.atan2(m.x, m.z) : p.facing;
-    p.facing = p.rollDir; p.rollFrom.copy(p.pos);
+    if (View.mode !== 'behind') p.facing = p.rollDir;
+    const rel = p.rollDir - p.facing; p.dashF = Math.cos(rel); p.dashS = Math.sin(rel);
+    p.rollFrom.copy(p.pos); p.ghosts = 0;
     p.blocking = false; p.combo = 0;
     setState(p, 'roll');
     Snd.play('roll');
+    FX.burst(new THREE.Vector3(p.pos.x, 0.1, p.pos.z), 0x9a8e7a, 10, 3, 0.35);
   }
 
   function update(p, dt) {
@@ -143,6 +148,9 @@ const Player = (() => {
       p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * D.dist * ease;
       p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
       moveSpeed = P.speed;
+      if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
+      // Fading after-images mark the dash
+      if (p.ghosts < 3 && p.t > p.ghosts * 0.07 + 0.02) { p.ghosts++; FX.ghost(p.rig.root, 0x9ad8ff, 0.22); }
       if (p.t >= D.time) { setState(p, 'free'); tryAct(p); }
     } else if (p.state === 'drink') {
       // A slow walk while the flask goes down; the healing lands partway through, so a hit early on wastes it
@@ -166,9 +174,10 @@ const Player = (() => {
 
     const r = p.rig;
     r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
-    const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state;
+    const mode = p.state === 'free' ? (p.blocking ? 'block' : (p.speedK > 0.08 ? 'move' : 'idle')) : p.state === 'hurt' ? 'hurt' : p.state === 'roll' ? 'dash' : p.state;
     Rig.animate(r, {
-      mode, t: p.t, speed: p.speedK, mps: p.speedK * P.speed, calm: G.mode === 'camp', cycle: p.cycle, dirF: p.state === 'free' ? p.dirF : 1, dirS: p.state === 'free' ? p.dirS : 0,
+      mode, t: p.t, speed: p.speedK, mps: p.speedK * P.speed, calm: G.mode === 'camp', cycle: p.cycle, blockT: p.blockT,
+      dirF: p.state === 'free' ? p.dirF : p.state === 'roll' ? p.dashF : 1, dirS: p.state === 'free' ? p.dirS : p.state === 'roll' ? p.dashS : 0,
       phaseT: p.phaseT, wind: p.atk && p.atk.wind, active: p.atk && p.atk.active, recover: p.atk && p.atk.recover,
       p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
       atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
