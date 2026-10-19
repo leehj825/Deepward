@@ -160,7 +160,7 @@ const Props = (() => {
     put(g, new THREE.CylinderGeometry(0.12, 0.14, 2.2, 6), wood, 0, 1.1, -0.32);
     for (const s of [-1, 1]) put(g, new THREE.TorusGeometry(0.09, 0.025, 4, 8), iron, s * 0.3, 1.0, -0.2).rotation.y = Math.PI / 2;
     put(g, new THREE.BoxGeometry(0.7, 0.04, 0.04), iron, 0, 1.25, -0.28);
-    const rig = Rig.build('npc', { npc: { cloth: 0x5a5048, hair: 0x3a2a1a, skin: 0xd8a882 } });
+    const rig = Rig.build('npc', { npc: { cloth: 0x5a5048, hair: 0x3a2a1a, skin: 0xd8a882, pose: { clip: 'kneel', rate: 0.7 } } });   // kneeling, chained
     rig.root.rotation.y = Math.PI; g.add(rig.root); g.rotation.y = room.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
     captives.push({ g, rig, room, x: room.cx + lx, z, freed: false });
   }

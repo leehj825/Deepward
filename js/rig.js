@@ -496,7 +496,9 @@ const Rig = (() => {
 
     root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
-    rig.time = Math.random() * 10;
+    rig.time = Math.random() * 10; rig.pace = 0.85 + Math.random() * 0.3;            // no two idle quite in step
+    if (N.pose) rig.posture = N.pose;
+    if (kind === 'npc') skinRig(rig);                                            // one draw call per person
     rig.shieldYaw = 0;
     if (CFG.enemies[kind] && CFG.enemies[kind].scale) root.scale.setScalar(CFG.enemies[kind].scale);
     return rig;
@@ -836,6 +838,19 @@ const Rig = (() => {
   }
   const out = { q: null, hipsY: 0.9, hipsZ: 0 };
   // Fills rig.tq with the clip pose for this state; returns the blend rate, or 0 when a hand-made pose should be used
+  // A posture: a clip (an everyday idle, kneeling, seated work) at the person's own pace and phase, played back and forth
+  // over part of it when it is not a loop, with fixed turns of some joints on top (P.add: joint -> Euler, applied after
+  // the clip's own rotation; P.set: joint -> Euler, replacing it)
+  const pq = new THREE.Quaternion(), pe = new THREE.Euler();
+  function posture(rig, P) {
+    const c = Mocap.clips[P.clip]; if (!c) return Mocap.sample('idleCalm', rig.time, out);
+    let t = rig.time * (P.rate || 1) + (P.phase || 0);
+    if (!c.loop) { const a = (P.from || 0) * c.d, d = Math.max(0.1, ((P.to || 1) - (P.from || 0)) * c.d), u = t % (2 * d); t = a + (u < d ? u : 2 * d - u); }
+    Mocap.sample(P.clip, t, out);
+    if (P.add) for (const j in P.add) { const e = P.add[j]; pe.set(e[0], e[1], e[2]); out.q[j].multiply(pq.setFromEuler(pe)); }
+    if (P.set) for (const j in P.set) { const e = P.set[j]; pe.set(e[0], e[1], e[2]); out.q[j].setFromEuler(pe); }
+    if (P.hipsY !== undefined) out.hipsY = P.hipsY;
+  }
   function mocapPose(rig, st, dt) {
     const gs = rig.set === 'gs', m = st.mode;
     out.q = rig.tq; out.hipsY = 0.9; out.hipsZ = 0;
@@ -846,7 +861,11 @@ const Rig = (() => {
       rig.loco += dt * Math.min(1.8, Math.max(0.4, (st.mps || 1.5) / lc.ref)) / c.d;
       Mocap.sample(lc.name, rig.loco * c.d, out);
     }
-    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(rig.set === 'mu' ? 'mIdle' : gs ? 'gsIdle' : (rig.calm || st.calm) ? 'idleCalm' : 'idle', rig.time, out);
+    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) {
+      if (rig.posture && m !== 'spawn') posture(rig, rig.posture);                // a person's own way of standing, sitting or kneeling
+      else if (st.calm && !rig.calm && rig.set === 'ss') Mocap.sample('idleEase', rig.time, out);   // the hero at ease in the Hold
+      else Mocap.sample(rig.set === 'mu' ? 'mIdle' : gs ? 'gsIdle' : rig.calm ? 'idleCalm' : 'idle', rig.time * (rig.pace || 1), out);
+    }
     if (m === 'block') {                                                    // guard up; the legs keep walking underneath when moving
       if (gs && !rig.twoHand) return 0;
       if (gs) Mocap.sample('gsBlock', Math.min(st.blockT || 0, 0.45), out, moving ? Mocap.UPPER : Mocap.BONES);
@@ -1027,5 +1046,49 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
+  // ---------------- One skinned mesh per character ----------------
+  // A rig is a tree of joints, each holding a few rigid meshes: one draw call per mesh. skinRig() merges every plain mesh
+  // into a single SkinnedMesh whose bones are the joints themselves (each vertex bound wholly to its joint), with the
+  // colours carried per vertex, so the joints animate exactly as before and the whole body is drawn at once.
+  // Glowing, textured and see-through parts (weapons, shields) stay as they are.
+  const skM = new THREE.Matrix4(), skInv = new THREE.Matrix4(), skC = new THREE.Color();
+  function skinRig(rig) {
+    const root = rig.root; root.updateMatrixWorld(true); skInv.copy(root.matrixWorld).invert();
+    const meshes = [];
+    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !rig.glowMats.includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
+    if (meshes.length < 2) return;
+    const bones = [], boneOf = new Map();
+    let n = 0; const parts = [];
+    for (const o of meshes) {
+      if (!boneOf.has(o.parent)) { boneOf.set(o.parent, bones.length); bones.push(o.parent); }
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(skM.multiplyMatrices(skInv, o.matrixWorld));                     // into the root's space, as posed now
+      parts.push([g, o.material.color, boneOf.get(o.parent)]); n += g.attributes.position.count;
+    }
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    let k = 0;
+    for (const [g, c, b] of parts) {
+      const cnt = g.attributes.position.count, vc = g.attributes.color;
+      pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3);
+      for (let v = 0; v < cnt; v++) {
+        if (vc) skC.setRGB(vc.getX(v) * c.r, vc.getY(v) * c.g, vc.getZ(v) * c.b); else skC.copy(c);
+        col[(k + v) * 3] = skC.r; col[(k + v) * 3 + 1] = skC.g; col[(k + v) * 3 + 2] = skC.b;
+        si[(k + v) * 4] = b; sw[(k + v) * 4] = 1;
+      }
+      k += cnt; g.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    geo.computeBoundingSphere(); geo.boundingSphere.radius += 0.6;                     // room for the limbs to swing
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.85, flatShading: true, skinning: true });
+    const body = new THREE.SkinnedMesh(geo, mat); body.castShadow = true; body.receiveShadow = true;
+    root.add(body); body.updateMatrixWorld(true);
+    body.bind(new THREE.Skeleton(bones), body.matrixWorld);
+    for (const o of meshes) { o.parent.remove(o); o.geometry.dispose(); }
+    rig.mats = rig.mats.filter(m => !meshes.some(o => o.material === m)).concat(mat); rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    rig.body3 = body;
+  }
+
+  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, skin: skinRig, ATTACKS };
 })();

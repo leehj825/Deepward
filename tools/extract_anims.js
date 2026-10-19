@@ -29,6 +29,10 @@ const WANT = {
   shoot: [A, 'bowDraw'],
   gsAttack: [A, 'gsAttack1'], gsSlash: [A, 'gsAttack2'], gsSlash5: [A, 'gsAttack3'], gsJumpAttack: [L, 'gs_great_sword_jump_attack'],
   gsImpact: [A, 'gsImpact'], gsDie: [A, 'dieGs'],
+  // everyday postures for the people of the Hold (and the hero at ease there)
+  idleEase: [L, 'loco_idle'], idleLook: [L, 'bow_standing_idle_02_looking'], idleExamine: [L, 'bow_standing_idle_03_examine'], idleUnarmed: [L, 'bow_unarmed_idle_01'],
+  idleShift: [L, 'ss_sword_and_shield_idle_2'], idleAlert: [L, 'ss_sword_and_shield_idle_4'], idleHold: [L, 'farm_holding_idle'],
+  kneel: [L, 'farm_kneeling_idle'], seatWork: [L, 'farm_cow_milking'], pullPlant: [L, 'farm_pull_plant'], plant: [L, 'farm_plant_a_plant'],
 };
 
 const r3 = v => Math.round(v * 1000) / 1000;

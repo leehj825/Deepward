@@ -66,7 +66,7 @@ A box at the top says what to press in your own controls (keyboard, controller o
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
-- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass.
+- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass. People stand, sit and kneel in their own ways: Wenna and two villagers sit on the logs by the fire, Nell works seated at her bench, a gardener kneels at the vegetable patch, Maren stoops, Bram looks over his work, and the guards stand alert.
 - **The people of the Hold:**
   - **Maren**, the elder, tells the story before each stage and after its guardian falls. **Wenna the bard** sits with her by the fire and sings guardian lore.
   - **Bram the smith** (smiths' row, west) forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap. **Nell the gem cutter** next door sets and pries gems, and cuts three stones of one kind into one of another.
