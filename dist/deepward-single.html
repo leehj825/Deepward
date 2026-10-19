@@ -248,6 +248,16 @@ body:not(.playing) #padKeys { display: none !important; }
 @keyframes tpulse2 { 50% { opacity: 0.45; } }
 .irow.uniq { background: linear-gradient(90deg, rgba(255, 122, 42, 0.14), rgba(255, 255, 255, 0.03)); border-left: 3px solid #ff7a2a; }
 
+/* Training yard lesson box */
+#lesson { position: fixed; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); display: none; padding: 10px 14px; background: rgba(12, 9, 14, 0.85); border: 1px solid rgba(242, 210, 122, 0.45); border-radius: 8px; text-align: center; z-index: 6; }
+#lesson.show { display: block; }
+#lesson .lt { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #f2d27a; }
+#lesson .lt b { margin-left: 8px; color: #fff; }
+#lesson .lx { margin: 6px 0 8px; font-size: 15px; line-height: 1.4; }
+#lesson .lb { display: flex; gap: 8px; justify-content: center; }
+#lesson button { font-size: 11px; padding: 4px 10px; color: #eee6d6; background: rgba(242, 210, 122, 0.1); border: 1px solid rgba(242, 210, 122, 0.35); border-radius: 4px; cursor: pointer; }
+@media (max-width: 640px) { #lesson { top: calc(150px + env(safe-area-inset-top)); width: calc(100vw - 140px); left: 12px; transform: none; } #lesson .lx { font-size: 13px; } }
+
 </style>
 </head>
 <body>
@@ -270,6 +280,7 @@ body:not(.playing) #padKeys { display: none !important; }
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip"></div>
+<div id="lesson"></div>
 <div id="padKeys"><b>LS</b> move · <b>RS</b> camera (click: lock on) · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
 <div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>F</b> ultimate · <b>E</b> talk · <b>I</b> gear · <b>T</b> talents · <b>B</b> camera · <b>C</b> lock on</div>
 
@@ -396,6 +407,12 @@ const CFG = {
         { weight: 3, hits: [{ pose: 'slashR', wind: 0.85, active: 0.14, recover: 0.8, dmg: 22, posture: 30, blockMult: 1.6, range: 2.9, arc: 140, lunge: 1.0 }] },
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
+    },
+    // Sergeant Hobb, who spars with the hero in the training yard (the tutorial gives him one move at a time)
+    sparring: {
+      name: 'Sergeant Hobb', rig: 'knight', hp: 99999, posture: 60, postureRegen: 0, speed: 1.4, radius: 0.5, scale: 1.0,
+      flinch: false, approach: 2.0, cooldown: [1.4, 1.9], xp: 0, gold: 0,
+      attacks: [{ weight: 1, hits: [{ pose: 'overhead', wind: 1.05, active: 0.12, recover: 1.0, dmg: 6, posture: 4, range: 2.5, arc: 100, lunge: 0.5 }] }],
     },
     // Keeps its distance and looses arrows (blockable; a parry just knocks the arrow aside). Does not wait its turn.
     archer: {
@@ -2414,7 +2431,7 @@ const Player = (() => {
         if (p.st >= cost) {
           spend(p, cost);
           Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
-          damage(p, dmg * (1 - p.S.block), e.pos);
+          damage(p, dmg * (1 - p.S.block), e.pos); G.stats.blocks = (G.stats.blocks || 0) + 1;
           if (p.S.u && p.S.u.thorns && e.def) Enemy.burn(e, dmg * 0.5, 0xc8ff6a);   // Crown of Thorns
           return 'block';
         }
@@ -3975,6 +3992,15 @@ const UI = (() => {
       } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
+    trainer() {
+      const S = Items.S;
+      return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
+        ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
+    },
+    trainOffer() {
+      return `<h2>Before the Deep</h2><p>Maren: "Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense."</p>
+        ${btn('Train now', 'train', '', false, 'hot')}${btn('Later', 'close')}`;
+    },
     deeper(o) {
       const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
       return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
@@ -4083,9 +4109,10 @@ const UI = (() => {
     if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
-    if (a === 'open') { open.id = arg; open.opt = {}; focus = -1; return render(); }
+    if (a === 'open') { open.opt = open.id === 'trainer' ? { trainer: true } : {}; open.id = arg; focus = -1; return render(); }
     if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
+    if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
@@ -4307,6 +4334,91 @@ const Endless = (() => {
   }
   const unlocked = () => !!Items.S && Items.S.stage >= CFG.stages.length;
   return { rng, today, floorDef, start, newRun, record, unlocked };
+})();
+
+</script>
+<script>
+// Deepward - the training yard: Sergeant Hobb spars with the hero in camp through six lessons (strike, heavy, block,
+// parry, dash, break and execute). A box at the top says what to do in the hero's own controls and counts progress;
+// each lesson can be skipped, and the whole thing left at any time. The first time it is finished, it pays.
+const Tutorial = (() => {
+  const AREA = { x: 4, z: -4 };
+  const SLOW = { pose: 'overhead', wind: 1.05, active: 0.12, recover: 1.0, dmg: 6, posture: 4, range: 2.5, arc: 100, lunge: 0.5 };
+  const SLAM = { pose: 'heavy', wind: 1.2, active: 0.14, recover: 1.1, dmg: 8, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.0, r: 2.3 }, unblockable: true, lunge: 0 };
+  // text: [keyboard, controller, touch]
+  const LESSONS = [
+    { id: 'light', need: 5, title: 'Strike', text: ['Hit Hobb with light attacks: J or left-click.', 'Hit Hobb with light attacks: RB or X.', 'Hit Hobb with ATTACK.'], attack: null },
+    { id: 'heavy', need: 2, title: 'Heavy blow', text: ['Land heavy attacks: K. They break guards and posture.', 'Land heavy attacks: RT. They break guards and posture.', 'Land HEAVY attacks. They break guards and posture.'], attack: null },
+    { id: 'block', need: 3, title: 'Block', text: ['A WHITE glint means you can block. Hold L or right-click as he swings.', 'A WHITE glint means you can block. Hold LB as he swings.', 'A WHITE glint means you can block. Hold BLOCK as he swings.'], attack: SLOW },
+    { id: 'parry', need: 3, title: 'Parry', text: ['Raise the block right at the moment of impact - not early - to PARRY. Tap L just as the blade lands.', 'Raise the block right at impact to PARRY. Tap LB just as the blade lands.', 'Tap BLOCK right as the blade lands to PARRY.'], attack: SLOW },
+    { id: 'dash', need: 2, title: 'Dash', text: ['RED glow and a red ring: unblockable. Dash out with Space (plus a direction) just before it lands.', 'RED glow: unblockable. Dash with A (plus a direction) just before it lands.', 'RED glow: unblockable. Tap DASH just before it lands.'], attack: SLAM },
+    { id: 'exec', need: 1, title: 'Break and execute', text: ['Fill his posture bar (parries and heavies), then hit K close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then RT close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then HEAVY close by to EXECUTE him.'], attack: SLOW },
+  ];
+  let on = false, i = 0, n = 0, foe = null, base = null, lastHp = 0, pending = false;
+  const box = document.getElementById('lesson');
+  const style = () => document.body.classList.contains('pad') ? 1 : document.body.classList.contains('touch') ? 2 : 0;
+
+  function spawnFoe(L) {
+    if (foe) Enemy.dispose(foe, G.scene), G.enemies.splice(G.enemies.indexOf(foe), 1);
+    foe = Enemy.spawn(G.scene, 'sparring', new THREE.Vector3(AREA.x, 0, AREA.z), 1);
+    foe.def = JSON.parse(JSON.stringify(foe.def));
+    foe.def.attacks = L.attack ? [{ weight: 1, hits: [Object.assign({}, L.attack)] }] : foe.def.attacks;
+    foe.cooldown = L.attack ? 1.2 : 1e9; if (!L.attack) foe.def.cooldown = [1e9, 1e9];
+    if (L.id === 'exec') foe.def.posture = 30;
+    G.enemies.push(foe); lastHp = foe.hp;
+  }
+  function begin(k = 0) {
+    on = true; i = k; n = 0; pending = false; G.training = true;
+    const p = G.player; p.pos.set(AREA.x, 0, AREA.z + 3.2); p.facing = Math.PI; View.yaw = 0;
+    p.hp = p.maxHp; p.st = p.maxSt;
+    base = { parries: G.stats.parries, dodges: G.stats.dodges, blocks: G.stats.blocks || 0, exec: G.stats.executions || 0 };
+    spawnFoe(LESSONS[i]); show(); Snd.play('wave');
+  }
+  function next() {
+    i++; n = 0;
+    if (i >= LESSONS.length) return finish();
+    base = { parries: G.stats.parries, dodges: G.stats.dodges, blocks: G.stats.blocks || 0, exec: G.stats.executions || 0 };
+    G.player.hp = G.player.maxHp; G.player.st = G.player.maxSt;
+    spawnFoe(LESSONS[i]); show(); Snd.play('wave'); FX.text(Combat.chestPos(G.player.pos, 2.6), 'LESSON ' + (i + 1), 'xp');
+  }
+  function finish() {
+    const S = Items.S, first = !S.trained;
+    stop();
+    S.trained = true; if (first) Items.addGold(150); Items.save();
+    UI.toast(first ? 'Training complete: Hobb tosses you 150 gold' : 'Training complete', '#ffd040');
+    G.onTrained && G.onTrained();
+  }
+  function stop() {
+    on = false; G.training = false; box.classList.remove('show');
+    if (foe) { Enemy.dispose(foe, G.scene); const k = G.enemies.indexOf(foe); if (k >= 0) G.enemies.splice(k, 1); foe = null; }
+  }
+  function show() {
+    const L = LESSONS[i];
+    box.innerHTML = `<div class="lt">Lesson ${i + 1} / ${LESSONS.length} · ${L.title} <b>${Math.min(n, L.need)} / ${L.need}</b></div><div class="lx">${L.text[style()]}</div>
+      <div class="lb"><button data-t="skip">Skip lesson</button><button data-t="leave">Leave training</button></div>`;
+    box.classList.add('show');
+  }
+  box.addEventListener('click', ev => { const b = ev.target.closest('[data-t]'); if (!b || !on) return; if (b.dataset.t === 'skip') next(); else stop(); });
+
+  // Count what the lesson asks for
+  function update() {
+    if (!on) return;
+    const p = G.player, L = LESSONS[i]; let got = n;
+    if (p.hp < p.maxHp * 0.4) p.hp = p.maxHp;                                 // Hobb pulls his blows
+    if (foe && foe.state !== 'dead' && foe.hp < lastHp) {
+      if (L.id === 'light' && p.atkKind === 'light') got++;
+      if (L.id === 'heavy' && p.atkKind === 'heavy') got++;
+      lastHp = foe.hp;
+    }
+    if (L.id === 'block') got = (G.stats.blocks || 0) - base.blocks + (G.stats.parries - base.parries);
+    if (L.id === 'parry') got = G.stats.parries - base.parries;
+    if (L.id === 'dash') got = G.stats.dodges - base.dodges;
+    if (L.id === 'exec') got = (G.stats.executions || 0) - base.exec;
+    if (got !== n && !pending) { n = got; show(); if (n < L.need) Snd.play('glint'); }
+    if (n >= L.need && !pending) { pending = true; G.after(0.8, () => { pending = false; if (on && LESSONS[i] === L) next(); }); }
+    if (foe && foe.state === 'dead' && L.id !== 'exec') spawnFoe(L);
+  }
+  return { begin, stop, update, get active() { return on; }, get index() { return i; }, LESSONS };
 })();
 
 </script>
@@ -4537,6 +4649,7 @@ const dust = (() => {
 })();
 
 World.init(scene, hemi);
+G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
 
 // ---------------- Collisions ----------------
@@ -4608,8 +4721,8 @@ function updateHud() {
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
   }
   $('flaskN').textContent = p.flasks;
-  // In camp, the nearest person or place you can use; in the dungeon, a shrine
-  const spot = p.state === 'dead' ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -4708,6 +4821,7 @@ function placeHero(at) {
 }
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
+  if (Tutorial.active) Tutorial.stop();
   clearEnemies(); G.blessings = []; G.run = null;
   const at = World.enterCamp();
   G.mode = 'camp';
@@ -4736,7 +4850,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => showTip('Walk up to Bram, Tilda, Maren, the ledger or the gate and press E (Ⓐ on a controller) to talk. R drinks a flask, I opens your gear.')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -4865,8 +4979,12 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
-  openPanel(s.id === 'trainer' ? 'talents' : s.id, s.id === 'trainer' ? { trainer: true } : undefined);
+  if (s.id === 'trainer') return openPanel('trainer');
+  openPanel(s.id);
 }
+// The training yard: Hobb's six lessons, in camp
+G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };
+G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
 // A blessing chosen at a shrine: it lasts until the hero leaves the stage
 G.bless = (id, shrine) => {
   (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true;
@@ -4970,6 +5088,7 @@ function step(real) {
     runTimers();
     FX.update(dt);
     updateHud();
+    Tutorial.update();
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
@@ -4991,7 +5110,7 @@ window.__dw = {
   G, Input, CFG, step,
   start: startGame, openSettings, musicMood, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
-  arena(k = 0) { Items.wipe(); startGame('new'); UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
+  arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },

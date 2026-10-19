@@ -83,6 +83,12 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // Sergeant Hobb, who spars with the hero in the training yard (the tutorial gives him one move at a time)
+    sparring: {
+      name: 'Sergeant Hobb', rig: 'knight', hp: 99999, posture: 60, postureRegen: 0, speed: 1.4, radius: 0.5, scale: 1.0,
+      flinch: false, approach: 2.0, cooldown: [1.4, 1.9], xp: 0, gold: 0,
+      attacks: [{ weight: 1, hits: [{ pose: 'overhead', wind: 1.05, active: 0.12, recover: 1.0, dmg: 6, posture: 4, range: 2.5, arc: 100, lunge: 0.5 }] }],
+    },
     // Keeps its distance and looses arrows (blockable; a parry just knocks the arrow aside). Does not wait its turn.
     archer: {
       name: 'Skeleton Archer', hp: 30, posture: 35, postureRegen: 14, speed: 2.6, radius: 0.42, scale: 1,

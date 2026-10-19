@@ -212,3 +212,9 @@ Real players are slower to react than the bot, so expect more deaths.
 - **Difficulty:** `CFG.difficulty` scales damage taken (`Player.damage`), enemy health at spawn, enemy cooldowns and the number allowed to attack at once, and shifts the parry window. It can change at any time from Settings and applies to new spawns.
 - **Telegraph words:** text over red and amber telegraphs, for colour-blind players.
 - **Effects:** hit-stop and slow motion can each be turned off, and `FX` respects both settings.
+
+## Training yard (built)
+
+- **Hobb:** `Tutorial` spawns him (the `sparring` enemy: a knight rig, huge health and slow steps) beside the camp fire. Each lesson gives him one move: none for the striking lessons, a slow blockable overhead for block and parry, and an unblockable slam for the dash.
+- **Counting progress:** the lessons count real events (`G.stats.blocks`, `parries`, `dodges`, `executions`, and Hobb's health falling during light or heavy attacks), so the only way through is to do each move.
+- **While training:** camp prompts are off, and Hobb pulls his blows, so you can't fall.

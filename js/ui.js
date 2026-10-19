@@ -117,6 +117,15 @@ const UI = (() => {
       } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
+    trainer() {
+      const S = Items.S;
+      return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
+        ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
+    },
+    trainOffer() {
+      return `<h2>Before the Deep</h2><p>Maren: "Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense."</p>
+        ${btn('Train now', 'train', '', false, 'hot')}${btn('Later', 'close')}`;
+    },
     deeper(o) {
       const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
       return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
@@ -225,9 +234,10 @@ const UI = (() => {
     if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
-    if (a === 'open') { open.id = arg; open.opt = {}; focus = -1; return render(); }
+    if (a === 'open') { open.opt = open.id === 'trainer' ? { trainer: true } : {}; open.id = arg; focus = -1; return render(); }
     if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
+    if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }

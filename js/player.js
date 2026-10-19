@@ -302,7 +302,7 @@ const Player = (() => {
         if (p.st >= cost) {
           spend(p, cost);
           Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
-          damage(p, dmg * (1 - p.S.block), e.pos);
+          damage(p, dmg * (1 - p.S.block), e.pos); G.stats.blocks = (G.stats.blocks || 0) + 1;
           if (p.S.u && p.S.u.thorns && e.def) Enemy.burn(e, dmg * 0.5, 0xc8ff6a);   // Crown of Thorns
           return 'block';
         }

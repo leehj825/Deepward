@@ -15,7 +15,7 @@ const path = require('path');
   const ev = async (k, code) => { r[k] = await pg.evaluate(code); };
   await ev('intro', `(() => { __dw.Items.wipe(); __dw.start('new'); __dw.sim(0.3); return __dw.G.state === 'menu' && document.querySelector('.dlg') !== null; })()`);
   await shot('1_intro');
-  await ev('introDone', `(() => { for (let i = 0; i < 6; i++) { document.querySelector('#pcard .pb').click(); } __dw.sim(0.2); return __dw.G.state === 'play' && __dw.G.mode === 'camp'; })()`);
+  await ev('introDone', `(() => { while (document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click(); const offer = !!document.querySelector('.pcard.trainOffer'); document.querySelector('.pcard.trainOffer [data-act="close"]').click(); __dw.sim(0.2); return offer && __dw.G.state === 'play' && __dw.G.mode === 'camp'; })()`);
   await shot('2_camp');
   // Walk to Bram and open the smithy
   await ev('smithPrompt', `(() => { const p = __dw.G.player; p.pos.set(-5.2, 0, 0.6); __dw.sim(0.3); return !!__dw.G.spot && __dw.G.spot.id; })()`);

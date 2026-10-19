@@ -4,6 +4,17 @@ A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128
 
 Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
+**Training yard.** Sergeant Hobb spars with you in camp through six lessons:
+
+1. Light attacks
+2. Heavy attacks
+3. Blocking the white glint
+4. Parrying at the moment of impact
+5. Dashing through a red, unblockable slam
+6. Breaking his posture and executing him
+
+A box at the top says what to press in your own controls (keyboard, controller or touch) and counts your progress. You can skip a lesson or leave at any time. A new game offers the training after the opening story, and the trainer at the yard sign runs it again whenever you like. Finishing it the first time pays 150 gold.
+
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
 - **The people of the camp:**
@@ -252,6 +263,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
 | `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings |
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
+| `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -261,6 +273,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/settings_test.js` | Headless check of the settings menu, that each setting applies and is kept, and the music moods |
 | `tools/loot_test.js` | Headless check of uniques (each drops once, and each effect), gems in sockets, Bram's Gems tab and gem drops |
 | `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
+| `tools/tutorial_test.js` | Headless check of the training yard: the offer, all six lessons done for real, the reward, leaving early |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -278,6 +291,7 @@ node tools/boss_test.js
 node tools/settings_test.js
 node tools/loot_test.js
 node tools/endless_test.js
+node tools/tutorial_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

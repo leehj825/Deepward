@@ -224,6 +224,7 @@ const dust = (() => {
 })();
 
 World.init(scene, hemi);
+G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
 
 // ---------------- Collisions ----------------
@@ -295,8 +296,8 @@ function updateHud() {
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
   }
   $('flaskN').textContent = p.flasks;
-  // In camp, the nearest person or place you can use; in the dungeon, a shrine
-  const spot = p.state === 'dead' ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -395,6 +396,7 @@ function placeHero(at) {
 }
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
+  if (Tutorial.active) Tutorial.stop();
   clearEnemies(); G.blessings = []; G.run = null;
   const at = World.enterCamp();
   G.mode = 'camp';
@@ -423,7 +425,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => showTip('Walk up to Bram, Tilda, Maren, the ledger or the gate and press E (Ⓐ on a controller) to talk. R drinks a flask, I opens your gear.')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('trainOffer')); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -552,8 +554,12 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
-  openPanel(s.id === 'trainer' ? 'talents' : s.id, s.id === 'trainer' ? { trainer: true } : undefined);
+  if (s.id === 'trainer') return openPanel('trainer');
+  openPanel(s.id);
 }
+// The training yard: Hobb's six lessons, in camp
+G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };
+G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
 // A blessing chosen at a shrine: it lasts until the hero leaves the stage
 G.bless = (id, shrine) => {
   (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true;
@@ -657,6 +663,7 @@ function step(real) {
     runTimers();
     FX.update(dt);
     updateHud();
+    Tutorial.update();
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
@@ -678,7 +685,7 @@ window.__dw = {
   G, Input, CFG, step,
   start: startGame, openSettings, musicMood, View, World, scene, camera, renderer, Items, UI, interact, openPanel,
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
-  arena(k = 0) { Items.wipe(); startGame('new'); UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
+  arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
