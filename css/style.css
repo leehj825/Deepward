@@ -315,3 +315,8 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
   .pb.gslot { width: 60px; height: 60px; } .pb.gslot .ipic { width: 46px; height: 46px; }
   .gnums { width: 60px; font-size: 10px; }
 }
+.cmp { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 4px; font-size: 12px; }
+.cmp .cup { color: #6ae86a; } .cmp .cdown { color: #ff7a6a; }
+.bagbar { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.pb.chip { padding: 4px 9px; font-size: 13px; border-radius: 12px; min-width: 34px; }
+.pb.chip.sort { margin-left: auto; }

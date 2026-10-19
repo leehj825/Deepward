@@ -156,6 +156,12 @@ const Items = (() => {
     if (u.heart) { out.flasks += 1; out.flaskHeal += 0.15; }
     return out;
   }
+  // The hero's numbers if it were worn in place of what is in its slot (or with that slot empty when it is null)
+  function statsWith(slot, it) {
+    const old = S.equip[slot];
+    if (it) S.equip[slot] = it; else delete S.equip[slot];
+    try { return stats(); } finally { if (old) S.equip[slot] = old; else delete S.equip[slot]; }
+  }
   // How the hero should look in this gear (read by Rig.build)
   const rc = i => [0x8a8f99, 0x9ac8ff, 0xd7a8ff, 0xffcf70][i];
   const SHIELD_FACE = [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14], ARMOR_CLOTH = [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a];
@@ -208,7 +214,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, itemLook, add, equip, unequip, remove, addGold,
+    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };

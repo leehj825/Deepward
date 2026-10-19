@@ -8,7 +8,10 @@ Every model is built in code from primitives, and there are no model, texture or
 
 - **The hero in 3D,** wearing exactly what you have on. It turns slowly; drag it to turn it yourself. The five slots sit around it (helm, armour and trinket on the left; weapon and shield on the right), each showing a rendered picture of the piece, its upgrade level and its sockets. Your numbers (health, stamina, damage, posture, block, armour, critical chance, flasks) sit below the weapon.
 - **The bag** is a grid of pictures, framed in the rarity's colour (orange for uniques). A green ▲ marks a piece that beats what you wear in that slot.
-- **Details:** select a piece to see everything about it next to what you wear now, with Equip or Take off. Selecting it again (A on a controller, Enter on the keyboard) does the same.
+- **Details:** select a piece to see everything about it, with Equip or Take off. Selecting it again (A on a controller, Enter on the keyboard) does the same.
+- **Comparison:** under the details, green ▲ and red ▼ show exactly how your numbers would change if you wore it instead (health, stamina, damage, posture, swing speed, reach, block, armour, critical chance, parry window, stamina regen, life on hit, gold found, flasks), and whether a two-handed weapon would leave your shield unused. For a worn piece it shows what taking it off would cost.
+- **Sort and filter:** chips above the bag show one slot at a time; the sort button cycles Newest, Rarity, Slot and Best first.
+- **Salvage:** in camp, the details offer Salvage for scrap right there (uniques only at Bram's).
 - Bram's and Tilda's lists show the same pictures.
 
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.

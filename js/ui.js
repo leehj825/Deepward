@@ -64,7 +64,34 @@ const UI = (() => {
     const m = Items.main(it);
     return it.slot === 'weapon' ? m.dmg * CFG.gear.weapons[it.type].dmg : it.slot === 'shield' ? m.block : it.slot === 'armor' ? m.hp * (1 + m.dr * 4) : it.slot === 'helm' ? m.hp + m.stamina : it.aff.length + it.rarity;
   }
+  // The bag as shown: only one slot's pieces if filtered, in the chosen order
+  function bagView(inv, sort, filt) {
+    const list = inv.filter(it => filt === 'all' || it.slot === filt), order = CFG.gear.slots;
+    if (sort === 'rarity') list.sort((a, b) => (b.uniq ? 4 : b.rarity) - (a.uniq ? 4 : a.rarity) || b.tier - a.tier);
+    else if (sort === 'slot') list.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot) || power(b) - power(a));
+    else if (sort === 'power') list.sort((a, b) => (better(b) - better(a)) || power(b) / (power(Items.S.equip[b.slot]) || 1) - power(a) / (power(Items.S.equip[a.slot]) || 1));
+    else list.reverse();                                                     // newest first
+    return list;
+  }
   const better = it => { const cur = Items.S.equip[it.slot]; return !cur || power(it) > power(cur) * 1.02; };
+  // What wearing a piece would change, as green and red differences in the hero's numbers (all are better higher)
+  // Each row: stat key, name, and the unit its difference is shown in: n a number, x a multiplier, p percentage
+  // points, s seconds, m metres
+  const CMP = [['maxHp', 'Health', 'n'], ['maxSt', 'Stamina', 'n'], ['dmg', 'Damage', 'x'], ['posture', 'Posture damage', 'x'], ['speed', 'Swing speed', 'p'],
+    ['range', 'Reach', 'm'], ['block', 'Block', 'p'], ['dr', 'Armour', 'p'], ['crit', 'Critical chance', 'p'], ['parry', 'Parry window', 's'],
+    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n']];
+  const UNIT = { n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
+  function compare(a, b) {
+    const rows = [];
+    for (const [k, name, u] of CMP) {
+      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d));
+      if (!parseFloat(shown)) continue;                                    // too small to show
+      rows.push(`<span class="${d > 0 ? 'cup' : 'cdown'}">${d > 0 ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
+    }
+    if (!a.twoHanded && !a.dual && (b.twoHanded || b.dual)) rows.push('<span class="cdown">✋ Both hands full: the shield goes unused</span>');
+    if ((a.twoHanded || a.dual) && !b.twoHanded && !b.dual) rows.push('<span class="cup">🛡 The shield is used again</span>');
+    return rows.length ? `<div class="cmp">${rows.join('')}</div>` : '<div class="cmp dim">No change to your numbers</div>';
+  }
   function gearDetail(st) {
     const g = gearSel(), C = CFG.gear;
     if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
@@ -73,8 +100,10 @@ const UI = (() => {
     h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
     h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
     if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
-    if (cur) h += `<div class="gcmp">Worn now: <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b><br><span class="dim">${Items.describe(cur).map(esc).join(' · ')}</span></div>`;
-    h += `<div class="tact">${g.equipped ? btn('Take off', 'unequip', it.slot, Items.S.inv.length >= C.invSize) : btn(cur ? 'Equip (swap)' : 'Equip', 'equip', it.id, false, 'hot')}</div></div></div>`;
+    if (!g.equipped) h += `<div class="gcmp">${cur ? `Instead of <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b>:` : 'Wearing it:'}${compare(st, Items.statsWith(it.slot, it))}</div>`;
+    else h += `<div class="gcmp">Taking it off:${compare(st, Items.statsWith(it.slot, null))}</div>`;
+    h += `<div class="tact">${g.equipped ? btn('Take off', 'unequip', it.slot, Items.S.inv.length >= C.invSize) : btn(cur ? 'Equip (swap)' : 'Equip', 'equip', it.id, false, 'hot')
+      + (World.inCamp() ? ' ' + btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'bagsalvage', it.id, !!it.uniq) : '')}</div>${!g.equipped && it.uniq && World.inCamp() ? '<small class="dim">Uniques are not salvaged here; Bram will take one at the forge.</small>' : ''}</div></div>`;
     return h;
   }
 
@@ -197,9 +226,12 @@ const UI = (() => {
           + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
       let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('trinket')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}`;
       h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div></div><div class="gright">`;
-      h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="igrid">`;
-      for (const it of S.inv) h += `<button class="pb icell r${it.rarity}${it.uniq ? ' uq' : ''}${sel === 'i:' + it.id ? ' sel' : ''}" data-act="gsel" data-arg="i:${it.id}" title="${esc(Items.fullName(it))}">${pic(it)}${it.plus ? `<span class="plus">+${it.plus}</span>` : ''}${better(it) ? '<span class="up">▲</span>' : ''}${gemDots(it)}</button>`;
-      for (let i = S.inv.length; i < Math.min(C.invSize, S.inv.length + 4); i++) h += '<i class="icell none"></i>';      // a few open places, not the whole bag
+      const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
+      h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="bagbar">`
+        + ['all', ...C.slots].map(k => btn(k === 'all' ? 'All' : GLYPH[k], 'bagfilter', k, false, 'chip' + (filt === k ? ' on' : ''))).join('')
+        + btn('⇅ ' + SORTS[sort], 'bagsort', '', false, 'chip sort') + '</div><div class="igrid">';
+      for (const it of bagView(S.inv, sort, filt)) h += `<button class="pb icell r${it.rarity}${it.uniq ? ' uq' : ''}${sel === 'i:' + it.id ? ' sel' : ''}" data-act="gsel" data-arg="i:${it.id}" title="${esc(Items.fullName(it))}">${pic(it)}${it.plus ? `<span class="plus">+${it.plus}</span>` : ''}${better(it) ? '<span class="up">▲</span>' : ''}${gemDots(it)}</button>`;
+      if (filt === 'all') for (let i = S.inv.length; i < Math.min(C.invSize, S.inv.length + 4); i++) h += '<i class="icell none"></i>';      // a few open places, not the whole bag
       h += '</div>';
       if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
       h += gearDetail(st) + '</div></div>';
@@ -293,6 +325,13 @@ const UI = (() => {
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { const it = Items.S.inv.find(x => x.id === +arg); Items.equip(+arg); if (it) tab.gsel = 'e:' + it.slot; Snd.play('block'); changed(); return render(); }
+    if (a === 'bagfilter') { tab.bagFilter = arg; const v = bagView(S.inv, tab.bagSort || 'new', arg); tab.gsel = v.length ? 'i:' + v[0].id : arg !== 'all' ? 'e:' + arg : tab.gsel; Snd.play('glint'); return render(); }
+    if (a === 'bagsort') { const o = ['new', 'rarity', 'slot', 'power']; tab.bagSort = o[(o.indexOf(tab.bagSort || 'new') + 1) % o.length]; Snd.play('glint'); return render(); }
+    if (a === 'bagsalvage') {
+      const v = bagView(S.inv, tab.bagSort || 'new', tab.bagFilter || 'all'), i = v.findIndex(x => x.id === +arg), it = Items.remove(+arg);
+      if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
+      return render();
+    }
     if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }

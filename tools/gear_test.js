@@ -23,9 +23,30 @@ const path = require('path');
     // Select the spear: its details show; equip it
     const spear = I.S.inv.find(x => x.type === 'spear');
     q(`.icell[data-arg="i:${spear.id}"]`).click();
-    o.detail = /Spear/.test(q('.gdetail').textContent) && /Worn now/.test(q('.gdetail').textContent);
+    o.detail = /Spear/.test(q('.gdetail').textContent) && /Instead of/.test(q('.gdetail').textContent);
     q('.gdetail [data-act="equip"]').click();
     o.equipped = I.S.equip.weapon.id === spear.id && !!q('.gslot.sel[data-arg="e:weapon"]');
+    // Comparison: the axe against the worn spear shows green and red differences, and the shield coming back
+    const axe = I.S.inv.find(x => x.type === 'axe'); q(`.icell[data-arg="i:${axe.id}"]`).click();
+    o.compare = qa('.gdetail .cmp span').length >= 2 && !!q('.gdetail .cmp .cup') && /Damage|Posture/.test(q('.gdetail .cmp').textContent);
+    const dag = I.S.inv.find(x => x.type === 'daggers'); q(`.icell[data-arg="i:${dag.id}"]`).click();
+    o.handsFull = /shield goes unused/.test(q('.gdetail .cmp').textContent);
+    // Filter to helms, then sort by rarity
+    q('[data-act="bagfilter"][data-arg="helm"]').click();
+    o.filter = qa('.pb.icell').length === I.S.inv.filter(x => x.slot === 'helm').length && qa('.pb.icell').length > 0;
+    q('[data-act="bagfilter"][data-arg="all"]').click();
+    q('[data-act="bagsort"]').click();                                    // newest -> rarity
+    const rs = qa('.pb.icell').map(b => I.S.inv.find(x => 'i:' + x.id === b.dataset.arg)).map(x => x.uniq ? 4 : x.rarity);
+    o.sort = rs.every((r, i) => !i || rs[i - 1] >= r);
+    // Salvage from the detail pane, only in camp
+    o.noSalvageAway = !q('[data-act="bagsalvage"]');
+    __dw.World.enterCamp(); __dw.openPanel('bag');
+    const n = I.S.inv.length, sc = I.S.scrap, first = q('.pb.icell'); first.click();
+    const victim = I.S.inv.find(x => 'i:' + x.id === first.dataset.arg);
+    q('[data-act="bagsalvage"]').click();
+    o.salvage = I.S.inv.length === n - 1 && I.S.scrap > sc && !I.S.inv.includes(victim) && !!q('.pb.icell.sel');
+    I.add(I.generate(3, { slot: 'helm', rarity: 1 }));
+    __dw.World.startStage(0); __dw.World.halt(); __dw.openPanel('bag');
     return o;
   });
   // Selecting a bag piece (click, or the d-pad) and confirming it again equips it, as A does on a controller
