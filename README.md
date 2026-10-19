@@ -257,6 +257,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
+| `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
 
@@ -271,6 +272,7 @@ node tools/boss_test.js
 node tools/settings_test.js
 node tools/loot_test.js
 node tools/endless_test.js
+node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2. It also checks that the side rooms are reachable, the den's elite chases you out, the vault's spikes hurt, pots break, and a shrine's blessing applies.

@@ -240,8 +240,18 @@ const SCENARIOS = {
     // A guardian survives an execution but takes a heavy blow
     const g = foe(-2, 0, 'brute'); g.guardian = 'Test'; __dw.sim(0.1); const gh = g.maxHp = g.hp = 2000;
     g.state = 'broken'; g.t = 0; p().state = 'free'; __dw.press('heavy'); __dw.sim(0.8);
-    out.bossSurvives = g.state !== 'dead' && g.hp < gh - 100;
+    out.bossSurvives = g.state !== 'dead' && g.hp < gh - 50;
     return out;
+  })()`,
+  // Every enemy kind can be posed in every state (a broken goblin once crashed the game)
+  poses: `(() => {
+    const bad = [];
+    for (const kind of Object.keys(CFG.enemies)) for (const mode of ['broken', 'stagger', 'dead', 'roll', 'spawn', 'block', 'attack', 'move', 'idle']) {
+      const rig = Rig.build(CFG.enemies[kind].rig || kind);
+      try { for (let i = 0; i < 4; i++) Rig.animate(rig, { mode, t: i * 0.1, speed: 0.5, cycle: i, atk: 'slashR', phase: 'wind', phaseT: 0.1, wind: 0.5, active: 0.1, recover: 0.4, p: 0.3 }, 1 / 60); }
+      catch (e) { bad.push(kind + ':' + mode); }
+    }
+    return { bad: bad.join() };
   })()`,
   // An archer's arrow is stopped by a raised shield
   arrowBlock: `(() => {
@@ -343,6 +353,7 @@ const CHECKS = {
   features: r => r.skipped || (r.sides === 'den,vault' && r.sideBlocked === 0 && r.elite && r.eliteChased && r.denChest && r.vaultChest && r.spikesHurt && r.potBroken && r.prompt === 'shrine' && r.blessed && r.chip),
   elites: r => r.skipped || (r.armor && r.heavyThrough && r.ward && r.wardBroken && r.leech && r.blast && r.champion),
   depth: r => r.skipped || (r.spearShield && r.spearReach && r.daggers && r.daggerCuts >= 5 && r.dashCost < 14 && r.locked && r.camTurned && r.lockMoved && r.unlocked && r.broken && r.prompt && r.executed && r.bossSurvives),
+  poses: r => r.bad === '',
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

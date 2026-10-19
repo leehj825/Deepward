@@ -178,3 +178,31 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Toughness:** enemies get `1 + 0.18 × floor`. The loot tier and elite odds use the virtual stage index (4 + floor).
 - **Between floors:** a floor is done when its guardian's chest opens, or when every section is cleared. The "deeper" panel can't be dismissed: go deeper (heal 30%, at least one flask) or return to camp.
 - **Records:** `S.endless.best` and `S.endless.daily` (date and best) are updated at the start of each floor.
+
+## Balance (tuned with tools/balance.js)
+
+`tools/balance.js` plays each stage and four Endless floors with a scripted warden.
+
+- **Gear:** level 1 + 2 per stage, gear of the stage's tier (rare from stage 3) upgraded +1 per stage, and two talents per stage.
+- **Behaviour:** it reacts to every telegraph by rolling its profile's chances to parry, block or dash, executes broken foes, drinks below 35% health, and walks section to section, including the den.
+
+What the first runs showed, and what changed:
+
+| Problem | Change |
+| --- | --- |
+| Enemies didn't scale between stages, so nothing ever died | Enemies get +22% health and damage per stage, plus +18% health (`stageScale`, `stageHp`) |
+| Bosses fell in 5–25 s | Guardian health roughly ×3, posture ×2 |
+| Executing a guardian was too strong | It now deals 0.8× a critical instead of 1.5× |
+| Champions fell in seconds | Champions at 2.6× (the Widow and the Black Herald more) |
+| Spiders, duelists, guardians and champions were stunlocked | They no longer flinch from light hits |
+| Endless floor 1 was easier than stage 5 | Endless now starts above stage 5 |
+| A broken or staggered archer, goblin or duelist crashed the game (no hand-made stance) | Fixed; now covered by the `poses` test |
+
+Result on Normal:
+
+- **Stages:** each takes about 2–4 minutes of bot time.
+- **Guardians:** fights last 20–60 s.
+- **Champions:** 10–75 s.
+- **Deaths:** the casual profile dies now and then to early guardians; the skilled one rarely.
+
+Real players are slower to react than the bot, so expect more deaths.

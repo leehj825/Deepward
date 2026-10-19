@@ -327,7 +327,7 @@ const Enemy = (() => {
     const B = CFG.bosses[si];
     if (!B) { e.rig.root.scale.multiplyScalar(1.15); return; }
     const def = e.def = clone(e.def);                                       // this one enemy gets its own copy to grow and change
-    def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture;
+    def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture; def.flinch = false;      // guardians shrug off light hits
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);

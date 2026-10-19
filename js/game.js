@@ -251,13 +251,14 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
+    if (q.hpMult) { e.hp *= q.hpMult; e.maxHp *= q.hpMult; }
     if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
       const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
-      e.hp *= CFG.championMult; e.maxHp *= CFG.championMult; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
-      e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
+      const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
+      e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
     else if (!q.guardian && !q.add && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
     G.enemies.push(e);

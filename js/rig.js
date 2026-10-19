@@ -440,7 +440,7 @@ const Rig = (() => {
   // st: { mode, t (time in mode), p (0..1 progress), speed (0..1 of run), atk (pose name), phase: wind|active|recover }
   // Returns the pose and how fast joints chase it (higher = snappier).
   function poseFor(rig, st) {
-    const stance = STANCE[rig.kind], T = rig.time;
+    const stance = STANCE[rig.kind] || (rig.kind === 'archer' ? STANCE.skeleton : STANCE.hero), T = rig.time;      // kinds without their own stance borrow one
     let pose = merge(stance, {}), rate = 12;
     const breathe = Math.sin(T * 2.2) * 0.03;
     pose.spine = [stance.spine[0] + breathe, stance.spine[1], stance.spine[2]];

@@ -362,7 +362,8 @@ const World = (() => {
   // ---------------- Encounters ----------------
   function spawnWave(room) {
     const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
-    const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale;
+    const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale + (room.inf.si || 0) * CFG.stageScale;
+    const hpMult = room.inf.hpMult || 1 + (room.inf.si || 0) * CFG.stageHp;
     // Spawn spots: across the section, away from the hero and the pillars
     const spots = [];
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
@@ -377,7 +378,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
@@ -522,7 +523,7 @@ const World = (() => {
   // odds, o.mult how tough the enemies are
   function startCustom(def, o) {
     clearAll(); halted = false;
-    return begin(def.rooms.map((room, ri) => ({ si: o.si, ri, loop: 0, k: o.k, stage: def, room, count: def.rooms.length, mult: o.mult, custom: true })));
+    return begin(def.rooms.map((room, ri) => ({ si: o.si, ri, loop: 0, k: o.k, stage: def, room, count: def.rooms.length, mult: o.mult, hpMult: o.hpMult, custom: true })));
   }
   function begin(infos) {
     sections = plan(infos).map(build);

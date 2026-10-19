@@ -39,7 +39,7 @@ const Endless = (() => {
     const R = rng(run.seed + run.floor * 7919), keep = Math.random;
     const f = floorDef(run.floor, R, run.daily);
     Math.random = R;                                                   // the layout, props and side rooms follow the seed too
-    try { return Object.assign(World.startCustom(f.def, { si: f.si, k: CFG.stages.length - 1 + run.floor, mult: 1 + E.perFloor * run.floor }), { lair: f.lair }); }
+    try { return Object.assign(World.startCustom(f.def, { si: f.si, k: CFG.stages.length - 1 + run.floor, mult: 1 + CFG.stageScale * (CFG.stages.length - 1) + E.perFloor * run.floor, hpMult: 1 + CFG.stageHp * (CFG.stages.length - 1) + 0.08 * run.floor }), { lair: f.lair }); }
     finally { Math.random = keep; }
   }
   // A new climb: daily uses today's seed, otherwise a random one

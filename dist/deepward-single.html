@@ -357,7 +357,7 @@ const CFG = {
     },
     // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
     // outright (guardians and champions take execMult times a critical instead)
-    execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 1.5 },
+    execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 0.8 },
     comboReset: 0.55,            // the combo starts over if you wait this long after a hit
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
@@ -418,7 +418,7 @@ const CFG = {
     // Skitters and pounces. The pounce (amber) smashes through a raised shield: parry it at the last instant, or dash.
     spider: {
       name: 'Cave Spider', hp: 40, posture: 40, postureRegen: 16, speed: 3.9, radius: 0.6, scale: 1, rig: 'spider',
-      flinch: true, approach: 3.2, cooldown: [1.1, 1.9], xp: 14, gold: 9,
+      flinch: false, approach: 3.2, cooldown: [1.1, 1.9], xp: 14, gold: 9,
       attacks: [
         { weight: 2, hits: [{ pose: 'bite', wind: 0.5, active: 0.1, recover: 0.45, dmg: 10, posture: 10, range: 1.9, arc: 90, lunge: 0.8 }] },
         { weight: 3, hits: [{ pose: 'pounce', wind: 0.8, active: 0.3, recover: 0.75, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true }] },
@@ -427,7 +427,7 @@ const CFG = {
     // Feints: the first glint may be a fake, the real blow comes fast after it
     duelist: {
       name: 'Hollow Duelist', hp: 62, posture: 60, postureRegen: 18, speed: 3.0, radius: 0.45, scale: 1.02,
-      flinch: true, approach: 2.0, cooldown: [0.9, 1.6], xp: 20, gold: 14,
+      flinch: false, approach: 2.0, cooldown: [0.9, 1.6], xp: 20, gold: 14,
       attacks: [
         { weight: 2, hits: [{ pose: 'thrust', wind: 0.5, active: 0.1, recover: 0.55, dmg: 14, posture: 14, range: 2.6, arc: 50, lunge: 1.6 }] },
         { weight: 3, hits: [
@@ -469,14 +469,14 @@ const CFG = {
       { size: [9, 7], pillars: true, waves: [['brute', 'brute']] },
       { size: [11, 9], guardian: true, waves: [['brute', 'goblin']] },
     ] },
-    { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', champion: { kind: 'spider', name: 'The Widow', mods: ['vampiric', 'swift'] }, rooms: [
+    { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', champion: { kind: 'spider', name: 'The Widow', mods: ['vampiric', 'swift'], hp: 3.2 }, rooms: [
       { size: [9, 8], waves: [['spider']] },
       { size: [10, 8], pillars: true, waves: [['spider', 'spider']] },
       { size: [10, 9], waves: [['spider', 'goblin', 'goblin'], ['spider', 'spider']] },
       { size: [9, 8], pillars: true, waves: [['spider', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['spider']] },
     ] },
-    { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', champion: { kind: 'duelist', name: 'The Black Herald', mods: ['warded', 'swift'] }, rooms: [
+    { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', champion: { kind: 'duelist', name: 'The Black Herald', mods: ['warded', 'swift'], hp: 2.6 }, rooms: [
       { size: [9, 8], waves: [['duelist']] },
       { size: [10, 8], pillars: true, waves: [['duelist', 'archer']] },
       { size: [10, 9], waves: [['duelist', 'knight'], ['duelist', 'duelist']] },
@@ -490,13 +490,13 @@ const CFG = {
   // Each phase starts when health drops to `at`: the boss roars (untouchable, a shockwave throws you back), then takes
   // the phase's changes: summon (adds that crumble when it falls), def (overrides), attacks, faster (wind-ups x), stance, enrage.
   bosses: [
-    { name: 'The Bone Warden', scale: 1.4, hp: 1.6, posture: 1.4, reach: 1.25,
+    { name: 'The Bone Warden', scale: 1.4, hp: 4.5, posture: 2.8, reach: 1.25,
       add: [{ weight: 2, hits: [{ pose: 'heavy', wind: 1.1, active: 0.14, recover: 0.9, dmg: 24, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.6, r: 2.2 }, unblockable: true, lunge: 0.8 }] }],
       phases: [
         { at: 0.65, shout: 'RISE, MY DEAD', summon: ['skeleton', 'skeleton'] },
         { at: 0.3, shout: 'THE CRYPT ANSWERS', summon: ['archer', 'skeleton'], faster: 0.85, def: { cooldown: [0.6, 1.2], speed: 3.2 } },
       ] },
-    { name: 'Sir Aldric the Hollow', scale: 1.2, hp: 1.7, posture: 1.3, reach: 1.15,
+    { name: 'Sir Aldric the Hollow', scale: 1.2, hp: 4.2, posture: 2.6, reach: 1.15,
       phases: [
         { at: 0.5, shout: 'THE SHIELD FALLS', stance: 'twoHanded',
           def: { guard: false, flinch: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] },
@@ -509,13 +509,13 @@ const CFG = {
             { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 28, posture: 0, range: 2.8, arc: 360, aoe: { fwd: 0, r: 2.8 }, unblockable: true, lunge: 0.4 }] },
           ] },
       ] },
-    { name: 'The Den Mother', scale: 1.15, hp: 1.4, posture: 1.3, reach: 1.1,
+    { name: 'The Den Mother', scale: 1.15, hp: 3.4, posture: 2.6, reach: 1.1,
       phases: [
         { at: 0.65, shout: 'THE PACK COMES', summon: ['goblin', 'goblin', 'goblin'] },
         { at: 0.3, shout: 'THE DEN MOTHER RAGES', enrage: true, faster: 0.75, def: { speed: 3.3, cooldown: [0.5, 1.0] },
           add: [{ weight: 2, hits: [{ pose: 'slashR', wind: 0.9, active: 0.3, recover: 0.9, dmg: 26, posture: 0, range: 2.6, arc: 120, unblockable: true, lunge: 6.5 }] }] },
       ] },
-    { name: 'The Brood Queen', scale: 1.75, hp: 2.2, posture: 1.5, reach: 1.35,
+    { name: 'The Brood Queen', scale: 1.75, hp: 6.5, posture: 3.0, reach: 1.35,
       phases: [
         { at: 0.66, shout: 'THE BROOD HATCHES', summon: ['spider', 'spider'] },
         { at: 0.33, shout: 'THE QUEEN SHRIEKS', summon: ['spider', 'spider'], faster: 0.85,
@@ -524,7 +524,7 @@ const CFG = {
             { pose: 'pounce', wind: 0.45, active: 0.3, recover: 0.8, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true },
           ] }] },
       ] },
-    { name: 'The Pale Duelist', scale: 1.12, hp: 2.0, posture: 1.4, reach: 1.1,
+    { name: 'The Pale Duelist', scale: 1.12, hp: 6.0, posture: 2.8, reach: 1.1,
       phases: [
         { at: 0.6, shout: 'NOW YOU SEE ME', faster: 0.9,
           add: [{ weight: 3, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 18, posture: 18, range: 2.6, arc: 60, lunge: 1.4, blink: true }] }] },
@@ -544,6 +544,8 @@ const CFG = {
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
+  stageScale: 0.22,              // +22% enemy health and damage for each stage further down (tuned with tools/balance.js)
+  stageHp: 0.18,                 // and a further +18% health per stage, as the hero's gear outgrows them
   roomHeal: 0.35,                // share of max health restored when a room is cleared
   sectionScale: 1.3,             // every section is built this much larger than its size above
   // What else fills a stage: side rooms off the path, traps in the passages, a shrine, breakable pots and crates
@@ -570,7 +572,7 @@ const CFG = {
       warded: { name: 'Warded', color: 0xa070ff, hp: 1.0, ward: 4, wardBack: 7, desc: 'A ward soaks hits (heavies break it faster) and returns' },
     },
   },
-  championMult: 1.35,
+  championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
@@ -1615,7 +1617,7 @@ const Rig = (() => {
   // st: { mode, t (time in mode), p (0..1 progress), speed (0..1 of run), atk (pose name), phase: wind|active|recover }
   // Returns the pose and how fast joints chase it (higher = snappier).
   function poseFor(rig, st) {
-    const stance = STANCE[rig.kind], T = rig.time;
+    const stance = STANCE[rig.kind] || (rig.kind === 'archer' ? STANCE.skeleton : STANCE.hero), T = rig.time;      // kinds without their own stance borrow one
     let pose = merge(stance, {}), rate = 12;
     const breathe = Math.sin(T * 2.2) * 0.03;
     pose.spine = [stance.spine[0] + breathe, stance.spine[1], stance.spine[2]];
@@ -2822,7 +2824,7 @@ const Enemy = (() => {
     const B = CFG.bosses[si];
     if (!B) { e.rig.root.scale.multiplyScalar(1.15); return; }
     const def = e.def = clone(e.def);                                       // this one enemy gets its own copy to grow and change
-    def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture;
+    def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture; def.flinch = false;      // guardians shrug off light hits
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
@@ -3657,7 +3659,8 @@ const World = (() => {
   // ---------------- Encounters ----------------
   function spawnWave(room) {
     const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
-    const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale;
+    const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale + (room.inf.si || 0) * CFG.stageScale;
+    const hpMult = room.inf.hpMult || 1 + (room.inf.si || 0) * CFG.stageHp;
     // Spawn spots: across the section, away from the hero and the pillars
     const spots = [];
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
@@ -3672,7 +3675,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
@@ -3817,7 +3820,7 @@ const World = (() => {
   // odds, o.mult how tough the enemies are
   function startCustom(def, o) {
     clearAll(); halted = false;
-    return begin(def.rooms.map((room, ri) => ({ si: o.si, ri, loop: 0, k: o.k, stage: def, room, count: def.rooms.length, mult: o.mult, custom: true })));
+    return begin(def.rooms.map((room, ri) => ({ si: o.si, ri, loop: 0, k: o.k, stage: def, room, count: def.rooms.length, mult: o.mult, hpMult: o.hpMult, custom: true })));
   }
   function begin(infos) {
     sections = plan(infos).map(build);
@@ -4278,7 +4281,7 @@ const Endless = (() => {
     const R = rng(run.seed + run.floor * 7919), keep = Math.random;
     const f = floorDef(run.floor, R, run.daily);
     Math.random = R;                                                   // the layout, props and side rooms follow the seed too
-    try { return Object.assign(World.startCustom(f.def, { si: f.si, k: CFG.stages.length - 1 + run.floor, mult: 1 + E.perFloor * run.floor }), { lair: f.lair }); }
+    try { return Object.assign(World.startCustom(f.def, { si: f.si, k: CFG.stages.length - 1 + run.floor, mult: 1 + CFG.stageScale * (CFG.stages.length - 1) + E.perFloor * run.floor, hpMult: 1 + CFG.stageHp * (CFG.stages.length - 1) + 0.08 * run.floor }), { lair: f.lair }); }
     finally { Math.random = keep; }
   }
   // A new climb: daily uses today's seed, otherwise a random one
@@ -4548,13 +4551,14 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
+    if (q.hpMult) { e.hp *= q.hpMult; e.maxHp *= q.hpMult; }
     if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
       const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
-      e.hp *= CFG.championMult; e.maxHp *= CFG.championMult; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
-      e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
+      const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
+      e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
     else if (!q.guardian && !q.add && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
     G.enemies.push(e);
