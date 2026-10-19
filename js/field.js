@@ -24,6 +24,10 @@ const Field = (() => {
       rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 2, z1: z0 + 2 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
       zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
     };
+    const RQS = Items.S && Items.S.quest && Items.S.quest.rook;                // Rook's war camp, when it stands, keeps the trees off
+    const WC = RQS && RQS.step === 3 ? CFG.rookQuest.camp : null;
+    if (WC) room.zones.push(Object.assign({}, WC, { z: z0 + WC.z, next: 0, filled: false }));
+    const inWarCamp = (x, z) => !!WC && Math.hypot(x - WC.x, z - z0 - WC.z) < WC.r + 4;
     const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
     const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
     const block = (x, z, r) => room.pillars.push([x, z, r]);
@@ -60,14 +64,14 @@ const Field = (() => {
     for (let i = 0; i < 18; i++) { const x = R(-hw, hw), z = z0 - R(1, 8); if (Math.abs(x) > 26) tree(x, z, 1.1); }   // the wood beside the palisade
     for (let i = 0; i < 70; i++) {
       const x = R(-hw + 3, hw - 3), z = R(z0 + 4, z1 - 3);
-      if (Math.abs(x) < 4 || Math.abs(z - sz) < 3 || nearZone(x, z, 0.75)) continue;
+      if (Math.abs(x) < 4 || Math.abs(z - sz) < 3 || nearZone(x, z, 0.75) || inWarCamp(x, z)) continue;
       tree(x, z, R(0.8, 1.1), Math.random() < 0.35 ? 1 : 0);
     }
     const wood = zone('wood');
     for (let i = 0; i < 60; i++) { const a = Math.random() * Math.PI * 2, r = R(4, wood.r + 6), x = wood.x + Math.sin(a) * r, z = wood.z + Math.cos(a) * r; if (Math.abs(x) < hw - 2 && z < z1 - 2) tree(x, z, R(0.9, 1.3)); }
     // Rocks, and tall grass in the Meadow
     const rock = M(0x6a6660);
-    for (let i = 0; i < 40; i++) { const x = R(-hw + 2, hw - 2), z = R(z0 + 3, z1 - 2), s = R(0.4, 1.4); if (Math.abs(x) < 3) continue; const r = add(new THREE.DodecahedronGeometry(s, 0), rock, x, s * 0.4, z); r.rotation.set(R(0, 3), R(0, 3), 0); if (s > 0.7) block(x, z, s * 0.85); }
+    for (let i = 0; i < 40; i++) { const x = R(-hw + 2, hw - 2), z = R(z0 + 3, z1 - 2), s = R(0.4, 1.4); if (Math.abs(x) < 3 || inWarCamp(x, z)) continue; const r = add(new THREE.DodecahedronGeometry(s, 0), rock, x, s * 0.4, z); r.rotation.set(R(0, 3), R(0, 3), 0); if (s > 0.7) block(x, z, s * 0.85); }
     const tuft = M(0x5a7a32);
     const mead = zone('meadow');
     for (let i = 0; i < 120; i++) { const a = Math.random() * Math.PI * 2, r = Math.random() * mead.r * 1.3; add(new THREE.ConeGeometry(0.12, R(0.4, 0.8), 4), tuft, mead.x + Math.sin(a) * r, 0.25, mead.z + Math.cos(a) * r, false); }
@@ -91,8 +95,45 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
-    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4);
+    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4 || inWarCamp(x, z));
+    rookQuest(room, z0);
     return room;
+  }
+
+  // ---------------- Captain Rook's task on the Rim ----------------
+  // Step 1: goblin tracks to find by the ridge. Step 3: the war camp at the west edge, with its own zone of goblins,
+  // its chief as a field boss, and totems to burn (each a spot; burned ones stay burned).
+  function rookQuest(room, z0) {
+    const Q = CFG.rookQuest, S = Items.S, q = S && S.quest && S.quest.rook;
+    room.spots = []; room.bosses = room.def.bosses;
+    if (!q) return;
+    const g = new THREE.Group(); room.group.add(g); room.questG = g;
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; g.add(o); room.geos.push(geo); return o; };
+    if (q.step === 1) {
+      const t = Q.tracks, x = t.x, z = z0 + t.z, mud = M(0x2a2018);
+      for (let k = 0; k < 9; k++) add(new THREE.BoxGeometry(0.18, 0.02, 0.32), mud, x - k * 1.1 + (k % 2) * 0.4, 0.035, z + Math.sin(k) * 0.4).rotation.y = Math.PI / 2;
+      add(new THREE.ConeGeometry(0.06, 0.9, 4), M(0x8a2a1a), x + 0.6, 0.45, z + 0.5).rotation.z = 0.5;   // a broken goblin arrow
+      room.spots.push({ id: 'tracks', name: 'Goblin tracks', verb: 'Look', x, z, r: 2.2 });
+    }
+    if (q.step === 3) {
+      const C = Q.camp, cx = C.x, cz = z0 + C.z, hide = M(0x6a4a30), stick = M(0x3a2a1a), bone = M(0xd8cfb4), war = M(0x8a1a1a);
+      if (!(S.bossKills || {})[Q.chief.id]) room.bosses = room.def.bosses.concat([Q.chief]);
+      // Hide tents, a ring of sharpened stakes, a cookfire
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4, x = cx + Math.sin(a) * 7, z = cz + Math.cos(a) * 7; add(new THREE.ConeGeometry(1.8, 2.4, 5), hide, x, 1.2, z); room.pillars.push([x, z, 1.6]); }
+      for (let k = 0; k < 22; k++) { const a = k / 22 * Math.PI * 2; if (k % 6 === 2) continue; const x = cx + Math.sin(a) * (C.r + 1), z = cz + Math.cos(a) * (C.r + 1); add(new THREE.CylinderGeometry(0.08, 0.12, 1.8, 5), stick, x, 0.8, z).rotation.set(Math.cos(a) * 0.4, 0, -Math.sin(a) * 0.4); room.pillars.push([x, z, 0.3]); }
+      add(new THREE.CylinderGeometry(0.7, 0.8, 0.25, 8), M(0x3a3632), cx, 0.12, cz);
+      // The totems: poles hung with skulls and a red war banner
+      q.totems = q.totems || [];
+      for (let k = 0; k < Q.totems; k++) {
+        const a = k / Q.totems * Math.PI * 2 + 1.1, x = cx + Math.sin(a) * 4, z = cz + Math.cos(a) * 4, burned = !!q.totems[k];
+        const t = new THREE.Group(); t.position.set(x, 0, z); g.add(t);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 3.2, 6), burned ? M(0x1a1410) : stick); pole.position.y = 1.6; t.add(pole);
+        if (!burned) { for (let j = 0; j < 3; j++) { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), bone); sk.position.set(0, 2.4 - j * 0.4, 0.15); t.add(sk); } const fl = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.7), war); fl.position.set(0, 2.7, 0.45); t.add(fl); }
+        room.pillars.push([x, z, 0.35]);
+        if (!burned) room.spots.push({ id: 'totem', name: 'War totem', verb: 'Burn', x, z, r: 2.0, totem: k, g: t });
+      }
+    }
   }
 
   // ---------------- The Fen, through the east gate ----------------
@@ -223,7 +264,7 @@ const Field = (() => {
     }
     // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
     const S = Items.S; S.fieldBoss = S.fieldBoss || {};
-    for (const B of room.def.bosses) {
+    for (const B of room.bosses || room.def.bosses) {
       const z = room.zones.find(q => q.id === B.zone), up = B.when === 'any' || (B.when === 'night' ? night : !night);
       const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
       if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
@@ -242,6 +283,7 @@ const Field = (() => {
   }
   // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
   function nearest(room, pos) {
+    for (const s of room.spots || []) if (Math.hypot(pos.x - s.x, pos.z - s.z) < s.r) return s;    // Rook's task first
     let best = null, bd = 1.8;
     for (const n of room.nodes) { if (!n.ready) continue; const d = Math.hypot(pos.x - n.x, pos.z - n.z); if (d < bd) { bd = d; best = n; } }
     return best && { id: 'gather', node: best, name: best.kind === 'herb' ? 'Herbs' : 'Iron ore', verb: best.kind === 'herb' ? 'Gather' : 'Mine', x: best.x, z: best.z };

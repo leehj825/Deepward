@@ -332,6 +332,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
   $('stFill').style.width = p.st / p.maxSt * 100 + '%';
@@ -578,6 +579,7 @@ G.onEnemyDeath = e => {
     const it = Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { minRarity: 2, boost: 1 });
     if (Items.add(it)) UI.toast(`${B.name} falls: ${Items.fullName(it)}`, Items.colorOf(it));
     gemFound(1); banner(B.name.toUpperCase() + ' FALLS'); Items.save();
+    if (B.id === CFG.rookQuest.chief.id) G.after(2, () => G.quest());
   }
   // Materials: beasts of the Rim drop them; the dead below now and then
   for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
@@ -632,7 +634,8 @@ G.onChest = room => {
 // Now and then, a while after the warden comes home, a band marches up the Rim road and batters the south gate
 function rollRaid() {
   const S = Items.S, R = CFG.raid;
-  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance) return;
+  const done = S.quest && S.quest.rook && S.quest.rook.step >= 5;            // the war camp burned: fewer bands come
+  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance * (done ? CFG.rookQuest.raidCut : 1)) return;
   G.raid = { on: false, at: G.time + R.delay[0] + Math.random() * (R.delay[1] - R.delay[0]) };
 }
 G.startRaid = () => {
@@ -786,6 +789,13 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
+  if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
+  if (s.id === 'totem') {
+    const q = Items.S.quest.rook; q.totems[s.totem] = true; s.g.visible = false; const f = World.field(); f.spots = f.spots.filter(x => x !== s);
+    FX.burst(new THREE.Vector3(s.x, 1.6, s.z), 0xff7a2a, 30, 6, 0.8); FX.ring(new THREE.Vector3(s.x, 0, s.z), 2, 0xff6a2a, 0.6, { r0: 0.3 }); Snd.play('slam');
+    UI.toast(`War totem burned (${q.totems.filter(Boolean).length} / ${CFG.rookQuest.totems})`, '#ff9a4a'); G.quest(); Items.save(); G.spot = null; return;
+  }
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
@@ -793,6 +803,42 @@ function interact() {
   if (s.id === 'trainer') return openPanel('trainer');
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
+}
+// ---------------- Captain Rook's task ----------------
+// The step it is on (Items.S.quest.rook.step); G.quest(n) moves it on to n, or (no n) checks whether the war camp is
+// done. rookTalk() is what Rook says when there is news; false when he only has his usual lines.
+const RQ = () => CFG.rookQuest;
+G.quest = n => {
+  const S = Items.S, q = S.quest && S.quest.rook; if (!q) return;
+  if (n === undefined) {
+    const burned = (q.totems || []).filter(Boolean).length >= RQ().totems, chief = (S.bossKills || {})[RQ().chief.id] > 0;
+    if (q.step === 3 && burned && chief) { n = 4; banner('THE WAR CAMP BURNS'); Snd.play('achieve'); }
+    else return;
+  }
+  q.step = n; Items.save();
+  if (RQ().goals[n]) UI.toast('Captain Rook: ' + RQ().goals[n], '#f2d27a');
+};
+G.questGoal = () => { const q = Items.S && Items.S.quest && Items.S.quest.rook; return q && RQ().goals[q.step] || ''; };
+function rookTalk() {
+  const S = Items.S; S.quest = S.quest || {};
+  const q = S.quest.rook, R = 'Captain Rook';
+  if (!q && (S.raids || 0) >= 1) {
+    S.quest.rook = { step: 0 };
+    say([[R, 'Those raiders at the gate. Look at this: a red hand daubed on their shields. The Den Mother\'s mark.'], [R, 'They are not hungry goblins wandering up from the Deep. Someone sends them. Find their trail by the Broken Ridge, warden.']], () => { G.quest(1); G.onGearChanged(true); }, 'I will find it');
+    return true;
+  }
+  if (!q) return false;
+  if (q.step === 2) {
+    say([[R, 'A war band, with iron boots. Then they have a camp on the Rim, and a chief to drive them.'], [R, 'West of the ridge, by the trees. Kill the chief, burn their totems, and they will have nothing to rally to.']], () => { G.quest(3); G.onGearChanged(true); }, 'Burn it');
+    return true;
+  }
+  if (q.step === 4) {
+    const gold = Items.addGold(RQ().gold * (1 + S.stage * 0.3)), tier = Math.min(S.stage + 1, CFG.gear.tierNames.length - 1);
+    const it = Items.generate(tier, { slot: 'trinket', minRarity: 3, boost: 1 }); it.name = "Rook's Warhorn"; const got = Items.add(it);
+    say([[R, 'Gragnak dead and the totems ash. The bands will think twice before they come up that road again.'], [R, 'Take this horn. I carried it at the Keep before the Hollow King came. Blow it in the Deep and think of us.'], ['', `◆ ${gold}` + (got ? ` and ${it.name} (${CFG.gear.rarities[it.rarity].name})` : '')]], () => G.quest(5));
+    return true;
+  }
+  return false;
 }
 // The training yard: Hobb's six lessons, in camp
 G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };

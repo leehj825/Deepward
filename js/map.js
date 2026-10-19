@@ -61,6 +61,12 @@ const MiniMap = (() => {
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();
     }
     // The hero: an arrow the way they face
+    // Rook's task: a gold diamond where it leads next
+    const q = Items.S && Items.S.quest && Items.S.quest.rook;
+    if (q && q.step >= 1 && q.step <= 4) {
+      const Q = CFG.rookQuest, rim = World.field(), at = q.step === 1 ? [Q.tracks.x, rim.rect.z0 + Q.tracks.z] : q.step === 3 ? [Q.camp.x, rim.rect.z0 + Q.camp.z] : (() => { const g = camp.npcs.find(n => n.id === 'guard'); return [g.x, g.z]; })();
+      ctx.save(); ctx.translate(at[0], at[1]); ctx.rotate(Math.PI / 4); ctx.fillStyle = '#f2d27a'; ctx.strokeStyle = '#000'; ctx.lineWidth = 0.3; const r = 1.6 / Math.max(0.4, scale / 4); ctx.fillRect(-r / 2, -r / 2, r, r); ctx.strokeRect(-r / 2, -r / 2, r, r); ctx.restore();
+    }
     ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.6); ctx.lineTo(1.0, 1.0); ctx.lineTo(0, 0.4); ctx.lineTo(-1.0, 1.0); ctx.closePath(); ctx.fill();
     ctx.restore();

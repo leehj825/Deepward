@@ -26,6 +26,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; col
 #waveBox { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 2px 4px #000; }
 #waveBox b { display: block; font-size: 18px; letter-spacing: 0.12em; color: #f2d27a; }
 #waveBox small { font-size: 12px; opacity: 0.75; }
+#questLine { display: block; margin-top: 2px; color: #f2d27a; opacity: 0.9 !important; }
+#questLine:not(:empty)::before { content: '◆ '; }
 #corner { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: flex; gap: 8px; }
 #corner button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255, 230, 190, 0.3); background: rgba(10, 8, 12, 0.6); color: #eee; font-size: 16px; cursor: pointer; }
 
@@ -368,7 +370,7 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
 <div id="prompt"></div>
 <div id="toast"></div>
-<div id="waveBox"><b id="waveN">Wave 1</b><small id="foesN"></small></div>
+<div id="waveBox"><b id="waveN">Wave 1</b><small id="foesN"></small><small id="questLine"></small></div>
 <div id="corner"><button id="viewBtn" title="Switch camera (B)">🎥</button><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Mute (M)">🔊</button></div>
 <canvas id="minimap" title="Map (N)"></canvas><div id="mapInfo"></div>
 <div id="bars"></div>
@@ -921,6 +923,16 @@ const CFG = {
     ],
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
+  // Captain Rook's task: the raiders carry the Den Mother's mark. Steps: 1 find their trail by the Broken Ridge,
+  // 2 tell Rook, 3 burn their war camp on the Rim (slay its chief, burn its totems), 4 report back, 5 done. Offered once
+  // a raid has been beaten. Afterwards raids come half as often. Places are on the Rim (z from its near edge).
+  rookQuest: {
+    tracks: { x: -22, z: 82 },
+    camp: { id: 'warcamp', name: 'The War Camp', x: -47, z: 84, r: 12, mobs: ['goblin', 'goblin', 'scout', 'goblin', 'brute'], cap: 7, respawn: 35, mult: 1.8 },
+    chief: { id: 'gragnak', name: 'Gragnak, Hand of the Den Mother', type: 'brute', zone: 'warcamp', when: 'any', mods: ['armored', 'vampiric'], hp: 8, scale: 1.55, respawn: 1e9, drops: { ore: 4, tusk: 3 } },
+    totems: 3, gold: 600, raidCut: 0.5,
+    goals: ['', 'Find the raiders\' trail near the Broken Ridge', 'Tell Captain Rook what you found', 'Burn the war camp: slay Gragnak and burn its totems', 'Return to Captain Rook', ''],
   },
   // The Fen: a second field through the east gate, opened when the first five guardians have fallen (the end of Act I).
   // Black water, reeds, a drowned chapel and an old quarry; tougher than the Rim. Zones are placed by out (metres out
@@ -4853,6 +4865,10 @@ const Field = (() => {
       rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 2, z1: z0 + 2 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
       zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
     };
+    const RQS = Items.S && Items.S.quest && Items.S.quest.rook;                // Rook's war camp, when it stands, keeps the trees off
+    const WC = RQS && RQS.step === 3 ? CFG.rookQuest.camp : null;
+    if (WC) room.zones.push(Object.assign({}, WC, { z: z0 + WC.z, next: 0, filled: false }));
+    const inWarCamp = (x, z) => !!WC && Math.hypot(x - WC.x, z - z0 - WC.z) < WC.r + 4;
     const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
     const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
     const block = (x, z, r) => room.pillars.push([x, z, r]);
@@ -4889,14 +4905,14 @@ const Field = (() => {
     for (let i = 0; i < 18; i++) { const x = R(-hw, hw), z = z0 - R(1, 8); if (Math.abs(x) > 26) tree(x, z, 1.1); }   // the wood beside the palisade
     for (let i = 0; i < 70; i++) {
       const x = R(-hw + 3, hw - 3), z = R(z0 + 4, z1 - 3);
-      if (Math.abs(x) < 4 || Math.abs(z - sz) < 3 || nearZone(x, z, 0.75)) continue;
+      if (Math.abs(x) < 4 || Math.abs(z - sz) < 3 || nearZone(x, z, 0.75) || inWarCamp(x, z)) continue;
       tree(x, z, R(0.8, 1.1), Math.random() < 0.35 ? 1 : 0);
     }
     const wood = zone('wood');
     for (let i = 0; i < 60; i++) { const a = Math.random() * Math.PI * 2, r = R(4, wood.r + 6), x = wood.x + Math.sin(a) * r, z = wood.z + Math.cos(a) * r; if (Math.abs(x) < hw - 2 && z < z1 - 2) tree(x, z, R(0.9, 1.3)); }
     // Rocks, and tall grass in the Meadow
     const rock = M(0x6a6660);
-    for (let i = 0; i < 40; i++) { const x = R(-hw + 2, hw - 2), z = R(z0 + 3, z1 - 2), s = R(0.4, 1.4); if (Math.abs(x) < 3) continue; const r = add(new THREE.DodecahedronGeometry(s, 0), rock, x, s * 0.4, z); r.rotation.set(R(0, 3), R(0, 3), 0); if (s > 0.7) block(x, z, s * 0.85); }
+    for (let i = 0; i < 40; i++) { const x = R(-hw + 2, hw - 2), z = R(z0 + 3, z1 - 2), s = R(0.4, 1.4); if (Math.abs(x) < 3 || inWarCamp(x, z)) continue; const r = add(new THREE.DodecahedronGeometry(s, 0), rock, x, s * 0.4, z); r.rotation.set(R(0, 3), R(0, 3), 0); if (s > 0.7) block(x, z, s * 0.85); }
     const tuft = M(0x5a7a32);
     const mead = zone('meadow');
     for (let i = 0; i < 120; i++) { const a = Math.random() * Math.PI * 2, r = Math.random() * mead.r * 1.3; add(new THREE.ConeGeometry(0.12, R(0.4, 0.8), 4), tuft, mead.x + Math.sin(a) * r, 0.25, mead.z + Math.cos(a) * r, false); }
@@ -4920,8 +4936,45 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
-    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4);
+    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4 || inWarCamp(x, z));
+    rookQuest(room, z0);
     return room;
+  }
+
+  // ---------------- Captain Rook's task on the Rim ----------------
+  // Step 1: goblin tracks to find by the ridge. Step 3: the war camp at the west edge, with its own zone of goblins,
+  // its chief as a field boss, and totems to burn (each a spot; burned ones stay burned).
+  function rookQuest(room, z0) {
+    const Q = CFG.rookQuest, S = Items.S, q = S && S.quest && S.quest.rook;
+    room.spots = []; room.bosses = room.def.bosses;
+    if (!q) return;
+    const g = new THREE.Group(); room.group.add(g); room.questG = g;
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; g.add(o); room.geos.push(geo); return o; };
+    if (q.step === 1) {
+      const t = Q.tracks, x = t.x, z = z0 + t.z, mud = M(0x2a2018);
+      for (let k = 0; k < 9; k++) add(new THREE.BoxGeometry(0.18, 0.02, 0.32), mud, x - k * 1.1 + (k % 2) * 0.4, 0.035, z + Math.sin(k) * 0.4).rotation.y = Math.PI / 2;
+      add(new THREE.ConeGeometry(0.06, 0.9, 4), M(0x8a2a1a), x + 0.6, 0.45, z + 0.5).rotation.z = 0.5;   // a broken goblin arrow
+      room.spots.push({ id: 'tracks', name: 'Goblin tracks', verb: 'Look', x, z, r: 2.2 });
+    }
+    if (q.step === 3) {
+      const C = Q.camp, cx = C.x, cz = z0 + C.z, hide = M(0x6a4a30), stick = M(0x3a2a1a), bone = M(0xd8cfb4), war = M(0x8a1a1a);
+      if (!(S.bossKills || {})[Q.chief.id]) room.bosses = room.def.bosses.concat([Q.chief]);
+      // Hide tents, a ring of sharpened stakes, a cookfire
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4, x = cx + Math.sin(a) * 7, z = cz + Math.cos(a) * 7; add(new THREE.ConeGeometry(1.8, 2.4, 5), hide, x, 1.2, z); room.pillars.push([x, z, 1.6]); }
+      for (let k = 0; k < 22; k++) { const a = k / 22 * Math.PI * 2; if (k % 6 === 2) continue; const x = cx + Math.sin(a) * (C.r + 1), z = cz + Math.cos(a) * (C.r + 1); add(new THREE.CylinderGeometry(0.08, 0.12, 1.8, 5), stick, x, 0.8, z).rotation.set(Math.cos(a) * 0.4, 0, -Math.sin(a) * 0.4); room.pillars.push([x, z, 0.3]); }
+      add(new THREE.CylinderGeometry(0.7, 0.8, 0.25, 8), M(0x3a3632), cx, 0.12, cz);
+      // The totems: poles hung with skulls and a red war banner
+      q.totems = q.totems || [];
+      for (let k = 0; k < Q.totems; k++) {
+        const a = k / Q.totems * Math.PI * 2 + 1.1, x = cx + Math.sin(a) * 4, z = cz + Math.cos(a) * 4, burned = !!q.totems[k];
+        const t = new THREE.Group(); t.position.set(x, 0, z); g.add(t);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 3.2, 6), burned ? M(0x1a1410) : stick); pole.position.y = 1.6; t.add(pole);
+        if (!burned) { for (let j = 0; j < 3; j++) { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), bone); sk.position.set(0, 2.4 - j * 0.4, 0.15); t.add(sk); } const fl = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.7), war); fl.position.set(0, 2.7, 0.45); t.add(fl); }
+        room.pillars.push([x, z, 0.35]);
+        if (!burned) room.spots.push({ id: 'totem', name: 'War totem', verb: 'Burn', x, z, r: 2.0, totem: k, g: t });
+      }
+    }
   }
 
   // ---------------- The Fen, through the east gate ----------------
@@ -5052,7 +5105,7 @@ const Field = (() => {
     }
     // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
     const S = Items.S; S.fieldBoss = S.fieldBoss || {};
-    for (const B of room.def.bosses) {
+    for (const B of room.bosses || room.def.bosses) {
       const z = room.zones.find(q => q.id === B.zone), up = B.when === 'any' || (B.when === 'night' ? night : !night);
       const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
       if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
@@ -5071,6 +5124,7 @@ const Field = (() => {
   }
   // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
   function nearest(room, pos) {
+    for (const s of room.spots || []) if (Math.hypot(pos.x - s.x, pos.z - s.z) < s.r) return s;    // Rook's task first
     let best = null, bd = 1.8;
     for (const n of room.nodes) { if (!n.ready) continue; const d = Math.hypot(pos.x - n.x, pos.z - n.z); if (d < bd) { bd = d; best = n; } }
     return best && { id: 'gather', node: best, name: best.kind === 'herb' ? 'Herbs' : 'Iron ore', verb: best.kind === 'herb' ? 'Gather' : 'Mine', x: best.x, z: best.z };
@@ -6441,6 +6495,12 @@ const MiniMap = (() => {
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();
     }
     // The hero: an arrow the way they face
+    // Rook's task: a gold diamond where it leads next
+    const q = Items.S && Items.S.quest && Items.S.quest.rook;
+    if (q && q.step >= 1 && q.step <= 4) {
+      const Q = CFG.rookQuest, rim = World.field(), at = q.step === 1 ? [Q.tracks.x, rim.rect.z0 + Q.tracks.z] : q.step === 3 ? [Q.camp.x, rim.rect.z0 + Q.camp.z] : (() => { const g = camp.npcs.find(n => n.id === 'guard'); return [g.x, g.z]; })();
+      ctx.save(); ctx.translate(at[0], at[1]); ctx.rotate(Math.PI / 4); ctx.fillStyle = '#f2d27a'; ctx.strokeStyle = '#000'; ctx.lineWidth = 0.3; const r = 1.6 / Math.max(0.4, scale / 4); ctx.fillRect(-r / 2, -r / 2, r, r); ctx.strokeRect(-r / 2, -r / 2, r, r); ctx.restore();
+    }
     ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.6); ctx.lineTo(1.0, 1.0); ctx.lineTo(0, 0.4); ctx.lineTo(-1.0, 1.0); ctx.closePath(); ctx.fill();
     ctx.restore();
@@ -6726,6 +6786,7 @@ const Codex = (() => {
     ['ring1', 'Into the Ring', 'Win a fight in the Ring', () => Object.keys(S().arena || {}).length >= 1, 60],
     ['raid1', 'The Gate Holds', 'Beat a raid on the south gate', () => (S().raids || 0) >= 1, 80],
     ['raid5', 'Wall of the Hold', 'Beat five raids', () => (S().raids || 0) >= 5, 250],
+    ['rook', "The Den Mother's Hand", "Burn the goblins' war camp for Captain Rook", () => !!(S().quest && S().quest.rook && S().quest.rook.step >= 4), 200],
     ['abom', 'Abomination', 'Defeat the Abomination in the Ring', () => !!(S().arena || {}).abomination, 500],
   ].map(([id, name, desc, test, gold]) => ({ id, name, desc, test, gold }));
 
@@ -7203,6 +7264,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
   $('stFill').style.width = p.st / p.maxSt * 100 + '%';
@@ -7449,6 +7511,7 @@ G.onEnemyDeath = e => {
     const it = Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { minRarity: 2, boost: 1 });
     if (Items.add(it)) UI.toast(`${B.name} falls: ${Items.fullName(it)}`, Items.colorOf(it));
     gemFound(1); banner(B.name.toUpperCase() + ' FALLS'); Items.save();
+    if (B.id === CFG.rookQuest.chief.id) G.after(2, () => G.quest());
   }
   // Materials: beasts of the Rim drop them; the dead below now and then
   for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
@@ -7503,7 +7566,8 @@ G.onChest = room => {
 // Now and then, a while after the warden comes home, a band marches up the Rim road and batters the south gate
 function rollRaid() {
   const S = Items.S, R = CFG.raid;
-  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance) return;
+  const done = S.quest && S.quest.rook && S.quest.rook.step >= 5;            // the war camp burned: fewer bands come
+  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance * (done ? CFG.rookQuest.raidCut : 1)) return;
   G.raid = { on: false, at: G.time + R.delay[0] + Math.random() * (R.delay[1] - R.delay[0]) };
 }
 G.startRaid = () => {
@@ -7657,6 +7721,13 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
+  if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
+  if (s.id === 'totem') {
+    const q = Items.S.quest.rook; q.totems[s.totem] = true; s.g.visible = false; const f = World.field(); f.spots = f.spots.filter(x => x !== s);
+    FX.burst(new THREE.Vector3(s.x, 1.6, s.z), 0xff7a2a, 30, 6, 0.8); FX.ring(new THREE.Vector3(s.x, 0, s.z), 2, 0xff6a2a, 0.6, { r0: 0.3 }); Snd.play('slam');
+    UI.toast(`War totem burned (${q.totems.filter(Boolean).length} / ${CFG.rookQuest.totems})`, '#ff9a4a'); G.quest(); Items.save(); G.spot = null; return;
+  }
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
@@ -7664,6 +7735,42 @@ function interact() {
   if (s.id === 'trainer') return openPanel('trainer');
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
+}
+// ---------------- Captain Rook's task ----------------
+// The step it is on (Items.S.quest.rook.step); G.quest(n) moves it on to n, or (no n) checks whether the war camp is
+// done. rookTalk() is what Rook says when there is news; false when he only has his usual lines.
+const RQ = () => CFG.rookQuest;
+G.quest = n => {
+  const S = Items.S, q = S.quest && S.quest.rook; if (!q) return;
+  if (n === undefined) {
+    const burned = (q.totems || []).filter(Boolean).length >= RQ().totems, chief = (S.bossKills || {})[RQ().chief.id] > 0;
+    if (q.step === 3 && burned && chief) { n = 4; banner('THE WAR CAMP BURNS'); Snd.play('achieve'); }
+    else return;
+  }
+  q.step = n; Items.save();
+  if (RQ().goals[n]) UI.toast('Captain Rook: ' + RQ().goals[n], '#f2d27a');
+};
+G.questGoal = () => { const q = Items.S && Items.S.quest && Items.S.quest.rook; return q && RQ().goals[q.step] || ''; };
+function rookTalk() {
+  const S = Items.S; S.quest = S.quest || {};
+  const q = S.quest.rook, R = 'Captain Rook';
+  if (!q && (S.raids || 0) >= 1) {
+    S.quest.rook = { step: 0 };
+    say([[R, 'Those raiders at the gate. Look at this: a red hand daubed on their shields. The Den Mother\'s mark.'], [R, 'They are not hungry goblins wandering up from the Deep. Someone sends them. Find their trail by the Broken Ridge, warden.']], () => { G.quest(1); G.onGearChanged(true); }, 'I will find it');
+    return true;
+  }
+  if (!q) return false;
+  if (q.step === 2) {
+    say([[R, 'A war band, with iron boots. Then they have a camp on the Rim, and a chief to drive them.'], [R, 'West of the ridge, by the trees. Kill the chief, burn their totems, and they will have nothing to rally to.']], () => { G.quest(3); G.onGearChanged(true); }, 'Burn it');
+    return true;
+  }
+  if (q.step === 4) {
+    const gold = Items.addGold(RQ().gold * (1 + S.stage * 0.3)), tier = Math.min(S.stage + 1, CFG.gear.tierNames.length - 1);
+    const it = Items.generate(tier, { slot: 'trinket', minRarity: 3, boost: 1 }); it.name = "Rook's Warhorn"; const got = Items.add(it);
+    say([[R, 'Gragnak dead and the totems ash. The bands will think twice before they come up that road again.'], [R, 'Take this horn. I carried it at the Keep before the Hollow King came. Blow it in the Deep and think of us.'], ['', `◆ ${gold}` + (got ? ` and ${it.name} (${CFG.gear.rarities[it.rarity].name})` : '')]], () => G.quest(5));
+    return true;
+  }
+  return false;
 }
 // The training yard: Hobb's six lessons, in camp
 G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };

@@ -499,6 +499,16 @@ const CFG = {
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // Captain Rook's task: the raiders carry the Den Mother's mark. Steps: 1 find their trail by the Broken Ridge,
+  // 2 tell Rook, 3 burn their war camp on the Rim (slay its chief, burn its totems), 4 report back, 5 done. Offered once
+  // a raid has been beaten. Afterwards raids come half as often. Places are on the Rim (z from its near edge).
+  rookQuest: {
+    tracks: { x: -22, z: 82 },
+    camp: { id: 'warcamp', name: 'The War Camp', x: -47, z: 84, r: 12, mobs: ['goblin', 'goblin', 'scout', 'goblin', 'brute'], cap: 7, respawn: 35, mult: 1.8 },
+    chief: { id: 'gragnak', name: 'Gragnak, Hand of the Den Mother', type: 'brute', zone: 'warcamp', when: 'any', mods: ['armored', 'vampiric'], hp: 8, scale: 1.55, respawn: 1e9, drops: { ore: 4, tusk: 3 } },
+    totems: 3, gold: 600, raidCut: 0.5,
+    goals: ['', 'Find the raiders\' trail near the Broken Ridge', 'Tell Captain Rook what you found', 'Burn the war camp: slay Gragnak and burn its totems', 'Return to Captain Rook', ''],
+  },
   // The Fen: a second field through the east gate, opened when the first five guardians have fallen (the end of Act I).
   // Black water, reeds, a drowned chapel and an old quarry; tougher than the Rim. Zones are placed by out (metres out
   // from the field's near edge) and side (metres along the wall from the gate, north negative).
