@@ -6,11 +6,18 @@
 const I18N = (() => {
   const TABLES = { ko: typeof LANG_KO !== 'undefined' ? LANG_KO : null };
   const NAMES = [['en', 'English'], ['ko', '한국어']];
-  let T = null, lang = 'en', tmpl = null, done = new WeakMap(), cache = new Map();
-  const NUM = /[-+]?\d+(?:[.,]\d+)?/g;
+  let T = null, lang = 'en', tmpl = null, pats = [], done = new WeakMap(), cache = new Map();
+  const NUM = /[-+−]?\d+(?:[.,]\d+)?/g;
   function use(l) {
     lang = TABLES[l] ? l : 'en'; T = TABLES[lang]; cache.clear(); done = new WeakMap();
-    tmpl = new Map(); if (T) for (const k in T) if (k.includes('{0}')) tmpl.set(k, T[k]);
+    tmpl = new Map(); pats = [];
+    if (T) for (const k in T) {
+      if (k.includes('{a}')) {                                                  // a phrase around names: "Slay {0} {a}s"
+        const names = [], re = new RegExp('^' + k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{(\d|[a-c])\}/g, (_, n) => { names.push(n); return /\d/.test(n) ? '([-+]?\\d+(?:[.,]\\d+)?)' : '(.+?)'; }) + '$');
+        pats.push({ re, names, to: T[k] });
+      } else if (k.includes('{0}')) tmpl.set(k, T[k]);
+    }
+    pats.sort((a, b) => b.re.source.length - a.re.source.length);           // the more specific phrase first ("{a}s" before "{a}")
     document.documentElement.lang = lang;
   }
   // One text, translated (or itself when there is nothing to do)
@@ -30,6 +37,15 @@ const I18N = (() => {
     if (nums) { const k = c.replace(NUM, (() => { let i = 0; return () => '{' + i++ + '}'; })()); if (tmpl.has(k)) return tmpl.get(k).replace(/\{(\d)\}/g, (_, i) => nums[+i]); }
     // An item's name: tier and piece, a suffix "of ..." in front, a "+N" kept
     const it = itemName(c); if (it) return it;
+    // A phrase around names: the names translated in their turn
+    for (const P of pats) {
+      const m = c.match(P.re); if (!m) continue;
+      const v = {}; P.names.forEach((n, i) => { v[n] = /\d/.test(n) ? m[i + 1] : (find(m[i + 1]) ?? m[i + 1]); });
+      return P.to.replace(/\{(\d|[a-c])\}/g, (_, n) => v[n] ?? '');
+    }
+    // An icon or mark in front, punctuation at the end ("🏆 Bones at Rest", "🔴 Ruby.")
+    const pre = c.match(/^([^A-Za-z0-9{"'(]+)(.+)$/u); if (pre) { const r = find(pre[2]); if (r !== null) return pre[1] + r; }
+    const post = c.match(/^(.+?)([.:!,]+)$/); if (post) { const r = find(post[1]); if (r !== null) return r + post[2]; }
     // In parts
     for (const sep of [' · ', ': ', ' — ', ' - ']) {
       if (!c.includes(sep)) continue;
@@ -72,5 +88,7 @@ const I18N = (() => {
   }
   // Switch language: retranslate what is up now (English comes back with a reload of the page's own texts)
   function set(l) { Settings.set('lang', l); if (l === 'en' || !TABLES[l]) location.reload(); else { use(l); node(document.body); } }
-  return { start, set, tr, get lang() { return lang; }, NAMES, has: l => l === 'en' || !!TABLES[l] };
+  // Translate whatever is on the page now (tests read the page straight after changing it)
+  const flush = () => { if (T) node(document.body); };
+  return { start, set, tr, flush, get lang() { return lang; }, NAMES, has: l => l === 'en' || !!TABLES[l] };
 })();

@@ -1,0 +1,10 @@
+{
+ "Health {0}": "체력 {0}", "Stamina {0}": "기력 {0}", "Damage {0}": "피해 {0}", "Posture damage {0}": "자세 피해 {0}", "Swing speed {0}%": "휘두르기 속도 {0}%",
+ "Reach {0} m": "사거리 {0}m", "Block {0}%": "막기 {0}%", "Armour {0}%": "방어 {0}%", "Critical chance {0}%": "치명타 확률 {0}%", "Parry window {0} s": "패링 시간 {0}초",
+ "Stamina regen {0}%": "기력 회복 {0}%", "Life on hit {0}%": "적중 시 생명력 {0}%", "Gold found {0}%": "골드 획득량 {0}%", "Flasks {0}": "치유 물약 {0}", "Fire {0}%": "화염 {0}%",
+ "Frost {0}%": "냉기 {0}%", "Shock {0}%": "전격 {0}%", "Walk speed {0}%": "걷기 속도 {0}%", "Dash reach {0}%": "대시 거리 {0}%", "Dash stamina {0}%": "대시 기력 {0}%", "Load {0}": "무게 {0}",
+ "{0}% fire (burns over {1} s)": "화염 {0}% ({1}초 동안 불태움)", "{0}% frost (slows for {1} s)": "냉기 {0}% ({1}초 동안 둔화)", "{0}% shock (chance to jolt)": "전격 {0}% (확률로 감전)",
+ "Twin blades: five-cut combo, dashes cost {0}% less, no shield, blades block {1}%": "쌍검: 다섯 번 베는 연속 공격, 대시 기력 {0}% 감소, 방패 없음, 칼날로 {1}% 막음",
+ "✋ Both hands full: the shield goes unused": "✋ 양손이 차서 방패를 쓰지 못합니다",
+ "pelt": "가죽", "tusk": "엄니", "bone": "뼈", "iron ore": "철광석", "herbs": "약초", "silk": "거미줄"
+}

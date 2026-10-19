@@ -6,7 +6,7 @@
 //   NODE_PATH=$(npm root -g) node tools/i18n_harvest.js [--missing ko]
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
-const ROOT = path.resolve(__dirname, '..'), NUM = /[-+]?\d+(?:[.,]\d+)?/g;
+const ROOT = path.resolve(__dirname, '..'), NUM = /[-+−]?\d+(?:[.,]\d+)?/g;
 const key = s => { s = s.trim(); if (!/[A-Za-z]{2}/.test(s)) return null; let i = 0; return s.replace(NUM, () => '{' + i++ + '}'); };
 (async () => {
   const found = new Set(), add = s => { const k = typeof s === 'string' && key(s); if (k && k.length < 400) found.add(k); };
@@ -54,7 +54,7 @@ const key = s => { s = s.trim(); if (!/[A-Za-z]{2}/.test(s)) return null; let i 
     __dw.openPanel('bag'); await sleep(20); close();
     return [...seen];
   });
-  for (const t of texts) add(t);
+  for (const t of texts) { add(t); for (const sep of [' · ', ': ']) if (t.includes(sep)) t.split(sep).forEach(add); }   // the parts too: js/i18n.js falls back to them
   await b.close();
   const list = [...found].filter(s => !/^[a-z]+$/.test(s) && !/^#?[0-9a-f]{6}$/i.test(s)).sort();
   fs.writeFileSync(path.join(__dirname, 'i18n', 'strings.json'), JSON.stringify(list, null, 1));

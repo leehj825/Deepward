@@ -195,6 +195,12 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
+## Languages (built)
+
+- The code stays in English. `I18N` (js/i18n.js) watches the page (a MutationObserver on text nodes and the title / placeholder / aria-label attributes) and swaps each text for the chosen language's from its table, caching results. Lookup order: the exact text; the text with its numbers as {0}, {1}...; phrases with name slots ("Slay {0} {a}s", "Swift {a}", the longest pattern first, the name translated in its turn); an item name (tier and piece, the "of ..." suffix moved to the front for Korean); an icon in front or punctuation at the end; and finally the parts between " · ", ": ", " — ".
+- Settings → Language (`lang`, Korean by default on Korean devices). Switching back to English reloads the page. `translate="no"` keeps an element as written (the language names).
+- `tools/i18n_harvest.js` opens every screen headless and collects every text (plus CFG's strings, fixed strings in the code, and the parts of each line); `--missing ko` writes what the table lacks. `tools/i18n_merge.py` merges translated parts into the table and drops entries whose placeholders do not match. CSS-drawn texts (`::after`) have their own `html[lang]` rules. A Korean font stack and `word-break: keep-all`.
+
 ## Photo mode (built)
 
 - `G.state = 'photo'`: `step` runs only `photoCam`, so nothing in the world moves. The camera orbits `PH.at` (yaw, pitch, distance) from mouse drags, the wheel, pinch, arrow keys, Q / E, the pad's sticks and triggers; WASD moves the point (kept within 25 m of the hero). `body.photo` hides the HUD.

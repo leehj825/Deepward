@@ -66,6 +66,8 @@ Every model is built in code from primitives, and there are no model, texture or
 
 A box at the top says what to press in your own controls (keyboard, controller or touch) and counts your progress. You can skip a lesson or leave at any time. A new game offers the training after the opening story, and the trainer at the yard sign runs it again whenever you like. Finishing it the first time pays 150 gold.
 
+**Languages.** English and Korean (한국어), chosen in Settings → Language; a Korean phone starts in Korean. The game is written in English and `js/i18n.js` translates what it shows from a table per language (`js/lang_ko.js`), so a new language is one more table: run `tools/i18n_harvest.js --missing <lang>` for the texts to translate, then `tools/i18n_merge.py <lang>`. `tools/i18n_test.js` walks the screens in Korean and fails if English is left showing.
+
 **Photo mode.** Press H (D-pad left on a controller, or Photo mode on the pause screen). The fight holds still and the HUD hides; drag or use the arrow keys / right stick to turn around a point, the wheel, pinch, Q / E or the triggers to zoom, and WASD / the left stick to move it. Six filters (Warm, Cold, Noir, Old print, Vivid), the warden can be hidden, and Save picture downloads a PNG with the filter baked in. Esc, H or Ⓑ returns to the fight.
 
 **Appearance.** After the opening story you choose how the warden looks: six skin tones, eight hair colours, four hair styles (short, long, tail, shaved) and a beard (none, short, long). The gear screen's **Appearance** button changes it any time; a helm covers the hair but not the beard.
@@ -425,6 +427,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/i18n_test.js` | Headless check of the Korean texts: every screen walked in Korean with nothing left in English, item names and number templates, and back to English |
 | `tools/rooms_test.js` | Headless check of the gauntlet (sealed, three waves, rich chest, opens again) and the rune vault (a wrong plate hurts and resets, the right order opens it) |
 | `tools/photo_test.js` | Headless check of photo mode: frozen fight, hidden HUD, orbit and zoom, filters, hiding the warden, a saved picture, and back |
 | `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |

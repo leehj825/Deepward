@@ -363,3 +363,5 @@ body.pad #photoBar small::after { content: ' · Ⓐ save · Ⓧ filter · Ⓨ wa
 /* Korean: letter-spaced capitals read badly in Hangul, and words should not break mid-syllable-block */
 html[lang="ko"] body { word-break: keep-all; }
 html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }
+html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
+html[lang="ko"] body.pad #photoBar small::after { content: ' · Ⓐ 저장 · Ⓧ 필터 · Ⓨ 파수꾼 · Ⓑ 완료'; }
