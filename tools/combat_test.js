@@ -110,7 +110,7 @@ const SCENARIOS = {
   features: `(() => {
     if (__dw.View.mode !== 'behind') return { skipped: true };
     const W = __dw.World, G = __dw.G, out = {}, V = THREE.Vector3;
-    W.startStage(0); G.queue = []; G.player.maxHp = G.player.hp = 1e6;
+    W.forceSides(['vault', 'den']); W.startStage(0); W.forceSides(null); G.queue = []; G.player.maxHp = G.player.hp = 1e6;
     const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
     out.sides = W.sides.map(r => r.sideKind).sort().join();
     // Each side room is reachable: from its section, through the doorway, to its middle

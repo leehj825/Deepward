@@ -74,7 +74,7 @@ const World = (() => {
     // Extras: side rooms (an elite's den, then a trapped vault) off middle sections, traps in some passages, one shrine
     const mids = out.filter(p => p.j > 0 && p.j < count - 1).sort(() => Math.random() - 0.5);
     // Side rooms: one with treasure (a trapped vault or a rune vault), one with a fight (an elite's den or a gauntlet)
-    const kinds = [Math.random() < 0.5 ? 'vault' : 'puzzle', Math.random() < 0.5 ? 'den' : 'gauntlet'];
+    const kinds = forcedSides || [Math.random() < 0.5 ? 'vault' : 'puzzle', Math.random() < 0.5 ? 'den' : 'gauntlet'];
     mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: kinds[k % 2] }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
@@ -591,8 +591,10 @@ const World = (() => {
     scene = sc; hemi = hemiLight;
     for (let k = 0; k < N_LIGHTS; k++) { const L = new THREE.PointLight(0xffa040, 0, 10, 1.6); scene.add(L); lights.push(L); }
   }
-  // Tests: stop the dungeon sending enemies
+  // Tests: stop the dungeon sending enemies; fix which side rooms a stage gets
   function halt() { halted = true; active = null; }
+  let forcedSides = null;
+  const forceSides = k => { forcedSides = k; };
   function applyTheme(th) { curTheme = th; scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
@@ -639,7 +641,7 @@ const World = (() => {
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field, fields, fieldAt, fenOpen,
+    init, halt, forceSides, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field, fields, fieldAt, fenOpen,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();
