@@ -87,6 +87,8 @@ const Items = (() => {
     if (it.slot === 'weapon') {
       const w = C.weapons[it.type]; L.push(`Damage x${(m.dmg * w.dmg).toFixed(2)}`, `Posture x${w.posture.toFixed(2)}`, w.speed < 1 ? `Swing speed ${Math.round(w.speed * 100)}%` : 'Swing speed 100%'); if (w.range) L.push(`Reach ${w.range > 0 ? '+' : ''}${w.range} m`);
       if (w.twoHanded) L.push(`Two-handed: no shield, blade blocks ${Math.round(w.block * 100)}%, +${Math.round(w.exposed * 100)}% damage taken`);
+      if (w.dual) L.push(`Twin blades: five-cut combo, dashes cost ${Math.round((1 - w.dash) * 100)}% less, no shield, blades block ${Math.round(w.block * 100)}%`);
+      if (w.combo === 'spear') L.push('Spear: long thrusts and a wide sweep; heavy is a lunging thrust');
     }
     if (it.slot === 'shield') L.push(`Blocks ${Math.round(m.block * 100)}% of damage`, `Stamina per block x${m.guard.toFixed(2)}`);
     if (it.slot === 'armor') L.push(`+${m.hp} health`, `${Math.round(m.dr * 100)}% damage reduction`);
@@ -100,9 +102,9 @@ const Items = (() => {
   // ---------------- What the gear does ----------------
   // Everything the hero's numbers depend on, from gear, affixes and the camp's buildings
   function stats() {
-    const E = S.equip, w = E.weapon, wt = C.weapons[w ? w.type : 'sword'], two = !!wt.twoHanded, sh = two ? null : E.shield, cp = S.camp;
+    const E = S.equip, w = E.weapon, wt = C.weapons[w ? w.type : 'sword'], two = !!wt.twoHanded, free = two || !!wt.dual, sh = free ? null : E.shield, cp = S.camp;
     const A = {}; for (const k in C.affixes) A[k] = 0;
-    for (const s of C.slots) if (E[s] && !(s === 'shield' && two)) for (const a of E[s].aff) A[a.k] += a.v;
+    for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
     return {
@@ -110,14 +112,14 @@ const Items = (() => {
       maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
       dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
       posture: wt.posture * (1 + A.posture / 100) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
-      crit: A.crit / 100 + 0.04 * R('precision'), block: two ? wt.block : shm ? shm.block : 0.5,
-      guard: (two ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
+      crit: A.crit / 100 + 0.04 * R('precision'), block: free ? wt.block : shm ? shm.block : 0.5,
+      guard: (free ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
       regen: (1 + A.regen / 100) * (1 + 0.1 * R('focus')), dr: arm.dr - (two ? wt.exposed : 0) + 0.05 * R('ward'), twoHanded: two,
       lifesteal: A.lifesteal / 100 + 0.02 * R('thirst'), goldFind: 1 + A.gold / 100,
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
-      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: 1 - 0.15 * R('feet'), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult,
+      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual,
     };
   }
   // How the hero should look in this gear (read by Rig.build)
@@ -127,7 +129,8 @@ const Items = (() => {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
-      shield: !!E.shield && !(E.weapon && C.weapons[E.weapon.type].twoHanded), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
+      dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
+      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
       armor: E.armor ? [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a][E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
       helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
     };

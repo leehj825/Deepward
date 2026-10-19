@@ -156,3 +156,9 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Chance:** a regular spawn rolls `CFG.elites.chance[stage]`, plus 8% for each repeat of the stages. Den guards always get one modifier, or two when deeper.
 - **Modifiers:** each changes the enemy's numbers and behaviour (armour, speed, life leech, death blast, a regenerating ward). Each also adds an additive aura ring of its colour and a name tag over the bar. Elites are worth 2× XP and gold.
 - **Champion:** the middle section's last wave adds the stage's champion from `CFG.stages[].champion`. It's a named elite at 1.35× strength and 1.25× size, it shows the boss bar, and it's worth 3×.
+
+## Combat depth (built)
+
+- **Lock-on:** `G.lock` holds the target. The behind camera eases its yaw so the hero stands between it and the target, and mouse or stick yaw input is ignored while locked. The player's aim and top-view facing prefer the lock. On the target's death the lock moves to the nearest foe within 10 m; it lets go past 20 m.
+- **Weapon movesets:** `CFG.player.combos` and `heavies` give the spear (two thrusts and a sweep, a lunging thrust) and twin daggers (five quick cuts, a spinning heavy) their own moves. Daggers take the off hand, so there's no shield, and they cut dash cost by 40%.
+- **Executions:** a heavy attack within 2.6 m of a posture-broken enemy becomes an execution (`CFG.player.execute`). There's a slow-motion wind-up, and the hero can't be hurt during it. The blow kills ordinary foes and deals 1.5× a critical to guardians and champions. The enemy's bar shows EXECUTE while you're in range, and the first break shows a tip.

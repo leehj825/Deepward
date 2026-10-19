@@ -171,6 +171,7 @@ body:not(.playing) #padKeys { display: none !important; }
 #ultBox { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.3); text-align: center; line-height: 24px; font-size: 13px; background: rgba(10, 8, 12, 0.7); color: #888; pointer-events: auto; }
 #ultBox.ready { color: #ffd040; border-color: #ffd040; box-shadow: 0 0 10px rgba(255, 208, 64, 0.6); }
 .ftxt.xp { color: #9ad8ff; font-size: 13px; }
+.b-lock { width: 44px; height: 44px; right: 132px; bottom: 236px; font-size: 18px !important; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
 .warnc { color: #ff9a5a; }
 .ftxt.amber { color: #ffa010; font-size: 30px; }
@@ -243,6 +244,8 @@ body:not(.playing) #padKeys { display: none !important; }
 .ebar.elite .hp i { background: linear-gradient(#ffb040, #c06a10); }
 .ebar.elite { box-shadow: 0 0 6px rgba(255, 176, 64, 0.8); }
 .ebar .ename { font-size: 10px; font-weight: 700; white-space: nowrap; text-align: center; margin: 0 -40px 2px; text-shadow: 0 1px 2px #000, 0 0 4px #000; letter-spacing: 0.03em; }
+.ebar.exec::after { content: 'EXECUTE'; display: block; text-align: center; font-size: 10px; font-weight: 800; letter-spacing: 0.15em; color: #ffd040; text-shadow: 0 0 6px #000, 0 0 3px #ff8a20; margin: 1px -30px 0; animation: tpulse2 0.6s ease-in-out infinite; }
+@keyframes tpulse2 { 50% { opacity: 0.45; } }
 
 </style>
 </head>
@@ -266,14 +269,15 @@ body:not(.playing) #padKeys { display: none !important; }
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip"></div>
-<div id="padKeys"><b>LS</b> move · <b>RS</b> camera · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
-<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>F</b> ultimate · <b>E</b> talk · <b>I</b> gear · <b>T</b> talents · <b>B</b> camera</div>
+<div id="padKeys"><b>LS</b> move · <b>RS</b> camera (click: lock on) · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
+<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>F</b> ultimate · <b>E</b> talk · <b>I</b> gear · <b>T</b> talents · <b>B</b> camera · <b>C</b> lock on</div>
 
 <div id="stick"><div id="knob"></div></div>
 <div id="pad">
   <button data-act="flask" class="b-flask">⚗</button>
   <button data-act="bag" class="b-bag">GEAR</button>
   <button data-act="ult" class="b-ult" style="display:none">ULT</button>
+  <button data-act="lock" class="b-lock">🎯</button>
   <button data-act="heavy" class="b-heavy">HEAVY</button>
   <button data-act="block" class="b-block">BLOCK</button>
   <button data-act="dodge" class="b-dodge">DASH</button>
@@ -331,6 +335,28 @@ const CFG = {
       { pose: 'overhead', wind: 0.18, active: 0.1, recover: 0.45, dmg: 20, posture: 18, cost: 15, range: 2.4, arc: 80, lunge: 1.8 },
     ],
     heavy: { pose: 'heavy', wind: 0.42, active: 0.12, recover: 0.5, dmg: 32, posture: 45, cost: 26, range: 2.6, arc: 150, lunge: 2.2, breaksGuard: true },
+    // Light combos and heavy attacks for weapons that move differently (the rest use light / heavy above)
+    combos: {
+      spear: [
+        { pose: 'thrust', wind: 0.13, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
+        { pose: 'thrust', wind: 0.11, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
+        { pose: 'slashR', wind: 0.2, active: 0.12, recover: 0.45, dmg: 18, posture: 16, cost: 15, range: 2.9, arc: 170, lunge: 0.8 },
+      ],
+      daggers: [
+        { pose: 'slashR', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashL', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashR', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashL', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'thrust', wind: 0.12, active: 0.08, recover: 0.4, dmg: 14, posture: 10, cost: 9, range: 2.1, arc: 50, lunge: 2.0 },
+      ],
+    },
+    heavies: {
+      spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
+      daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
+    },
+    // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
+    // outright (guardians and champions take execMult times a critical instead)
+    execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 1.5 },
     comboReset: 0.55,            // the combo starts over if you wait this long after a hit
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
@@ -556,6 +582,7 @@ const CFG = {
     { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
   ],
   tips: {
+    execute: 'BROKEN! Hit HEAVY (K / RT) close by to EXECUTE it: an untouchable finishing blow.',
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
@@ -587,6 +614,10 @@ const CFG = {
       // Two hands: big hits and reach, but no shield. The blade blocks only part of a blow, blocking costs more
       // stamina, and the bare off side takes extra damage.
       greatsword: { name: 'Greatsword', dmg: 1.5, posture: 1.45, speed: 0.84, range: 0.55, len: 1.4, twoHanded: true, block: 0.55, guard: 1.45, exposed: 0.1 },
+      // Reach: thrusts that strike from beyond most blades, then a wide sweep; carried with a shield
+      spear: { name: 'Spear', dmg: 1.0, posture: 1.1, speed: 0.95, range: 0, len: 1.9, combo: 'spear' },
+      // A blade in each hand: a fast five-cut combo and cheap dashes, but no shield and a weak guard
+      daggers: { name: 'Twin Daggers', dmg: 1.0, posture: 0.75, speed: 1.0, range: 0, len: 0.42, dual: true, block: 0.6, guard: 1.35, dash: 0.6, combo: 'daggers' },
     },
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],
@@ -798,6 +829,8 @@ const Items = (() => {
     if (it.slot === 'weapon') {
       const w = C.weapons[it.type]; L.push(`Damage x${(m.dmg * w.dmg).toFixed(2)}`, `Posture x${w.posture.toFixed(2)}`, w.speed < 1 ? `Swing speed ${Math.round(w.speed * 100)}%` : 'Swing speed 100%'); if (w.range) L.push(`Reach ${w.range > 0 ? '+' : ''}${w.range} m`);
       if (w.twoHanded) L.push(`Two-handed: no shield, blade blocks ${Math.round(w.block * 100)}%, +${Math.round(w.exposed * 100)}% damage taken`);
+      if (w.dual) L.push(`Twin blades: five-cut combo, dashes cost ${Math.round((1 - w.dash) * 100)}% less, no shield, blades block ${Math.round(w.block * 100)}%`);
+      if (w.combo === 'spear') L.push('Spear: long thrusts and a wide sweep; heavy is a lunging thrust');
     }
     if (it.slot === 'shield') L.push(`Blocks ${Math.round(m.block * 100)}% of damage`, `Stamina per block x${m.guard.toFixed(2)}`);
     if (it.slot === 'armor') L.push(`+${m.hp} health`, `${Math.round(m.dr * 100)}% damage reduction`);
@@ -811,9 +844,9 @@ const Items = (() => {
   // ---------------- What the gear does ----------------
   // Everything the hero's numbers depend on, from gear, affixes and the camp's buildings
   function stats() {
-    const E = S.equip, w = E.weapon, wt = C.weapons[w ? w.type : 'sword'], two = !!wt.twoHanded, sh = two ? null : E.shield, cp = S.camp;
+    const E = S.equip, w = E.weapon, wt = C.weapons[w ? w.type : 'sword'], two = !!wt.twoHanded, free = two || !!wt.dual, sh = free ? null : E.shield, cp = S.camp;
     const A = {}; for (const k in C.affixes) A[k] = 0;
-    for (const s of C.slots) if (E[s] && !(s === 'shield' && two)) for (const a of E[s].aff) A[a.k] += a.v;
+    for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
     return {
@@ -821,14 +854,14 @@ const Items = (() => {
       maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
       dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
       posture: wt.posture * (1 + A.posture / 100) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
-      crit: A.crit / 100 + 0.04 * R('precision'), block: two ? wt.block : shm ? shm.block : 0.5,
-      guard: (two ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
+      crit: A.crit / 100 + 0.04 * R('precision'), block: free ? wt.block : shm ? shm.block : 0.5,
+      guard: (free ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
       regen: (1 + A.regen / 100) * (1 + 0.1 * R('focus')), dr: arm.dr - (two ? wt.exposed : 0) + 0.05 * R('ward'), twoHanded: two,
       lifesteal: A.lifesteal / 100 + 0.02 * R('thirst'), goldFind: 1 + A.gold / 100,
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
-      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: 1 - 0.15 * R('feet'), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult,
+      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual,
     };
   }
   // How the hero should look in this gear (read by Rig.build)
@@ -838,7 +871,8 @@ const Items = (() => {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
-      shield: !!E.shield && !(E.weapon && C.weapons[E.weapon.type].twoHanded), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
+      dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
+      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
       armor: E.armor ? [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a][E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
       helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
     };
@@ -1112,6 +1146,16 @@ const Rig = (() => {
     const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
     return { group: g, glowMats: [steel], tip, base, blade };
   }
+  // A spear held near its balance point: a long ash shaft with an iron leaf blade and a butt cap
+  function spear(hand, o) {
+    const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xc0c6d0, 0.35, 0.6), wood = std(0x6a4a2a);
+    mesh(new THREE.CylinderGeometry(0.022, 0.026, 2.0, 7).rotateX(Math.PI / 2), wood, g, 0, 0, 0.55);
+    mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.08, 7).rotateX(Math.PI / 2), std(0x4a4a50, 0.5, 0.5), g, 0, 0, -0.45);
+    mesh(new THREE.OctahedronGeometry(0.1, 0).scale(0.55, 0.18, 2.1), steel, g, 0, 0, 1.68);
+    mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.1, 7).rotateX(Math.PI / 2), steel, g, 0, 0, 1.5);
+    const tip = joint(g, 0, 0, 1.9), base = joint(g, 0, 0, 1.45);
+    return { group: g, glowMats: [steel], tip, base };
+  }
   function club(hand, o) {
     const g = joint(hand, 0, -0.03, 0);
     const wood = std(0x5a3a22), iron = std(0x4a4a50, 0.5, 0.5);
@@ -1353,6 +1397,11 @@ const Rig = (() => {
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
     else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
+    else if (kind === 'hero' && L.weapon === 'spear') wpn = spear(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined });
+    else if (kind === 'hero' && L.weapon === 'daggers') {
+      wpn = sword(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined, len: 0.42, thin: true });
+      const off = sword(rig.j.hdL, { blade: L.blade ? (L.blade | 0x404040) : undefined, len: 0.42, thin: true }); rig.offhand = off; rig.glowMats.push(...off.glowMats);
+    }
     else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen, twoHanded: L.twoHanded });
     rig.weapon = wpn; if (wpn) rig.glowMats.push(...wpn.glowMats);
     if (wpn && L.glow) for (const m of wpn.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.25; }     // rare-and-better weapons shimmer faintly
@@ -1936,6 +1985,7 @@ const Combat = (() => {
 
   // The player's swing lands: every enemy in the cone takes it
   function playerStrike(p, atk) {
+    if (atk.exec) { Enemy.execute(atk.exec, atk, p); G.onHits && G.onHits(1, true); return 1; }
     let landed = 0, blocked = 0, crit = false;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
@@ -2021,6 +2071,8 @@ const Player = (() => {
     // Behind view: attacks go where the camera looks, with a little aim assist; top-down: toward the stick
     const behind = View.mode === 'behind', m = Input.move, hasDir = !behind && Math.hypot(m.x, m.z) > 0.2;
     const dir = behind ? View.yaw + Math.PI : hasDir ? Math.atan2(m.x, m.z) : p.facing, cone = behind ? 0.75 : 1.9;
+    // A locked target always wins while it is in reach
+    if (G.lock && Enemy.targetable(G.lock) && Combat.dist(p.pos, G.lock.pos) <= maxD + G.lock.def.radius) return { target: G.lock, dir: Combat.yawTo(p.pos, G.lock.pos) };
     let best = null, bestS = Infinity;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
@@ -2039,22 +2091,38 @@ const Player = (() => {
     if (b.act === 'light' || b.act === 'heavy') {
       if (p.st <= 0) return false;
       let data;
-      if (b.act === 'heavy') { data = P.heavy; p.combo = 0; }
+      const ex = b.act === 'heavy' && executable(p);
+      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true }); p.combo = 0; }
+      else if (b.act === 'heavy') { data = heavyOf(p); p.combo = 0; }
       else {
-        // Weapon mastery rank 2 adds a fourth, finishing blow to the light combo
-        const len = comboLen(p);
+        // Weapon mastery rank 2 adds a finishing blow to the light combo
+        const L = lightOf(p), len = comboLen(p);
         if (p.comboT > P.comboReset || p.combo >= len) p.combo = 0;
-        data = p.combo < P.light.length ? P.light[p.combo] : CFG.progress.finisher; p.combo++;
+        data = p.combo < L.length ? L[p.combo] : CFG.progress.finisher; p.combo++;
       }
       startAttack(p, b.act, data); p.buffer = null; return true;
     }
     return false;
   }
 
-  const comboLen = p => P.light.length + (p.S.finisher ? 1 : 0);
+  const lightOf = p => (p.S.combo && P.combos[p.S.combo]) || P.light;
+  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo]) || P.heavy;
+  const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
+  // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
+  function executable(p) {
+    let best = null, bd = Infinity;
+    for (const e of G.enemies) {
+      if (e.state !== 'broken') continue;
+      const d = Combat.dist(p.pos, e.pos);
+      if (d > P.execute.range + e.def.radius) continue;
+      if (G.lock !== e && View.mode === 'behind' && Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - (View.yaw + Math.PI))) > 1.2) continue;
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
   function startAttack(p, kind, data) {
     spend(p, data.cost);
-    const { target, dir } = pickTarget(p);
+    const { target, dir } = data.exec ? { target: data.exec, dir: 0 } : pickTarget(p);
     p.target = target;
     p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
     // The weapon and its bonuses scale the move: damage, posture, swing speed and reach; criticals roll per swing
@@ -2067,6 +2135,7 @@ const Player = (() => {
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
     if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
+    if (data.exec) { FX.slowmo(0.55, 0.35); Snd.play('warn'); }
     p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
     setState(p, 'attack');
   }
@@ -2117,7 +2186,8 @@ const Player = (() => {
       let want = null;
       if (behind) want = View.yaw + Math.PI;                         // the body faces where the camera looks
       else {
-        if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
+        if (G.lock && Enemy.targetable(G.lock)) want = Combat.yawTo(p.pos, G.lock.pos);
+        else if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
         if (want === null && mlen > 0.1) want = Math.atan2(m.x, m.z);
       }
       if (want !== null) p.facing += Combat.wrap(want - p.facing) * Math.min(1, (behind ? 20 : P.turnRate) * dt);
@@ -2214,6 +2284,7 @@ const Player = (() => {
     if (p.state === 'dead') return null;
     const D = P.dodge, dmg = hit.dmg * e.mult;
     const shieldPos = Combat.chestPos(p.pos, 1.25).add(new THREE.Vector3(Math.sin(p.facing) * 0.5, 0, Math.cos(p.facing) * 0.5));
+    if (p.state === 'attack' && p.atk && p.atk.exec) return 'dodge';           // an execution is untouchable
     if ((p.state === 'roll' && p.t >= D.iStart && p.t <= D.iEnd) || p.state === 'dance') {
       FX.text(Combat.chestPos(p.pos, 2.1), 'DODGE', 'dodge');
       G.stats.dodges++;
@@ -2328,7 +2399,7 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable };
 })();
 
 </script>
@@ -2536,6 +2607,7 @@ const Enemy = (() => {
       setState(e, 'broken');
       FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'BROKEN!', 'crit'); Snd.play('guardBreak');
       FX.glint(Combat.chestPos(e.pos, 1.5 * e.def.scale), 0xffd040, 3, 0.4);
+      if (G.onBroken) G.onBroken(e);
       return true;
     }
     return false;
@@ -2605,6 +2677,20 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
+  // take a heavy critical instead.
+  function execute(e, atk, p) {
+    if (e.state === 'dead') return;
+    e.ward = 0;
+    const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
+    FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), 'EXECUTION', 'crit'); FX.burst(at, 0xffd040, 40, 10, 0.8); FX.glint(at, 0xffffff, 4, 0.4);
+    FX.shake(0.5); FX.hitStop(0.2); Snd.play('crit'); G.rumble(1, 0.8, 350); G.stats.crits++;
+    hurtFlash(e, 0xffe0a0, 1.4);
+    if (e.guardian) { damage(e, atk.dmg * (atk.critMult || CFG.player.critMult) * CFG.player.execute.execMult); if (e.state !== 'dead' && e.state !== 'roar') { e.posture = 0; stun(e, 1.0); } }
+    else damage(e, e.hp + 1);
+    if (G.stats) G.stats.executions = (G.stats.executions || 0) + 1;
+  }
+
   // The player parried this enemy's hit: heavy posture damage and an opening
   function parried(e) {
     FX.burst(Combat.chestPos(e.pos, 1.3 * e.def.scale), 0xffe08a, 12, 6);
@@ -2621,6 +2707,7 @@ const Enemy = (() => {
     const pf = e.bar.querySelector('.post i'); pf.style.width = pk * 100 + '%';
     pf.style.background = e.state === 'broken' ? '#ffd040' : pk > 0.7 ? '#ff7a30' : '#e8c060';
     e.bar.classList.toggle('broken', e.state === 'broken');
+    e.bar.classList.toggle('exec', e.state === 'broken' && G.player && Combat.dist(G.player.pos, e.pos) < CFG.player.execute.range + e.def.radius + 0.8);
   }
 
   function dispose(e, scene) {
@@ -2779,7 +2866,7 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, makeElite, rollElite, leech, execute, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
 
 </script>
@@ -3716,8 +3803,9 @@ const UI = (() => {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
         for (const slot of CFG.gear.slots) {
-          h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'sword, axe, mace, longsword or greatsword' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
-          if (slot === 'weapon') h += `<div class="irow"><div class="iinfo"><b>Greatsword</b> <small>two-handed: big hits and reach, no shield</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', 'greatsword', S.gold < cost * 1.3)}</div></div>`;
+          h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
+          if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
+            h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
         }
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
@@ -3820,9 +3908,9 @@ const UI = (() => {
     if (a === 'next') { const o = open.opt; if (o.i < o.lines.length - 1) { o.i++; return render(); } return close(); }
     if (a === 'upgrade') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), c = it && Items.upgradeCost(it); if (it && S.gold >= c.gold && S.scrap >= c.scrap && it.plus < Items.maxPlus()) { S.gold -= c.gold; S.scrap -= c.scrap; it.plus++; Snd.play('block'); toast(`${Items.fullName(it)}`, R[it.rarity].color); changed(); } return render(); }
     if (a === 'forge') {
-      const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1), two = arg === 'greatsword', cost = Math.round(CFG.camp.forgeCost[tier] * (two ? 1.3 : 1));
+      const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1), two = !!CFG.gear.weapons[arg], cost = Math.round(CFG.camp.forgeCost[tier] * (two ? 1.3 : 1));
       if (S.gold < cost || S.inv.length >= CFG.gear.invSize) { if (S.inv.length >= CFG.gear.invSize) toast('Your bag is full'); return render(); }
-      S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: 'greatsword', boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
+      S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
     }
     if (a === 'salvage') { const it = Items.remove(+arg); if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); changed(); } return render(); }
@@ -4040,6 +4128,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
     if (ev.code === 'KeyN') MiniMap.toggle();
+    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
@@ -4110,6 +4199,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       else if (act === 'flask') Player.drink(G.player);
       else if (act === 'ult') Player.ultimate(G.player);
       else if (act === 'bag') openPanel('bag');
+      else if (act === 'lock') toggleLock();
       else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
     });
     const up = () => { b.classList.remove('on'); if (act === 'block') Input.touchBlock = false; };
@@ -4156,7 +4246,7 @@ function pollPad(real) {
   if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
   if (down(13)) openPanel('bag');                                         // d-pad down: gear
   if (View.mode === 'behind') {
-    if (down(PAD_BTN.RS)) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }
+    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
   }
 }
@@ -4355,7 +4445,46 @@ function openPanel(id, opt, done) {
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
-function clearEnemies() { Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+// ---------------- Lock-on ----------------
+// C, the right-stick click or 🎯 locks onto the foe nearest where you look: the camera swings to keep it in view, the
+// hero faces it and strafes around it, and attacks go to it. A gold marker spins over it. When it dies, the lock
+// moves to the next foe nearby; pressing again lets go.
+const lockMark = (() => {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.32, 4).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, depthTest: false }));
+  m.renderOrder = 10; m.visible = false; scene.add(m); return m;
+})();
+function pickLock(exclude, maxD = 16) {
+  const p = G.player; if (!p) return null;
+  const fwd = View.mode === 'behind' ? View.yaw + Math.PI : p.facing;
+  let best = null, bs = Infinity;
+  for (const e of G.enemies) {
+    if (!Enemy.targetable(e) || e === exclude) continue;
+    const d = Combat.dist(p.pos, e.pos); if (d > maxD) continue;
+    const s = d + Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - fwd)) * 6;
+    if (s < bs) { bs = s; best = e; }
+  }
+  return best;
+}
+function toggleLock() {
+  if (G.lock) { G.lock = null; return; }
+  G.lock = pickLock();
+  if (G.lock) Snd.play('glint');
+  else if (View.mode === 'behind' && G.player) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }   // nothing near: recentre
+}
+function updateLock(dt) {
+  const p = G.player; let L = G.lock;
+  if (L && (L.state === 'dead' || L.remove || Combat.dist(p.pos, L.pos) > 20)) L = G.lock = L.state === 'dead' ? pickLock(L, 10) : null;
+  lockMark.visible = !!L;
+  if (!L) return;
+  lockMark.position.set(L.pos.x, 2.15 * L.def.scale + 0.7 + Math.sin(G.time * 5) * 0.06, L.pos.z); lockMark.rotation.y += dt * 3;
+  if (View.mode === 'behind' && Combat.dist(p.pos, L.pos) > 0.8) {
+    const want = Math.atan2(p.pos.x - L.pos.x, p.pos.z - L.pos.z);           // the camera on the far side of the hero
+    View.yaw += Combat.wrap(want - View.yaw) * Math.min(1, dt * 7);
+  }
+}
+G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
+function clearEnemies() {
+  G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -4503,7 +4632,7 @@ if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('start
 const camTarget = new THREE.Vector3(0, 0, 2);
 function turnView(dx, dy) {
   const k = Settings.get('sens');
-  View.yaw -= dx * k;
+  if (!G.lock) View.yaw -= dx * k;                                         // while locked on, the camera keeps the target in view
   View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy * k * (Settings.get('invertY') ? -1 : 1)));
 }
 function toggleView() {
@@ -4591,6 +4720,7 @@ function step(real) {
     runTimers();
     FX.update(dt);
     updateHud();
+    updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
   } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)

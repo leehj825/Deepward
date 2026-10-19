@@ -201,6 +201,7 @@ const Enemy = (() => {
       setState(e, 'broken');
       FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'BROKEN!', 'crit'); Snd.play('guardBreak');
       FX.glint(Combat.chestPos(e.pos, 1.5 * e.def.scale), 0xffd040, 3, 0.4);
+      if (G.onBroken) G.onBroken(e);
       return true;
     }
     return false;
@@ -270,6 +271,20 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
+  // take a heavy critical instead.
+  function execute(e, atk, p) {
+    if (e.state === 'dead') return;
+    e.ward = 0;
+    const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
+    FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), 'EXECUTION', 'crit'); FX.burst(at, 0xffd040, 40, 10, 0.8); FX.glint(at, 0xffffff, 4, 0.4);
+    FX.shake(0.5); FX.hitStop(0.2); Snd.play('crit'); G.rumble(1, 0.8, 350); G.stats.crits++;
+    hurtFlash(e, 0xffe0a0, 1.4);
+    if (e.guardian) { damage(e, atk.dmg * (atk.critMult || CFG.player.critMult) * CFG.player.execute.execMult); if (e.state !== 'dead' && e.state !== 'roar') { e.posture = 0; stun(e, 1.0); } }
+    else damage(e, e.hp + 1);
+    if (G.stats) G.stats.executions = (G.stats.executions || 0) + 1;
+  }
+
   // The player parried this enemy's hit: heavy posture damage and an opening
   function parried(e) {
     FX.burst(Combat.chestPos(e.pos, 1.3 * e.def.scale), 0xffe08a, 12, 6);
@@ -286,6 +301,7 @@ const Enemy = (() => {
     const pf = e.bar.querySelector('.post i'); pf.style.width = pk * 100 + '%';
     pf.style.background = e.state === 'broken' ? '#ffd040' : pk > 0.7 ? '#ff7a30' : '#e8c060';
     e.bar.classList.toggle('broken', e.state === 'broken');
+    e.bar.classList.toggle('exec', e.state === 'broken' && G.player && Combat.dist(G.player.pos, e.pos) < CFG.player.execute.range + e.def.radius + 0.8);
   }
 
   function dispose(e, scene) {
@@ -444,5 +460,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, makeElite, rollElite, leech, execute, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

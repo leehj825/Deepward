@@ -22,6 +22,28 @@ const CFG = {
       { pose: 'overhead', wind: 0.18, active: 0.1, recover: 0.45, dmg: 20, posture: 18, cost: 15, range: 2.4, arc: 80, lunge: 1.8 },
     ],
     heavy: { pose: 'heavy', wind: 0.42, active: 0.12, recover: 0.5, dmg: 32, posture: 45, cost: 26, range: 2.6, arc: 150, lunge: 2.2, breaksGuard: true },
+    // Light combos and heavy attacks for weapons that move differently (the rest use light / heavy above)
+    combos: {
+      spear: [
+        { pose: 'thrust', wind: 0.13, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
+        { pose: 'thrust', wind: 0.11, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
+        { pose: 'slashR', wind: 0.2, active: 0.12, recover: 0.45, dmg: 18, posture: 16, cost: 15, range: 2.9, arc: 170, lunge: 0.8 },
+      ],
+      daggers: [
+        { pose: 'slashR', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashL', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashR', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'slashL', wind: 0.07, active: 0.06, recover: 0.2, dmg: 7, posture: 5, cost: 6, range: 1.9, arc: 110, lunge: 1.3 },
+        { pose: 'thrust', wind: 0.12, active: 0.08, recover: 0.4, dmg: 14, posture: 10, cost: 9, range: 2.1, arc: 50, lunge: 2.0 },
+      ],
+    },
+    heavies: {
+      spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
+      daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
+    },
+    // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
+    // outright (guardians and champions take execMult times a critical instead)
+    execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 1.5 },
     comboReset: 0.55,            // the combo starts over if you wait this long after a hit
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
@@ -247,6 +269,7 @@ const CFG = {
     { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
   ],
   tips: {
+    execute: 'BROKEN! Hit HEAVY (K / RT) close by to EXECUTE it: an untouchable finishing blow.',
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
@@ -278,6 +301,10 @@ const CFG = {
       // Two hands: big hits and reach, but no shield. The blade blocks only part of a blow, blocking costs more
       // stamina, and the bare off side takes extra damage.
       greatsword: { name: 'Greatsword', dmg: 1.5, posture: 1.45, speed: 0.84, range: 0.55, len: 1.4, twoHanded: true, block: 0.55, guard: 1.45, exposed: 0.1 },
+      // Reach: thrusts that strike from beyond most blades, then a wide sweep; carried with a shield
+      spear: { name: 'Spear', dmg: 1.0, posture: 1.1, speed: 0.95, range: 0, len: 1.9, combo: 'spear' },
+      // A blade in each hand: a fast five-cut combo and cheap dashes, but no shield and a weak guard
+      daggers: { name: 'Twin Daggers', dmg: 1.0, posture: 0.75, speed: 1.0, range: 0, len: 0.42, dual: true, block: 0.6, guard: 1.35, dash: 0.6, combo: 'daggers' },
     },
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],

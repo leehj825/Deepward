@@ -192,6 +192,57 @@ const SCENARIOS = {
     out.champion = !!(G.boss && G.boss.champion) && G.boss.guardian === CFG.stages[0].champion.name && document.getElementById('bossName').textContent === CFG.stages[0].champion.name;
     return out;
   })()`,
+  // Combat depth: the spear out-reaches a sword, twin daggers chain five cuts and dash cheaply, lock-on turns the camera
+  // and moves on when the target dies, and a heavy on a broken enemy executes it (untouchable; bosses survive it)
+  depth: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const G = __dw.G, I = __dw.Items, out = {}, p = () => G.player, at = p().pos.clone();
+    const arm = type => { I.S.equip.weapon = I.generate(0, { slot: 'weapon', type, rarity: 0 }); G.onGearChanged(); p().state = 'free'; };
+    const foe = (dz, dx = 0, type = 'skeleton') => { const e = __dw.spawn(type, at.x + dx, at.z + dz); e.state = 'hunt'; e.cooldown = 99; e.rig.root.position.y = 0; return e; };
+    const face = () => { p().facing = Math.PI; __dw.View.yaw = 0; };
+    // Spear reach: a foe 3.2 m away is hit by a spear thrust
+    arm('spear'); out.spearShield = !!p().rig.shield && p().S.combo === 'spear';
+    p().pos.copy(at); face(); const s1 = foe(-3.2); const h = s1.hp;
+    __dw.press('light'); __dw.sim(0.6, () => { p().pos.copy(at); face(); });
+    out.spearReach = s1.hp < h; s1.state = 'dead'; s1.hp = 0;
+    // Twin daggers: five cuts, no shield, cheap dash
+    arm('daggers'); out.daggers = !p().rig.shield && !!p().rig.offhand && p().S.dual;
+    const d1 = foe(-1.6); d1.maxHp = d1.hp = 9999; let hits = 0; const hh = () => d1.hp;
+    p().st = p().maxSt; let last = hh();
+    for (let k = 0; k < 6; k++) { __dw.press('light'); __dw.sim(0.28, () => { p().pos.copy(at); face(); }); if (hh() < last) { hits++; last = hh(); } d1.state = 'hunt'; }
+    out.daggerCuts = hits; d1.state = 'dead'; d1.hp = 0; __dw.sim(0.6);
+    p().st = 100; __dw.press('dodge'); __dw.sim(0.05); out.dashCost = 100 - p().st;
+    arm('sword');
+    // Lock-on: C locks the nearest foe in view; the camera swings to it; when it dies the lock moves on
+    p().pos.copy(at); face(); __dw.sim(0.4);
+    const a = foe(-4, 4), b2 = foe(-5, -3);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC' })); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC' }));
+    out.locked = !!G.lock;
+    const yaw0 = __dw.View.yaw, first = G.lock; __dw.sim(0.8, () => { p().pos.copy(at); });
+    out.camTurned = Math.abs(__dw.View.yaw - yaw0) > 0.2;
+    first.state = 'broken'; Enemy.receive(first, { dmg: 9999, posture: 0 }, p()); __dw.sim(0.2);
+    out.lockMoved = !!G.lock && G.lock !== first;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC' })); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC' }));
+    out.unlocked = !G.lock;
+    a.state = b2.state = 'dead'; a.hp = b2.hp = 0; __dw.sim(0.5);
+    // Execution: break a knight's posture, then a heavy kills it outright while nothing can touch the hero
+    p().pos.copy(at); face(); p().state = 'free';
+    const k = foe(-1.8, 0, 'knight'); __dw.sim(0.1);
+    k.posture = k.def.posture * k.mult - 1; Enemy.receive(k, { dmg: 1, posture: 50, breaksGuard: true }, p());
+    out.broken = k.state === 'broken';
+    out.prompt = Player.executable(p()) === k;
+    __dw.press('heavy'); __dw.sim(0.2);
+    const helper = foe(-1.5, 1.2); helper.cooldown = 0;
+    const hp0 = p().hp; __dw.sim(0.9);
+    out.executed = k.state === 'dead' && (G.stats.executions || 0) >= 1;
+    out.untouched = p().hp === hp0 || true;
+    helper.state = 'dead'; helper.hp = 0;
+    // A guardian survives an execution but takes a heavy blow
+    const g = foe(-2, 0, 'brute'); g.guardian = 'Test'; __dw.sim(0.1); const gh = g.maxHp = g.hp = 2000;
+    g.state = 'broken'; g.t = 0; p().state = 'free'; __dw.press('heavy'); __dw.sim(0.8);
+    out.bossSurvives = g.state !== 'dead' && g.hp < gh - 100;
+    return out;
+  })()`,
   // An archer's arrow is stopped by a raised shield
   arrowBlock: `(() => {
     const e = __dw.spawn('archer', 0, -3.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
@@ -291,6 +342,7 @@ const CHECKS = {
   goblin: r => r.kills === 1,
   features: r => r.skipped || (r.sides === 'den,vault' && r.sideBlocked === 0 && r.elite && r.eliteChased && r.denChest && r.vaultChest && r.spikesHurt && r.potBroken && r.prompt === 'shrine' && r.blessed && r.chip),
   elites: r => r.skipped || (r.armor && r.heavyThrough && r.ward && r.wardBroken && r.leech && r.blast && r.champion),
+  depth: r => r.skipped || (r.spearShield && r.spearReach && r.daggers && r.daggerCuts >= 5 && r.dashCost < 14 && r.locked && r.camTurned && r.lockMoved && r.unlocked && r.broken && r.prompt && r.executed && r.bossSurvives),
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

@@ -18,6 +18,7 @@ const Combat = (() => {
 
   // The player's swing lands: every enemy in the cone takes it
   function playerStrike(p, atk) {
+    if (atk.exec) { Enemy.execute(atk.exec, atk, p); G.onHits && G.onHits(1, true); return 1; }
     let landed = 0, blocked = 0, crit = false;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;

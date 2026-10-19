@@ -40,6 +40,8 @@ const Player = (() => {
     // Behind view: attacks go where the camera looks, with a little aim assist; top-down: toward the stick
     const behind = View.mode === 'behind', m = Input.move, hasDir = !behind && Math.hypot(m.x, m.z) > 0.2;
     const dir = behind ? View.yaw + Math.PI : hasDir ? Math.atan2(m.x, m.z) : p.facing, cone = behind ? 0.75 : 1.9;
+    // A locked target always wins while it is in reach
+    if (G.lock && Enemy.targetable(G.lock) && Combat.dist(p.pos, G.lock.pos) <= maxD + G.lock.def.radius) return { target: G.lock, dir: Combat.yawTo(p.pos, G.lock.pos) };
     let best = null, bestS = Infinity;
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
@@ -58,22 +60,38 @@ const Player = (() => {
     if (b.act === 'light' || b.act === 'heavy') {
       if (p.st <= 0) return false;
       let data;
-      if (b.act === 'heavy') { data = P.heavy; p.combo = 0; }
+      const ex = b.act === 'heavy' && executable(p);
+      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true }); p.combo = 0; }
+      else if (b.act === 'heavy') { data = heavyOf(p); p.combo = 0; }
       else {
-        // Weapon mastery rank 2 adds a fourth, finishing blow to the light combo
-        const len = comboLen(p);
+        // Weapon mastery rank 2 adds a finishing blow to the light combo
+        const L = lightOf(p), len = comboLen(p);
         if (p.comboT > P.comboReset || p.combo >= len) p.combo = 0;
-        data = p.combo < P.light.length ? P.light[p.combo] : CFG.progress.finisher; p.combo++;
+        data = p.combo < L.length ? L[p.combo] : CFG.progress.finisher; p.combo++;
       }
       startAttack(p, b.act, data); p.buffer = null; return true;
     }
     return false;
   }
 
-  const comboLen = p => P.light.length + (p.S.finisher ? 1 : 0);
+  const lightOf = p => (p.S.combo && P.combos[p.S.combo]) || P.light;
+  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo]) || P.heavy;
+  const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
+  // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
+  function executable(p) {
+    let best = null, bd = Infinity;
+    for (const e of G.enemies) {
+      if (e.state !== 'broken') continue;
+      const d = Combat.dist(p.pos, e.pos);
+      if (d > P.execute.range + e.def.radius) continue;
+      if (G.lock !== e && View.mode === 'behind' && Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - (View.yaw + Math.PI))) > 1.2) continue;
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
   function startAttack(p, kind, data) {
     spend(p, data.cost);
-    const { target, dir } = pickTarget(p);
+    const { target, dir } = data.exec ? { target: data.exec, dir: 0 } : pickTarget(p);
     p.target = target;
     p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
     // The weapon and its bonuses scale the move: damage, posture, swing speed and reach; criticals roll per swing
@@ -86,6 +104,7 @@ const Player = (() => {
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
     if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
+    if (data.exec) { FX.slowmo(0.55, 0.35); Snd.play('warn'); }
     p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
     setState(p, 'attack');
   }
@@ -136,7 +155,8 @@ const Player = (() => {
       let want = null;
       if (behind) want = View.yaw + Math.PI;                         // the body faces where the camera looks
       else {
-        if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
+        if (G.lock && Enemy.targetable(G.lock)) want = Combat.yawTo(p.pos, G.lock.pos);
+        else if (p.blocking) { const t = nearest(p, 7); if (t) want = Combat.yawTo(p.pos, t.pos); }
         if (want === null && mlen > 0.1) want = Math.atan2(m.x, m.z);
       }
       if (want !== null) p.facing += Combat.wrap(want - p.facing) * Math.min(1, (behind ? 20 : P.turnRate) * dt);
@@ -233,6 +253,7 @@ const Player = (() => {
     if (p.state === 'dead') return null;
     const D = P.dodge, dmg = hit.dmg * e.mult;
     const shieldPos = Combat.chestPos(p.pos, 1.25).add(new THREE.Vector3(Math.sin(p.facing) * 0.5, 0, Math.cos(p.facing) * 0.5));
+    if (p.state === 'attack' && p.atk && p.atk.exec) return 'dodge';           // an execution is untouchable
     if ((p.state === 'roll' && p.t >= D.iStart && p.t <= D.iEnd) || p.state === 'dance') {
       FX.text(Combat.chestPos(p.pos, 2.1), 'DODGE', 'dodge');
       G.stats.dodges++;
@@ -347,5 +368,5 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable };
 })();

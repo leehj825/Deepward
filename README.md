@@ -15,7 +15,15 @@ Every model is built in code from primitives, and there are no model, texture or
   - **Apothecary:** more and stronger healing flasks.
   - **Training yard:** more health and stamina.
 - **Gear:** five slots (weapon, shield, armour, helm and trinket).
-  - Five weapon types play differently: sword, axe (posture), mace (more posture, short), longsword (reach, slower), and the two-handed **greatsword**.
+  - Seven weapon types play differently:
+    - **Sword:** the all-rounder.
+    - **Axe:** more posture damage.
+    - **Mace:** even more posture damage, short reach.
+    - **Longsword:** more reach, slower.
+    - **Greatsword:** two-handed (below).
+    - **Spear:** used with a shield. Its light combo is thrust, thrust, then a wide sweep reaching 3 m, and its heavy is a lunging thrust.
+    - **Twin daggers:** a blade in each hand and no shield. A fast five-cut combo, a spinning heavy, and dashes that cost 40% less, but the blades block only 60% of a blow.
+  - Bram forges a greatsword, spear or twin daggers on request.
   - The greatsword deals 1.5× damage with more posture and reach, and swaps the hero to the great-sword motion capture with both hands on the hilt. It leaves no room for a shield: the blade blocks only 55% of a blow, blocking costs more stamina, and you take 10% more damage. Bram forges one on request.
   - Rarities run from Common to Legendary, with random bonuses: critical chance, posture, stamina regen, health, stamina, parry window, life on hit and gold find.
   - Gear power rises with the stage it came from, and what you wear shows on the hero.
@@ -159,6 +167,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | --- | --- | --- | --- |
 | Move (strafe in the behind view) | WASD / arrows | Left stick | Left thumb (floating stick) |
 | Turn camera (behind view) | Mouse (click to capture) | Right stick (click to recentre) | Drag the right side |
+| Lock on (again to let go) | C | Right-stick click | 🎯 |
 | Switch camera | B | View | 🎥 |
 | Full map | N | | Tap the minimap |
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
@@ -182,6 +191,8 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 - **Stamina** pays for attacks, dashes and every blocked hit. If a block runs out of stamina, your guard breaks and you're stunned.
 - **Posture:** the yellow bar under an enemy's health. It fills from hits, parries and blocked blows. When it's full the enemy is **broken**, and your next hit is a 3× critical.
 - **Amber glow:** the attack can only be **parried** (or dashed). A plain block is smashed aside and the hit lands anyway. Spiders pounce like this.
+- **Lock-on:** C (right-stick click, 🎯) locks onto the foe nearest where you look. A gold marker spins over it, the camera swings to keep it in view, the hero faces it and strafes around it, and attacks go to it. When it dies, the lock moves to the next foe nearby.
+- **Execution:** when an enemy's posture breaks, its bar reads EXECUTE. A heavy attack close by finishes it with a slow-motion blow that nothing can interrupt. Ordinary foes die outright; guardians and champions take a huge critical instead.
 - **Shield knights** block light attacks from the front, so use a heavy attack or get behind them. **Brutes** don't flinch while they swing.
 - **Archers** keep their distance and shoot arrows you can block, parry or dash through. **Goblins** are fast and come in packs.
 - **Duelists** feint: the raised overhead stops short and the real slash comes right after, so wait for it before parrying.

@@ -32,6 +32,16 @@ const Rig = (() => {
     const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
     return { group: g, glowMats: [steel], tip, base, blade };
   }
+  // A spear held near its balance point: a long ash shaft with an iron leaf blade and a butt cap
+  function spear(hand, o) {
+    const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xc0c6d0, 0.35, 0.6), wood = std(0x6a4a2a);
+    mesh(new THREE.CylinderGeometry(0.022, 0.026, 2.0, 7).rotateX(Math.PI / 2), wood, g, 0, 0, 0.55);
+    mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.08, 7).rotateX(Math.PI / 2), std(0x4a4a50, 0.5, 0.5), g, 0, 0, -0.45);
+    mesh(new THREE.OctahedronGeometry(0.1, 0).scale(0.55, 0.18, 2.1), steel, g, 0, 0, 1.68);
+    mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.1, 7).rotateX(Math.PI / 2), steel, g, 0, 0, 1.5);
+    const tip = joint(g, 0, 0, 1.9), base = joint(g, 0, 0, 1.45);
+    return { group: g, glowMats: [steel], tip, base };
+  }
   function club(hand, o) {
     const g = joint(hand, 0, -0.03, 0);
     const wood = std(0x5a3a22), iron = std(0x4a4a50, 0.5, 0.5);
@@ -273,6 +283,11 @@ const Rig = (() => {
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
     else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
+    else if (kind === 'hero' && L.weapon === 'spear') wpn = spear(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined });
+    else if (kind === 'hero' && L.weapon === 'daggers') {
+      wpn = sword(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined, len: 0.42, thin: true });
+      const off = sword(rig.j.hdL, { blade: L.blade ? (L.blade | 0x404040) : undefined, len: 0.42, thin: true }); rig.offhand = off; rig.glowMats.push(...off.glowMats);
+    }
     else wpn = sword(rig.j.hdR, kind === 'skeleton' ? { blade: 0x8a7a66, guard: 0x5a4a3a, len: 0.8 } : kind === 'knight' ? { len: 1.0, guard: 0x4a4e58 } : { blade: L.blade ? (L.blade | 0x404040) : undefined, len: L.weaponLen, twoHanded: L.twoHanded });
     rig.weapon = wpn; if (wpn) rig.glowMats.push(...wpn.glowMats);
     if (wpn && L.glow) for (const m of wpn.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.25; }     // rare-and-better weapons shimmer faintly

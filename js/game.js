@@ -31,6 +31,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
     if (ev.code === 'KeyN') MiniMap.toggle();
+    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
@@ -101,6 +102,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       else if (act === 'flask') Player.drink(G.player);
       else if (act === 'ult') Player.ultimate(G.player);
       else if (act === 'bag') openPanel('bag');
+      else if (act === 'lock') toggleLock();
       else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
     });
     const up = () => { b.classList.remove('on'); if (act === 'block') Input.touchBlock = false; };
@@ -147,7 +149,7 @@ function pollPad(real) {
   if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
   if (down(13)) openPanel('bag');                                         // d-pad down: gear
   if (View.mode === 'behind') {
-    if (down(PAD_BTN.RS)) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }
+    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
   }
 }
@@ -346,7 +348,46 @@ function openPanel(id, opt, done) {
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
-function clearEnemies() { Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+// ---------------- Lock-on ----------------
+// C, the right-stick click or 🎯 locks onto the foe nearest where you look: the camera swings to keep it in view, the
+// hero faces it and strafes around it, and attacks go to it. A gold marker spins over it. When it dies, the lock
+// moves to the next foe nearby; pressing again lets go.
+const lockMark = (() => {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.32, 4).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, depthTest: false }));
+  m.renderOrder = 10; m.visible = false; scene.add(m); return m;
+})();
+function pickLock(exclude, maxD = 16) {
+  const p = G.player; if (!p) return null;
+  const fwd = View.mode === 'behind' ? View.yaw + Math.PI : p.facing;
+  let best = null, bs = Infinity;
+  for (const e of G.enemies) {
+    if (!Enemy.targetable(e) || e === exclude) continue;
+    const d = Combat.dist(p.pos, e.pos); if (d > maxD) continue;
+    const s = d + Math.abs(Combat.wrap(Combat.yawTo(p.pos, e.pos) - fwd)) * 6;
+    if (s < bs) { bs = s; best = e; }
+  }
+  return best;
+}
+function toggleLock() {
+  if (G.lock) { G.lock = null; return; }
+  G.lock = pickLock();
+  if (G.lock) Snd.play('glint');
+  else if (View.mode === 'behind' && G.player) { View.yaw = G.player.facing + Math.PI; View.pitch = 0.42; }   // nothing near: recentre
+}
+function updateLock(dt) {
+  const p = G.player; let L = G.lock;
+  if (L && (L.state === 'dead' || L.remove || Combat.dist(p.pos, L.pos) > 20)) L = G.lock = L.state === 'dead' ? pickLock(L, 10) : null;
+  lockMark.visible = !!L;
+  if (!L) return;
+  lockMark.position.set(L.pos.x, 2.15 * L.def.scale + 0.7 + Math.sin(G.time * 5) * 0.06, L.pos.z); lockMark.rotation.y += dt * 3;
+  if (View.mode === 'behind' && Combat.dist(p.pos, L.pos) > 0.8) {
+    const want = Math.atan2(p.pos.x - L.pos.x, p.pos.z - L.pos.z);           // the camera on the far side of the hero
+    View.yaw += Combat.wrap(want - View.yaw) * Math.min(1, dt * 7);
+  }
+}
+G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
+function clearEnemies() {
+  G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -494,7 +535,7 @@ if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('start
 const camTarget = new THREE.Vector3(0, 0, 2);
 function turnView(dx, dy) {
   const k = Settings.get('sens');
-  View.yaw -= dx * k;
+  if (!G.lock) View.yaw -= dx * k;                                         // while locked on, the camera keeps the target in view
   View.pitch = Math.min(1.25, Math.max(0.08, View.pitch + dy * k * (Settings.get('invertY') ? -1 : 1)));
 }
 function toggleView() {
@@ -582,6 +623,7 @@ function step(real) {
     runTimers();
     FX.update(dt);
     updateHud();
+    updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
   } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
