@@ -195,6 +195,11 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
+## Photo mode (built)
+
+- `G.state = 'photo'`: `step` runs only `photoCam`, so nothing in the world moves. The camera orbits `PH.at` (yaw, pitch, distance) from mouse drags, the wheel, pinch, arrow keys, Q / E, the pad's sticks and triggers; WASD moves the point (kept within 25 m of the hero). `body.photo` hides the HUD.
+- Filters are CSS filters on the canvas while looking; `G.photoSave` renders a frame and draws it through the same filter onto a 2D canvas, then downloads it as `deepward-date-time.png`. Bound as the `photo` action (H, D-pad left).
+
 ## Appearance (built)
 
 - `S.looks` holds indices into `CFG.appearance` (skins, hair colours, styles, beards); `Items.look()` adds `skin`, `hair`, `hairStyle` and `beard` to the hero's look, so the rig, the gear screen's turning hero and refits all follow it. Hair styles are a few boxes on the head (a helm leaves only a tuft, or a longer fall for long hair); beards show under helms.

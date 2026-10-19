@@ -66,6 +66,8 @@ Every model is built in code from primitives, and there are no model, texture or
 
 A box at the top says what to press in your own controls (keyboard, controller or touch) and counts your progress. You can skip a lesson or leave at any time. A new game offers the training after the opening story, and the trainer at the yard sign runs it again whenever you like. Finishing it the first time pays 150 gold.
 
+**Photo mode.** Press H (D-pad left on a controller, or Photo mode on the pause screen). The fight holds still and the HUD hides; drag or use the arrow keys / right stick to turn around a point, the wheel, pinch, Q / E or the triggers to zoom, and WASD / the left stick to move it. Six filters (Warm, Cold, Noir, Old print, Vivid), the warden can be hidden, and Save picture downloads a PNG with the filter baked in. Esc, H or Ⓑ returns to the fight.
+
 **Appearance.** After the opening story you choose how the warden looks: six skin tones, eight hair colours, four hair styles (short, long, tail, shaved) and a beard (none, short, long). The gear screen's **Appearance** button changes it any time; a helm covers the hair but not the beard.
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
@@ -422,6 +424,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/photo_test.js` | Headless check of photo mode: frozen fight, hidden HUD, orbit and zoom, filters, hiding the warden, a saved picture, and back |
 | `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |

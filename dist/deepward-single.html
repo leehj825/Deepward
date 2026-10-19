@@ -362,6 +362,14 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 .pb.swatch.on { border-color: #f2d27a; box-shadow: 0 0 0 2px rgba(242, 210, 122, 0.5); }
 .looksdoll { height: clamp(220px, calc(100vh - 220px), 360px); }
 
+/* Photo mode: the HUD hides, a bar of choices along the bottom */
+body.photo :is(#hud, #waveBox, #corner, #minimap, #mapInfo, #bars, #floaters, #banner, #tip, #lesson, #padKeys, #keys, #stick, #pad, #perf, #prompt) { display: none !important; }
+#photoBar { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: none; flex-wrap: wrap; justify-content: center; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.78); border: 1px solid rgba(242, 210, 122, 0.4); border-radius: 8px; z-index: 31; max-width: calc(100vw - 32px); }
+#photoBar.show { display: flex; }
+#photoBar button { padding: 7px 12px; font-weight: 700; color: #f2e6c8; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(242, 210, 122, 0.4); border-radius: 4px; }
+#photoBar small { flex-basis: 100%; text-align: center; font-size: 11px; opacity: 0.6; }
+body.pad #photoBar small::after { content: ' · Ⓐ save · Ⓧ filter · Ⓨ warden · Ⓑ done'; }
+
 </style>
 </head>
 <body>
@@ -414,10 +422,11 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
   <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera</p>
   <div class="tbtns"><button id="contBtn" style="display:none">Continue</button><button id="startBtn">Begin</button><button id="titleSetBtn" class="quiet">Settings</button></div>
 </div></div>
-<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
+<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button><button id="photoBtn" class="quiet">Photo mode</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
 <div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
 <div id="fade"></div>
 <div id="letterbox"></div>
+<div id="photoBar"></div>
 <div id="arrangeBar"><span>Drag the buttons where your thumbs want them.</span><button data-pad="reset">Reset</button><button data-pad="done">Done</button></div>
 
 <script>
@@ -1343,15 +1352,15 @@ const Bindings = (() => {
     ['up', 'Move forward'], ['down', 'Move back'], ['left', 'Move left'], ['right', 'Move right'],
     ['light', 'Attack'], ['heavy', 'Heavy attack'], ['block', 'Block / parry'], ['dodge', 'Dash'],
     ['flask', 'Healing flask'], ['ult', 'Ultimate'], ['interact', 'Talk / use'], ['lock', 'Lock on'],
-    ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['camera', 'Switch camera'], ['map', 'Full map'], ['mute', 'Mute'],
+    ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['camera', 'Switch camera'], ['map', 'Full map'], ['photo', 'Photo mode'], ['mute', 'Mute'],
   ];
   const KEYS = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
     light: ['KeyJ'], heavy: ['KeyK', 'KeyQ'], block: ['KeyL', 'ShiftLeft'], dodge: ['Space'], flask: ['KeyR'], ult: ['KeyF'], interact: ['KeyE'],
-    lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], camera: ['KeyB'], map: ['KeyN'], mute: ['KeyM'],
+    lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], camera: ['KeyB'], map: ['KeyN'], photo: ['KeyH'], mute: ['KeyM'],
   };
   // Standard-mapping button numbers. A both talks (when something is near) and dashes; movement is on the stick.
-  const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], flask: [12], gear: [13], camera: [8], lock: [11] };
+  const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], flask: [12], gear: [13], camera: [8], lock: [11], photo: [14] };
   const PADNAME = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS', 'D-pad up', 'D-pad down', 'D-pad left', 'D-pad right'];
   const FIXED_KEYS = ['Escape', 'Enter'], FIXED_PAD = [9];                 // pause / confirm stay where they are
   const MOUSE = { light: 'left-click', block: 'right-click', heavy: 'middle-click' };
@@ -7003,6 +7012,8 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (has('map')) MiniMap.toggle();
     if (has('codex') && G.state === 'play') openPanel('codex');
     if (has('lock') && G.state === 'play') toggleLock();
+    if (G.state === 'photo') { photoKey(ev, has); return; }                // photo mode takes the keys while it is up
+    if (has('photo') && G.state === 'play') { G.photo(true); ev.preventDefault(); return; }
     // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
@@ -7103,6 +7114,8 @@ function pollPad(real) {
   const pressed = act => Bindings.padButtons(act).some(down), holding = act => Bindings.padButtons(act).some(btn);
   const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
   Pad.move.x = mx; Pad.move.z = my;
+  if (G.state === 'photo') { photoPad(real, mx, my, cx, cy, down, now); return; }
+  if (pressed('photo') && G.state === 'play') G.photo(true);
   Pad.block = holding('block');
   if (now.some(Boolean)) Snd.init();
   // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
@@ -7349,6 +7362,7 @@ function openSettings() {
   UI.show('settings', {}, () => { G.state = from === 'menu' ? 'play' : from; if (scr) scr.classList.add('show'); });
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+$('photoBtn').addEventListener('click', () => { if (G.state !== 'pause') return; togglePause(); G.photo(true); });
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
@@ -7807,6 +7821,79 @@ function rookTalk() {
   }
   return false;
 }
+// ---------------- Photo mode ----------------
+// The fight holds still and the HUD hides. A free camera orbits a point (drag, right stick, arrow keys), zooms (wheel,
+// pinch, Q / E, triggers) and moves (WASD, left stick); filters tint the view and the saved picture.
+const PHOTO_FILTERS = [['None', ''], ['Warm', 'sepia(0.25) saturate(1.3) brightness(1.05)'], ['Cold', 'hue-rotate(-14deg) saturate(0.8) brightness(1.06)'],
+  ['Noir', 'grayscale(1) contrast(1.3)'], ['Old print', 'sepia(0.85) contrast(1.1) brightness(0.95)'], ['Vivid', 'saturate(1.6) contrast(1.1)']];
+const PH = { yaw: 0, pitch: 0.3, dist: 5, at: new THREE.Vector3(), filter: 0, hero: true, drag: null, pinch: 0, move: { x: 0, z: 0, y: 0 } };
+G.photo = on => {
+  const bar = $('photoBar');
+  if (on) {
+    if (G.state !== 'play') return;
+    PH.at.copy(G.player.pos).y = 1.1; PH.yaw = Math.atan2(camera.position.x - PH.at.x, camera.position.z - PH.at.z);
+    PH.dist = Math.min(14, Math.max(2, camera.position.distanceTo(PH.at))); PH.pitch = Math.asin(Math.min(0.95, Math.max(-0.2, (camera.position.y - PH.at.y) / PH.dist)));
+    G.state = 'photo'; document.body.classList.add('photo'); bar.classList.add('show'); photoBar();
+    if (document.pointerLockElement) document.exitPointerLock();
+  } else {
+    G.state = 'play'; document.body.classList.remove('photo'); bar.classList.remove('show'); $('game').style.filter = '';
+    G.player.rig.root.visible = true;
+  }
+};
+function photoBar() {
+  $('photoBar').innerHTML = `<button data-ph="filter">Filter: ${PHOTO_FILTERS[PH.filter][0]}</button><button data-ph="hero">${PH.hero ? 'Hide' : 'Show'} warden</button><button data-ph="save">Save picture</button><button data-ph="exit">Done</button><small>Drag or arrows to turn · wheel, Q / E to zoom · WASD to move</small>`;
+  $('game').style.filter = PHOTO_FILTERS[PH.filter][1]; G.player.rig.root.visible = PH.hero;
+}
+function photoAct(a) {
+  if (a === 'filter') { PH.filter = (PH.filter + 1) % PHOTO_FILTERS.length; photoBar(); }
+  if (a === 'hero') { PH.hero = !PH.hero; photoBar(); }
+  if (a === 'save') G.photoSave();
+  if (a === 'exit') G.photo(false);
+}
+// The picture: rendered now, with the filter baked in, offered as a download
+G.photoSave = () => {
+  renderer.render(scene, camera);
+  const src = renderer.domElement, c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d'); x.filter = PHOTO_FILTERS[PH.filter][1] || 'none'; x.drawImage(src, 0, 0);
+  const url = c.toDataURL('image/png'), d = new Date(), n = v => String(v).padStart(2, '0');
+  const a = document.createElement('a'); a.href = url; a.download = `deepward-${d.getFullYear()}${n(d.getMonth() + 1)}${n(d.getDate())}-${n(d.getHours())}${n(d.getMinutes())}${n(d.getSeconds())}.png`;
+  document.body.appendChild(a); a.click(); a.remove(); FX.flash && FX.flash(); Snd.play('glint'); UI.toast('Picture saved', '#f2d27a');
+  G.lastPhoto = url; return url;
+};
+function photoKey(ev, has) {
+  const c = ev.code;
+  if (c === 'Escape' || has('photo')) { G.photo(false); ev.preventDefault(); return; }
+  if (c === 'Enter') G.photoSave();
+}
+function photoPad(real, mx, my, cx, cy, down, now) {
+  PH.yaw -= cx * real * 2.2; PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + cy * real * 1.6));
+  PH.dist = Math.max(1.2, Math.min(18, PH.dist + ((now[6] ? 1 : 0) - (now[7] ? 1 : 0)) * real * 6));
+  PH.move.x = mx; PH.move.z = my;
+  if (down(1) || down(14)) G.photo(false); if (down(0)) G.photoSave(); if (down(2)) photoAct('filter'); if (down(3)) photoAct('hero');
+}
+function photoCam(real) {
+  const k = Input.keys, H = c => !!k[c];
+  PH.yaw += ((H('ArrowLeft') ? 1 : 0) - (H('ArrowRight') ? 1 : 0)) * real * 1.8;
+  PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + ((H('ArrowUp') ? 1 : 0) - (H('ArrowDown') ? 1 : 0)) * real * 1.2));
+  PH.dist = Math.max(1.2, Math.min(18, PH.dist + ((H('KeyE') ? 1 : 0) - (H('KeyQ') ? 1 : 0)) * real * 6));
+  const mx = (H('KeyD') ? 1 : 0) - (H('KeyA') ? 1 : 0) + PH.move.x, mz = (H('KeyS') ? 1 : 0) - (H('KeyW') ? 1 : 0) + PH.move.z;
+  const fx = -Math.sin(PH.yaw), fz = -Math.cos(PH.yaw), sp = real * 5;
+  PH.at.x += (fx * -mz + -fz * mx) * sp; PH.at.z += (fz * -mz + fx * mx) * sp;
+  PH.at.x = Math.max(G.player.pos.x - 25, Math.min(G.player.pos.x + 25, PH.at.x)); PH.at.z = Math.max(G.player.pos.z - 25, Math.min(G.player.pos.z + 25, PH.at.z));
+  const cp = Math.cos(PH.pitch);
+  camera.position.set(PH.at.x + Math.sin(PH.yaw) * cp * PH.dist, PH.at.y + Math.sin(PH.pitch) * PH.dist, PH.at.z + Math.cos(PH.yaw) * cp * PH.dist);
+  camera.lookAt(PH.at);
+}
+(function photoInput() {
+  const cv = $('game');
+  $('photoBar').addEventListener('click', ev => { const b = ev.target.closest('[data-ph]'); if (b) photoAct(b.dataset.ph); });
+  cv.addEventListener('pointerdown', ev => { if (G.state === 'photo') PH.drag = { x: ev.clientX, y: ev.clientY, id: ev.pointerId }; });
+  addEventListener('pointermove', ev => { if (G.state !== 'photo' || !PH.drag || PH.drag.id !== ev.pointerId || PH.pinch) return; PH.yaw -= (ev.clientX - PH.drag.x) * 0.006; PH.pitch = Math.max(-0.2, Math.min(1.35, PH.pitch + (ev.clientY - PH.drag.y) * 0.005)); PH.drag.x = ev.clientX; PH.drag.y = ev.clientY; });
+  addEventListener('pointerup', () => { PH.drag = null; });
+  cv.addEventListener('wheel', ev => { if (G.state !== 'photo') return; PH.dist = Math.max(1.2, Math.min(18, PH.dist * (ev.deltaY > 0 ? 1.1 : 0.9))); ev.preventDefault(); }, { passive: false });
+  cv.addEventListener('touchmove', ev => { if (G.state !== 'photo' || ev.touches.length !== 2) return; const [a, b] = ev.touches, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); if (PH.pinch) PH.dist = Math.max(1.2, Math.min(18, PH.dist * PH.pinch / d)); PH.pinch = d; ev.preventDefault(); }, { passive: false });
+  cv.addEventListener('touchend', () => { PH.pinch = 0; });
+})();
 // The training yard: Hobb's six lessons, in camp
 G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutorial.begin(); };
 G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
@@ -7949,7 +8036,8 @@ function step(real) {
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
-  if (G.state === 'play') {
+  if (G.state === 'photo') photoCam(real);                                 // the world holds still for the picture
+  else if (G.state === 'play') {
     readInput();
     const dt = FX.scaleDt(real);
     G.time += dt;
