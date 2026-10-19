@@ -52,7 +52,16 @@ Every model is built in code from primitives, and there are no model, texture or
 
 When a guardian falls, the adds it summoned crumble with it.
 
-**Dungeon progression.** You fight your way north through a chain of sealed rooms. Each cleared room raises its far gate and the next room fades in out of the dark. Once you step through, the gate drops behind you and the room you left fades out and is unloaded. Stages change every four rooms (The Crypt, The Iron Keep, The Ogre Den, The Spider Depths, The Shadow Court), each with its own stone, torchlight, fog and enemies, and each ends in a guardian room. After the last stage they repeat with tougher enemies. See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
+**Dungeon progression.** Each stage is one large, winding dungeon with no gates:
+
+- **Sections:** five wide halls, each 30% bigger than the old rooms, set off to the side of one another so the path bends. Open passages join them, so you can walk the whole stage freely.
+- **Waves:** walking into a section wakes its monsters, wave after wave. Enemies chase you through the passages if you fall back or run ahead.
+- **Chests and healing:** each cleared section heals you a little and leaves a chest beside the path.
+- **The lair:** the last section ends in a dark archway. When you step in, the stage's guardian comes out of it.
+- **After the guardian:** return to camp, or press on down the stair into the next stage.
+- **The stages:** The Crypt, The Iron Keep, The Ogre Den, The Spider Depths and The Shadow Court, each with its own stone, torchlight, fog and enemies. After the last one they repeat with tougher enemies.
+
+See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Run
 
@@ -160,7 +169,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/combat.js` | Attack cones and hit resolution between player and enemies |
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
-| `js/world.js` | The dungeon: room and corridor building per stage theme, portcullis gates, fade-in/fade-out and unloading, walkable space, encounters, pooled torch lights |
+| `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
@@ -183,4 +192,4 @@ node tools/boss_test.js
 node tools/settings_test.js
 ```
 
-It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also plays through five rooms into stage 2 and checks that the gates open and the rooms behind unload.
+It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2.

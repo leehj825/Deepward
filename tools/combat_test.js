@@ -57,26 +57,53 @@ const SCENARIOS = {
     const p = __dw.G.player;
     return { x: +p.pos.x.toFixed(2), z: +p.pos.z.toFixed(2), facing: +p.facing.toFixed(2) };
   })()`,
-  // Progression: clear rooms with a cheat, walk north through the gates; rooms behind unload, stage 2 begins
-  progress: `(() => {
+  // Progression: one open, winding dungeon per stage. The path is walkable end to end with no gates; walking into a
+  // section wakes its monsters; they chase you through the passages; the guardian comes out of its lair; pressing on
+  // leads into stage 2.
+  progress: `(async () => {
     if (__dw.View.mode !== 'behind') return { skipped: true };
-    const W = __dw.World, G = __dw.G, log = [];
-    __dw.World.startStage(0);
-    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
-    for (let room = 0; room < 5; room++) {
-      __dw.sim(12, () => { kill(); G.player.hp = 100; return W.active && W.active.state === 'cleared'; });
-      __dw.sim(0.5);
-      if (W.active.inf.room.guardian) { log.push('guardian cleared, chest: ' + !!W.active.chest); W.pressOn(); __dw.sim(0.5); }
-      const nextRoom = W.rooms.find(r => r.i === room + 1);
-      if (!nextRoom) { log.push('no next room after ' + room); break; }
-      __dw.View.yaw = 0; __dw.G.player.pos.x = 0;
-      __dw.Input.keys.KeyW = true;
-      __dw.sim(12, () => W.active === nextRoom);
-      __dw.Input.keys.KeyW = false;
-      __dw.sim(2.5, () => { kill(); });
-      log.push({ room: W.active.i, stage: W.active.inf.stage.name, live: W.rooms.map(r => r.i).join(','), z: Math.round(G.player.pos.z) });
+    const W = __dw.World, G = __dw.G, out = {};
+    W.startStage(0); G.queue = [];
+    const S = W.sections, V = THREE.Vector3;
+    out.sections = S.length; out.winding = S.some(r => Math.abs(r.cx) > 1);
+    // Walk the centre line: start -> each doorway -> through each passage -> the lair; no point may be pushed aside
+    const pts = [new V(S[0].cx, 0, S[0].southZ - 3)];
+    for (let j = 0; j < S.length - 1; j++) pts.push(new V(S[j].doorN, 0, S[j].northZ + 1), new V(S[j].doorN, 0, S[j + 1].southZ - 1));
+    pts.push(new V(S[S.length - 1].cx, 0, S[S.length - 1].northZ + 2.5));
+    let blocked = 0;
+    for (let k = 0; k < pts.length - 1; k++) for (let t = 0; t <= 1; t += 0.05) {
+      const q = pts[k].clone().lerp(pts[k + 1], t), c = q.clone(); W.constrain(c, 0.45);
+      if (c.distanceTo(q) > 0.05 && !W.rooms.some(r => r.pillars.some(([px, pz, pr]) => Math.hypot(q.x - px, q.z - pz) < (pr || CFG.pillarR) + 0.5))) blocked++;
     }
-    return { log, kills: G.stats.kills, rooms: G.stats.rooms, children: __dw.sceneSize() };
+    out.blocked = blocked;
+    // Monsters wake when you walk in, and chase you back through the passage
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    G.player.maxHp = G.player.hp = 1e6;
+    __dw.sim(6, () => { kill(); return S[0].state === 'cleared'; });
+    G.player.pos.set(S[1].doorS, 0, S[1].southZ - 2.5); __dw.sim(2.2);
+    out.woke = S[1].state === 'fight' && G.enemies.some(e => e.room === S[1] && e.state !== 'dead');
+    G.player.pos.set(S[0].doorN, 0, S[0].northZ + 4); G.player.blocking = false;
+    __dw.sim(12, () => { G.player.pos.set(S[0].doorN, 0, S[0].northZ + 4); return G.enemies.some(e => e.room === S[1] && e.state !== 'dead' && W.roomOf(e.pos) === S[0]); });
+    out.chased = G.enemies.some(e => e.room === S[1] && e.state !== 'dead' && W.roomOf(e.pos) === S[0]);
+    // Clear every section on the way to the lair
+    for (let j = 1; j < S.length - 1; j++) {
+      G.player.pos.set(S[j].doorS, 0, S[j].southZ - 2.5);
+      __dw.sim(16, () => { kill(); return S[j].state === 'cleared'; });
+    }
+    out.cleared = S.slice(0, -1).every(r => r.state === 'cleared');
+    out.chests = S.slice(0, -1).filter(r => r.chest).length;
+    // The guardian comes out of its lair
+    const L = S[S.length - 1];
+    G.player.pos.set(L.doorS, 0, L.southZ - 2.5); __dw.sim(2);
+    out.boss = !!(G.boss && G.boss.guardian) && Math.abs(G.boss.pos.z - L.lairAt.z) < 2.5;
+    __dw.sim(20, () => { kill(); return L.state === 'cleared'; });
+    out.lairCleared = L.state === 'cleared' && !!L.chest && L.chest.big;
+    // Press on into stage 2
+    G.stageK = 0; G.mode = 'dungeon'; G.pressOn();
+    await new Promise(r => setTimeout(r, 900));
+    out.next = W.active && W.active.inf.stage.name;
+    out.sameSize = W.rooms.length === W.sections.length;
+    return out;
   })()`,
   // An archer's arrow is stopped by a raised shield
   arrowBlock: `(() => {
@@ -175,7 +202,7 @@ const CHECKS = {
   pounceParry: r => r.parries === 1 && r.hitsTaken === 0,
   feint: r => r.feinted && r.hitsTaken === 1,
   goblin: r => r.kills === 1,
-  progress: r => r.skipped || (r.rooms === 5 && r.log.length === 6 && r.log[5].room === 5 && r.log[3] === 'guardian cleared, chest: true' && r.log[5].stage === 'The Iron Keep' && r.log.every(l => typeof l === 'string' || (l.live && !l.live.split(',').includes(String(l.room - 1))))),
+  progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
   guardBreak: r => r.enemyHp < r.maxHp && (r.enemyState === 'stagger' || r.enemyState === 'broken'),

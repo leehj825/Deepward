@@ -220,8 +220,8 @@ function resolveCollisions() {
     const push = (min - d), nx = dx / d, nz = dz / d, wa = a === p ? 0.7 : 0.5;
     a.pos.x -= nx * push * wa; a.pos.z -= nz * push * wa; b.pos.x += nx * push * (1 - wa); b.pos.z += nz * push * (1 - wa);
   }
-  // The hero may use any open space; enemies stay inside the room they were spawned in
-  for (const b of bodies) World.constrain(b.pos, rad(b), b === p ? null : b.room);
+  // Everyone stays inside the dungeon's sections and passages
+  for (const b of bodies) World.constrain(b.pos, rad(b));
 }
 
 // ---------------- Spawning ----------------
@@ -352,11 +352,11 @@ function startGame(how = 'new') {
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
-// Down into stage k
-G.descend = k => fadeTo(() => {
+// Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+G.descend = (k, onward) => fadeTo(() => {
   clearEnemies();
   const at = World.startStage(k);
-  G.mode = 'dungeon'; G.stageK = k; Items.S.tripGold = 0;
+  G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
   const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
@@ -420,7 +420,8 @@ G.returnToCamp = () => fadeTo(() => {
   if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
-G.pressOn = () => { World.pressOn(); G.state = 'play'; };
+// Press on: down the stair behind the fallen guardian into the next stage
+G.pressOn = () => G.descend(G.stageK + 1, true);
 G.onPlayerDeath = () => {
   Snd.play('lose'); Items.S.deaths++;
   G.after(1.6, () => {
@@ -481,10 +482,10 @@ function updateCamera(dt) {
   setFov(42);
   const want = p ? p.pos : new THREE.Vector3(0, 0, 0);
   camTarget.lerp(want, 1 - Math.exp(-6 * dt));
-  // Stay framed on the room the hero is in (in a corridor, just follow)
+  // Stay framed on the section the hero is in (in a passage, just follow)
   const r = p && World.roomOf(p.pos);
   let tx = camTarget.x, tz = camTarget.z;
-  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5); tx = Math.max(-lx, Math.min(lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
+  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);

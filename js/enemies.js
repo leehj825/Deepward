@@ -82,10 +82,14 @@ const Enemy = (() => {
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
       if (e.strafeT <= 0) { e.strafeT = 1.5 + Math.random() * 2; if (Math.random() < 0.5) e.strafeDir *= -1; }
-      turn(toP, 7);
       const reach = maxReach(e) * 0.85 + CFG.player.radius;
       const playerOK = p.state !== 'dead';
-      if (def.ranged) {
+      // The hero is in another section: run for the doorway on the way
+      const via = playerOK && d > reach ? World.route(e.pos, p.pos) : null;
+      if (via) { const a = Combat.yawTo(e.pos, via); turn(a, 9); step(a, def.speed * 1.1); }
+      else turn(toP, 7);
+      if (via) { /* on the way */ }
+      else if (def.ranged) {
         // Archers hold the middle distance: back off when crowded, close in when too far, shoot whenever ready
         const [near, far] = def.ranged;
         if (playerOK && e.cooldown <= 0 && d <= far + 1.5 && d > 2) startAttack(e);

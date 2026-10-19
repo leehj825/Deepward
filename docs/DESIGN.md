@@ -31,13 +31,15 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 
 ## Progression through the dungeon (built)
 
-- The dungeon is a chain of rooms heading north, joined by short corridors with a portcullis at each end.
-- **Entering a room** drops the gate behind you. The room then sends its waves.
-- **Clearing a room** heals 35% of your health and raises the far gate. The next room is built and fades in beyond it.
-- **Stepping into the next room** closes its gate behind you. The room you left fades out and is unloaded, so only the current room and the one ahead exist at a time.
-- **Stages** are four rooms each, with the last room a guardian room: its first enemy is a larger elite with 1.7× health and damage. Each stage has its own theme (stone and brick colours, torch colour, fog, ambient light, decor), and fog and light drift to the new theme as you cross into it.
-- **Lighting:** a fixed pool of six point lights follows the torches nearest the hero, so rooms coming and going never force a shader recompile.
-- **Camera:** the south doorway turns see-through while the camera is behind it.
+- **One dungeon per stage:** a winding run of five sections heading north. Each section is a wide hall, sized from `CFG.stages` times `sectionScale` (1.3) and shifted sideways from the last so the path bends. Straight open passages (4 m wide, 8 m long) join them. There are no gates, and the whole stage is built when you arrive.
+- **Encounters:** walking into a section wakes it. After a short breath its waves come in turn, spawning away from the hero. Several sections can be awake at once if you run ahead.
+- **Clearing a section** heals 35% of your health and leaves a chest beside the path.
+- **Chasing:** enemies roam the whole dungeon. If the hero is in another section, they head for the doorway on the way: each point is placed along the path (sections even, passages odd) and they step toward the next doorway.
+- **The lair:** the last section ends in a dark archway in its far wall. Stepping in shakes the ground, its banner shows, and the guardian comes out of the archway. Its big chest stands before the lair.
+- **After the guardian:** you choose between returning to camp and pressing on. Pressing on fades into the next stage, with the trip's gold still at risk.
+- **Themes:** each stage has its own stone and brick colours, torch colour, fog, ambient light and decor. Decor is kept off the path between the doorways.
+- **Lighting:** a fixed pool of six point lights follows the torches nearest the hero, so the shaders never recompile.
+- **Camera:** the frame of a section's south doorway turns see-through while the camera is behind it.
 
 ## Animation (built)
 

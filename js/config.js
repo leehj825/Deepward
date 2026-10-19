@@ -107,38 +107,44 @@ const CFG = {
     },
   },
   maxAttackers: 2,               // enemies that may be winding up or swinging at the same time
-  // The dungeon is a chain of rooms heading north. Each stage is a run of rooms in its own theme, ending in a
-  // guardian room (its first enemy is a tougher elite). After the last stage the stages repeat with tougher enemies.
-  // size: [half width, half depth] in metres; waves: the groups that attack in turn inside the room.
+  // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
+  // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages
+  // repeat with tougher enemies. size: [half width, half depth] in metres (times sectionScale); waves: the groups
+  // that wake in turn when you walk into the section.
   stages: [
     { name: 'The Crypt', theme: 'crypt', guardian: 'The Bone Warden', rooms: [
       { size: [7, 6], waves: [['skeleton']] },
       { size: [8, 7], waves: [['skeleton', 'archer']] },
       { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'archer']] },
+      { size: [8, 6], waves: [['skeleton', 'skeleton', 'archer']] },
       { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton']] },
     ] },
     { name: 'The Iron Keep', theme: 'keep', guardian: 'Sir Aldric the Hollow', rooms: [
       { size: [8, 7], waves: [['knight']] },
       { size: [9, 7], waves: [['knight', 'archer']] },
       { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight', 'archer', 'archer']] },
+      { size: [8, 7], waves: [['knight', 'knight'], ['skeleton', 'archer']] },
       { size: [10, 8], guardian: true, waves: [['knight']] },
     ] },
     { name: 'The Ogre Den', theme: 'den', guardian: 'The Den Mother', rooms: [
       { size: [9, 8], waves: [['goblin', 'goblin', 'goblin']] },
       { size: [10, 8], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
       { size: [10, 9], waves: [['goblin', 'goblin', 'goblin', 'goblin'], ['brute', 'archer']] },
+      { size: [9, 7], pillars: true, waves: [['brute', 'brute']] },
       { size: [11, 9], guardian: true, waves: [['brute', 'goblin']] },
     ] },
     { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', rooms: [
       { size: [9, 8], waves: [['spider']] },
       { size: [10, 8], pillars: true, waves: [['spider', 'spider']] },
       { size: [10, 9], waves: [['spider', 'goblin', 'goblin'], ['spider', 'spider']] },
+      { size: [9, 8], pillars: true, waves: [['spider', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['spider']] },
     ] },
     { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', rooms: [
       { size: [9, 8], waves: [['duelist']] },
       { size: [10, 8], pillars: true, waves: [['duelist', 'archer']] },
       { size: [10, 9], waves: [['duelist', 'knight'], ['duelist', 'duelist']] },
+      { size: [9, 8], pillars: true, waves: [['duelist', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['duelist']] },
     ] },
   ],
@@ -203,7 +209,7 @@ const CFG = {
   guardianMult: 1.7,             // guardian health and damage multiplier
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
   roomHeal: 0.35,                // share of max health restored when a room is cleared
-  fadeTime: 1.4,                 // seconds for a room to fade in ahead of you, or out behind you
+  sectionScale: 1.3,             // every section is built this much larger than its size above
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',

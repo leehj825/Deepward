@@ -40,7 +40,7 @@ const path = require('path');
     while (__dw.UI.open) document.querySelector('#pcard .pb').click();
     __dw.World.startStage(0); const W = __dw.World, G = __dw.G;
     const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
-    for (let room = 0; room < 3; room++) { __dw.sim(14, () => { kill(); G.player.hp = 999; return W.active.state === 'cleared'; }); __dw.sim(0.5); const nx = W.rooms.find(r => r.i === room + 1); G.player.pos.set(0, 0, G.player.pos.z); __dw.View.yaw = 0; __dw.Input.keys.KeyW = true; __dw.sim(12, () => W.active === nx); __dw.Input.keys.KeyW = false; }
+    const L = W.sections[W.sections.length - 1]; G.player.pos.set(L.doorS, 0, L.southZ - 2.5);
     __dw.sim(3);
     const boss = G.boss && G.boss.guardian;
     __dw.sim(14, () => { kill(); G.player.hp = 999; return W.active.state === 'cleared'; });
