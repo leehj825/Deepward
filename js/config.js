@@ -102,6 +102,31 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // ---- The Rim (the field outside the south gate) ----
+    // Wolves run in packs and circle; the pounce leaps in from range
+    wolf: {
+      name: 'Grey Wolf', rig: 'wolf', hp: 38, posture: 40, postureRegen: 16, speed: 4.4, radius: 0.5, scale: 1,
+      flinch: true, approach: 1.9, cooldown: [0.9, 1.8], xp: 12, gold: 5, aggro: 10, pack: true,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'bite', wind: 0.42, active: 0.1, recover: 0.5, dmg: 9, posture: 10, range: 1.9, arc: 80, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'pounce', wind: 0.75, active: 0.16, recover: 0.7, dmg: 14, posture: 16, range: 2.3, arc: 60, lunge: 3.2, leap: true }] },
+      ],
+    },
+    // Boars gore up close; from 5-10 m they lower the head and CHARGE in a straight line (unblockable: dash aside)
+    boar: {
+      name: 'Tusked Boar', rig: 'boar', hp: 85, posture: 80, postureRegen: 12, speed: 3.0, radius: 0.7, scale: 1,
+      flinch: false, hyperArmor: true, approach: 2.0, cooldown: [1.2, 2.2], xp: 22, gold: 10, aggro: 8, charge: [4.5, 10, 1],
+      attacks: [
+        { weight: 3, hits: [{ pose: 'gore', wind: 0.6, active: 0.12, recover: 0.6, dmg: 15, posture: 18, range: 2.0, arc: 90, lunge: 1.2 }] },
+        { weight: 0, hits: [{ pose: 'charge', wind: 0.95, active: 0.45, recover: 0.9, dmg: 24, posture: 0, range: 2.2, arc: 70, lunge: 8.5, unblockable: true }] },
+      ],
+    },
+    // Goblin scouts keep their distance and throw spears (block, parry or dash them)
+    scout: {
+      name: 'Goblin Scout', rig: 'scout', hp: 30, posture: 30, postureRegen: 14, speed: 3.6, radius: 0.42, scale: 0.9,
+      flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.6, 2.6], xp: 12, gold: 8, aggro: 12,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.8, active: 0.1, recover: 0.7, dmg: 11, posture: 10, range: 13, arc: 30, lunge: 0, projectile: { speed: 12 } }] }],
+    },
     // ---- Act II ----
     // Throws slow orbs from afar; a parry sends an orb back at the caster
     caster: {
@@ -413,6 +438,19 @@ const CFG = {
   championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
+  // after one falls); mult is how tough they are. The far ridge is the dangerous end.
+  field: {
+    size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
+    zones: [
+      { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], cap: 5, respawn: 25, mult: 1 },
+      { id: 'wood', name: 'Thornwood', x: 36, z: 52, r: 18, mobs: ['scout', 'scout', 'wolf', 'spider'], cap: 5, respawn: 30, mult: 1.3 },
+      { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4 },
+      { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
+    ],
+    leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
+    deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [

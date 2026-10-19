@@ -525,6 +525,31 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // ---- The Rim (the field outside the south gate) ----
+    // Wolves run in packs and circle; the pounce leaps in from range
+    wolf: {
+      name: 'Grey Wolf', rig: 'wolf', hp: 38, posture: 40, postureRegen: 16, speed: 4.4, radius: 0.5, scale: 1,
+      flinch: true, approach: 1.9, cooldown: [0.9, 1.8], xp: 12, gold: 5, aggro: 10, pack: true,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'bite', wind: 0.42, active: 0.1, recover: 0.5, dmg: 9, posture: 10, range: 1.9, arc: 80, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'pounce', wind: 0.75, active: 0.16, recover: 0.7, dmg: 14, posture: 16, range: 2.3, arc: 60, lunge: 3.2, leap: true }] },
+      ],
+    },
+    // Boars gore up close; from 5-10 m they lower the head and CHARGE in a straight line (unblockable: dash aside)
+    boar: {
+      name: 'Tusked Boar', rig: 'boar', hp: 85, posture: 80, postureRegen: 12, speed: 3.0, radius: 0.7, scale: 1,
+      flinch: false, hyperArmor: true, approach: 2.0, cooldown: [1.2, 2.2], xp: 22, gold: 10, aggro: 8, charge: [4.5, 10, 1],
+      attacks: [
+        { weight: 3, hits: [{ pose: 'gore', wind: 0.6, active: 0.12, recover: 0.6, dmg: 15, posture: 18, range: 2.0, arc: 90, lunge: 1.2 }] },
+        { weight: 0, hits: [{ pose: 'charge', wind: 0.95, active: 0.45, recover: 0.9, dmg: 24, posture: 0, range: 2.2, arc: 70, lunge: 8.5, unblockable: true }] },
+      ],
+    },
+    // Goblin scouts keep their distance and throw spears (block, parry or dash them)
+    scout: {
+      name: 'Goblin Scout', rig: 'scout', hp: 30, posture: 30, postureRegen: 14, speed: 3.6, radius: 0.42, scale: 0.9,
+      flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.6, 2.6], xp: 12, gold: 8, aggro: 12,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.8, active: 0.1, recover: 0.7, dmg: 11, posture: 10, range: 13, arc: 30, lunge: 0, projectile: { speed: 12 } }] }],
+    },
     // ---- Act II ----
     // Throws slow orbs from afar; a parry sends an orb back at the caster
     caster: {
@@ -836,6 +861,19 @@ const CFG = {
   championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
+  // after one falls); mult is how tough they are. The far ridge is the dangerous end.
+  field: {
+    size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
+    zones: [
+      { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], cap: 5, respawn: 25, mult: 1 },
+      { id: 'wood', name: 'Thornwood', x: 36, z: 52, r: 18, mobs: ['scout', 'scout', 'wolf', 'spider'], cap: 5, respawn: 30, mult: 1.3 },
+      { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4 },
+      { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
+    ],
+    leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
+    deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [
@@ -1942,6 +1980,8 @@ const Rig = (() => {
   function build(kind, o = {}) {
     if (kind === 'spider') return buildSpider();
     if (kind === 'mimic') return buildMimic();
+    if (kind === 'wolf' || kind === 'boar') return buildBeast(kind);
+    const scout = kind === 'scout'; if (scout) kind = 'goblin';                // a goblin with throwing spears
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
@@ -2138,6 +2178,7 @@ const Rig = (() => {
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
     else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
     else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);
+    else if (scout) wpn = spear(rig.j.hdR, { blade: 0x7a6a58 });
     else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
@@ -2201,6 +2242,83 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
   }
+  // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
+  // A body, a head on a neck joint (the weapon: bites and tusks), four two-part legs and a tail. Posed by hand.
+  function buildBeast(kind) {
+    const wolf = kind === 'wolf';
+    const rig = { kind, j: {}, mats: [], glowMats: [], beast: true, legs: [], time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), H = wolf ? 0.62 : 0.6, body = joint(root, 0, H, 0); rig.root = root; rig.body = body;
+    const fur = std(wolf ? 0x6a6a70 : 0x4a3426, 0.95), dark = std(wolf ? 0x3a3a40 : 0x2a1c14, 0.95), pale = std(wolf ? 0xa8a8ae : 0x6a5040, 0.95);
+    const bone = std(0xe8e0c8, 0.4), eye = glowMat(wolf ? 0xffd040 : 0xff5a2a);
+    if (wolf) {
+      const torso = ball(body, 0.3, fur, 0, 0, 0, 10, 8); torso.scale.set(0.85, 0.85, 1.9);
+      ball(body, 0.24, pale, 0, -0.08, 0.32, 8, 6).scale.set(0.8, 0.7, 1.0);              // chest ruff
+    } else {
+      const torso = ball(body, 0.42, fur, 0, 0.05, 0, 10, 8); torso.scale.set(0.95, 0.95, 1.45);
+      for (let k = 0; k < 5; k++) mesh(new THREE.ConeGeometry(0.05, 0.22, 4), dark, body, 0, 0.42 - Math.abs(k - 2) * 0.03, 0.35 - k * 0.18).rotation.x = -0.4;   // bristles
+    }
+    const neck = joint(body, 0, wolf ? 0.12 : 0.02, wolf ? 0.5 : 0.55, 'YXZ'); rig.j.neck = neck;
+    const head = joint(neck, 0, 0, wolf ? 0.12 : 0.05); rig.j.head = head;
+    if (wolf) {
+      box(head, 0.26, 0.24, 0.26, fur, 0, 0.02, 0.06);
+      box(head, 0.14, 0.12, 0.26, pale, 0, -0.04, 0.28);                                  // muzzle
+      box(head, 0.07, 0.05, 0.05, dark, 0, -0.0, 0.42);                                    // nose
+      for (const sd of [1, -1]) { mesh(new THREE.ConeGeometry(0.06, 0.16, 4), fur, head, 0.08 * sd, 0.2, 0.0); ball(head, 0.025, eye, 0.07 * sd, 0.07, 0.19, 5, 4); }
+    } else {
+      box(head, 0.36, 0.34, 0.36, fur, 0, 0, 0.1);
+      box(head, 0.22, 0.2, 0.22, pale, 0, -0.06, 0.35);                                   // snout
+      box(head, 0.18, 0.14, 0.04, dark, 0, -0.06, 0.47);
+      for (const sd of [1, -1]) {
+        const t = mesh(new THREE.ConeGeometry(0.035, 0.26, 5), bone, head, 0.13 * sd, -0.08, 0.38); t.rotation.set(-0.9, 0, -0.5 * sd);   // tusks
+        mesh(new THREE.ConeGeometry(0.07, 0.14, 4), fur, head, 0.14 * sd, 0.2, 0.0).rotation.z = -0.5 * sd;
+        ball(head, 0.025, eye, 0.12 * sd, 0.06, 0.26, 5, 4);
+      }
+    }
+    const tip = joint(head, 0, -0.05, wolf ? 0.45 : 0.5), base = joint(head, 0, 0, 0.1);
+    rig.weapon = { group: head, tip, base, glowMats: [wolf ? pale : bone] }; rig.glowMats.push(wolf ? pale : bone);
+    const tail = joint(body, 0, wolf ? 0.08 : 0.15, wolf ? -0.55 : -0.6, 'YXZ'); rig.j.tail = tail;
+    if (wolf) { const tl = mesh(new THREE.CylinderGeometry(0.07, 0.03, 0.5, 6), fur, tail, 0, -0.18, -0.12); tl.rotation.x = 0.8; }
+    else mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.2, 4), dark, tail, 0, -0.08, -0.03);
+    const legLen = wolf ? [0.3, 0.32] : [0.26, 0.3], legR = wolf ? 0.055 : 0.08;
+    for (const [z, front] of [[wolf ? 0.36 : 0.36, true], [wolf ? -0.38 : -0.36, false]]) for (const side of [1, -1]) {
+      const hip = joint(body, (wolf ? 0.14 : 0.22) * side, -0.05, z, 'XYZ');
+      limb(hip, legLen[0], legR, legR * 0.8, fur);
+      const knee = joint(hip, 0, -legLen[0], 0); limb(knee, legLen[1], legR * 0.8, legR * 0.6, dark);
+      box(knee, legR * 2, 0.05, legR * 2.6, dark, 0, -legLen[1], 0.03);
+      rig.legs.push({ hip, knee, front, phase: (front ? 0 : Math.PI) + (side > 0 ? 0 : Math.PI * (wolf ? 0.5 : 1)) });
+    }
+    rig.H = H;
+    bake(root, true, rig.glowMats);
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
+  function animateBeast(rig, st, dt) {
+    rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0), wolf = rig.kind === 'wolf';
+    rig.loco += dt * (3 + 11 * sp);
+    let y = rig.H, pitch = 0, roll = 0, neckX = 0.1, headZ = wolf ? 0.12 : 0.05, legFold = 0, tailX = wolf ? -0.3 : 0.2;
+    if (m === 'attack') {
+      const charge = st.atk === 'charge', pounce = st.atk === 'pounce';
+      if (st.phase === 'wind') { y = rig.H * (pounce ? 0.75 : 0.85); pitch = pounce ? -0.15 : charge ? 0.25 : 0.1; neckX = charge ? 0.6 : 0.3; legFold = 0.35; tailX = wolf ? 0.4 : 0.6; }
+      else if (st.phase === 'active') { y = rig.H * (pounce ? 1.05 : 1); pitch = pounce ? -0.25 : 0.15; neckX = charge ? 0.55 : -0.2; headZ += 0.12; legFold = pounce ? 0.6 : 0; }
+      else { pitch = 0.05; neckX = 0.15; }
+    } else if (m === 'stagger' || m === 'hurt') { roll = Math.sin(T * 40) * 0.15; y = rig.H * 0.9; neckX = 0.4; }
+    else if (m === 'broken') { y = rig.H * 0.55; legFold = 0.9; neckX = 0.6; }
+    else if (m === 'dead') { y = rig.H * 0.45; roll = Math.PI / 2 * Math.min(1, st.t * 3); legFold = 0.3; }
+    const k = 1 - Math.exp(-14 * dt), b = rig.body, walk = m === 'move' ? sp : 0;
+    b.position.y += (y + (walk ? Math.abs(Math.sin(rig.loco)) * 0.05 * walk : Math.sin(T * 2) * 0.008) - b.position.y) * k;
+    b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.neck.rotation.x += (neckX + (walk ? Math.sin(rig.loco * 2) * 0.05 : 0) - rig.j.neck.rotation.x) * k;
+    rig.j.head.position.z += (headZ - rig.j.head.position.z) * Math.min(1, dt * 18);
+    rig.j.tail.rotation.x += (tailX - rig.j.tail.rotation.x) * k; rig.j.tail.rotation.y = Math.sin(T * (walk ? 9 : 2.5)) * (wolf ? 0.35 : 0.2);
+    for (const L of rig.legs) {
+      const ph = rig.loco + L.phase, swing = Math.sin(ph) * 0.65 * walk, lift = Math.max(0, Math.cos(ph)) * 0.7 * walk;
+      L.hip.rotation.x += (swing + (L.front ? -legFold : legFold) * 0.6 - L.hip.rotation.x) * k;
+      L.knee.rotation.x += ((L.front ? -lift : lift) + (L.front ? 1 : -1) * legFold * 0.9 - L.knee.rotation.x) * k;
+    }
+  }
+
   // ---------------- The mimic: a chest with teeth (lid as jaw), hopping on stubby feet ----------------
   function buildMimic() {
     const rig = { kind: 'mimic', j: {}, mats: [], glowMats: [], mimic: true, time: Math.random() * 10, loco: 0 };
@@ -2462,6 +2580,7 @@ const Rig = (() => {
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     if (rig.spider) return animateSpider(rig, st, dt);
+    if (rig.beast) return animateBeast(rig, st, dt);
     if (rig.mimic) return animateMimic(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
@@ -3308,8 +3427,8 @@ const Enemy = (() => {
     for (const a of list) { r -= a.weight; if (r <= 0) return a; }
     return list[0];
   }
-  function startAttack(e) {
-    e.atk = pickAttack(e); e.hitIdx = 0;
+  function startAttack(e, idx) {
+    e.atk = idx !== undefined ? e.def.attacks[idx] : pickAttack(e); e.hitIdx = 0;
     setState(e, 'attack'); beginHit(e);
   }
   function beginHit(e) {
@@ -3349,8 +3468,17 @@ const Enemy = (() => {
       e.rig.root.position.y = -1.9 * def.scale * Math.max(0, 1 - e.t / 0.9);
       turn(toP, 6);
       if (e.t >= 0.9) { e.rig.root.position.y = 0; setState(e, 'hunt'); }
+    } else if (e.state === 'hunt' && e.zone && !e.aggro) {
+      // A beast of the Rim minds its own business until the warden comes close (or a packmate is roused)
+      e.wanderT = (e.wanderT || 0) - dt;
+      if (e.wanderT <= 0) { const a = Math.random() * Math.PI * 2, r = Math.random() * e.zone.r * 0.8; e.wanderTo = { x: e.zone.x + Math.sin(a) * r, z: e.zone.z + Math.cos(a) * r }; e.wanderT = 3 + Math.random() * 5; }
+      const w = e.wanderTo, wd = w ? Math.hypot(w.x - e.pos.x, w.z - e.pos.z) : 0;
+      if (w && wd > 0.5 && e.wanderT < 6) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * 0.3); }
+      if (p.state !== 'dead' && d < (def.aggro || 9)) rouse(e);
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
+      // Led too far from home, a beast of the Rim gives up and goes back, mending as it goes
+      if (e.zone && Math.hypot(e.pos.x - e.zone.x, e.pos.z - e.zone.z) > e.zone.r + CFG.field.leash && d > 6) { e.aggro = false; e.wanderTo = { x: e.zone.x, z: e.zone.z }; e.wanderT = 6; e.hp = e.maxHp; e.posture = 0; updateBar(e); }
       if (e.strafeT <= 0) { e.strafeT = 1.5 + Math.random() * 2; if (Math.random() < 0.5) e.strafeDir *= -1; }
       const reach = maxReach(e) * 0.85 + CFG.player.radius;
       const playerOK = p.state !== 'dead';
@@ -3367,6 +3495,7 @@ const Enemy = (() => {
         else if (d > far) step(toP, def.speed);
         else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.45);
       }
+      else if (def.charge && playerOK && e.cooldown <= 0 && d > def.charge[0] && d < def.charge[1] && attacking() < CFG.maxAttackers + Settings.diff.attackers) startAttack(e, def.charge[2]);   // a boar's charge from afar
       else if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers + Settings.diff.attackers) startAttack(e);
       else if (!playerOK) { /* stand and gloat */ }
       else if (e.cooldown <= 0 && d > reach) step(toP, def.speed);
@@ -3466,8 +3595,14 @@ const Enemy = (() => {
   }
 
   // The player's attack reaches this enemy. Returns 'crit', 'hit', 'blocked' or null.
+  // Rouse a beast of the Rim, and its pack nearby
+  function rouse(e) {
+    if (e.aggro) return; e.aggro = true; e.cooldown = Math.max(e.cooldown, 0.4);
+    if (e.def.pack) for (const o of G.enemies) if (o !== e && o.zone === e.zone && !o.aggro && o.state !== 'dead' && Combat.dist(o.pos, e.pos) < 12) rouse(o);
+  }
   function receive(e, atk, p) {
     if (!targetable(e) || e.state === 'roar') return null;
+    if (e.zone) rouse(e);
     // A ward soaks the blow (heavy attacks crack it twice as fast)
     if (e.ward > 0) {
       e.ward = Math.max(0, e.ward - (atk.breaksGuard ? 2 : 1)); e.wardT = 0;
@@ -3784,7 +3919,7 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, rouse, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
 
 </script>
@@ -4016,7 +4151,7 @@ const Camp = (() => {
     const pine = M(0x1e2a22), trunk = M(0x2a1e14);
     for (let i = 0; i < 70; i++) {
       const a = Math.random() * Math.PI * 2, r = 32 + Math.random() * 16, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
-      if ((z < -HD && Math.abs(x) < 7) || (z > HD && Math.abs(x) < 9)) continue;
+      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2) continue;              // the south side is the Rim's
       const h = 4 + Math.random() * 5;
       add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z);
       add(new THREE.ConeGeometry(1.4 + Math.random(), h, 6), pine, x, 1 + h / 2, z);
@@ -4237,6 +4372,140 @@ const Camp = (() => {
     return best;
   }
   return { build, update, nearest, spawn: { x: 0, z: 6.2, facing: Math.PI }, HW, HD };
+})();
+
+</script>
+<script>
+// Deepward - the Rim: the open field outside Deepward Hold's south gate. A grassy stretch with a stream and a bridge,
+// the Meadow (wolves and boars), Thornwood to the east (goblin scouts), the Old Graveyard to the west (the dead), and
+// the Broken Ridge at the far end (the worst of them). Field.build returns a room-like object that World walks like the
+// camp (one big rectangle and the road to the gate, with trees, rocks and stones as obstacles); Field.update keeps each
+// zone stocked with beasts, which wander until the warden comes close and give up if led too far from home.
+const Field = (() => {
+  const F = CFG.field;
+  let grassTex = null;
+  function grass() {
+    if (grassTex) return grassTex;
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; const c = cv.getContext('2d');
+    c.fillStyle = '#2e3a22'; c.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 1400; i++) { const v = Math.random(); c.fillStyle = v < 0.45 ? 'rgba(70,96,46,0.6)' : v < 0.8 ? 'rgba(34,46,26,0.6)' : 'rgba(96,90,56,0.5)'; c.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 3, 2 + Math.random() * 5); }
+    grassTex = new THREE.CanvasTexture(cv); grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.encoding = THREE.sRGBEncoding;
+    return grassTex;
+  }
+
+  function build(scene) {
+    const HD = Camp.HD, [hw, depth] = F.size, z0 = HD + F.gap, z1 = z0 + depth;
+    const group = new THREE.Group(); scene.add(group);
+    const room = {
+      i: -2, kind: 'field', group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
+      rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 0.5, z1: z0 + 0.5 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
+      zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
+    };
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const block = (x, z, r) => room.pillars.push([x, z, r]);
+    const torch = (x, y, z, color) => { const fm = new THREE.MeshBasicMaterial({ color }); room.mats.push(fm); room.keep.push(fm); const fl = add(new THREE.ConeGeometry(0.12, 0.4, 6), fm, x, y, z, false); room.torches.push({ pos: new THREE.Vector3(x, y + 0.4, z), fl, seed: Math.random() * 10, color }); };
+    const R = (a, b) => a + Math.random() * (b - a);
+    const zone = id => room.zones.find(z => z.id === id);
+    const nearZone = (x, z, pad) => room.zones.some(q => Math.hypot(x - q.x, z - q.z) < q.r * pad);
+
+    // Ground: grass over the whole field and well beyond it, the road up to the gate
+    const gt = grass().clone(); gt.needsUpdate = true; gt.repeat.set(26, 24); room.texs.push(gt);
+    add(new THREE.PlaneGeometry(hw * 2 + 60, depth + 50).rotateX(-Math.PI / 2), M(0xffffff, { map: gt, flatShading: false }), 0, 0.02, (z0 + z1) / 2, false);
+    const road = M(0x2a2218, { roughness: 1 });
+    add(new THREE.PlaneGeometry(3.6, F.gap + 24).rotateX(-Math.PI / 2), road, 0, 0.03, HD + (F.gap + 24) / 2, false);
+    // The stream across the field, with a wooden bridge where the road crosses
+    const sz = z0 + 42, water = M(0x2a5a7a, { roughness: 0.2, metalness: 0.3 });
+    for (let x = -hw; x < hw; x += 6) add(new THREE.PlaneGeometry(6.4, 3 + Math.sin(x * 0.3) * 0.6).rotateX(-Math.PI / 2), water, x + 3, 0.04, sz + Math.sin(x * 0.12) * 2.5, false);
+    const plank = M(0x6a4a2c);
+    for (let k = -4; k <= 4; k++) add(new THREE.BoxGeometry(3.6, 0.1, 0.45), plank, 0, 0.15, sz + k * 0.5);
+    for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 0.6, 4.6), plank, sd * 1.8, 0.4, sz);
+
+    // Trees: a dark wall around the edges, scattered pines and birches on the field, and the close-set Thornwood
+    const pine = M(0x1e2a22), pine2 = M(0x26341f), trunk = M(0x2a1e14), birch = M(0xc8c0b0), leaf = M(0x4a6a2a);
+    const tree = (x, z, s = 1, kind = 0) => {
+      const h = (4 + Math.random() * 4) * s;
+      if (kind === 1) { add(new THREE.CylinderGeometry(0.12, 0.16, h * 0.7, 5), birch, x, h * 0.35, z); add(new THREE.DodecahedronGeometry(1.2 * s, 0), leaf, x, h * 0.75, z); }
+      else { add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z); add(new THREE.ConeGeometry((1.3 + Math.random()) * s, h, 6), Math.random() < 0.5 ? pine : pine2, x, 1 + h / 2, z); }
+      block(x, z, 0.55 * s);
+    };
+    for (let i = 0; i < 90; i++) {                                         // the edge
+      const t = Math.random(), side = Math.floor(Math.random() * 3);
+      if (side === 0) tree(-hw - R(1, 10), z0 + t * depth, 1.2); else if (side === 1) tree(hw + R(1, 10), z0 + t * depth, 1.2); else tree(-hw + t * hw * 2, z1 + R(1, 10), 1.2);
+    }
+    for (let i = 0; i < 18; i++) { const x = R(-hw, hw), z = z0 - R(1, 8); if (Math.abs(x) > 26) tree(x, z, 1.1); }   // the wood beside the palisade
+    for (let i = 0; i < 70; i++) {
+      const x = R(-hw + 3, hw - 3), z = R(z0 + 4, z1 - 3);
+      if (Math.abs(x) < 4 || Math.abs(z - sz) < 3 || nearZone(x, z, 0.75)) continue;
+      tree(x, z, R(0.8, 1.1), Math.random() < 0.35 ? 1 : 0);
+    }
+    const wood = zone('wood');
+    for (let i = 0; i < 60; i++) { const a = Math.random() * Math.PI * 2, r = R(4, wood.r + 6), x = wood.x + Math.sin(a) * r, z = wood.z + Math.cos(a) * r; if (Math.abs(x) < hw - 2 && z < z1 - 2) tree(x, z, R(0.9, 1.3)); }
+    // Rocks, and tall grass in the Meadow
+    const rock = M(0x6a6660);
+    for (let i = 0; i < 40; i++) { const x = R(-hw + 2, hw - 2), z = R(z0 + 3, z1 - 2), s = R(0.4, 1.4); if (Math.abs(x) < 3) continue; const r = add(new THREE.DodecahedronGeometry(s, 0), rock, x, s * 0.4, z); r.rotation.set(R(0, 3), R(0, 3), 0); if (s > 0.7) block(x, z, s * 0.85); }
+    const tuft = M(0x5a7a32);
+    const mead = zone('meadow');
+    for (let i = 0; i < 120; i++) { const a = Math.random() * Math.PI * 2, r = Math.random() * mead.r * 1.3; add(new THREE.ConeGeometry(0.12, R(0.4, 0.8), 4), tuft, mead.x + Math.sin(a) * r, 0.25, mead.z + Math.cos(a) * r, false); }
+    // The Old Graveyard: a broken stone wall, leaning stones, a dead tree and a crypt door
+    const gy = zone('graves'), grey = M(0x7a7a78), mossy = M(0x5a6a58);
+    for (let k = 0; k < 28; k++) { const a = k / 28 * Math.PI * 2; if (k % 7 === 3) continue; add(new THREE.BoxGeometry(2.4, R(0.6, 1.1), 0.5), mossy, gy.x + Math.sin(a) * (gy.r + 1), 0.4, gy.z + Math.cos(a) * (gy.r + 1)).rotation.y = a; }
+    for (let i = 0; i < 26; i++) {
+      const x = gy.x + R(-gy.r * 0.8, gy.r * 0.8), z = gy.z + R(-gy.r * 0.8, gy.r * 0.8); if (Math.hypot(x - gy.x, z - gy.z) > gy.r * 0.85) continue;
+      const st = add(new THREE.BoxGeometry(0.6, R(0.8, 1.3), 0.18), grey, x, 0.5, z); st.rotation.set(R(-0.2, 0.2), R(-0.4, 0.4), R(-0.2, 0.2)); block(x, z, 0.4);
+    }
+    add(new THREE.BoxGeometry(3, 2.6, 2.2), grey, gy.x, 1.3, gy.z - gy.r * 0.6); add(new THREE.BoxGeometry(1.2, 1.8, 0.1), M(0x0a0a0c), gy.x, 0.9, gy.z - gy.r * 0.6 + 1.12); block(gy.x - 0.8, gy.z - gy.r * 0.6, 1.3); block(gy.x + 0.8, gy.z - gy.r * 0.6, 1.3);
+    const dead = M(0x3a3028); add(new THREE.CylinderGeometry(0.2, 0.35, 4, 5), dead, gy.x + 5, 2, gy.z + 3); for (let k = 0; k < 4; k++) add(new THREE.CylinderGeometry(0.05, 0.1, 1.8, 4), dead, gy.x + 5 + Math.sin(k * 1.7) * 0.6, 3.2 + k * 0.2, gy.z + 3 + Math.cos(k * 1.7) * 0.6).rotation.set(Math.cos(k) * 0.9, 0, Math.sin(k * 1.7) * 0.9); block(gy.x + 5, gy.z + 3, 0.5);
+    // The ruined watchtower on the Broken Ridge
+    const rg = zone('ridge');
+    for (const [dx, dz, h] of [[-1.5, -1.5, 6], [1.5, -1.5, 4.2], [-1.5, 1.5, 3], [1.5, 1.5, 5]]) add(new THREE.BoxGeometry(1, h, 1), grey, rg.x + 8 + dx, h / 2, rg.z - 6 + dz);
+    block(rg.x + 8, rg.z - 6, 2.6);
+    for (let i = 0; i < 12; i++) { const a = Math.random() * Math.PI * 2, r = R(rg.r * 0.5, rg.r + 4), s = R(1, 2.2); add(new THREE.DodecahedronGeometry(s, 0), rock, rg.x + Math.sin(a) * r, s * 0.5, rg.z + Math.cos(a) * r).rotation.y = a; block(rg.x + Math.sin(a) * r, rg.z + Math.cos(a) * r, s * 0.9); }
+    // Lanterns along the road from the gate
+    for (const z of [HD + 3, z0 + 8, z0 + 20]) for (const sd of [-1, 1]) { add(new THREE.CylinderGeometry(0.07, 0.08, 2, 6), trunk, sd * 2.6, 1, z); torch(sd * 2.6, 2, z, 0xffb060); block(sd * 2.6, z, 0.25); }
+    // Zone markers: a weathered sign at each zone's edge facing the road
+    const sign = M(0x6a4a2c);
+    for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
+    Rig.bake(group, false, room.keep);
+    return room;
+  }
+
+  // How tough the Rim is: zone by zone, and growing with the warden's progress below
+  function multOf(z) { const S = Items.S, k = Math.min(S ? S.stage : 0, CFG.stages.length - 1); return { mult: z.mult * (1 + CFG.stageScale * k * 0.6), hpMult: 1 + CFG.stageHp * k * 0.6 }; }
+  // A free spot in a zone, away from the hero (beasts do not appear under the warden's nose)
+  function spotIn(room, z, hero) {
+    for (let k = 0; k < 12; k++) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * z.r, x = z.x + Math.sin(a) * r, zz = z.z + Math.cos(a) * r;
+      if (hero && Math.hypot(x - hero.x, zz - hero.z) < 10) continue;
+      if (room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, zz - pz) < pr + 0.8)) continue;
+      if (x < room.rect.x0 + 1 || x > room.rect.x1 - 1 || zz < room.rect.z0 + 1 || zz > room.rect.z1 - 1) continue;
+      return new THREE.Vector3(x, 0, zz);
+    }
+    return null;
+  }
+  // Keep each zone stocked while the warden is anywhere near it; beasts far behind are let go (they come back later)
+  function update(room, dt, p) {
+    if (!p || G.state !== 'play' || G.training) return;
+    const here = p.pos.z > room.rect.z0 - 3;
+    for (const z of room.zones) {
+      const alive = G.enemies.filter(e => e.zone === z && e.state !== 'dead').length + G.queue.filter(q => q.zone === z).length;
+      const near = here && Math.hypot(p.pos.x - z.x, p.pos.z - z.z) < z.r + 25;
+      if (!near) continue;
+      if (alive >= z.cap) { z.filled = true; continue; }
+      if (G.time < z.next) continue;
+      const at = spotIn(room, z, p.pos); if (!at) continue;
+      const type = z.mobs[Math.floor(Math.random() * z.mobs.length)], m = multOf(z);
+      G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, t: G.time });
+      z.next = G.time + (z.filled ? z.respawn : 0.25);
+    }
+    // Beasts left far behind (or the warden back in the Hold) are let go
+    for (const e of G.enemies) if (e.zone && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
+    // ...and no beast follows the warden through the gate
+    for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
+  }
+  // The zone the hero stands in (for the label and the map)
+  function zoneAt(room, pos) { return room.zones.find(z => Math.hypot(pos.x - z.x, pos.z - z.z) < z.r + 2) || null; }
+  return { build, update, zoneAt, multOf };
 })();
 
 </script>
@@ -4708,6 +4977,7 @@ const World = (() => {
     const p = G.player;
     for (const r of rooms.slice()) {
       if (r.kind === 'camp') { Camp.update(r, dt, p && p.pos); continue; }
+      if (r.kind === 'field') { Field.update(r, dt, p); continue; }
       if (r.chest) {
         const c = r.chest;
         if (!c.opened && p && p.state !== 'dead' && Math.hypot(p.pos.x - c.x, p.pos.z - c.z) < 1.7) { c.opened = true; Snd.play('gate'); G.onChest(r); }
@@ -4782,6 +5052,7 @@ const World = (() => {
   function enterCamp(levels) {
     clearAll();
     rooms.push(Camp.build(scene, levels || Items.S.camp));
+    rooms.push(Field.build(scene));                                         // the Rim, through the south gate
     applyTheme(CFG.themes.camp);
     return Camp.spawn;
   }
@@ -4807,15 +5078,16 @@ const World = (() => {
   }
   const inCamp = () => rooms.some(r => r.kind === 'camp');
   const camp = () => rooms.find(r => r.kind === 'camp');
+  const field = () => rooms.find(r => r.kind === 'field');
 
   function label() {
-    if (inCamp()) return 'Deepward Hold';
+    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : ''); } return 'Deepward Hold'; }
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp,
+    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();
@@ -5477,7 +5749,7 @@ const MiniMap = (() => {
   }
 
   function draw(dt) {
-    const p = G.player, S = World.sections, show = G.mode === 'dungeon' && p && S.length && G.state !== 'title';
+    const p = G.player, S = World.sections, rim = (G.mode === 'camp' || G.mode === 'field') && !!World.field(), show = p && G.state !== 'title' && (rim || (G.mode === 'dungeon' && S.length));
     cv.style.display = info.style.display = show ? '' : 'none';
     if (!show) return;
     if ((tick += dt) < 1 / 20) return; tick = 0;                         // 20 times a second is plenty
@@ -5485,6 +5757,7 @@ const MiniMap = (() => {
     if (px < 4) return;                                                     // hidden (the Lightless curse) or not laid out yet
     if (px !== size) { size = cv.width = cv.height = px; }
     const W = size, half = W / 2;
+    if (rim) return drawRim(W, half, p);
     ctx.clearRect(0, 0, W, W);
     ctx.save();
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
@@ -5541,6 +5814,31 @@ const MiniMap = (() => {
       }
     } else txt = 'Stage cleared';
     info.textContent = txt;
+    ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // The Hold and the Rim: the camp, the road, the field and its zones (red where beasts are roused), beasts and the hero
+  function drawRim(W, half, p) {
+    const camp = World.camp(), f = World.field();
+    ctx.clearRect(0, 0, W, W); ctx.save();
+    ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
+    let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
+    if (big) { const x0 = f.rect.x0, x1 = f.rect.x1, z0 = camp.rect.z0, z1 = f.rect.z1; scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
+    else { scale = W / 60; if (View.mode === 'behind') rot = View.yaw; }
+    ctx.translate(half, half); ctx.rotate(rot); ctx.scale(scale, scale); ctx.translate(-cx, -cz);
+    const rect = (q, fill) => { ctx.fillStyle = fill; ctx.fillRect(q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0); };
+    rect(f.rect, 'rgba(70,96,56,0.5)'); rect(f.corr, C.floor); rect(camp.rect, 'rgba(150,120,80,0.55)');
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / scale; ctx.strokeRect(camp.rect.x0, camp.rect.z0, camp.rect.x1 - camp.rect.x0, camp.rect.z1 - camp.rect.z0);
+    for (const z of f.zones) {
+      const roused = G.enemies.some(e => e.zone === z && e.aggro && e.state !== 'dead');
+      ctx.fillStyle = roused ? 'rgba(200,60,40,0.4)' : 'rgba(160,120,60,0.28)'; ctx.beginPath(); ctx.arc(z.x, z.z, z.r, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const s of camp.spots) { ctx.fillStyle = s.id === 'gate' ? '#8fd8ff' : '#f2d27a'; ctx.beginPath(); ctx.arc(s.x, s.z, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, 0.7, 0, Math.PI * 2); ctx.fill(); }
+    ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
+    ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
+    ctx.restore(); ctx.restore();
+    const z = G.mode === 'field' ? Field.zoneAt(f, p.pos) : null;
+    info.textContent = G.mode === 'field' ? (z ? z.name : 'The Rim') : 'Deepward Hold';
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
   }
   return { draw, toggle, get big() { return big; } };
@@ -6150,6 +6448,7 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
@@ -6162,7 +6461,7 @@ function updateSpawns() {
     G.enemies.push(e);
     return false;
   });
-  const alive = G.enemies.filter(e => e.state !== 'dead').length;
+  const alive = G.enemies.filter(e => e.state !== 'dead' && (!e.zone || e.aggro)).length;            // beasts of the Rim count once roused
   document.getElementById('waveN').textContent = World.label();
   document.getElementById('foesN').textContent = alive ? alive + (alive === 1 ? ' foe' : ' foes') : '';
 }
@@ -6233,7 +6532,7 @@ $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); }
 function musicMood() {
   if (G.state === 'title' || G.mode === 'camp') return 'camp';
   if (G.boss && G.boss.state !== 'dead') return 'boss';
-  if (G.enemies.some(e => e.state !== 'dead') || G.queue.length) G.calmAt = G.time;
+  if (G.enemies.some(e => e.state !== 'dead' && (!e.zone || e.aggro)) || G.queue.some(q => !q.zone)) G.calmAt = G.time;
   return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
 }
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
@@ -6340,6 +6639,16 @@ function startGame(how = 'new') {
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+// Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
+// the Hold the gold is banked and the tonics wear off
+function checkRim() {
+  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  if (want === G.mode || Tutorial.active) return;
+  G.mode = want;
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
+  Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
+}
 // Ysolde's tonics are drunk at the start of a trip and last until the warden is back in camp
 function drinkTonics() { const S = Items.S; G.tonics = (S.tonics || []).slice(); S.tonics = []; if (G.tonics.length) UI.toast('Tonics: ' + G.tonics.map(id => CFG.camp.tonics.find(t => t.id === id).name).join(', '), '#9aff8a'); }
 G.descend = (k, onward) => fadeTo(() => {
@@ -6362,7 +6671,7 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
   if (G.boss === e) G.boss = null;
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
@@ -6385,7 +6694,7 @@ function levelUp(n) {
 }
 // Landed hits train the weapon type in hand
 G.onHits = (n, crit) => {
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
     const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
@@ -6456,7 +6765,7 @@ G.pressOn = () => G.descend(G.stageK + 1, true);
 G.onPlayerDeath = () => {
   Snd.play('lose'); Items.S.deaths++;
   G.after(1.6, () => {
-    const S = Items.S, lost = Math.floor(S.tripGold * CFG.camp.deathGoldLoss);
+    const S = Items.S, lost = Math.floor(S.tripGold * (G.mode === 'field' ? CFG.field.deathGoldLoss : CFG.camp.deathGoldLoss));   // the Rim costs less
     S.gold = Math.max(0, S.gold - lost); S.tripGold = 0; Items.save();
     openPanel('fallen', { lost, where: 'Fell in ' + World.label() });
   });
@@ -6636,6 +6945,7 @@ function step(real) {
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
     World.update(dt, camera.position);
+    if (World.inCamp()) checkRim();
     updateSpawns();
     Enemy.updateArrows(dt);
     runTimers();

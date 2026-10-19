@@ -224,6 +224,8 @@ const Rig = (() => {
   function build(kind, o = {}) {
     if (kind === 'spider') return buildSpider();
     if (kind === 'mimic') return buildMimic();
+    if (kind === 'wolf' || kind === 'boar') return buildBeast(kind);
+    const scout = kind === 'scout'; if (scout) kind = 'goblin';                // a goblin with throwing spears
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
@@ -420,6 +422,7 @@ const Rig = (() => {
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
     else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
     else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);
+    else if (scout) wpn = spear(rig.j.hdR, { blade: 0x7a6a58 });
     else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
@@ -483,6 +486,83 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
   }
+  // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
+  // A body, a head on a neck joint (the weapon: bites and tusks), four two-part legs and a tail. Posed by hand.
+  function buildBeast(kind) {
+    const wolf = kind === 'wolf';
+    const rig = { kind, j: {}, mats: [], glowMats: [], beast: true, legs: [], time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), H = wolf ? 0.62 : 0.6, body = joint(root, 0, H, 0); rig.root = root; rig.body = body;
+    const fur = std(wolf ? 0x6a6a70 : 0x4a3426, 0.95), dark = std(wolf ? 0x3a3a40 : 0x2a1c14, 0.95), pale = std(wolf ? 0xa8a8ae : 0x6a5040, 0.95);
+    const bone = std(0xe8e0c8, 0.4), eye = glowMat(wolf ? 0xffd040 : 0xff5a2a);
+    if (wolf) {
+      const torso = ball(body, 0.3, fur, 0, 0, 0, 10, 8); torso.scale.set(0.85, 0.85, 1.9);
+      ball(body, 0.24, pale, 0, -0.08, 0.32, 8, 6).scale.set(0.8, 0.7, 1.0);              // chest ruff
+    } else {
+      const torso = ball(body, 0.42, fur, 0, 0.05, 0, 10, 8); torso.scale.set(0.95, 0.95, 1.45);
+      for (let k = 0; k < 5; k++) mesh(new THREE.ConeGeometry(0.05, 0.22, 4), dark, body, 0, 0.42 - Math.abs(k - 2) * 0.03, 0.35 - k * 0.18).rotation.x = -0.4;   // bristles
+    }
+    const neck = joint(body, 0, wolf ? 0.12 : 0.02, wolf ? 0.5 : 0.55, 'YXZ'); rig.j.neck = neck;
+    const head = joint(neck, 0, 0, wolf ? 0.12 : 0.05); rig.j.head = head;
+    if (wolf) {
+      box(head, 0.26, 0.24, 0.26, fur, 0, 0.02, 0.06);
+      box(head, 0.14, 0.12, 0.26, pale, 0, -0.04, 0.28);                                  // muzzle
+      box(head, 0.07, 0.05, 0.05, dark, 0, -0.0, 0.42);                                    // nose
+      for (const sd of [1, -1]) { mesh(new THREE.ConeGeometry(0.06, 0.16, 4), fur, head, 0.08 * sd, 0.2, 0.0); ball(head, 0.025, eye, 0.07 * sd, 0.07, 0.19, 5, 4); }
+    } else {
+      box(head, 0.36, 0.34, 0.36, fur, 0, 0, 0.1);
+      box(head, 0.22, 0.2, 0.22, pale, 0, -0.06, 0.35);                                   // snout
+      box(head, 0.18, 0.14, 0.04, dark, 0, -0.06, 0.47);
+      for (const sd of [1, -1]) {
+        const t = mesh(new THREE.ConeGeometry(0.035, 0.26, 5), bone, head, 0.13 * sd, -0.08, 0.38); t.rotation.set(-0.9, 0, -0.5 * sd);   // tusks
+        mesh(new THREE.ConeGeometry(0.07, 0.14, 4), fur, head, 0.14 * sd, 0.2, 0.0).rotation.z = -0.5 * sd;
+        ball(head, 0.025, eye, 0.12 * sd, 0.06, 0.26, 5, 4);
+      }
+    }
+    const tip = joint(head, 0, -0.05, wolf ? 0.45 : 0.5), base = joint(head, 0, 0, 0.1);
+    rig.weapon = { group: head, tip, base, glowMats: [wolf ? pale : bone] }; rig.glowMats.push(wolf ? pale : bone);
+    const tail = joint(body, 0, wolf ? 0.08 : 0.15, wolf ? -0.55 : -0.6, 'YXZ'); rig.j.tail = tail;
+    if (wolf) { const tl = mesh(new THREE.CylinderGeometry(0.07, 0.03, 0.5, 6), fur, tail, 0, -0.18, -0.12); tl.rotation.x = 0.8; }
+    else mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.2, 4), dark, tail, 0, -0.08, -0.03);
+    const legLen = wolf ? [0.3, 0.32] : [0.26, 0.3], legR = wolf ? 0.055 : 0.08;
+    for (const [z, front] of [[wolf ? 0.36 : 0.36, true], [wolf ? -0.38 : -0.36, false]]) for (const side of [1, -1]) {
+      const hip = joint(body, (wolf ? 0.14 : 0.22) * side, -0.05, z, 'XYZ');
+      limb(hip, legLen[0], legR, legR * 0.8, fur);
+      const knee = joint(hip, 0, -legLen[0], 0); limb(knee, legLen[1], legR * 0.8, legR * 0.6, dark);
+      box(knee, legR * 2, 0.05, legR * 2.6, dark, 0, -legLen[1], 0.03);
+      rig.legs.push({ hip, knee, front, phase: (front ? 0 : Math.PI) + (side > 0 ? 0 : Math.PI * (wolf ? 0.5 : 1)) });
+    }
+    rig.H = H;
+    bake(root, true, rig.glowMats);
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
+  function animateBeast(rig, st, dt) {
+    rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0), wolf = rig.kind === 'wolf';
+    rig.loco += dt * (3 + 11 * sp);
+    let y = rig.H, pitch = 0, roll = 0, neckX = 0.1, headZ = wolf ? 0.12 : 0.05, legFold = 0, tailX = wolf ? -0.3 : 0.2;
+    if (m === 'attack') {
+      const charge = st.atk === 'charge', pounce = st.atk === 'pounce';
+      if (st.phase === 'wind') { y = rig.H * (pounce ? 0.75 : 0.85); pitch = pounce ? -0.15 : charge ? 0.25 : 0.1; neckX = charge ? 0.6 : 0.3; legFold = 0.35; tailX = wolf ? 0.4 : 0.6; }
+      else if (st.phase === 'active') { y = rig.H * (pounce ? 1.05 : 1); pitch = pounce ? -0.25 : 0.15; neckX = charge ? 0.55 : -0.2; headZ += 0.12; legFold = pounce ? 0.6 : 0; }
+      else { pitch = 0.05; neckX = 0.15; }
+    } else if (m === 'stagger' || m === 'hurt') { roll = Math.sin(T * 40) * 0.15; y = rig.H * 0.9; neckX = 0.4; }
+    else if (m === 'broken') { y = rig.H * 0.55; legFold = 0.9; neckX = 0.6; }
+    else if (m === 'dead') { y = rig.H * 0.45; roll = Math.PI / 2 * Math.min(1, st.t * 3); legFold = 0.3; }
+    const k = 1 - Math.exp(-14 * dt), b = rig.body, walk = m === 'move' ? sp : 0;
+    b.position.y += (y + (walk ? Math.abs(Math.sin(rig.loco)) * 0.05 * walk : Math.sin(T * 2) * 0.008) - b.position.y) * k;
+    b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.neck.rotation.x += (neckX + (walk ? Math.sin(rig.loco * 2) * 0.05 : 0) - rig.j.neck.rotation.x) * k;
+    rig.j.head.position.z += (headZ - rig.j.head.position.z) * Math.min(1, dt * 18);
+    rig.j.tail.rotation.x += (tailX - rig.j.tail.rotation.x) * k; rig.j.tail.rotation.y = Math.sin(T * (walk ? 9 : 2.5)) * (wolf ? 0.35 : 0.2);
+    for (const L of rig.legs) {
+      const ph = rig.loco + L.phase, swing = Math.sin(ph) * 0.65 * walk, lift = Math.max(0, Math.cos(ph)) * 0.7 * walk;
+      L.hip.rotation.x += (swing + (L.front ? -legFold : legFold) * 0.6 - L.hip.rotation.x) * k;
+      L.knee.rotation.x += ((L.front ? -lift : lift) + (L.front ? 1 : -1) * legFold * 0.9 - L.knee.rotation.x) * k;
+    }
+  }
+
   // ---------------- The mimic: a chest with teeth (lid as jaw), hopping on stubby feet ----------------
   function buildMimic() {
     const rig = { kind: 'mimic', j: {}, mats: [], glowMats: [], mimic: true, time: Math.random() * 10, loco: 0 };
@@ -744,6 +824,7 @@ const Rig = (() => {
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     if (rig.spider) return animateSpider(rig, st, dt);
+    if (rig.beast) return animateBeast(rig, st, dt);
     if (rig.mimic) return animateMimic(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;

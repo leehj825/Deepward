@@ -14,6 +14,20 @@ Every model is built in code from primitives, and there are no model, texture or
 - **Salvage:** in camp, the details offer Salvage for scrap right there (uniques only at Bram's).
 - Bram's and Tilda's lists show the same pictures.
 
+**The Rim.** Through the Hold's south gate a road leads out onto the Rim, an open field of about 120 × 100 m: grass with a stream and a bridge, birches and pines, and four zones marked on the minimap:
+
+| Zone | Where | Beasts | Toughness |
+| --- | --- | --- | --- |
+| The Meadow | straight down the road | wolves (packs that circle and pounce) and boars | as the camp's stage |
+| Thornwood | east, in the close-set trees | goblin scouts (throw spears), wolves, spiders | ×1.3 |
+| Old Graveyard | west, inside a broken wall | skeletons and skeleton archers | ×1.4 |
+| The Broken Ridge | the far end, by a ruined watchtower | boars, wolves, scouts and brutes | ×1.9 |
+
+- Beasts wander their zone until you come close, then attack; hit one, or come near a wolf, and its pack comes too. Lead one too far from home and it gives up, mending as it goes back. They come back a while after they fall, and nothing follows you through the gate.
+- **Boars** gore up close, and from 5 to 10 m lower their heads and **charge** in a straight line (red, unblockable): dash out of the line. **Goblin scouts** keep their distance and throw spears you can block, parry or dash.
+- The Rim grows tougher as you go deeper below. Kills give XP, gold and weapon mastery as in the dungeon.
+- Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
+
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
 
 - **Bestiary:** an enemy's entry opens at your first kill. It lists how each of its attacks is telegraphed and how to answer it, along with the guardians' phases and the champions' traits.
@@ -367,6 +381,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
 | `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
+| `js/field.js` | The Rim: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -382,7 +397,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
-| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics for a trip, the curio of the day |
+| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |

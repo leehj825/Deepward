@@ -296,6 +296,7 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
@@ -308,7 +309,7 @@ function updateSpawns() {
     G.enemies.push(e);
     return false;
   });
-  const alive = G.enemies.filter(e => e.state !== 'dead').length;
+  const alive = G.enemies.filter(e => e.state !== 'dead' && (!e.zone || e.aggro)).length;            // beasts of the Rim count once roused
   document.getElementById('waveN').textContent = World.label();
   document.getElementById('foesN').textContent = alive ? alive + (alive === 1 ? ' foe' : ' foes') : '';
 }
@@ -379,7 +380,7 @@ $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); }
 function musicMood() {
   if (G.state === 'title' || G.mode === 'camp') return 'camp';
   if (G.boss && G.boss.state !== 'dead') return 'boss';
-  if (G.enemies.some(e => e.state !== 'dead') || G.queue.length) G.calmAt = G.time;
+  if (G.enemies.some(e => e.state !== 'dead' && (!e.zone || e.aggro)) || G.queue.some(q => !q.zone)) G.calmAt = G.time;
   return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
 }
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
@@ -486,6 +487,16 @@ function startGame(how = 'new') {
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+// Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
+// the Hold the gold is banked and the tonics wear off
+function checkRim() {
+  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  if (want === G.mode || Tutorial.active) return;
+  G.mode = want;
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
+  Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
+}
 // Ysolde's tonics are drunk at the start of a trip and last until the warden is back in camp
 function drinkTonics() { const S = Items.S; G.tonics = (S.tonics || []).slice(); S.tonics = []; if (G.tonics.length) UI.toast('Tonics: ' + G.tonics.map(id => CFG.camp.tonics.find(t => t.id === id).name).join(', '), '#9aff8a'); }
 G.descend = (k, onward) => fadeTo(() => {
@@ -508,7 +519,7 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
   if (G.boss === e) G.boss = null;
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
@@ -531,7 +542,7 @@ function levelUp(n) {
 }
 // Landed hits train the weapon type in hand
 G.onHits = (n, crit) => {
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
     const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
@@ -602,7 +613,7 @@ G.pressOn = () => G.descend(G.stageK + 1, true);
 G.onPlayerDeath = () => {
   Snd.play('lose'); Items.S.deaths++;
   G.after(1.6, () => {
-    const S = Items.S, lost = Math.floor(S.tripGold * CFG.camp.deathGoldLoss);
+    const S = Items.S, lost = Math.floor(S.tripGold * (G.mode === 'field' ? CFG.field.deathGoldLoss : CFG.camp.deathGoldLoss));   // the Rim costs less
     S.gold = Math.max(0, S.gold - lost); S.tripGold = 0; Items.save();
     openPanel('fallen', { lost, where: 'Fell in ' + World.label() });
   });
@@ -782,6 +793,7 @@ function step(real) {
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
     World.update(dt, camera.position);
+    if (World.inCamp()) checkRim();
     updateSpawns();
     Enemy.updateArrows(dt);
     runTimers();

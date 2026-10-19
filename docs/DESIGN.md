@@ -137,6 +137,14 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **People:** fixed NPCs (with spots for their services) turn to watch the hero; walkers (`n.path`) loop between points, pause, wait if the hero stands in the way, and greet once per visit. NPC rigs take a `tool` (hammer, spear, lute, basket).
 - **Services:** bard and captain lines come from `CFG.townsfolk` in turn (`S.talk`). Nell's bench reuses Bram's gem setting and adds cutting (3 of a kind → 1 of another). Ysolde's tonics (`CFG.camp.tonics`) are packed into `S.tonics`, drunk into `G.tonics` when a trip starts (`drinkTonics`), read by `Player.gearStats`, and cleared in camp. Odo's piece (`S.curio`) is rolled once per date.
 
+## The Rim (built)
+
+- `Field.build` makes a room-like object that `World.enterCamp` adds beside the camp: one big rectangle (`CFG.field.size`) and a road (`corr`) through the palisade gap, so `constrain` and `inSpace` work unchanged. Trees, rocks, gravestones and the watchtower are obstacles (`pillars`); everything static is baked per material.
+- **Mode:** `checkRim()` switches `G.mode` between `camp` and `field` as the hero crosses the gate: out, tonics are drunk and `tripGold` starts at zero; in, it is banked. Kills, XP and mastery count anywhere but the camp. A fall on the Rim loses `CFG.field.deathGoldLoss`.
+- **Zones:** `Field.update` tops each zone up to its `cap` while the hero is within 25 m of it (quickly at first, then every `respawn` seconds), never within 10 m of the hero; beasts more than 70 m away are let go, and none passes the gate.
+- **Beasts:** an enemy with a `zone` wanders until the hero is within `def.aggro` (or it is hit) and then hunts; `pack` beasts rouse their packmates. Past `zone.r + leash` it gives up, heals and walks home. Wolves and boars are hand-posed quadrupeds (`Rig.buildBeast` / `animateBeast`); the boar's `charge: [min, max, attack]` starts its unblockable charge from range. Goblin scouts are goblins with spears that throw.
+- **Map:** in the Hold and on the Rim the minimap shows the camp, the road, the field and its zones (red where beasts are roused), the camp's services, beasts and the hero.
+
 ## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.

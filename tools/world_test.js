@@ -51,6 +51,51 @@ const path = require('path');
     o.curioBought = I.S.inv.includes(it) && !I.S.curio.item; __dw.UI.close();
     return o;
   }));
+  // ---- W2: the Rim ----
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player, f = W.field();
+    o.rim = !!f && f.rect.z0 > W.camp().rect.z1 && f.rect.x1 - f.rect.x0 >= 100;
+    // Through the gate: the Rim is a little trip of its own
+    I.S.gold = 500; p.maxHp = p.hp = 1e5; p.pos.set(0, 0, f.rect.z0 + 2); __dw.sim(0.3);
+    o.fieldMode = G.mode === 'field' && /The Rim/.test(W.label());
+    // The Meadow fills with beasts that wander until the warden is near
+    const mead = f.zones.find(z => z.id === 'meadow'); p.pos.set(mead.x, 0, mead.z - mead.r - 12); __dw.sim(2);
+    const beasts = () => G.enemies.filter(e => e.zone === mead && e.state !== 'dead');
+    o.spawned = beasts().length >= 3 && beasts().length <= mead.cap;
+    o.passive = beasts().every(e => !e.aggro);
+    // Walking up to a wolf rouses it, and its pack with it
+    const wolves = beasts().filter(e => e.type === 'wolf');
+    if (wolves.length >= 2) { wolves[1].pos.copy(wolves[0].pos).add(new THREE.Vector3(2, 0, 0)); }
+    p.pos.set(wolves[0].pos.x, 0, wolves[0].pos.z + 4); __dw.sim(0.3);
+    o.roused = wolves[0].aggro === true && (wolves.length < 2 || wolves[1].aggro === true);
+    // A kill on the Rim pays gold and XP like below
+    const xp0 = I.S.xp + I.S.level * 1000; wolves[0].state = 'broken'; Enemy.receive(wolves[0], { dmg: 9999, posture: 0 }, p); __dw.sim(0.2);
+    o.pays = I.S.tripGold > 0 && I.S.xp + I.S.level * 1000 > xp0;
+    for (const e of G.enemies) { e.remove = true; } __dw.sim(0.1);
+    // A boar charges from afar (unblockable); a goblin scout throws a spear
+    const at = p.pos;
+    const boar = __dw.spawn('boar', at.x, at.z - 7); boar.state = 'hunt'; boar.rig.root.position.y = 0; boar.zone = mead; boar.aggro = true; boar.cooldown = 0; boar.facing = 0;
+    __dw.sim(0.1); o.charge = boar.state === 'attack' && boar.atk === CFG.enemies.boar.attacks[1] && boar.atk.hits[0].unblockable;
+    boar.remove = true; __dw.sim(0.05);
+    const sc = __dw.spawn('scout', at.x, at.z - 8); sc.state = 'hunt'; sc.rig.root.position.y = 0; sc.zone = mead; sc.aggro = true; sc.cooldown = 0;
+    __dw.sim(1.0, () => Enemy.arrows.length > 0); o.spear = Enemy.arrows.length > 0;
+    // Led too far from home, a beast gives up and mends
+    sc.hp = 1; sc.pos.set(mead.x + mead.r + CFG.field.leash + 6, 0, mead.z); p.pos.set(sc.pos.x + 10, 0, sc.pos.z); __dw.sim(3, () => sc.aggro === false);
+    o.leash = sc.aggro === false && sc.hp === sc.maxHp;
+    for (const e of G.enemies) { e.remove = true; } __dw.sim(0.1);
+    // Back through the gate: the gold is banked
+    const carried = I.S.tripGold; p.pos.set(0, 0, 10); __dw.sim(0.3);
+    o.banked = G.mode === 'camp' && I.S.tripGold === 0 && carried > 0;
+    return o;
+  }));
+  // Falling on the Rim costs a tenth of the gold carried, not half
+  Object.assign(out, await pg.evaluate(() => {
+    const G = __dw.G, I = __dw.Items, f = __dw.World.field(), p = G.player;
+    p.pos.set(0, 0, f.rect.z0 + 2); __dw.sim(0.2); I.S.tripGold = 100; const g0 = I.S.gold;
+    p.maxHp = p.hp = 1; p.state = 'free'; p.blocking = false; const e = __dw.spawn('skeleton', p.pos.x, p.pos.z - 1.5); Player.receive(p, e, Object.assign({}, e.def.attacks[0].hits[0], { dmg: 500 })); e.remove = true;
+    __dw.sim(2.5);
+    return { rimDeath: I.S.gold === g0 - 10 && !!document.querySelector('.pcard.fallen') };
+  }));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

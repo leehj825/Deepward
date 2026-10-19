@@ -62,8 +62,8 @@ const Enemy = (() => {
     for (const a of list) { r -= a.weight; if (r <= 0) return a; }
     return list[0];
   }
-  function startAttack(e) {
-    e.atk = pickAttack(e); e.hitIdx = 0;
+  function startAttack(e, idx) {
+    e.atk = idx !== undefined ? e.def.attacks[idx] : pickAttack(e); e.hitIdx = 0;
     setState(e, 'attack'); beginHit(e);
   }
   function beginHit(e) {
@@ -103,8 +103,17 @@ const Enemy = (() => {
       e.rig.root.position.y = -1.9 * def.scale * Math.max(0, 1 - e.t / 0.9);
       turn(toP, 6);
       if (e.t >= 0.9) { e.rig.root.position.y = 0; setState(e, 'hunt'); }
+    } else if (e.state === 'hunt' && e.zone && !e.aggro) {
+      // A beast of the Rim minds its own business until the warden comes close (or a packmate is roused)
+      e.wanderT = (e.wanderT || 0) - dt;
+      if (e.wanderT <= 0) { const a = Math.random() * Math.PI * 2, r = Math.random() * e.zone.r * 0.8; e.wanderTo = { x: e.zone.x + Math.sin(a) * r, z: e.zone.z + Math.cos(a) * r }; e.wanderT = 3 + Math.random() * 5; }
+      const w = e.wanderTo, wd = w ? Math.hypot(w.x - e.pos.x, w.z - e.pos.z) : 0;
+      if (w && wd > 0.5 && e.wanderT < 6) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * 0.3); }
+      if (p.state !== 'dead' && d < (def.aggro || 9)) rouse(e);
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
+      // Led too far from home, a beast of the Rim gives up and goes back, mending as it goes
+      if (e.zone && Math.hypot(e.pos.x - e.zone.x, e.pos.z - e.zone.z) > e.zone.r + CFG.field.leash && d > 6) { e.aggro = false; e.wanderTo = { x: e.zone.x, z: e.zone.z }; e.wanderT = 6; e.hp = e.maxHp; e.posture = 0; updateBar(e); }
       if (e.strafeT <= 0) { e.strafeT = 1.5 + Math.random() * 2; if (Math.random() < 0.5) e.strafeDir *= -1; }
       const reach = maxReach(e) * 0.85 + CFG.player.radius;
       const playerOK = p.state !== 'dead';
@@ -121,6 +130,7 @@ const Enemy = (() => {
         else if (d > far) step(toP, def.speed);
         else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.45);
       }
+      else if (def.charge && playerOK && e.cooldown <= 0 && d > def.charge[0] && d < def.charge[1] && attacking() < CFG.maxAttackers + Settings.diff.attackers) startAttack(e, def.charge[2]);   // a boar's charge from afar
       else if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers + Settings.diff.attackers) startAttack(e);
       else if (!playerOK) { /* stand and gloat */ }
       else if (e.cooldown <= 0 && d > reach) step(toP, def.speed);
@@ -220,8 +230,14 @@ const Enemy = (() => {
   }
 
   // The player's attack reaches this enemy. Returns 'crit', 'hit', 'blocked' or null.
+  // Rouse a beast of the Rim, and its pack nearby
+  function rouse(e) {
+    if (e.aggro) return; e.aggro = true; e.cooldown = Math.max(e.cooldown, 0.4);
+    if (e.def.pack) for (const o of G.enemies) if (o !== e && o.zone === e.zone && !o.aggro && o.state !== 'dead' && Combat.dist(o.pos, e.pos) < 12) rouse(o);
+  }
   function receive(e, atk, p) {
     if (!targetable(e) || e.state === 'roar') return null;
+    if (e.zone) rouse(e);
     // A ward soaks the blow (heavy attacks crack it twice as fast)
     if (e.ward > 0) {
       e.ward = Math.max(0, e.ward - (atk.breaksGuard ? 2 : 1)); e.wardT = 0;
@@ -538,5 +554,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, rouse, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

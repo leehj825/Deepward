@@ -59,7 +59,7 @@ const Camp = (() => {
     const pine = M(0x1e2a22), trunk = M(0x2a1e14);
     for (let i = 0; i < 70; i++) {
       const a = Math.random() * Math.PI * 2, r = 32 + Math.random() * 16, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
-      if ((z < -HD && Math.abs(x) < 7) || (z > HD && Math.abs(x) < 9)) continue;
+      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2) continue;              // the south side is the Rim's
       const h = 4 + Math.random() * 5;
       add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z);
       add(new THREE.ConeGeometry(1.4 + Math.random(), h, 6), pine, x, 1 + h / 2, z);
