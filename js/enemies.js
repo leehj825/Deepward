@@ -271,6 +271,12 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // Damage that bypasses guard and flinch (burning ground, thorns)
+  function burn(e, n, color = 0xff7a20) {
+    if (!targetable(e) || e.state === 'roar' || !e.def) return;
+    FX.burst(Combat.chestPos(e.pos, 0.9 * e.def.scale), color, 6, 3, 0.4); hurtFlash(e, color, 0.5);
+    damage(e, n);
+  }
   // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
   // take a heavy critical instead.
   function execute(e, atk, p) {
@@ -460,5 +466,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, execute, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

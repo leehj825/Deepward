@@ -162,3 +162,10 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Lock-on:** `G.lock` holds the target. The behind camera eases its yaw so the hero stands between it and the target, and mouse or stick yaw input is ignored while locked. The player's aim and top-view facing prefer the lock. On the target's death the lock moves to the nearest foe within 10 m; it lets go past 20 m.
 - **Weapon movesets:** `CFG.player.combos` and `heavies` give the spear (two thrusts and a sweep, a lunging thrust) and twin daggers (five quick cuts, a spinning heavy) their own moves. Daggers take the off hand, so there's no shield, and they cut dash cost by 40%.
 - **Executions:** a heavy attack within 2.6 m of a posture-broken enemy becomes an execution (`CFG.player.execute`). There's a slow-motion wind-up, and the hero can't be hurt during it. The blow kills ordinary foes and deals 1.5× a critical to guardians and champions. The enemy's bar shows EXECUTE while you're in range, and the first break shows a tip.
+
+## Uniques and gems (built)
+
+- **Uniques** (`CFG.gear.uniques`): legendary items with a fixed name, slot and type, and an effect the fight reads from `S.u`.
+  - **Where the effects live:** the parry wave and burning ground are in `combat.js` and `player.js`; thorns and life-on-kill go through `Enemy.burn` and `G.onEnemyDeath`.
+  - **Repeats:** `S.uniques` lists the ones found, so all nine drop before any repeats. One in Tilda's stock only counts as found once bought.
+- **Sockets:** an item's `gems` array holds a gem kind or null for each socket, and the stats add the gems from equipped items. Bram sets, pries and adds sockets. Loose gems live in `S.gems`.

@@ -37,6 +37,7 @@ const Props = (() => {
     FX.burst(at, q.crate ? 0x8a6a40 : 0xa06a44, 16, 5, 0.7); Snd.play(q.crate ? 'guardBreak' : 'hit');
     if (G.mode !== 'dungeon' || !Items.S) return;
     const p = G.player, r = Math.random();
+    if (Math.random() < CFG.gear.gemDrop.pot) { const k = Items.randomGem(); Items.addGem(k); FX.text(at.clone().setY(2.0), CFG.gear.gems[k].icon + ' ' + CFG.gear.gems[k].name, 'gold'); }
     if (r < F.potFlask && p.flasks < p.S.flasks) { p.flasks++; FX.text(at.clone().setY(1.6), '+1 ⚗', 'heal'); Snd.play('wave'); }
     else if (r < F.potFlask + F.potGoldChance) {
       const g = Items.addGold((F.potGold[0] + Math.random() * (F.potGold[1] - F.potGold[0])) * (1 + G.stageK * 0.5) * p.S.goldFind);

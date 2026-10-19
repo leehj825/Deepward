@@ -246,6 +246,7 @@ body:not(.playing) #padKeys { display: none !important; }
 .ebar .ename { font-size: 10px; font-weight: 700; white-space: nowrap; text-align: center; margin: 0 -40px 2px; text-shadow: 0 1px 2px #000, 0 0 4px #000; letter-spacing: 0.03em; }
 .ebar.exec::after { content: 'EXECUTE'; display: block; text-align: center; font-size: 10px; font-weight: 800; letter-spacing: 0.15em; color: #ffd040; text-shadow: 0 0 6px #000, 0 0 3px #ff8a20; margin: 1px -30px 0; animation: tpulse2 0.6s ease-in-out infinite; }
 @keyframes tpulse2 { 50% { opacity: 0.45; } }
+.irow.uniq { background: linear-gradient(90deg, rgba(255, 122, 42, 0.14), rgba(255, 255, 255, 0.03)); border-left: 3px solid #ff7a2a; }
 
 </style>
 </head>
@@ -624,6 +625,30 @@ const CFG = {
     helms: ['Cap', 'Helm', 'Great Helm'],
     trinkets: ['Ring', 'Amulet', 'Charm'],
     // Random bonuses: [min, max] per tier step added on top
+    // Named legendaries, each with an effect of its own (the fight reads S.u). They drop from guardians' chests (uniqueChance)
+    // and rich chests (uniqueRich), and Tilda now and then has one (uniqueStock). Each is found once before any repeats.
+    uniques: [
+      { id: 'dawn', name: 'Dawnbreaker', slot: 'weapon', type: 'sword', desc: 'A parry looses a blade of light down the line' },
+      { id: 'widow', name: 'Widowmaker', slot: 'weapon', type: 'daggers', desc: '+60% damage to foes below 30% health' },
+      { id: 'oath', name: 'Grave Oath', slot: 'weapon', type: 'greatsword', desc: 'Every kill heals 5% of your health' },
+      { id: 'sky', name: 'Skypiercer', slot: 'weapon', type: 'spear', desc: 'The heavy thrust reaches 2 m further and pierces every foe in line' },
+      { id: 'ember', name: 'Emberwake Mail', slot: 'armor', desc: 'Dashing leaves burning ground behind you' },
+      { id: 'thorns', name: 'Crown of Thorns', slot: 'helm', desc: 'Blocked blows hurt the attacker for half their damage' },
+      { id: 'aegis', name: 'Aegis of the Pale', slot: 'shield', desc: 'Parries give back 25 stamina; parry window +0.04 s' },
+      { id: 'coin', name: "Gambler's Coin", slot: 'trinket', desc: '+15% critical chance, but 10% less health' },
+      { id: 'heart', name: 'Heart of the Deep', slot: 'trinket', desc: 'One more flask, and flasks heal 15% more' },
+    ],
+    uniqueColor: '#ff7a2a', uniqueChance: 0.3, uniqueRich: 0.1, uniqueStock: 0.12,
+    // Sockets: rare-and-better weapons, armour and helms roll them (by rarity); Bram adds more, up to maxSockets
+    sockets: { slots: ['weapon', 'armor', 'helm'], byRarity: [[0, 0], [0, 1], [1, 2], [2, 2]], max: 2, addCost: { gold: 120, scrap: 6 } },
+    gems: {
+      ruby: { name: 'Ruby', icon: '🔴', desc: '+6% damage' },
+      sapphire: { name: 'Sapphire', icon: '🔷', desc: '+10 stamina' },
+      emerald: { name: 'Emerald', icon: '🟢', desc: '+15 health' },
+      topaz: { name: 'Topaz', icon: '🟡', desc: '+4% critical chance' },
+      onyx: { name: 'Onyx', icon: '⚫', desc: '2.5% less damage taken' },
+    },
+    gemDrop: { chest: 0.35, bigChest: 2, elite: 0.15, pot: 0.03 },
     affixes: {
       crit: { name: 'Critical chance', unit: '%', min: 4, max: 8, step: 0.6 },
       posture: { name: 'Posture damage', unit: '%', min: 8, max: 15, step: 1 },
@@ -756,6 +781,7 @@ const Items = (() => {
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
+      gems: {}, uniques: [],                        // loose gems by kind; uniques found so far
     };
   }
 
@@ -812,7 +838,30 @@ const Items = (() => {
     const nAff = C.rarities[rarity].affixes + (slot === 'trinket' ? 1 : 0), keys = Object.keys(C.affixes).sort(() => Math.random() - 0.5).slice(0, nAff);
     for (const k of keys) { const a = C.affixes[k]; it.aff.push({ k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }); }
     if (rarity >= 2 && it.aff.length) it.name += ' ' + SUFFIX[it.aff[0].k];
+    if (C.sockets.slots.includes(slot)) { const [a, b] = C.sockets.byRarity[rarity]; it.gems = new Array(a + Math.floor(Math.random() * (b - a + 1))).fill(null); }
     return it;
+  }
+  // A named legendary (one not yet found, while any are left)
+  function generateUnique(tier, opt = {}) {
+    const left = C.uniques.filter(u => !S.uniques.includes(u.id) && (!opt.slot || u.slot === opt.slot));
+    const u = opt.id ? C.uniques.find(x => x.id === opt.id) : pick(left.length ? left : C.uniques);
+    const it = generate(tier, { slot: u.slot, type: u.type, rarity: 3 });
+    it.name = u.name; it.uniq = u.id;
+    if (!S.uniques.includes(u.id)) S.uniques.push(u.id);
+    return it;
+  }
+  const isUnique = it => !!(it && it.uniq);
+  const colorOf = it => it.uniq ? C.uniqueColor : C.rarities[it.rarity].color;
+  // A random gem kind
+  const randomGem = () => pick(Object.keys(C.gems));
+  function addGem(kind, n = 1) { S.gems[kind] = (S.gems[kind] || 0) + n; }
+  // Set a loose gem into an item's first empty socket, or take one out
+  function setGem(it, kind) { const i = (it.gems || []).indexOf(null); if (i < 0 || !(S.gems[kind] > 0)) return false; it.gems[i] = kind; S.gems[kind]--; return true; }
+  function pryGems(it) { for (let i = 0; i < (it.gems || []).length; i++) if (it.gems[i]) { addGem(it.gems[i]); it.gems[i] = null; } }
+  function addSocket(it) {
+    const c = C.sockets.addCost; it.gems = it.gems || [];
+    if (it.gems.length >= C.sockets.max || S.gold < c.gold || S.scrap < c.scrap) return false;
+    S.gold -= c.gold; S.scrap -= c.scrap; it.gems.push(null); return true;
   }
   // Main stats of an item after rarity and upgrades
   function main(it) {
@@ -826,6 +875,8 @@ const Items = (() => {
   // Short text lines describing an item
   function describe(it) {
     const m = main(it), L = [];
+    if (it.uniq) L.push('★ ' + C.uniques.find(u => u.id === it.uniq).desc);
+    if (it.gems && it.gems.length) L.push('Sockets: ' + it.gems.map(g => g ? C.gems[g].icon : '◇').join(' '));
     if (it.slot === 'weapon') {
       const w = C.weapons[it.type]; L.push(`Damage x${(m.dmg * w.dmg).toFixed(2)}`, `Posture x${w.posture.toFixed(2)}`, w.speed < 1 ? `Swing speed ${Math.round(w.speed * 100)}%` : 'Swing speed 100%'); if (w.range) L.push(`Reach ${w.range > 0 ? '+' : ''}${w.range} m`);
       if (w.twoHanded) L.push(`Two-handed: no shield, blade blocks ${Math.round(w.block * 100)}%, +${Math.round(w.exposed * 100)}% damage taken`);
@@ -838,7 +889,7 @@ const Items = (() => {
     for (const a of it.aff) { const d = C.affixes[a.k]; L.push(`+${a.v}${d.unit === 's' ? ' s' : d.unit} ${d.name.toLowerCase()}`); }
     return L;
   }
-  const value = it => Math.round(12 * (it.tier + 1) * (1 + it.rarity * 0.9) * (1 + 0.3 * it.plus));
+  const value = it => Math.round(12 * (it.tier + 1) * (1 + it.rarity * 0.9) * (1 + 0.3 * it.plus) * (it.uniq ? 2 : 1));
   const fullName = it => it.name + (it.plus ? ' +' + it.plus : '');
 
   // ---------------- What the gear does ----------------
@@ -849,7 +900,10 @@ const Items = (() => {
     for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
-    return {
+    // Gems in equipped sockets, and the uniques worn
+    const G2 = { ruby: 0, sapphire: 0, emerald: 0, topaz: 0, onyx: 0 }, u = {};
+    for (const s of C.slots) { const it = E[s]; if (!it || (s === 'shield' && free)) continue; for (const g of it.gems || []) if (g) G2[g]++; if (it.uniq) u[it.uniq] = true; }
+    const out = {
       maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp + lv * L.hp),
       maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
       dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
@@ -861,8 +915,13 @@ const Items = (() => {
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
       critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual,
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
+    out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
+    if (u.aegis) out.parry += 0.04;
+    if (u.coin) { out.crit += 0.15; out.maxHp = Math.round(out.maxHp * 0.9); }
+    if (u.heart) { out.flasks += 1; out.flaskHeal += 0.15; }
+    return out;
   }
   // How the hero should look in this gear (read by Rig.build)
   function look() {
@@ -907,7 +966,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
+    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
@@ -1990,7 +2049,8 @@ const Combat = (() => {
     for (const e of G.enemies) {
       if (!Enemy.targetable(e)) continue;
       if (!inArc(p.pos, p.facing, e.pos, atk.range, atk.arc, e.def.radius)) continue;
-      const r = Enemy.receive(e, atk, p);
+      const widow = p.S && p.S.u && p.S.u.widow && e.hp < e.maxHp * 0.3;           // Widowmaker
+      const r = Enemy.receive(e, widow ? Object.assign({}, atk, { dmg: atk.dmg * 1.6 }) : atk, p);
       if (r === 'blocked') blocked++; else if (r === 'ward') { /* soaked by a ward */ } else if (r) { landed++; if (r === 'crit') crit = true; }
     }
     const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
@@ -2006,6 +2066,14 @@ const Combat = (() => {
       Player.recoil(p);
     }
     return landed;
+  }
+
+  // Dawnbreaker: a parry looses a blade of light down the line in front of the hero
+  function wave(p) {
+    const f = p.facing, L = 7;
+    for (let d = 0.8; d <= L; d += 0.6) FX.glint(new THREE.Vector3(p.pos.x + Math.sin(f) * d, 1.1, p.pos.z + Math.cos(f) * d), 0xfff0b0, 1.2, 0.25 + d * 0.02);
+    Snd.play('swing');
+    for (const e of G.enemies) if (Enemy.targetable(e) && inArc(p.pos, f, e.pos, L, 22, e.def.radius)) Enemy.receive(e, { dmg: 16 * (p.S ? p.S.dmg : 1), posture: 18 }, p);
   }
 
   // An enemy's swing lands: check the player is inside its reach and resolve block / parry / dodge
@@ -2024,7 +2092,7 @@ const Combat = (() => {
     else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
 
-  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike };
+  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike, wave };
 })();
 
 </script>
@@ -2130,6 +2198,7 @@ const Player = (() => {
     const S = p.S, crit = Math.random() < S.crit, low = p.hp < p.maxHp * 0.4;
     const counter = p.counterT > 0 ? S.counter : 0; p.counterT = 0;
     const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
+    if (kind === 'heavy' && S.u && S.u.sky && !data.exec) data = Object.assign({}, data, { range: data.range + 2, arc: 26 });    // Skypiercer
     p.atk = Object.assign({}, data, {
       dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
@@ -2155,8 +2224,21 @@ const Player = (() => {
     FX.burst(new THREE.Vector3(p.pos.x, 0.1, p.pos.z), 0x9a8e7a, 10, 3, 0.35);
   }
 
+  // Burning ground (Emberwake Mail): patches that scorch enemies standing in them
+  function dropFire(p) { (p.fires = p.fires || []).push({ x: p.pos.x, z: p.pos.z, life: 2.2, tick: 0 }); if (p.fires.length > 14) p.fires.shift(); }
+  function updateFires(p, dt) {
+    if (!p.fires) return;
+    for (const f of p.fires) {
+      f.life -= dt; f.tick -= dt;
+      if (Math.random() < dt * 9) FX.burst(new THREE.Vector3(f.x + (Math.random() - 0.5) * 0.6, 0.15, f.z + (Math.random() - 0.5) * 0.6), Math.random() < 0.5 ? 0xff7a20 : 0xffc040, 1, 1.6, 0.45);
+      if (f.tick <= 0) { f.tick = 0.4; for (const e of G.enemies) if (Enemy.targetable(e) && Math.hypot(e.pos.x - f.x, e.pos.z - f.z) < 0.9 + e.def.radius) Enemy.burn(e, 5 * p.S.dmg, 0xff7a20); }
+    }
+    p.fires = p.fires.filter(f => f.life > 0);
+  }
+
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
+    updateFires(p, dt);
     for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
@@ -2223,6 +2305,8 @@ const Player = (() => {
       p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
       moveSpeed = P.speed;
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
+      // Emberwake: the dash leaves burning ground
+      if (p.S.u && p.S.u.ember && Math.floor(p.t / 0.07) !== Math.floor((p.t - dt) / 0.07)) dropFire(p);
       // Fading after-images mark the dash
       if (p.ghosts < 3 && p.t > p.ghosts * 0.07 + 0.02) { p.ghosts++; FX.ghost(p.rig.root, 0x9ad8ff, 0.22); }
       if (p.t >= D.time) { setState(p, 'free'); tryAct(p); }
@@ -2305,6 +2389,8 @@ const Player = (() => {
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
+        if (p.S.u && p.S.u.aegis) p.st = Math.min(p.maxSt, p.st + 25);
+        if (p.S.u && p.S.u.dawn) Combat.wave(p);
         if (p.S.mending) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * p.S.mending); FX.text(Combat.chestPos(p.pos, 2.6), '+' + Math.round(p.maxHp * p.S.mending), 'heal'); }
         return 'parry';
       } else if (hit.parryOnly) {
@@ -2315,6 +2401,7 @@ const Player = (() => {
           spend(p, cost);
           Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
           damage(p, dmg * (1 - p.S.block), e.pos);
+          if (p.S.u && p.S.u.thorns && e.def) Enemy.burn(e, dmg * 0.5, 0xc8ff6a);   // Crown of Thorns
           return 'block';
         }
         p.st = 0; p.stDelay = P.staminaDelay * 2;
@@ -2677,6 +2764,12 @@ const Enemy = (() => {
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
 
+  // Damage that bypasses guard and flinch (burning ground, thorns)
+  function burn(e, n, color = 0xff7a20) {
+    if (!targetable(e) || e.state === 'roar' || !e.def) return;
+    FX.burst(Combat.chestPos(e.pos, 0.9 * e.def.scale), color, 6, 3, 0.4); hurtFlash(e, color, 0.5);
+    damage(e, n);
+  }
   // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
   // take a heavy critical instead.
   function execute(e, atk, p) {
@@ -2866,7 +2959,7 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, execute, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
 
 </script>
@@ -2910,6 +3003,7 @@ const Props = (() => {
     FX.burst(at, q.crate ? 0x8a6a40 : 0xa06a44, 16, 5, 0.7); Snd.play(q.crate ? 'guardBreak' : 'hit');
     if (G.mode !== 'dungeon' || !Items.S) return;
     const p = G.player, r = Math.random();
+    if (Math.random() < CFG.gear.gemDrop.pot) { const k = Items.randomGem(); Items.addGem(k); FX.text(at.clone().setY(2.0), CFG.gear.gems[k].icon + ' ' + CFG.gear.gems[k].name, 'gold'); }
     if (r < F.potFlask && p.flasks < p.S.flasks) { p.flasks++; FX.text(at.clone().setY(1.6), '+1 ⚗', 'heal'); Snd.play('wave'); }
     else if (r < F.potFlask + F.potGoldChance) {
       const g = Items.addGold((F.potGold[0] + Math.random() * (F.potGold[1] - F.potGold[0])) * (1 + G.stageK * 0.5) * p.S.goldFind);
@@ -3747,7 +3841,7 @@ const UI = (() => {
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow"><div class="iinfo"><b style="color:${r.color}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}"><div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -3794,7 +3888,7 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
@@ -3806,6 +3900,18 @@ const UI = (() => {
           h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
           if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
+        }
+      } else if (t === 'gems') {
+        const GM = CFG.gear.gems, SC = CFG.gear.sockets;
+        h += `<p>"A stone in the steel. I'll set it, pry it, or cut you a new socket." · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
+        h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
+        for (const slot of SC.slots) {
+          const it = S.equip[slot]; if (!it) continue;
+          const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
+          let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
+          if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
+          if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
+          h += itemRow(it, b || '<small class="dim">No gems</small>');
         }
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
@@ -3840,7 +3946,9 @@ const UI = (() => {
     bag() {
       const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
       let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && st.twoHanded ? ' · <b class="warnc">unused while you hold a two-handed weapon</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
+      const GM = CFG.gear.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ${GM[k].name} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${CFG.gear.uniques.length}</div>`;
+      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
       h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
@@ -3913,8 +4021,15 @@ const UI = (() => {
       S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
     }
+    if (a === 'gem' || a === 'pry' || a === 'socket') {
+      const [id, kind] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
+      if (!it) return render();
+      const ok = a === 'gem' ? Items.setGem(it, kind) : a === 'pry' ? (Items.pryGems(it), true) : Items.addSocket(it);
+      if (ok) { Snd.play(a === 'socket' ? 'parry' : 'glint'); changed(); }
+      return render();
+    }
     if (a === 'salvage') { const it = Items.remove(+arg); if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); changed(); } return render(); }
-    if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); if (it.uniq && !S.uniques.includes(it.uniq)) S.uniques.push(it.uniq); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
@@ -4496,7 +4611,12 @@ function enterCamp(atSpawn = true) {
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
   const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
-  if (atSpawn) S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+  if (atSpawn) {
+    S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+    if (Math.random() < CFG.gear.uniqueStock && S.uniques.length < CFG.gear.uniques.length) {
+      const n = S.uniques.length; S.stock[0] = Items.generateUnique(tier); S.uniques.length = n;          // not "found" until bought
+    }
+  }
   Items.save();
   Player.refit(G.player, scene, true); Player.revive(G.player);
   if (atSpawn) placeHero(at);
@@ -4546,6 +4666,8 @@ G.onEnemyDeath = e => {
   if (up) levelUp(up);
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
+  if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  const p = G.player; if (p.S.u && p.S.u.oath && p.state !== 'dead') { const h = p.maxHp * 0.05; p.hp = Math.min(p.maxHp, p.hp + h); FX.text(Combat.chestPos(p.pos, 2.4), '+' + Math.round(h), 'heal'); }
 };
 function levelUp(n) {
   const S = Items.S, p = G.player;
@@ -4571,16 +4693,26 @@ G.onChest = room => {
   FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
   FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
   let it = null;
-  if (big || rich || Math.random() < C.itemChance) {
-    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
-    if (Items.add(it)) UI.toast('Found: ' + Items.fullName(it) + ' (' + CFG.gear.rarities[it.rarity].name + ')', CFG.gear.rarities[it.rarity].color);
+  const tier = Math.min(k, CFG.gear.tierNames.length - 1), GC = CFG.gear;
+  if ((big && Math.random() < GC.uniqueChance) || (rich && Math.random() < GC.uniqueRich)) it = Items.generateUnique(tier);
+  else if (big || rich || Math.random() < C.itemChance) it = Items.generate(tier, { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
+  if (it) {
+    if (Items.add(it)) UI.toast((it.uniq ? '★ UNIQUE: ' : 'Found: ') + Items.fullName(it) + (it.uniq ? '' : ' (' + GC.rarities[it.rarity].name + ')'), Items.colorOf(it));
     else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
+    if (it.uniq) { FX.ring(G.player.pos, 2.4, 0xff7a2a, 0.9, { r0: 0.3 }); Snd.play('wave'); }
   }
+  if (Math.random() < GC.gemDrop.chest || big) G.after(it ? 1.2 : 0.2, () => gemFound(big ? GC.gemDrop.bigChest : 1));
   if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
     G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
   } else Items.save();
 };
+// Loose gems go to the pouch; Bram sets them into sockets
+function gemFound(n) {
+  const got = [];
+  for (let i = 0; i < n; i++) { const k = Items.randomGem(); Items.addGem(k); got.push(CFG.gear.gems[k].icon + ' ' + CFG.gear.gems[k].name); }
+  UI.toast('Gem: ' + got.join(', '), '#9ad8ff'); Items.save();
+}
 G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;

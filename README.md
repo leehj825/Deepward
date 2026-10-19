@@ -27,6 +27,25 @@ Every model is built in code from primitives, and there are no model, texture or
   - The greatsword deals 1.5× damage with more posture and reach, and swaps the hero to the great-sword motion capture with both hands on the hilt. It leaves no room for a shield: the blade blocks only 55% of a blow, blocking costs more stamina, and you take 10% more damage. Bram forges one on request.
   - Rarities run from Common to Legendary, with random bonuses: critical chance, posture, stamina regen, health, stamina, parry window, life on hit and gold find.
   - Gear power rises with the stage it came from, and what you wear shows on the hero.
+- **Uniques:** nine named legendaries (shown in orange), each with an effect of its own. Each one turns up once before any repeats.
+  - **Where they drop:** a guardian's chest has a 30% chance, a rich chest 10%, and Tilda sometimes has one for sale.
+
+  | Unique | Slot | Effect |
+  | --- | --- | --- |
+  | Dawnbreaker | sword | A parry looses a blade of light down the line |
+  | Widowmaker | daggers | +60% damage to foes below 30% health |
+  | Grave Oath | greatsword | Every kill heals 5% |
+  | Skypiercer | spear | The heavy thrust reaches 2 m further and pierces the line |
+  | Emberwake Mail | armour | Dashing leaves burning ground |
+  | Crown of Thorns | helm | Blocked blows hurt the attacker for half their damage |
+  | Aegis of the Pale | shield | Parries give back 25 stamina; parry window +0.04 s |
+  | Gambler's Coin | trinket | +15% critical chance, 10% less health |
+  | Heart of the Deep | trinket | One more flask, which heals 15% more |
+
+- **Gems and sockets:** rare-and-better weapons, armour and helms roll sockets: Rare up to 1, Epic 1 to 2, Legendary 2.
+  - **Drops:** chests have a 35% chance of a gem and a guardian's chest gives two; elites 15%, pots 3%.
+  - **Kinds:** Ruby +6% damage, Sapphire +10 stamina, Emerald +15 health, Topaz +4% critical chance, Onyx 2.5% less damage taken.
+  - **Bram's Gems tab:** set gems into sockets, pry them out for free, or cut a new socket (◆120 ⚙6, up to two per item).
 - **Loot:** enemies drop gold, every cleared room leaves a chest, and guardians (the Bone Warden, Sir Aldric the Hollow, the Den Mother, the Brood Queen, the Pale Duelist) drop guaranteed rare-or-better gear and have a boss health bar.
 - **Returning to camp:** after a stage's guardian, choose to **return to camp** (banks your gold; Maren has words) or **press on** into the next stage. The gate in camp descends to any stage you've unlocked.
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
@@ -225,6 +244,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/growth_test.js` | Headless check of levels, talent rules, every ultimate, mastery's fourth blow and respec |
 | `tools/boss_test.js` | Headless check of all five guardians: phases, roars, summons, Aldric's stance change, the Den Mother's rage, the Pale Duelist's blink |
 | `tools/settings_test.js` | Headless check of the settings menu, that each setting applies and is kept, and the music moods |
+| `tools/loot_test.js` | Headless check of uniques (each drops once, and each effect), gems in sockets, Bram's Gems tab and gem drops |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/build_single.py` | Builds the single-file version |
@@ -239,6 +259,7 @@ node tools/camp_test.js
 node tools/growth_test.js
 node tools/boss_test.js
 node tools/settings_test.js
+node tools/loot_test.js
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2. It also checks that the side rooms are reachable, the den's elite chases you out, the vault's spikes hurt, pots break, and a shrine's blessing applies.

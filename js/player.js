@@ -99,6 +99,7 @@ const Player = (() => {
     const S = p.S, crit = Math.random() < S.crit, low = p.hp < p.maxHp * 0.4;
     const counter = p.counterT > 0 ? S.counter : 0; p.counterT = 0;
     const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
+    if (kind === 'heavy' && S.u && S.u.sky && !data.exec) data = Object.assign({}, data, { range: data.range + 2, arc: 26 });    // Skypiercer
     p.atk = Object.assign({}, data, {
       dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
@@ -124,8 +125,21 @@ const Player = (() => {
     FX.burst(new THREE.Vector3(p.pos.x, 0.1, p.pos.z), 0x9a8e7a, 10, 3, 0.35);
   }
 
+  // Burning ground (Emberwake Mail): patches that scorch enemies standing in them
+  function dropFire(p) { (p.fires = p.fires || []).push({ x: p.pos.x, z: p.pos.z, life: 2.2, tick: 0 }); if (p.fires.length > 14) p.fires.shift(); }
+  function updateFires(p, dt) {
+    if (!p.fires) return;
+    for (const f of p.fires) {
+      f.life -= dt; f.tick -= dt;
+      if (Math.random() < dt * 9) FX.burst(new THREE.Vector3(f.x + (Math.random() - 0.5) * 0.6, 0.15, f.z + (Math.random() - 0.5) * 0.6), Math.random() < 0.5 ? 0xff7a20 : 0xffc040, 1, 1.6, 0.45);
+      if (f.tick <= 0) { f.tick = 0.4; for (const e of G.enemies) if (Enemy.targetable(e) && Math.hypot(e.pos.x - f.x, e.pos.z - f.z) < 0.9 + e.def.radius) Enemy.burn(e, 5 * p.S.dmg, 0xff7a20); }
+    }
+    p.fires = p.fires.filter(f => f.life > 0);
+  }
+
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
+    updateFires(p, dt);
     for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
@@ -192,6 +206,8 @@ const Player = (() => {
       p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
       moveSpeed = P.speed;
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
+      // Emberwake: the dash leaves burning ground
+      if (p.S.u && p.S.u.ember && Math.floor(p.t / 0.07) !== Math.floor((p.t - dt) / 0.07)) dropFire(p);
       // Fading after-images mark the dash
       if (p.ghosts < 3 && p.t > p.ghosts * 0.07 + 0.02) { p.ghosts++; FX.ghost(p.rig.root, 0x9ad8ff, 0.22); }
       if (p.t >= D.time) { setState(p, 'free'); tryAct(p); }
@@ -274,6 +290,8 @@ const Player = (() => {
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
+        if (p.S.u && p.S.u.aegis) p.st = Math.min(p.maxSt, p.st + 25);
+        if (p.S.u && p.S.u.dawn) Combat.wave(p);
         if (p.S.mending) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * p.S.mending); FX.text(Combat.chestPos(p.pos, 2.6), '+' + Math.round(p.maxHp * p.S.mending), 'heal'); }
         return 'parry';
       } else if (hit.parryOnly) {
@@ -284,6 +302,7 @@ const Player = (() => {
           spend(p, cost);
           Snd.play('block'); FX.burst(shieldPos, 0xfff0d0, 8, 5); knock(p, e.pos, 3); FX.shake(0.08); G.rumble(0.2, 0.4, 90);
           damage(p, dmg * (1 - p.S.block), e.pos);
+          if (p.S.u && p.S.u.thorns && e.def) Enemy.burn(e, dmg * 0.5, 0xc8ff6a);   // Crown of Thorns
           return 'block';
         }
         p.st = 0; p.stDelay = P.staminaDelay * 2;

@@ -399,7 +399,12 @@ function enterCamp(atSpawn = true) {
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
   const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
-  if (atSpawn) S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+  if (atSpawn) {
+    S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
+    if (Math.random() < CFG.gear.uniqueStock && S.uniques.length < CFG.gear.uniques.length) {
+      const n = S.uniques.length; S.stock[0] = Items.generateUnique(tier); S.uniques.length = n;          // not "found" until bought
+    }
+  }
   Items.save();
   Player.refit(G.player, scene, true); Player.revive(G.player);
   if (atSpawn) placeHero(at);
@@ -449,6 +454,8 @@ G.onEnemyDeath = e => {
   if (up) levelUp(up);
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
+  if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  const p = G.player; if (p.S.u && p.S.u.oath && p.state !== 'dead') { const h = p.maxHp * 0.05; p.hp = Math.min(p.maxHp, p.hp + h); FX.text(Combat.chestPos(p.pos, 2.4), '+' + Math.round(h), 'heal'); }
 };
 function levelUp(n) {
   const S = Items.S, p = G.player;
@@ -474,16 +481,26 @@ G.onChest = room => {
   FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
   FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
   let it = null;
-  if (big || rich || Math.random() < C.itemChance) {
-    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
-    if (Items.add(it)) UI.toast('Found: ' + Items.fullName(it) + ' (' + CFG.gear.rarities[it.rarity].name + ')', CFG.gear.rarities[it.rarity].color);
+  const tier = Math.min(k, CFG.gear.tierNames.length - 1), GC = CFG.gear;
+  if ((big && Math.random() < GC.uniqueChance) || (rich && Math.random() < GC.uniqueRich)) it = Items.generateUnique(tier);
+  else if (big || rich || Math.random() < C.itemChance) it = Items.generate(tier, { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
+  if (it) {
+    if (Items.add(it)) UI.toast((it.uniq ? '★ UNIQUE: ' : 'Found: ') + Items.fullName(it) + (it.uniq ? '' : ' (' + GC.rarities[it.rarity].name + ')'), Items.colorOf(it));
     else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
+    if (it.uniq) { FX.ring(G.player.pos, 2.4, 0xff7a2a, 0.9, { r0: 0.3 }); Snd.play('wave'); }
   }
+  if (Math.random() < GC.gemDrop.chest || big) G.after(it ? 1.2 : 0.2, () => gemFound(big ? GC.gemDrop.bigChest : 1));
   if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
     G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
   } else Items.save();
 };
+// Loose gems go to the pouch; Bram sets them into sockets
+function gemFound(n) {
+  const got = [];
+  for (let i = 0; i < n; i++) { const k = Items.randomGem(); Items.addGem(k); got.push(CFG.gear.gems[k].icon + ' ' + CFG.gear.gems[k].name); }
+  UI.toast('Gem: ' + got.join(', '), '#9ad8ff'); Items.save();
+}
 G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;

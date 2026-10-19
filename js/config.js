@@ -311,6 +311,30 @@ const CFG = {
     helms: ['Cap', 'Helm', 'Great Helm'],
     trinkets: ['Ring', 'Amulet', 'Charm'],
     // Random bonuses: [min, max] per tier step added on top
+    // Named legendaries, each with an effect of its own (the fight reads S.u). They drop from guardians' chests (uniqueChance)
+    // and rich chests (uniqueRich), and Tilda now and then has one (uniqueStock). Each is found once before any repeats.
+    uniques: [
+      { id: 'dawn', name: 'Dawnbreaker', slot: 'weapon', type: 'sword', desc: 'A parry looses a blade of light down the line' },
+      { id: 'widow', name: 'Widowmaker', slot: 'weapon', type: 'daggers', desc: '+60% damage to foes below 30% health' },
+      { id: 'oath', name: 'Grave Oath', slot: 'weapon', type: 'greatsword', desc: 'Every kill heals 5% of your health' },
+      { id: 'sky', name: 'Skypiercer', slot: 'weapon', type: 'spear', desc: 'The heavy thrust reaches 2 m further and pierces every foe in line' },
+      { id: 'ember', name: 'Emberwake Mail', slot: 'armor', desc: 'Dashing leaves burning ground behind you' },
+      { id: 'thorns', name: 'Crown of Thorns', slot: 'helm', desc: 'Blocked blows hurt the attacker for half their damage' },
+      { id: 'aegis', name: 'Aegis of the Pale', slot: 'shield', desc: 'Parries give back 25 stamina; parry window +0.04 s' },
+      { id: 'coin', name: "Gambler's Coin", slot: 'trinket', desc: '+15% critical chance, but 10% less health' },
+      { id: 'heart', name: 'Heart of the Deep', slot: 'trinket', desc: 'One more flask, and flasks heal 15% more' },
+    ],
+    uniqueColor: '#ff7a2a', uniqueChance: 0.3, uniqueRich: 0.1, uniqueStock: 0.12,
+    // Sockets: rare-and-better weapons, armour and helms roll them (by rarity); Bram adds more, up to maxSockets
+    sockets: { slots: ['weapon', 'armor', 'helm'], byRarity: [[0, 0], [0, 1], [1, 2], [2, 2]], max: 2, addCost: { gold: 120, scrap: 6 } },
+    gems: {
+      ruby: { name: 'Ruby', icon: '🔴', desc: '+6% damage' },
+      sapphire: { name: 'Sapphire', icon: '🔷', desc: '+10 stamina' },
+      emerald: { name: 'Emerald', icon: '🟢', desc: '+15 health' },
+      topaz: { name: 'Topaz', icon: '🟡', desc: '+4% critical chance' },
+      onyx: { name: 'Onyx', icon: '⚫', desc: '2.5% less damage taken' },
+    },
+    gemDrop: { chest: 0.35, bigChest: 2, elite: 0.15, pot: 0.03 },
     affixes: {
       crit: { name: 'Critical chance', unit: '%', min: 4, max: 8, step: 0.6 },
       posture: { name: 'Posture damage', unit: '%', min: 8, max: 15, step: 1 },

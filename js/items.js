@@ -14,6 +14,7 @@ const Items = (() => {
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
+      gems: {}, uniques: [],                        // loose gems by kind; uniques found so far
     };
   }
 
@@ -70,7 +71,30 @@ const Items = (() => {
     const nAff = C.rarities[rarity].affixes + (slot === 'trinket' ? 1 : 0), keys = Object.keys(C.affixes).sort(() => Math.random() - 0.5).slice(0, nAff);
     for (const k of keys) { const a = C.affixes[k]; it.aff.push({ k, v: Math.round((rand(a.min, a.max) + a.step * tier) * (a.unit === 's' ? 1000 : 1)) / (a.unit === 's' ? 1000 : 1) }); }
     if (rarity >= 2 && it.aff.length) it.name += ' ' + SUFFIX[it.aff[0].k];
+    if (C.sockets.slots.includes(slot)) { const [a, b] = C.sockets.byRarity[rarity]; it.gems = new Array(a + Math.floor(Math.random() * (b - a + 1))).fill(null); }
     return it;
+  }
+  // A named legendary (one not yet found, while any are left)
+  function generateUnique(tier, opt = {}) {
+    const left = C.uniques.filter(u => !S.uniques.includes(u.id) && (!opt.slot || u.slot === opt.slot));
+    const u = opt.id ? C.uniques.find(x => x.id === opt.id) : pick(left.length ? left : C.uniques);
+    const it = generate(tier, { slot: u.slot, type: u.type, rarity: 3 });
+    it.name = u.name; it.uniq = u.id;
+    if (!S.uniques.includes(u.id)) S.uniques.push(u.id);
+    return it;
+  }
+  const isUnique = it => !!(it && it.uniq);
+  const colorOf = it => it.uniq ? C.uniqueColor : C.rarities[it.rarity].color;
+  // A random gem kind
+  const randomGem = () => pick(Object.keys(C.gems));
+  function addGem(kind, n = 1) { S.gems[kind] = (S.gems[kind] || 0) + n; }
+  // Set a loose gem into an item's first empty socket, or take one out
+  function setGem(it, kind) { const i = (it.gems || []).indexOf(null); if (i < 0 || !(S.gems[kind] > 0)) return false; it.gems[i] = kind; S.gems[kind]--; return true; }
+  function pryGems(it) { for (let i = 0; i < (it.gems || []).length; i++) if (it.gems[i]) { addGem(it.gems[i]); it.gems[i] = null; } }
+  function addSocket(it) {
+    const c = C.sockets.addCost; it.gems = it.gems || [];
+    if (it.gems.length >= C.sockets.max || S.gold < c.gold || S.scrap < c.scrap) return false;
+    S.gold -= c.gold; S.scrap -= c.scrap; it.gems.push(null); return true;
   }
   // Main stats of an item after rarity and upgrades
   function main(it) {
@@ -84,6 +108,8 @@ const Items = (() => {
   // Short text lines describing an item
   function describe(it) {
     const m = main(it), L = [];
+    if (it.uniq) L.push('★ ' + C.uniques.find(u => u.id === it.uniq).desc);
+    if (it.gems && it.gems.length) L.push('Sockets: ' + it.gems.map(g => g ? C.gems[g].icon : '◇').join(' '));
     if (it.slot === 'weapon') {
       const w = C.weapons[it.type]; L.push(`Damage x${(m.dmg * w.dmg).toFixed(2)}`, `Posture x${w.posture.toFixed(2)}`, w.speed < 1 ? `Swing speed ${Math.round(w.speed * 100)}%` : 'Swing speed 100%'); if (w.range) L.push(`Reach ${w.range > 0 ? '+' : ''}${w.range} m`);
       if (w.twoHanded) L.push(`Two-handed: no shield, blade blocks ${Math.round(w.block * 100)}%, +${Math.round(w.exposed * 100)}% damage taken`);
@@ -96,7 +122,7 @@ const Items = (() => {
     for (const a of it.aff) { const d = C.affixes[a.k]; L.push(`+${a.v}${d.unit === 's' ? ' s' : d.unit} ${d.name.toLowerCase()}`); }
     return L;
   }
-  const value = it => Math.round(12 * (it.tier + 1) * (1 + it.rarity * 0.9) * (1 + 0.3 * it.plus));
+  const value = it => Math.round(12 * (it.tier + 1) * (1 + it.rarity * 0.9) * (1 + 0.3 * it.plus) * (it.uniq ? 2 : 1));
   const fullName = it => it.name + (it.plus ? ' +' + it.plus : '');
 
   // ---------------- What the gear does ----------------
@@ -107,7 +133,10 @@ const Items = (() => {
     for (const s of C.slots) if (E[s] && !(s === 'shield' && free)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
     const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
-    return {
+    // Gems in equipped sockets, and the uniques worn
+    const G2 = { ruby: 0, sapphire: 0, emerald: 0, topaz: 0, onyx: 0 }, u = {};
+    for (const s of C.slots) { const it = E[s]; if (!it || (s === 'shield' && free)) continue; for (const g of it.gems || []) if (g) G2[g]++; if (it.uniq) u[it.uniq] = true; }
+    const out = {
       maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp + lv * L.hp),
       maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
       dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
@@ -119,8 +148,13 @@ const Items = (() => {
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
       critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual,
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
+    out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
+    if (u.aegis) out.parry += 0.04;
+    if (u.coin) { out.crit += 0.15; out.maxHp = Math.round(out.maxHp * 0.9); }
+    if (u.heart) { out.flasks += 1; out.flaskHeal += 0.15; }
+    return out;
   }
   // How the hero should look in this gear (read by Rig.build)
   function look() {
@@ -165,7 +199,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
+    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };

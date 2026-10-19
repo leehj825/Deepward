@@ -9,7 +9,7 @@ const UI = (() => {
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow"><div class="iinfo"><b style="color:${r.color}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}"><div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -56,7 +56,7 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
@@ -68,6 +68,18 @@ const UI = (() => {
           h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
           if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
+        }
+      } else if (t === 'gems') {
+        const GM = CFG.gear.gems, SC = CFG.gear.sockets;
+        h += `<p>"A stone in the steel. I'll set it, pry it, or cut you a new socket." · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
+        h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
+        for (const slot of SC.slots) {
+          const it = S.equip[slot]; if (!it) continue;
+          const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
+          let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
+          if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
+          if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
+          h += itemRow(it, b || '<small class="dim">No gems</small>');
         }
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
@@ -102,7 +114,9 @@ const UI = (() => {
     bag() {
       const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
       let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && st.twoHanded ? ' · <b class="warnc">unused while you hold a two-handed weapon</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
+      const GM = CFG.gear.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ${GM[k].name} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${CFG.gear.uniques.length}</div>`;
+      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
       h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
@@ -175,8 +189,15 @@ const UI = (() => {
       S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
     }
+    if (a === 'gem' || a === 'pry' || a === 'socket') {
+      const [id, kind] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
+      if (!it) return render();
+      const ok = a === 'gem' ? Items.setGem(it, kind) : a === 'pry' ? (Items.pryGems(it), true) : Items.addSocket(it);
+      if (ok) { Snd.play(a === 'socket' ? 'parry' : 'glint'); changed(); }
+      return render();
+    }
     if (a === 'salvage') { const it = Items.remove(+arg); if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); changed(); } return render(); }
-    if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); if (it.uniq && !S.uniques.includes(it.uniq)) S.uniques.push(it.uniq); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
