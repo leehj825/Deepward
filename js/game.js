@@ -945,6 +945,7 @@ G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); start
 $('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
 titleButtons();
+I18N.start();                                                               // the chosen language, from here on
 // The keyboard hint line along the bottom follows the player's keys
 function keysBar() {
   const k = a => `<b>${Bindings.label(a, 'key')}</b>`;

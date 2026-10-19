@@ -1,5 +1,5 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; color: #eee6d6; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; color: #eee6d6; font-family: system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* ---- Player bars ---- */
@@ -359,3 +359,7 @@ body.photo :is(#hud, #waveBox, #corner, #minimap, #mapInfo, #bars, #floaters, #b
 #photoBar button { padding: 7px 12px; font-weight: 700; color: #f2e6c8; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(242, 210, 122, 0.4); border-radius: 4px; }
 #photoBar small { flex-basis: 100%; text-align: center; font-size: 11px; opacity: 0.6; }
 body.pad #photoBar small::after { content: ' · Ⓐ save · Ⓧ filter · Ⓨ warden · Ⓑ done'; }
+
+/* Korean: letter-spaced capitals read badly in Hangul, and words should not break mid-syllable-block */
+html[lang="ko"] body { word-break: keep-all; }
+html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }

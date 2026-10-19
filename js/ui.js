@@ -347,7 +347,8 @@ const UI = (() => {
         return `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn('−', 'set', k + ':-1', v <= lo + 1e-6)}<span class="sval"><i style="width:${(v - lo) / (hi - lo) * 100}%"></i><em>${fmt(v)}</em></span>${btn('+', 'set', k + ':1', v >= hi - 1e-6)}</div></div>`;
       };
       const tog = (k, label, on, off) => `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn(Settings.get(k) ? on : off, 'toggle', k, false, Settings.get(k) ? 'on' : '')}</div></div>`;
-      return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
+      const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
+      return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
         + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
@@ -521,6 +522,7 @@ const UI = (() => {
       return render();
     }
     if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
+    if (a === 'lang') { if (arg !== I18N.lang) { I18N.set(arg); render(); } return; }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
     if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
