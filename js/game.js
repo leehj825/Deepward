@@ -206,9 +206,12 @@ scene.add(moon, moon.target);
 // 'auto' picks medium on touch devices (phones and tablets) and high elsewhere.
 const QUALITY = { high: { pr: 2, shadow: 2048, soft: true }, medium: { pr: 1.5, shadow: 1024, soft: false }, low: { pr: 1, shadow: 0 } };
 function quality() { const q = Settings.get('quality'); return q === 'auto' ? (('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'medium' : 'high') : q; }
+// Automatic resolution: when frames run long the game draws fewer pixels (down to half), and creeps back up when
+// there is room again. resScale multiplies the quality's pixel ratio.
+let resScale = 1;
 function applyQuality() {
   const Q = QUALITY[quality()] || QUALITY.high, on = Q.shadow > 0;
-  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false);
+  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio) * resScale); renderer.setSize(innerWidth, innerHeight, false);
   if (on && moon.shadow.mapSize.x !== Q.shadow) { moon.shadow.mapSize.set(Q.shadow, Q.shadow); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } }
   const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   if (renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type) {
@@ -217,7 +220,7 @@ function applyQuality() {
   }
 }
 applyQuality();
-Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
+Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'autoRes' && !Settings.get('autoRes')) { resScale = 1; applyQuality(); } if (k === 'perf') $('perf').classList.toggle('show', !!Settings.get('perf')); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
 G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
@@ -681,12 +684,40 @@ addEventListener('resize', resize); resize();
 // ---------------- Main loop ----------------
 let last = performance.now();
 const idleRig = (() => { const r = Rig.build('hero', { look: Items.S ? Items.look() : {} }); r.root.position.set(1.7, 0, 3.3); r.root.rotation.y = -2.5; scene.add(r.root); return r; })();
+// Frame timing: an average frame time for the performance readout and the automatic resolution. Each second is one
+// window; two slow windows in a row (over 22 ms, under ~45 FPS) drop the resolution a step, six quick ones (under
+// 17.5 ms) raise it. Only frames in play count, and a frame over 0.25 s (the app was away) is ignored.
+const Perf = { ms: 16.7, win: 0, n: 0, sum: 0, slow: 0, quick: 0, shown: 0 };
+function perfTick(ms) {
+  if (ms > 250) return;
+  Perf.ms += (ms - Perf.ms) * 0.05;
+  if (G.state === 'play') { Perf.sum += ms; Perf.n++; }
+  if ((Perf.win += ms) < 1000) return;
+  const avg = Perf.n ? Perf.sum / Perf.n : 0;
+  Perf.win = Perf.sum = Perf.n = 0;
+  if (avg && Settings.get('autoRes')) {
+    if (avg > 22) { Perf.quick = 0; if (++Perf.slow >= 2 && resScale > 0.5) { resScale = Math.max(0.5, +(resScale - 0.15).toFixed(2)); Perf.slow = 0; applyQuality(); } }
+    else if (avg < 17.5) { Perf.slow = 0; if (++Perf.quick >= 6 && resScale < 1) { resScale = Math.min(1, +(resScale + 0.1).toFixed(2)); Perf.quick = 0; applyQuality(); } }
+    else Perf.slow = Perf.quick = 0;
+  }
+  if (Settings.get('perf')) {
+    const info = renderer.info.render;
+    $('perf').textContent = `${Math.round(1000 / Perf.ms)} FPS · ${Perf.ms.toFixed(1)} ms · ${info.calls} draws · ${Math.round(info.triangles / 1000)}k tris · ${quality()} ×${resScale.toFixed(2)} res`;
+  }
+}
 function frame(now) {
   requestAnimationFrame(frame);
-  const real = Math.min(0.05, (now - last) / 1000); last = now;
+  const ms = Math.max(0, now - last), real = Math.min(0.05, ms / 1000); last = now;
   step(real);
   renderer.render(scene, camera);
+  perfTick(ms);
 }
+// Switching away from the app (or the tab) pauses the fight and holds the sound until you come back
+$('perf').classList.toggle('show', !!Settings.get('perf'));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (G.state === 'play') togglePause(); Snd.hold(true); }
+  else Snd.hold(false);
+});
 function step(real) {
   pollPad(real);
   Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
@@ -742,6 +773,7 @@ window.__dw = {
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
   arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
+  perf: () => ({ resScale, pr: renderer.getPixelRatio(), text: $('perf').textContent }), perfTick, togglePause,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
   press(act) { Player.press(G.player, act); },

@@ -160,6 +160,8 @@ const Snd = (() => {
 
   return {
     init,
+    // The app went to the background (or came back): hold all sound, then let it go again
+    hold(on) { if (!ctx) return; try { if (on) ctx.suspend(); else ctx.resume(); } catch (e) {} },
     play(name) { if (!ctx || muted || !SFX[name]) return; try { SFX[name](); } catch (e) {} },
     toggleMute() {
       muted = !muted;

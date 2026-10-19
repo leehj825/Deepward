@@ -260,10 +260,14 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
   - **High:** sharp, with soft shadows.
   - **Medium:** 1.5× resolution and smaller shadows; enemies get a soft blob shadow instead of a real one.
   - **Low:** 1× resolution and no shadows.
+- **Automatic resolution** (on by default): when frames run slow during a fight, the game draws fewer pixels (down to half) and creeps back up when there is room again.
+- **Show performance:** a small readout at the bottom with FPS, frame time, draw calls, triangles, quality and the current resolution step. Handy for telling me how it runs on your phone.
 - Touch controls (phones and tablets only):
   - Button size (0.7× to 1.5×) and opacity.
   - **Left-handed:** mirrors the buttons to the left side, with the move stick and camera drag swapped.
   - **Arrange buttons:** drag each button where your thumb wants it, then tap Done. Reset puts them all back. Positions are kept as a share of the screen, so they survive turning the phone.
+
+Switching to another app (or tab) pauses the fight and holds the sound until you come back.
 
 They are kept on the device, apart from the saved game. M still mutes everything.
 

@@ -136,6 +136,9 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Characters:** parts that share a joint are baked together, and their plain colours become vertex colours. Glowing weapon materials stay apart.
 - **Culling:** sections more than 40 m away (past the fog) aren't drawn.
 - **Graphics quality:** sets resolution and shadow-map size, and turns enemy shadows into blobs on Medium or shadows off entirely on Low.
+- **Automatic resolution:** `perfTick` averages frame time over one-second windows while in play. Two windows over 22 ms drop `resScale` by 0.15 (down to 0.5), six under 17.5 ms raise it by 0.1; `applyQuality` multiplies the quality's pixel ratio by it. Frames over 0.25 s (the app was away) are ignored.
+- **Performance readout:** Settings → Show performance writes FPS, frame time, `renderer.info` draw calls and triangles, quality and resolution step once a second.
+- **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
 ## Minimap (built)

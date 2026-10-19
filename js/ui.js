@@ -286,6 +286,7 @@ const UI = (() => {
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
+        + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
     },
