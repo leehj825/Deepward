@@ -1,6 +1,6 @@
 # Deepward: Game Design
 
-A quarter-view action dungeon crawler. You enter a dungeon, fight through its rooms and a boss, take the loot, then level up and refit. There's no town building and no army, only the fight.
+A 3D action dungeon crawler, played over the shoulder or from a fixed high view. You enter a dungeon, fight through its rooms and a boss, take the loot, then level up and refit. There's no town building and no army, only the fight.
 
 ## Pillars
 
@@ -12,20 +12,20 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 
 | Action | What it does |
 | --- | --- |
-| Light attack | Fast 3-hit combo (slash, backhand, overhead) with low posture damage |
+| Light attack | Fast combo (three hits with a sword; each weapon type has its own) with low posture damage |
 | Heavy attack | Slow; breaks shield guards; staggers even brutes when they aren't swinging |
 | Block | Absorbs 85% of damage and drains stamina; a guard break stuns |
 | Parry | A block raised within 0.2 s of impact: no damage, big posture damage, enemy staggered. Mashing block doesn't parry. |
-| Dodge roll | Invulnerable for most of the roll; rolls pass through enemies |
+| Dash | A short, low dash (2.6 m in 0.3 s) in any direction, invulnerable for most of it; dashes pass through enemies |
 | Riposte | Any hit on a posture-broken enemy is a 3× critical |
 
-- **Stamina** pays for attacks, rolls and blocked hits. It regenerates after a short pause, and more slowly while you block.
+- **Stamina** pays for attacks, dashes and blocked hits. It regenerates after a short pause, and more slowly while you block.
 - **Posture:** enemies fill a posture bar from hits, blocks and parries. It drains when they're left alone, and when it's full they're broken.
 - **Telegraphs:**
   - A white glint means blockable.
   - Red means unblockable, so dodge.
   - Area attacks draw a filling red ring on the floor.
-  - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to roll sideways.
+  - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to dash sideways.
 - **Attack tokens:** at most two enemies wind up or swing at once, so crowds stay readable.
 - **Feel:** hit-stop on impact, slow motion on a parry, screen shake, swing trails, sparks and floating numbers.
 
@@ -59,18 +59,23 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 | 3 | The Ogre Den | Goblin swarms, brutes | Dash; crowd reading | The Den Mother |
 | 4 | The Spider Depths | Spiders whose pounce can only be parried | Parry timing | The Brood Queen |
 | 5 | The Shadow Court | Feinting duelists | Patience | The Pale Duelist |
+| 6 | The Sunken Temple | Acolytes (reflectable orbs), skeletons, spiders, duelists | Parrying orbs back | The Drowned Prophet |
+| 7 | The Frost Halls | Shield-bearers, knights, archers, acolytes, duelists | Pulling foes out of a ward | The Frost Marshal |
+| 8 | The Ashen Forge | Goblins, shield-bearers, brutes, acolytes | Dashing under pressure | The Furnace Lord |
+| 9 | The Bone Orchard | Bone callers, skeletons, archers, knights, spiders | Killing the caller first | The Bone Gardener |
+| 10 | The Throne of the Deep | Most kinds, with bearers and callers | Everything at once | The Hollow King |
 
 - **Archers** keep 5.5 to 10 m away, back off when you close in, and loose an arrow after a long draw. Arrows can be blocked, parried or dashed through. Archers don't take one of the two attack tokens, so they add pressure on top of the melee foes.
 - **Goblins** are small and fast, with quick thrusts and two-hit slashes; they come in packs.
 - **Spiders** are code-built eight-legged rigs. Their bite is ordinary, but the pounce glows **amber**: a block alone is smashed aside and the hit lands anyway. Only a parry (or a dash) answers it.
 - **Duelists** open with a raised overhead that is a **feint**: the wind-up stops short and the real slash follows quickly. Raising the guard on the feint wastes the parry window.
-- After the fifth stage the stages repeat with tougher enemies.
+- After the tenth stage the stages repeat with tougher enemies (`loopScale`), alongside the Endless Deep.
 
 ## Guardians (built)
 
 - The first enemy of each stage's last room is grown into a boss from `CFG.bosses`: bigger, with more health, posture and reach, sometimes extra moves, and a boss bar with a tick at each phase mark.
 - **Phases:** when health drops past a mark, the guardian roars for 1.4 s. It can't be hurt, and halfway through a shockwave throws the hero back. Then the phase's changes apply: summoned adds (60% strength, crumbling when the guardian dies), stat overrides, new or replacement attacks, faster wind-ups, a stance change, or a rage tint.
-- **The five:**
+- **Act I's five** (Act II's five are in `CFG.bosses` and the README):
   - **Bone Warden:** a ground slam, then adds twice.
   - **Sir Aldric:** drops the shield at half health (it stays on the floor) and switches to the great-sword motion capture with an unblockable spin.
   - **Den Mother:** goblins, then rage with an unblockable charge.
@@ -88,30 +93,34 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
   - Tiers by depth, four rarities, eight bonus types, and smith upgrades up to +8 with the best forge.
   - Gear changes the hero's look: blade, weapon model, tunic colour, plate, helm style, shield face and amulet.
 
-## Gear (original plan, partly built)
+## Gear: the original plan against what's built
 
-- **Slots:** weapon, off-hand, helm, chest, gloves, boots, ring, amulet.
-- **Weapon types:** sword (balanced), greataxe (posture), daggers (long combos), spear (reach), mace (stuns armour). Each has its own combo poses.
-- **Rarity:** Common, Rare, Epic and Legendary, with random bonuses (crit, stamina regen, parry window, lifesteal, elemental damage). Legendaries carry unique effects.
-- **Weight** slows the roll, so you trade nimbleness against tankiness.
-- **Forge** (a single menu screen between dungeons): upgrade, salvage, or reroll one bonus.
-- Every equipped piece is built as a mesh on the rig.
+| Planned | Status |
+| --- | --- |
+| Eight slots (weapon, off-hand, helm, chest, gloves, boots, ring, amulet) | Five built (weapon, shield, armour, helm, trinket); gloves, boots and a ring are on the roadmap (V2) |
+| Weapon types with their own moves | Built: sword, axe, mace, longsword, greatsword, spear and twin daggers; spear and daggers have their own combos and heavies |
+| Four rarities with random bonuses; legendaries with unique effects | Built, plus nine named uniques and gem sockets. Elemental damage is not built (V2) |
+| Weight slows the dash | Not built (V2) |
+| Forge: upgrade, salvage, reroll one bonus | Upgrade, salvage, gems and sockets built; reroll is not (V2) |
+| Every equipped piece shown on the rig | Built |
 
-## Progression (planned)
+## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
-- **Weapon mastery:** each weapon type levels with use and unlocks new combo moves.
-- **Expertise trees:** Guardian (block/parry), Duelist (dodge/counter/crit), Berserker (low-health damage, posture) and Arcanist (infusions, ranged skill). Each tree has an ultimate.
-- **Death** loses half the run's unbanked loot.
+- **Weapon mastery:** each weapon type ranks up with landed hits; rank 2 adds a fourth, finishing blow to the light combo.
+- **Expertise trees:** Guardian (block/parry), Duelist (dash/counter/crit), Berserker (low-health damage, posture) and Arcanist (infusions). Up to two trees; each has an ultimate (Bulwark, Blade Dance, Bloodrage, Nova). Shown as a node tree with a details pane.
+- **Falling** loses half the trip's unbanked gold.
 
-## Milestones
+## Milestones (all done)
 
-1. **Combat feel (done):** an arena with hero, skeleton, shield knight and brute; light/heavy attacks, block, parry, dodge, stamina, posture, telegraphs, waves, touch controls, headless combat tests.
-2. **Enemy roster:** archers, swarms, pouncers, feints, more telegraph types.
-3. **Dungeon generation:** room templates, tiers 1 to 3, the first boss.
-4. **Gear and loot:** slots, rarity, bonuses, gear meshes, inventory.
-5. **Progression:** levels, weapon mastery, expertise trees and ultimates.
-6. **Tiers 4 to 7:** bosses, saving, polish, single-file and mobile builds.
+1. **Combat feel:** hero, skeleton, shield knight and brute; light and heavy attacks, block, parry, dash, stamina, posture, telegraphs, touch controls, headless combat tests.
+2. **Camp and gear:** the camp hub, Bram, Tilda, the ledger, five gear slots, rarities, saving.
+3. **Growth:** levels, weapon mastery, four expertise trees with ultimates.
+4. **Enemy roster:** archers, goblin swarms, parry-only spiders, feinting duelists.
+5. **Guardians in phases**, then release polish (icon, splash, generative music, settings) and the debug APK.
+6. **The open dungeon:** each stage one winding run of sections without gates.
+7. **S1–S7:** performance, minimap and compass, side rooms/traps/shrines/pots, elites and champions, lock-on/spear/daggers/executions, uniques and gems, the Endless Deep and Daily Descent.
+8. **T1–T7:** balance bot, difficulty and accessibility, training yard, codex and achievements, Act II, feel and atmosphere, touch-control customization.
 
 ## Release polish (built)
 
@@ -247,3 +256,33 @@ Real players are slower to react than the bot, so expect more deaths.
 - `TouchLayout` measures where the stylesheet puts each button, then positions them itself (`#pad.free`) so they can move one by one.
 - Size is a `scale()` on each button and opacity is set on the pad. The left-handed layout mirrors each button's distance from the right edge onto the left, and the touch input swaps the stick and look halves of the screen.
 - Arrange mode (Settings → Arrange buttons) shows the pad over everything and drags buttons with a capture-phase pointer listener, so a drag never triggers the action. Positions are saved in `Settings.padLayout` as fractions of the screen; a button with no entry keeps its default spot.
+
+## Roadmap
+
+The next steps, in the order I'd take them. Each is sized like one of the S or T steps: one commit, its own test, and a debug APK.
+
+**V1. Play on a real phone.** Everything so far was measured headless. Install the debug APK on a mid-range Android phone and fix what shows up.
+- An FPS and draw-call overlay (Settings → Show performance), and dynamic resolution that drops a step when the frame time stays above 20 ms.
+- Check touch reach, text size, safe areas (notches) and the pause on app switch (Capacitor `appStateChange`).
+- Exit criterion: 50+ FPS on Medium through a full Act II stage.
+
+**V2. Gear depth.** Finish the original gear plan.
+- Gloves, boots and a ring slot (eight slots total), with their own looks on the rig.
+- Weight: heavy armour slows the dash and costs more stamina; light gear the reverse.
+- Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.
+- Bram rerolls one bonus for gold and scrap.
+
+**V3. Save safety.** The save is one `localStorage` key.
+- Versioned saves with a migration step, so future changes never wipe progress.
+- Export and import the save as text (and Android share) for moving between devices.
+- Three save slots.
+
+**V4. Controls everywhere.** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
+
+**V5. Endless Deep with modifiers.** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
+
+**V6. Weapon arts.** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
+
+**V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
+
+Smaller ideas kept for later: hero appearance options, a photo mode, more Act II side-room types (a gauntlet room, a trap puzzle), and translations.
