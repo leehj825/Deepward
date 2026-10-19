@@ -110,3 +110,11 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 4. **Gear and loot:** slots, rarity, bonuses, gear meshes, inventory.
 5. **Progression:** levels, weapon mastery, expertise trees and ultimates.
 6. **Tiers 4 to 7:** bosses, saving, polish, single-file and mobile builds.
+
+## Release polish (built)
+
+- **Expertise screen:** each tree is a column of nodes (three talents, then the ultimate) joined by lines that light up as you learn. Clicking a node shows its details: the effect now and at the next rank, what blocks it, and Learn or Equip.
+- **Music:** a generative WebAudio score with a pad, arpeggio, bell line, bass, drums and brass. Its mix and tempo follow the mood (camp, dungeon, combat, guardian) and change on bar lines. There are no audio files.
+- **Settings:** master, music and effects volume, look sensitivity, inverted vertical look and screen shake. They are kept apart from the save.
+- **Icon and splash:** drawn in code by `tools/make_icons.py` and copied into the generated Android project by `tools/android_patch.js`.
+- **Release:** the "Android release" workflow builds a signed `.aab` and APK from repository secrets (see `RELEASE.md`).
