@@ -406,14 +406,14 @@ const CFG = {
     { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
   ],
   tips: {
-    execute: 'BROKEN! Hit HEAVY (K / RT) close by to EXECUTE it: an untouchable finishing blow.',
-    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
-    knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
+    execute: 'BROKEN! Hit HEAVY (@heavy) close by to EXECUTE it: an untouchable finishing blow.',
+    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.',
+    knight: 'Shields stop light attacks. A HEAVY attack (@heavy) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
     goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
     spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
     duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
-    brute: 'A RED glow is UNBLOCKABLE. DASH (Space) through it - you are invulnerable mid-dash.',
+    brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 

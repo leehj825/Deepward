@@ -267,6 +267,7 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
   - **High:** sharp, with soft shadows.
   - **Medium:** 1.5× resolution and smaller shadows; enemies get a soft blob shadow instead of a real one.
   - **Low:** 1× resolution and no shadows.
+- **Controls** (Settings → Controls → Change…): every action's keyboard key and controller button. Pick one and press the new key or button (Esc or Menu cancels); a key taken from another action leaves it. The hint line, the talk prompt, tips and the training yard all show your own keys. Menus, Esc and the Menu button always work as they are, and the mouse stays as it is. Restore default controls puts them back.
 - **Automatic resolution** (on by default): when frames run slow during a fight, the game draws fewer pixels (down to half) and creeps back up when there is room again.
 - **Show performance:** a small readout at the bottom with FPS, frame time, draw calls, triangles, quality and the current resolution step. Handy for telling me how it runs on your phone.
 - Touch controls (phones and tablets only):
@@ -328,6 +329,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | --- | --- |
 | `index.html` | Page markup (HUD, touch pad, screens) and script tags |
 | `css/style.css` | All styles, including the touch and portrait layouts |
+| `js/bindings.js` | The player's keys and controller buttons per action, labels for hints, and rebinding |
 | `js/settings.js` | Player settings (volumes, look, screen shake, quality, difficulty, accessibility, vibration, touch layout), kept in the browser |
 | `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks), the stages (rooms, sizes, waves, themes, guardians), gear tables, camp buildings and the story script |
 | `js/items.js` | Gear generation (tiers, types, rarities, bonuses), what equipped gear does to the hero, inventory, gold and scrap, the saved game |
@@ -362,6 +364,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/touch_test.js` | Headless check of the touch controls on a phone screen: size, opacity, left-handed, dragging a button, keeping it, Reset |
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
+| `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -384,6 +387,7 @@ node tools/codex_test.js
 node tools/touch_test.js
 node tools/gear_test.js
 node tools/save_test.js
+node tools/controls_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

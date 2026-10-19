@@ -341,6 +341,12 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .savecode .tact { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .pb.warn { background: #8a2a1a; border-color: #ff7a5a; color: #fff; }
 .pcard.saves .ibtns { flex-wrap: wrap; justify-content: flex-end; }
+.ctlgrid { display: grid; grid-template-columns: 1fr auto auto; gap: 5px 10px; align-items: center; margin: 8px 0; }
+.ctlgrid > b { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #c9b88a; }
+.ctlgrid .pb { min-width: 92px; padding: 5px 10px; }
+.ctlgrid small { text-align: center; }
+.listen { padding: 8px 12px; margin: 6px 0; border: 1px solid #f2d27a; border-radius: 6px; background: rgba(242, 210, 122, 0.12); animation: pulse 1s infinite alternate; }
+@keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
 
 </style>
 </head>
@@ -818,14 +824,14 @@ const CFG = {
     { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
   ],
   tips: {
-    execute: 'BROKEN! Hit HEAVY (K / RT) close by to EXECUTE it: an untouchable finishing blow.',
-    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
-    knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
+    execute: 'BROKEN! Hit HEAVY (@heavy) close by to EXECUTE it: an untouchable finishing blow.',
+    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.',
+    knight: 'Shields stop light attacks. A HEAVY attack (@heavy) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
     goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
     spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
     duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
-    brute: 'A RED glow is UNBLOCKABLE. DASH (Space) through it - you are invulnerable mid-dash.',
+    brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 
@@ -1007,7 +1013,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true, keys: {}, padKeys: {} };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -1023,6 +1029,93 @@ const Settings = (() => {
     // The current difficulty's numbers
     get diff() { return CFG.difficulty[s.difficulty] || CFG.difficulty.normal; },
   };
+})();
+
+</script>
+<script>
+// Deepward - the player's key and controller bindings. Every gameplay action has up to two keys and one or more
+// controller buttons; the player can change them in Settings → Controls. Menu navigation (arrows, Enter, Esc / d-pad,
+// A, B) and pausing with Esc or Menu stay fixed so a bad binding can never lock anyone out.
+const Bindings = (() => {
+  const ACTIONS = [
+    ['up', 'Move forward'], ['down', 'Move back'], ['left', 'Move left'], ['right', 'Move right'],
+    ['light', 'Attack'], ['heavy', 'Heavy attack'], ['block', 'Block / parry'], ['dodge', 'Dash'],
+    ['flask', 'Healing flask'], ['ult', 'Ultimate'], ['interact', 'Talk / use'], ['lock', 'Lock on'],
+    ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['camera', 'Switch camera'], ['map', 'Full map'], ['mute', 'Mute'],
+  ];
+  const KEYS = {
+    up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
+    light: ['KeyJ'], heavy: ['KeyK', 'KeyQ'], block: ['KeyL', 'ShiftLeft'], dodge: ['Space'], flask: ['KeyR'], ult: ['KeyF'], interact: ['KeyE'],
+    lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], camera: ['KeyB'], map: ['KeyN'], mute: ['KeyM'],
+  };
+  // Standard-mapping button numbers. A both talks (when something is near) and dashes; movement is on the stick.
+  const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], flask: [12], gear: [13], camera: [8], lock: [11] };
+  const PADNAME = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS', 'D-pad up', 'D-pad down', 'D-pad left', 'D-pad right'];
+  const FIXED_KEYS = ['Escape', 'Enter'], FIXED_PAD = [9];                 // pause / confirm stay where they are
+  const MOUSE = { light: 'left-click', block: 'right-click', heavy: 'middle-click' };
+
+  const keys = () => Object.assign({}, KEYS, Settings.get('keys') || {});
+  const pad = () => Object.assign({}, PAD, Settings.get('padKeys') || {});
+  let index = null;                                                         // key code -> actions, rebuilt on change
+  function build() { index = {}; for (const [a, codes] of Object.entries(keys())) for (const c of codes) (index[c] = index[c] || []).push(a); }
+  Settings.on(k => { if (k === 'keys') index = null; });
+
+  // Which actions a key code does
+  function actionsOf(code) { if (!index) build(); return index[code] || []; }
+  const is = (code, act) => actionsOf(code).includes(act);
+  // Is any key of this action held (keys: the held-keys map)
+  const held = (heldKeys, act) => keys()[act].some(c => heldKeys[c]);
+  const padHas = (act, i) => (pad()[act] || []).includes(i);
+  const padButtons = act => pad()[act] || [];
+
+  // A readable name for a key code
+  function keyName(c) {
+    if (!c) return '—';
+    if (c.startsWith('Key')) return c.slice(3);
+    if (c.startsWith('Digit')) return c.slice(5);
+    if (c.startsWith('Arrow')) return { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' }[c];
+    if (c.startsWith('Numpad')) return 'Num ' + c.slice(6);
+    return { Space: 'Space', ShiftLeft: 'Shift', ShiftRight: 'Right Shift', ControlLeft: 'Ctrl', ControlRight: 'Right Ctrl', AltLeft: 'Alt', AltRight: 'Right Alt', Tab: 'Tab', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', CapsLock: 'Caps' }[c] || c;
+  }
+  // How an action is labelled for a device ('key' or 'pad'); with mouse, keyboard labels mention the mouse too
+  function label(act, dev = 'key', mouse = false) {
+    if (dev === 'pad') { const b = padButtons(act); return b.length ? b.map(i => PADNAME[i] || 'B' + i).join(' / ') : '—'; }
+    const k = keys()[act] || [];
+    return [keyName(k[0]), mouse && MOUSE[act]].filter(Boolean).join(' / ') || '—';
+  }
+  // Fill @action tokens in a hint with the player's own bindings (the device in use: controller or keyboard)
+  const device = () => document.body.classList.contains('pad') ? 'pad' : 'key';
+  const fmt = (txt, dev = device()) => String(txt).replace(/@(\w+)/g, (m, a) => KEYS[a] || PAD[a] ? label(a, dev, true) : m);
+
+  // ---------------- Rebinding ----------------
+  // listen: { act, dev } while waiting for the next key or button; the Controls panel shows it
+  let listen = null, onDone = null;
+  function startListen(act, dev, done) { listen = { act, dev }; onDone = done || null; }
+  function stopListen() { listen = null; const f = onDone; onDone = null; if (f) f(); }
+  // A key arrived while listening. Esc cancels. The key becomes this action's first key (taken from any other action).
+  function captureKey(code) {
+    if (!listen || listen.dev !== 'key') return false;
+    if (code === 'Escape') { stopListen(); return true; }
+    if (FIXED_KEYS.includes(code)) return true;
+    const K = JSON.parse(JSON.stringify(keys())), act = listen.act;
+    for (const a in K) if (a !== act) K[a] = K[a].filter(c => c !== code);
+    K[act] = [code, ...K[act].slice(1).filter(c => c !== code)];             // the new key replaces the first; a second key stays
+    Settings.set('keys', K); stopListen(); return true;
+  }
+  // A controller button arrived while listening. Menu cancels. The button becomes this action's only button; another
+  // action that used it gives it up (A keeps both talk and dash together).
+  function captureButton(i) {
+    if (!listen || listen.dev !== 'pad') return false;
+    if (FIXED_PAD.includes(i)) { stopListen(); return true; }
+    const P = JSON.parse(JSON.stringify(pad())), act = listen.act;
+    for (const a in P) if (a !== act && !(i === 0 && ((a === 'interact' && act === 'dodge') || (a === 'dodge' && act === 'interact')))) P[a] = P[a].filter(b => b !== i);
+    P[act] = [i];
+    Settings.set('padKeys', P); stopListen(); return true;
+  }
+  function reset() { Settings.set('keys', {}); Settings.set('padKeys', {}); }
+
+  return { ACTIONS, actionsOf, is, held, padHas, padButtons, label, keyName, fmt, startListen, stopListen, captureKey, captureButton, reset,
+    get listening() { return listen; }, PADNAME };
 })();
 
 </script>
@@ -4909,8 +5002,23 @@ const UI = (() => {
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
+        + `<h3>Controls</h3><div class="irow srow"><div class="iinfo"><b>Keyboard and controller</b><div class="istats">Change the key or button for any action.</div></div><div class="ibtns">${btn('Change…', 'open', 'controls', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
+    },
+    // Settings → Controls: each action's key and controller button. Pick one, then press the new key or button.
+    controls() {
+      const L = Bindings.listening;
+      let h = '<h2>Controls</h2><p class="sub">Pick a key or button, then press the new one. Esc or Menu cancels. Menus, Esc and Menu always work as they are.</p>';
+      if (L) h += `<div class="listen">Press a ${L.dev === 'pad' ? 'controller button' : 'key'} for <b>${esc(Bindings.ACTIONS.find(a => a[0] === L.act)[1])}</b>…</div>`;
+      h += '<div class="ctlgrid"><b></b><b>Keyboard</b><b>Controller</b>';
+      for (const [a, name] of Bindings.ACTIONS) {
+        const move = ['up', 'down', 'left', 'right'].includes(a);
+        h += `<span>${esc(name)}</span>${btn(esc(Bindings.label(a, 'key')), 'bindkey', a, false, L && L.act === a && L.dev === 'key' ? 'hot' : '')}`
+          + (move ? '<small class="dim">left stick</small>' : btn(esc(Bindings.label(a, 'pad')), 'bindpad', a, false, L && L.act === a && L.dev === 'pad' ? 'hot' : ''));
+      }
+      h += `</div><p class="dim">The mouse stays as it is: left-click attacks, right-click blocks, middle-click is a heavy attack.</p><div class="tact">${btn('Restore default controls', 'bindreset')}</div>`;
+      return h + btn('Back', 'open', 'settings', false, 'leave');
     },
     cleared(o) {
       const next = CFG.stages[(o.k + 1) % CFG.stages.length];
@@ -4960,6 +5068,8 @@ const UI = (() => {
       if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
       return render();
     }
+    if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
+    if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
     if (a === 'saveplay') return G.playSlot(+arg, false);
     if (a === 'savenew') return G.playSlot(+arg, true);
     if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }
@@ -5226,12 +5336,13 @@ const Tutorial = (() => {
   const SLAM = { pose: 'heavy', wind: 1.2, active: 0.14, recover: 1.1, dmg: 8, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.0, r: 2.3 }, unblockable: true, lunge: 0 };
   // text: [keyboard, controller, touch]
   const LESSONS = [
-    { id: 'light', need: 5, title: 'Strike', text: ['Hit Hobb with light attacks: J or left-click.', 'Hit Hobb with light attacks: RB or X.', 'Hit Hobb with ATTACK.'], attack: null },
-    { id: 'heavy', need: 2, title: 'Heavy blow', text: ['Land heavy attacks: K. They break guards and posture.', 'Land heavy attacks: RT. They break guards and posture.', 'Land HEAVY attacks. They break guards and posture.'], attack: null },
-    { id: 'block', need: 3, title: 'Block', text: ['A WHITE glint means you can block. Hold L or right-click as he swings.', 'A WHITE glint means you can block. Hold LB as he swings.', 'A WHITE glint means you can block. Hold BLOCK as he swings.'], attack: SLOW },
-    { id: 'parry', need: 3, title: 'Parry', text: ['Raise the block right at the moment of impact - not early - to PARRY. Tap L just as the blade lands.', 'Raise the block right at impact to PARRY. Tap LB just as the blade lands.', 'Tap BLOCK right as the blade lands to PARRY.'], attack: SLOW },
-    { id: 'dash', need: 2, title: 'Dash', text: ['RED glow and a red ring: unblockable. Dash out with Space (plus a direction) just before it lands.', 'RED glow: unblockable. Dash with A (plus a direction) just before it lands.', 'RED glow: unblockable. Tap DASH just before it lands.'], attack: SLAM },
-    { id: 'exec', need: 1, title: 'Break and execute', text: ['Fill his posture bar (parries and heavies), then hit K close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then RT close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then HEAVY close by to EXECUTE him.'], attack: SLOW },
+    // @action becomes the player's own key or button (Settings → Controls)
+    { id: 'light', need: 5, title: 'Strike', text: ['Hit Hobb with light attacks: @light.', 'Hit Hobb with light attacks: @light.', 'Hit Hobb with ATTACK.'], attack: null },
+    { id: 'heavy', need: 2, title: 'Heavy blow', text: ['Land heavy attacks: @heavy. They break guards and posture.', 'Land heavy attacks: @heavy. They break guards and posture.', 'Land HEAVY attacks. They break guards and posture.'], attack: null },
+    { id: 'block', need: 3, title: 'Block', text: ['A WHITE glint means you can block. Hold @block as he swings.', 'A WHITE glint means you can block. Hold @block as he swings.', 'A WHITE glint means you can block. Hold BLOCK as he swings.'], attack: SLOW },
+    { id: 'parry', need: 3, title: 'Parry', text: ['Raise the block right at the moment of impact - not early - to PARRY. Tap @block just as the blade lands.', 'Raise the block right at impact to PARRY. Tap @block just as the blade lands.', 'Tap BLOCK right as the blade lands to PARRY.'], attack: SLOW },
+    { id: 'dash', need: 2, title: 'Dash', text: ['RED glow and a red ring: unblockable. Dash out with @dodge (plus a direction) just before it lands.', 'RED glow: unblockable. Dash with @dodge (plus a direction) just before it lands.', 'RED glow: unblockable. Tap DASH just before it lands.'], attack: SLAM },
+    { id: 'exec', need: 1, title: 'Break and execute', text: ['Fill his posture bar (parries and heavies), then hit @heavy close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then @heavy close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then HEAVY close by to EXECUTE him.'], attack: SLOW },
   ];
   let on = false, i = 0, n = 0, foe = null, base = null, lastHp = 0, pending = false;
   const box = document.getElementById('lesson');
@@ -5273,7 +5384,7 @@ const Tutorial = (() => {
   }
   function show() {
     const L = LESSONS[i];
-    box.innerHTML = `<div class="lt">Lesson ${i + 1} / ${LESSONS.length} · ${L.title} <b>${Math.min(n, L.need)} / ${L.need}</b></div><div class="lx">${L.text[style()]}</div>
+    box.innerHTML = `<div class="lt">Lesson ${i + 1} / ${LESSONS.length} · ${L.title} <b>${Math.min(n, L.need)} / ${L.need}</b></div><div class="lx">${Bindings.fmt(L.text[style()], style() === 1 ? 'pad' : 'key')}</div>
       <div class="lb"><button data-t="skip">Skip lesson</button><button data-t="leave">Leave training</button></div>`;
     box.classList.add('show');
   }
@@ -5473,10 +5584,10 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
 (function setupInput() {
-  const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
     if (ev.target && /^(TEXTAREA|INPUT)$/.test(ev.target.tagName)) return;   // typing a save code
+    if (!ev.repeat && Bindings.captureKey(ev.code)) { ev.preventDefault(); return; }   // Settings → Controls is waiting for a key
     if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
       const c = ev.code;
       if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
@@ -5488,21 +5599,23 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.repeat) return;
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
-    if (ev.code === 'KeyM') toggleMute();
-    if (ev.code === 'KeyB') toggleView();
-    if (ev.code === 'KeyN') MiniMap.toggle();
-    if (ev.code === 'KeyO' && G.state === 'play') openPanel('codex');
-    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
-    // (an Esc that just released the captured mouse has already paused)
-    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
+    const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
+    if (has('mute')) toggleMute();
+    if (has('camera')) toggleView();
+    if (has('map')) MiniMap.toggle();
+    if (has('codex') && G.state === 'play') openPanel('codex');
+    if (has('lock') && G.state === 'play') toggleLock();
+    // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
+    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
     if (G.state !== 'play') return;
-    if (ev.code === 'KeyE') interact();
-    if (ev.code === 'KeyR') Player.drink(G.player);
-    if (ev.code === 'KeyF') Player.ultimate(G.player);
-    if (ev.code === 'KeyT') openPanel('talents');
-    if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
-    if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
+    if (has('interact')) interact();
+    if (has('flask')) Player.drink(G.player);
+    if (has('ult')) Player.ultimate(G.player);
+    if (has('talents')) openPanel('talents');
+    if (has('gear')) { openPanel('bag'); ev.preventDefault(); }
+    for (const a of ['light', 'heavy', 'dodge']) if (has(a)) { Player.press(G.player, a); ev.preventDefault(); }
+    if (A.length) ev.preventDefault();
   });
   addEventListener('keyup', ev => { Input.keys[ev.code] = false; });
   addEventListener('blur', () => { Input.keys = {}; Input.mouseBlock = false; });
@@ -5583,13 +5696,16 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dash.'); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip(Bindings.fmt('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.', 'pad')); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
+  // Settings → Controls is waiting for a button
+  if (Bindings.listening && Bindings.listening.dev === 'pad') { const i = now.findIndex((v, j) => v && !prev[j]); if (i >= 0) Bindings.captureButton(i); Pad.move.x = Pad.move.z = 0; return; }
+  const pressed = act => Bindings.padButtons(act).some(down), holding = act => Bindings.padButtons(act).some(btn);
   const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
   Pad.move.x = mx; Pad.move.z = my;
-  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  Pad.block = holding('block');
   if (now.some(Boolean)) Snd.init();
   // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
   if (UI.open) {
@@ -5604,16 +5720,20 @@ function pollPad(real) {
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
-  if (down(PAD_BTN.VIEW)) toggleView();
-  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
-  if (down(PAD_BTN.RT)) Player.press(G.player, 'heavy');
-  if (down(PAD_BTN.Y)) Player.ultimate(G.player);
-  if (down(PAD_BTN.A) && G.spot) interact();
-  else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
-  if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
-  if (down(13)) openPanel('bag');                                         // d-pad down: gear
+  // Actions on the player's buttons (Settings → Controls); talking takes the button when something is near
+  if (pressed('camera')) toggleView();
+  if (pressed('light')) Player.press(G.player, 'light');
+  if (pressed('heavy')) Player.press(G.player, 'heavy');
+  if (pressed('ult')) Player.ultimate(G.player);
+  if (pressed('interact') && G.spot) interact();
+  else if (pressed('dodge')) Player.press(G.player, 'dodge');
+  if (pressed('flask')) Player.drink(G.player);
+  if (pressed('gear')) openPanel('bag');
+  if (pressed('talents')) openPanel('talents');
+  if (pressed('codex')) openPanel('codex');
+  if (pressed('map')) MiniMap.toggle();
   if (View.mode === 'behind') {
-    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
+    if (pressed('lock')) toggleLock();                                   // lock on (or recentre when nothing is near)
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
   }
 }
@@ -5629,8 +5749,9 @@ G.rumble = (strong, weak, ms) => {
 
 function readInput() {
   const k = Input.keys;
-  let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
-  let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
+  const H = a => Bindings.held(k, a);
+  let x = (H('right') ? 1 : 0) - (H('left') ? 1 : 0);
+  let z = (H('down') ? 1 : 0) - (H('up') ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
   if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
@@ -5639,7 +5760,7 @@ function readInput() {
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
+  Input.block = !!(H('block') || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
@@ -5766,7 +5887,8 @@ let bannerT = null, tipT = null;
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 1800); }
 function showTip(txt) {
   if (!txt) return;
-  if (document.body.classList.contains('touch')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
+  txt = Bindings.fmt(txt);                                                // @heavy and the like become the player's own keys
+  if (document.body.classList.contains('touch') && !document.body.classList.contains('pad')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
@@ -5796,7 +5918,7 @@ function updateHud() {
   if (spot !== G.spot) {
     G.spot = spot;
     const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
-    UI.prompt(spot ? `<b>${pad ? 'Ⓐ' : touch ? 'TALK' : 'E'}</b> ${spot.verb} · ${spot.name}` : '');
+    UI.prompt(spot ? `<b>${touch && !pad ? 'TALK' : Bindings.label('interact', pad ? 'pad' : 'key')}</b> ${spot.verb} · ${spot.name}` : '');
     document.querySelector('.b-light').textContent = spot ? 'TALK' : 'ATTACK';
   }
 }
@@ -6089,6 +6211,12 @@ G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); start
 $('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
 titleButtons();
+// The keyboard hint line along the bottom follows the player's keys
+function keysBar() {
+  const k = a => `<b>${Bindings.label(a, 'key')}</b>`;
+  $('keys').innerHTML = `<span class="vb">Mouse look · </span>${['up', 'left', 'down', 'right'].map(a => Bindings.label(a, 'key')).join('')} move · ${k('light')}/click attack · ${k('heavy')} heavy · ${k('block')}/right-click block · ${k('dodge')} dash · ${k('flask')} flask · ${k('ult')} ultimate · ${k('interact')} talk · ${k('gear')} gear · ${k('talents')} talents · ${k('camera')} camera · ${k('lock')} lock on`;
+}
+keysBar(); Settings.on(key => { if (key === 'keys') keysBar(); });
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);

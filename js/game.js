@@ -15,10 +15,10 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
 (function setupInput() {
-  const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
     if (ev.target && /^(TEXTAREA|INPUT)$/.test(ev.target.tagName)) return;   // typing a save code
+    if (!ev.repeat && Bindings.captureKey(ev.code)) { ev.preventDefault(); return; }   // Settings → Controls is waiting for a key
     if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
       const c = ev.code;
       if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
@@ -30,21 +30,23 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.repeat) return;
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
-    if (ev.code === 'KeyM') toggleMute();
-    if (ev.code === 'KeyB') toggleView();
-    if (ev.code === 'KeyN') MiniMap.toggle();
-    if (ev.code === 'KeyO' && G.state === 'play') openPanel('codex');
-    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
-    // (an Esc that just released the captured mouse has already paused)
-    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
+    const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
+    if (has('mute')) toggleMute();
+    if (has('camera')) toggleView();
+    if (has('map')) MiniMap.toggle();
+    if (has('codex') && G.state === 'play') openPanel('codex');
+    if (has('lock') && G.state === 'play') toggleLock();
+    // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
+    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
     if (G.state !== 'play') return;
-    if (ev.code === 'KeyE') interact();
-    if (ev.code === 'KeyR') Player.drink(G.player);
-    if (ev.code === 'KeyF') Player.ultimate(G.player);
-    if (ev.code === 'KeyT') openPanel('talents');
-    if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
-    if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
+    if (has('interact')) interact();
+    if (has('flask')) Player.drink(G.player);
+    if (has('ult')) Player.ultimate(G.player);
+    if (has('talents')) openPanel('talents');
+    if (has('gear')) { openPanel('bag'); ev.preventDefault(); }
+    for (const a of ['light', 'heavy', 'dodge']) if (has(a)) { Player.press(G.player, a); ev.preventDefault(); }
+    if (A.length) ev.preventDefault();
   });
   addEventListener('keyup', ev => { Input.keys[ev.code] = false; });
   addEventListener('blur', () => { Input.keys = {}; Input.mouseBlock = false; });
@@ -125,13 +127,16 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dash.'); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip(Bindings.fmt('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.', 'pad')); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
+  // Settings → Controls is waiting for a button
+  if (Bindings.listening && Bindings.listening.dev === 'pad') { const i = now.findIndex((v, j) => v && !prev[j]); if (i >= 0) Bindings.captureButton(i); Pad.move.x = Pad.move.z = 0; return; }
+  const pressed = act => Bindings.padButtons(act).some(down), holding = act => Bindings.padButtons(act).some(btn);
   const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
   Pad.move.x = mx; Pad.move.z = my;
-  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  Pad.block = holding('block');
   if (now.some(Boolean)) Snd.init();
   // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
   if (UI.open) {
@@ -146,16 +151,20 @@ function pollPad(real) {
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
-  if (down(PAD_BTN.VIEW)) toggleView();
-  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
-  if (down(PAD_BTN.RT)) Player.press(G.player, 'heavy');
-  if (down(PAD_BTN.Y)) Player.ultimate(G.player);
-  if (down(PAD_BTN.A) && G.spot) interact();
-  else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
-  if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
-  if (down(13)) openPanel('bag');                                         // d-pad down: gear
+  // Actions on the player's buttons (Settings → Controls); talking takes the button when something is near
+  if (pressed('camera')) toggleView();
+  if (pressed('light')) Player.press(G.player, 'light');
+  if (pressed('heavy')) Player.press(G.player, 'heavy');
+  if (pressed('ult')) Player.ultimate(G.player);
+  if (pressed('interact') && G.spot) interact();
+  else if (pressed('dodge')) Player.press(G.player, 'dodge');
+  if (pressed('flask')) Player.drink(G.player);
+  if (pressed('gear')) openPanel('bag');
+  if (pressed('talents')) openPanel('talents');
+  if (pressed('codex')) openPanel('codex');
+  if (pressed('map')) MiniMap.toggle();
   if (View.mode === 'behind') {
-    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
+    if (pressed('lock')) toggleLock();                                   // lock on (or recentre when nothing is near)
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
   }
 }
@@ -171,8 +180,9 @@ G.rumble = (strong, weak, ms) => {
 
 function readInput() {
   const k = Input.keys;
-  let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
-  let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
+  const H = a => Bindings.held(k, a);
+  let x = (H('right') ? 1 : 0) - (H('left') ? 1 : 0);
+  let z = (H('down') ? 1 : 0) - (H('up') ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
   if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
@@ -181,7 +191,7 @@ function readInput() {
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
+  Input.block = !!(H('block') || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
@@ -308,7 +318,8 @@ let bannerT = null, tipT = null;
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 1800); }
 function showTip(txt) {
   if (!txt) return;
-  if (document.body.classList.contains('touch')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
+  txt = Bindings.fmt(txt);                                                // @heavy and the like become the player's own keys
+  if (document.body.classList.contains('touch') && !document.body.classList.contains('pad')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
@@ -338,7 +349,7 @@ function updateHud() {
   if (spot !== G.spot) {
     G.spot = spot;
     const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
-    UI.prompt(spot ? `<b>${pad ? 'Ⓐ' : touch ? 'TALK' : 'E'}</b> ${spot.verb} · ${spot.name}` : '');
+    UI.prompt(spot ? `<b>${touch && !pad ? 'TALK' : Bindings.label('interact', pad ? 'pad' : 'key')}</b> ${spot.verb} · ${spot.name}` : '');
     document.querySelector('.b-light').textContent = spot ? 'TALK' : 'ATTACK';
   }
 }
@@ -631,6 +642,12 @@ G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); start
 $('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
 titleButtons();
+// The keyboard hint line along the bottom follows the player's keys
+function keysBar() {
+  const k = a => `<b>${Bindings.label(a, 'key')}</b>`;
+  $('keys').innerHTML = `<span class="vb">Mouse look · </span>${['up', 'left', 'down', 'right'].map(a => Bindings.label(a, 'key')).join('')} move · ${k('light')}/click attack · ${k('heavy')} heavy · ${k('block')}/right-click block · ${k('dodge')} dash · ${k('flask')} flask · ${k('ult')} ultimate · ${k('interact')} talk · ${k('gear')} gear · ${k('talents')} talents · ${k('camera')} camera · ${k('lock')} lock on`;
+}
+keysBar(); Settings.on(key => { if (key === 'keys') keysBar(); });
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);

@@ -120,6 +120,12 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Export:** `DEEPWARD1:` plus the save as base64 (UTF-8 safe). Import checks the prefix, decodes, parses and migrates before writing anything.
 - Key presses inside the code box are ignored by the game's key handling.
 
+## Controls (built)
+
+- **Bindings:** `Bindings` maps each action to up to two key codes and a list of controller buttons (`Settings.keys` / `padKeys` hold only the player's changes over the defaults). The keyboard handler asks `actionsOf(code)`; movement and block read `held`; the controller asks `padButtons(act)`.
+- **Rebinding:** `startListen(act, dev)`; the next key or button is captured before anything else sees it. A new key replaces the action's first key and is taken from any other action; a button becomes the action's only button (A stays shared by talk and dash). Esc, Enter and the Menu button can't be bound, and menu navigation is fixed, so nobody gets locked out.
+- **Hints:** `Bindings.fmt` turns `@heavy` and the like into the player's key or button (with the mouse for attack, block and heavy), for tips, the talk prompt, the training yard and the hint line.
+
 ## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
@@ -305,7 +311,7 @@ The next steps, in the order I'd take them. Each is sized like one of the S or T
 - Export and import the save as text (and Android share) for moving between devices.
 - Three save slots.
 
-**V4. Controls everywhere.** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
+**V4. Controls everywhere (done).** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
 
 **V5. Endless Deep with modifiers.** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
 

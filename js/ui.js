@@ -311,8 +311,23 @@ const UI = (() => {
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
+        + `<h3>Controls</h3><div class="irow srow"><div class="iinfo"><b>Keyboard and controller</b><div class="istats">Change the key or button for any action.</div></div><div class="ibtns">${btn('Change…', 'open', 'controls', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
+    },
+    // Settings → Controls: each action's key and controller button. Pick one, then press the new key or button.
+    controls() {
+      const L = Bindings.listening;
+      let h = '<h2>Controls</h2><p class="sub">Pick a key or button, then press the new one. Esc or Menu cancels. Menus, Esc and Menu always work as they are.</p>';
+      if (L) h += `<div class="listen">Press a ${L.dev === 'pad' ? 'controller button' : 'key'} for <b>${esc(Bindings.ACTIONS.find(a => a[0] === L.act)[1])}</b>…</div>`;
+      h += '<div class="ctlgrid"><b></b><b>Keyboard</b><b>Controller</b>';
+      for (const [a, name] of Bindings.ACTIONS) {
+        const move = ['up', 'down', 'left', 'right'].includes(a);
+        h += `<span>${esc(name)}</span>${btn(esc(Bindings.label(a, 'key')), 'bindkey', a, false, L && L.act === a && L.dev === 'key' ? 'hot' : '')}`
+          + (move ? '<small class="dim">left stick</small>' : btn(esc(Bindings.label(a, 'pad')), 'bindpad', a, false, L && L.act === a && L.dev === 'pad' ? 'hot' : ''));
+      }
+      h += `</div><p class="dim">The mouse stays as it is: left-click attacks, right-click blocks, middle-click is a heavy attack.</p><div class="tact">${btn('Restore default controls', 'bindreset')}</div>`;
+      return h + btn('Back', 'open', 'settings', false, 'leave');
     },
     cleared(o) {
       const next = CFG.stages[(o.k + 1) % CFG.stages.length];
@@ -362,6 +377,8 @@ const UI = (() => {
       if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
       return render();
     }
+    if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
+    if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
     if (a === 'saveplay') return G.playSlot(+arg, false);
     if (a === 'savenew') return G.playSlot(+arg, true);
     if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }

@@ -331,3 +331,9 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .savecode .tact { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .pb.warn { background: #8a2a1a; border-color: #ff7a5a; color: #fff; }
 .pcard.saves .ibtns { flex-wrap: wrap; justify-content: flex-end; }
+.ctlgrid { display: grid; grid-template-columns: 1fr auto auto; gap: 5px 10px; align-items: center; margin: 8px 0; }
+.ctlgrid > b { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #c9b88a; }
+.ctlgrid .pb { min-width: 92px; padding: 5px 10px; }
+.ctlgrid small { text-align: center; }
+.listen { padding: 8px 12px; margin: 6px 0; border: 1px solid #f2d27a; border-radius: 6px; background: rgba(242, 210, 122, 0.12); animation: pulse 1s infinite alternate; }
+@keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
