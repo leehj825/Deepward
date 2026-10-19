@@ -13,8 +13,41 @@ const Items = (() => {
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
+      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
     };
   }
+
+  // ---------------- Growth ----------------
+  const PR = CFG.progress, T = CFG.trees;
+  const rank = id => S.talents[id] || 0;
+  const treeOf = id => Object.keys(T).find(k => T[k].ult.id === id || T[k].talents.some(t => t.id === id));
+  const spentIn = tree => T[tree].talents.reduce((n, t) => n + rank(t.id), 0) + rank(T[tree].ult.id);
+  const treesUsed = () => Object.keys(T).filter(k => spentIn(k) > 0);
+  // Why a talent cannot be learned right now ('' when it can)
+  function blocked(id) {
+    const tree = treeOf(id), isUlt = T[tree].ult.id === id;
+    if (S.points < 1) return 'No talent points';
+    if (rank(id) >= (isUlt ? 1 : 3)) return 'Mastered';
+    if (!treesUsed().includes(tree) && treesUsed().length >= PR.maxTrees) return 'Two trees already chosen';
+    if (isUlt && spentIn(tree) < PR.ultimateNeeds) return `Needs ${PR.ultimateNeeds} points in ${T[tree].name}`;
+    return '';
+  }
+  function learn(id) {
+    if (blocked(id)) return false;
+    S.talents[id] = rank(id) + 1; S.points--;
+    const tree = treeOf(id); if (T[tree].ult.id === id && !S.ult) S.ult = id;
+    return true;
+  }
+  function respec() { S.points += Object.values(S.talents).reduce((a, b) => a + b, 0); S.talents = {}; S.ult = null; }
+  // Adds XP; returns how many levels were gained
+  function addXp(n) {
+    S.xp += Math.round(n); let up = 0;
+    while (S.xp >= PR.xpFor(S.level)) { S.xp -= PR.xpFor(S.level); S.level++; S.points++; up++; }
+    return up;
+  }
+  const masteryRank = type => PR.mastery.filter(x => (S.mastery[type] || 0) >= x).length;
+  // Adds mastery to a weapon type; returns the new rank if it went up, else 0
+  function addMastery(type, n) { const r0 = masteryRank(type); S.mastery[type] = (S.mastery[type] || 0) + n; const r1 = masteryRank(type); return r1 > r0 ? r1 : 0; }
 
   // ---------------- Generating gear ----------------
   function rollRarity(minR = 0, boost = 0) {
@@ -71,13 +104,20 @@ const Items = (() => {
     const A = {}; for (const k in C.affixes) A[k] = 0;
     for (const s of C.slots) if (E[s] && !(s === 'shield' && two)) for (const a of E[s].aff) A[a.k] += a.v;
     const arm = E.armor ? main(E.armor) : { hp: 0, dr: 0 }, hel = E.helm ? main(E.helm) : { hp: 0, stamina: 0 }, shm = sh ? main(sh) : null;
+    const lv = S.level - 1, L = PR.perLevel, type = w ? w.type : 'sword', mr = masteryRank(type), R = rank;
     return {
-      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp),
-      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina),
-      dmg: (w ? main(w).dmg : 0.85) * wt.dmg, posture: wt.posture * (1 + A.posture / 100), speed: wt.speed, range: wt.range,
-      crit: A.crit / 100, block: two ? wt.block : shm ? shm.block : 0.5, guard: two ? wt.guard : shm ? shm.guard : 1.7, parry: CFG.player.block.parryWindow + A.parry,
-      regen: 1 + A.regen / 100, dr: arm.dr - (two ? wt.exposed : 0), twoHanded: two, lifesteal: A.lifesteal / 100, goldFind: 1 + A.gold / 100,
+      maxHp: Math.round(CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + A.hp + lv * L.hp),
+      maxSt: Math.round(CFG.player.stamina + cp.yard * 8 + hel.stamina + A.stamina + lv * L.stamina),
+      dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)),
+      posture: wt.posture * (1 + A.posture / 100) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      crit: A.crit / 100 + 0.04 * R('precision'), block: two ? wt.block : shm ? shm.block : 0.5,
+      guard: (two ? wt.guard : shm ? shm.guard : 1.7) * (1 - 0.1 * R('steady')), parry: CFG.player.block.parryWindow + A.parry + 0.03 * R('keen'),
+      regen: (1 + A.regen / 100) * (1 + 0.1 * R('focus')), dr: arm.dr - (two ? wt.exposed : 0) + 0.05 * R('ward'), twoHanded: two,
+      lifesteal: A.lifesteal / 100 + 0.02 * R('thirst'), goldFind: 1 + A.gold / 100,
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
+      // talents the fight reads directly
+      critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: 1 - 0.15 * R('feet'), counter: 0.3 * R('counter'),
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2, weaponType: type, ult: S.ult,
     };
   }
   // How the hero should look in this gear (read by Rig.build)
@@ -124,5 +164,6 @@ const Items = (() => {
   return {
     get S() { return S; }, generate, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
+    rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();

@@ -13,6 +13,7 @@
 <div id="hud">
   <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
   <div id="stBar" class="bar"><i id="stFill"></i></div>
+  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
@@ -24,13 +25,14 @@
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip"></div>
-<div id="padKeys"><b>LS</b> move · <b>RS</b> camera · <b>RB</b> attack · <b>RT</b> heavy · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
-<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>E</b> talk · <b>I</b> gear · <b>B</b> camera</div>
+<div id="padKeys"><b>LS</b> move · <b>RS</b> camera · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
+<div id="keys"><span class="vb">Mouse look · </span>WASD move · <b>J</b>/click attack · <b>K</b> heavy · <b>L</b>/right-click/Shift block · <b>Space</b> dash · <b>R</b> flask · <b>F</b> ultimate · <b>E</b> talk · <b>I</b> gear · <b>T</b> talents · <b>B</b> camera</div>
 
 <div id="stick"><div id="knob"></div></div>
 <div id="pad">
   <button data-act="flask" class="b-flask">⚗</button>
   <button data-act="bag" class="b-bag">GEAR</button>
+  <button data-act="ult" class="b-ult" style="display:none">ULT</button>
   <button data-act="heavy" class="b-heavy">HEAVY</button>
   <button data-act="block" class="b-block">BLOCK</button>
   <button data-act="dodge" class="b-dodge">DASH</button>
@@ -45,8 +47,8 @@
     <li><span class="g-red">Red glow</span> - unblockable: <b>dash</b> through it</li>
     <li>Fill an enemy's <span class="g-gold">posture bar</span> to break them, then strike for a <b>critical</b></li>
   </ul>
-  <p class="ctl desk">Mouse look (click to capture) · WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dash · R flask · E talk · I gear · B camera · Esc pause</p>
-  <p class="ctl padc">Controller: left stick move · right stick camera · RB / X attack · RT / Y heavy · LB / LT block (tap to parry) · A dash / talk · d-pad up flask · d-pad down gear · View camera · Menu pause · press A to start</p>
+  <p class="ctl desk">Mouse look (click to capture) · WASD move · J / left-click attack · K heavy · L / right-click / Shift block · Space dash · R flask · F ultimate · E talk · I gear · T talents · B camera · Esc pause</p>
+  <p class="ctl padc">Controller: left stick move · right stick camera · RB / X attack · RT heavy · Y ultimate · LB / LT block (tap to parry) · A dash / talk · d-pad up flask · d-pad down gear · View camera · Menu pause · press A to start</p>
   <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera</p>
   <div class="tbtns"><button id="contBtn" style="display:none">Continue</button><button id="startBtn">Begin</button></div>
 </div></div>

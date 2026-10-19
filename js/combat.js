@@ -31,6 +31,7 @@ const Combat = (() => {
       Snd.play(crit ? 'crit' : 'hit');
       G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
       if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
+      if (G.onHits) G.onHits(landed, crit);
     } else if (blocked) {
       Player.recoil(p);
     }

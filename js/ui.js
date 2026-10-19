@@ -72,6 +72,22 @@ const UI = (() => {
       h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && st.twoHanded ? ' · <b class="warnc">unused while you hold a two-handed weapon</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
       h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    talents(o) {
+      const S = Items.S, T = CFG.trees, need = CFG.progress.xpFor(S.level);
+      let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p>`;
+      for (const [k, t] of Object.entries(T)) {
+        h += `<div class="tree"><h3 style="color:${t.color}">${t.name}<small>${Items.spentIn(k)} spent</small></h3>`;
+        for (const x of t.talents) { const r = Items.rank(x.id), why = Items.blocked(x.id);
+          h += `<div class="irow"><div class="iinfo"><b>${x.name}</b> <small>${r} / 3</small><div class="istats">${esc(x.desc)}</div></div><div class="ibtns">${btn(r >= 3 ? 'Mastered' : 'Learn', 'learn', x.id, !!why)}</div></div>`; }
+        const u = t.ult, learned = Items.rank(u.id) > 0, why = Items.blocked(u.id);
+        h += `<div class="irow ult"><div class="iinfo"><b style="color:${t.color}">✦ ${u.name}</b> <small>ultimate · ${u.cd} s cooldown</small><div class="istats">${esc(u.desc)}${!learned && why && why !== 'No talent points' ? ' · ' + esc(why) : ''}</div></div><div class="ibtns">${learned ? (S.ult === u.id ? '<small class="goldc">Equipped (F / Y)</small>' : btn('Equip', 'ult', u.id)) : btn('Learn', 'learn', u.id, !!why)}</div></div></div>`;
+      }
+      h += '<h3>Weapon mastery</h3><div class="statline">' + Object.entries(CFG.gear.weapons).map(([k, w]) => { const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r]; return `${w.name} rank ${r}${nx ? ` (${n}/${nx})` : ' (max)'}`; }).join(' · ') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      const cost = CFG.progress.respecCost * S.level;
+      if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
     },
     cleared(o) {
@@ -103,6 +119,10 @@ const UI = (() => {
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'learn') { if (Items.learn(arg)) { Snd.play('parry'); changed(); } return render(); }
+    if (a === 'ult') { S.ult = arg; changed(); return render(); }
+    if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
+    if (a === 'open') { open.id = arg; open.opt = {}; focus = -1; return render(); }
     if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'camp') { close(); return G.returnToCamp(); }

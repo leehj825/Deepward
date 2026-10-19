@@ -157,7 +157,7 @@ const Enemy = (() => {
     const at = Combat.chestPos(e.pos, 1.2 * def.scale);
     if (e.state === 'broken') {
       // Riposte on a posture-broken enemy
-      const dmg = atk.dmg * CFG.player.critMult;
+      const dmg = atk.dmg * (atk.critMult || CFG.player.critMult);
       FX.text(Combat.chestPos(e.pos, 2.2 * def.scale), 'CRITICAL ' + Math.round(dmg), 'crit');
       FX.burst(at, 0xffd040, 26, 9); FX.glint(at, 0xffffff, 3.2, 0.3); FX.slowmo(0.25, 0.3);
       hurtFlash(e, 0xffe0a0, 1.2); G.stats.crits++;
@@ -179,7 +179,8 @@ const Enemy = (() => {
       return 'blocked';
     }
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
-    const dmg = atk.dmg * (back ? 1.3 : 1);
+    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0));
+    if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
     FX.burst(at, e.type === 'skeleton' ? 0xe8e0c8 : 0xc0201a, 10, 5);
     hurtFlash(e);
     damage(e, dmg, back ? 'back' : '');

@@ -36,6 +36,8 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (G.state !== 'play') return;
     if (ev.code === 'KeyE') interact();
     if (ev.code === 'KeyR') Player.drink(G.player);
+    if (ev.code === 'KeyF') Player.ultimate(G.player);
+    if (ev.code === 'KeyT') openPanel('talents');
     if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
     if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
   });
@@ -96,6 +98,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       if (G.state !== 'play') return;
       if (act === 'light' && G.spot) interact();
       else if (act === 'flask') Player.drink(G.player);
+      else if (act === 'ult') Player.ultimate(G.player);
       else if (act === 'bag') openPanel('bag');
       else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
     });
@@ -104,7 +107,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   }
 })();
 // ---------------- Game controller (Xbox layout, standard mapping) ----------------
-// Left stick move · right stick camera · RB / X light · RT / Y heavy · LB / LT block · A / B dodge
+// Left stick move · right stick camera · RB / X light · RT heavy · Y ultimate · LB / LT block · A / B dash
 // View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
 const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
 const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
@@ -136,7 +139,8 @@ function pollPad(real) {
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
   if (down(PAD_BTN.VIEW)) toggleView();
   if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
-  if (down(PAD_BTN.RT) || down(PAD_BTN.Y)) Player.press(G.player, 'heavy');
+  if (down(PAD_BTN.RT)) Player.press(G.player, 'heavy');
+  if (down(PAD_BTN.Y)) Player.ultimate(G.player);
   if (down(PAD_BTN.A) && G.spot) interact();
   else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
   if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
@@ -255,6 +259,13 @@ function updateHud() {
   if (G.boss && G.boss.bar) G.boss.bar.style.display = 'none';
   UI.boss(G.boss);
   $('goldN').textContent = Items.S ? Items.S.gold : 0;
+  if (Items.S) {
+    const S = Items.S; $('xpFill').style.width = Math.min(100, S.xp / CFG.progress.xpFor(S.level) * 100) + '%'; $('lvN').textContent = S.level;
+    $('lvBox').classList.toggle('pts', S.points > 0);
+    const u = $('ultBox'); u.style.display = p.S.ult ? '' : 'none';
+    if (p.S.ult) { const ready = !(p.ultCd > 0); u.classList.toggle('ready', ready); u.textContent = ready ? '✦' : Math.ceil(p.ultCd); }
+    document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
+  }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use
   const spot = G.mode === 'camp' && p.state !== 'dead' ? Camp.nearest(World.camp(), p.pos) : null;
@@ -343,8 +354,28 @@ G.onEnemyDeath = e => {
   G.stats.kills++;
   if (G.boss === e) G.boss = null;
   if (!Items.S || G.mode !== 'dungeon') return;
+  const xp = e.def.xp * e.mult * (e.guardian ? CFG.progress.guardianXp : 1), up = Items.addXp(xp);
+  FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
+  if (up) levelUp(up);
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.guardian ? 5 : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
+};
+function levelUp(n) {
+  const S = Items.S, p = G.player;
+  banner('LEVEL ' + S.level); Snd.play('wave'); G.rumble(0.4, 0.8, 300);
+  FX.ring(p.pos, 2.2, 0xffd040, 0.8, { r0: 0.3 }); FX.burst(Combat.chestPos(p.pos, 1.2), 0xffd040, 30, 6, 0.7);
+  Player.refit(p, scene, false); p.hp = p.maxHp; p.st = p.maxSt;
+  UI.toast(`Level ${S.level}: +${n} talent point${n > 1 ? 's' : ''} (T opens Expertise)`, '#ffd040');
+  Items.save();
+}
+// Landed hits train the weapon type in hand
+G.onHits = (n, crit) => {
+  if (!Items.S || G.mode !== 'dungeon') return;
+  const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
+  if (r) {
+    const w = CFG.gear.weapons[p.S.weaponType].name, perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', '+8% posture damage'][r];
+    UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
+  }
 };
 // A cleared room's chest: gold, maybe gear; the guardian's chest always holds gear and unlocks the next stage
 G.onChest = room => {
@@ -395,7 +426,7 @@ function interact() {
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
     return say(lines);
   }
-  openPanel(s.id);
+  openPanel(s.id === 'trainer' ? 'talents' : s.id, s.id === 'trainer' ? { trainer: true } : undefined);
 }
 $('startBtn').addEventListener('click', () => startGame('new'));
 $('contBtn').addEventListener('click', () => startGame('continue'));

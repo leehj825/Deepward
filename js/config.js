@@ -161,6 +161,42 @@ const CFG = {
   },
   chest: { gold: [24, 40], itemChance: 0.35 },
 
+  // ---------------- Growth: levels, weapon mastery, expertise ----------------
+  progress: {
+    xpFor: n => Math.round(60 * Math.pow(n, 1.45)),    // XP needed to go from level n to n + 1
+    perLevel: { hp: 6, stamina: 4, power: 0.025 },     // gained with every level after the first
+    guardianXp: 6,                                     // a guardian is worth this many times its kind
+    // Each weapon type ranks up with the hits it lands. Rank 1 +4% damage, rank 2 adds a fourth combo blow, rank 3 +8% posture
+    mastery: [40, 130, 300], masteryDmg: 0.04,
+    finisher: { pose: 'thrust', wind: 0.16, active: 0.1, recover: 0.5, dmg: 24, posture: 30, cost: 15, range: 2.6, arc: 120, lunge: 2.0 },
+    respecCost: 40,                                    // gold per level to unlearn every talent at the training yard
+    maxTrees: 2,                                       // talents may be learned in at most two trees
+    ultimateNeeds: 4,                                  // points spent in a tree before its ultimate can be learned
+  },
+  // Four expertise trees: three talents of up to three ranks, then an ultimate (one rank)
+  trees: {
+    guardian: { name: 'Guardian', color: '#7fb8ff', talents: [
+      { id: 'steady', name: 'Steady Guard', desc: 'Blocking costs 10% less stamina per rank' },
+      { id: 'keen', name: 'Keen Eye', desc: 'Parry window +0.03 s per rank' },
+      { id: 'riposte', name: 'Riposte', desc: 'Criticals on broken enemies deal +25% per rank' },
+    ], ult: { id: 'bulwark', name: 'Bulwark', desc: 'For 3 s every blockable hit is turned aside, free of stamina', cd: 30 } },
+    duelist: { name: 'Duelist', color: '#9affc8', talents: [
+      { id: 'feet', name: 'Light Feet', desc: 'Dashing costs 15% less stamina per rank' },
+      { id: 'counter', name: 'Counter', desc: 'After a dash through an attack, your next blow deals +30% per rank' },
+      { id: 'precision', name: 'Precision', desc: '+4% critical chance per rank' },
+    ], ult: { id: 'dance', name: 'Blade Dance', desc: 'Flicker between nearby foes striking six times, untouchable', cd: 30 } },
+    berserker: { name: 'Berserker', color: '#ff7a5a', talents: [
+      { id: 'fury', name: 'Fury', desc: '+4% damage per rank, doubled below 40% health' },
+      { id: 'breaker', name: 'Breaker', desc: '+10% posture damage per rank' },
+      { id: 'thirst', name: 'Bloodthirst', desc: '+2% of damage dealt returned as health per rank' },
+    ], ult: { id: 'rage', name: 'Bloodrage', desc: 'For 8 s: +40% damage, swings 30% faster, hits do not stagger you', cd: 35 } },
+    arcanist: { name: 'Arcanist', color: '#c8a0ff', talents: [
+      { id: 'ember', name: 'Ember Edge', desc: 'Your weapon burns: +6% fire damage per rank' },
+      { id: 'ward', name: 'Frost Ward', desc: '+5% damage reduction per rank' },
+      { id: 'focus', name: 'Focus', desc: 'Stamina regenerates 10% faster per rank' },
+    ], ult: { id: 'nova', name: 'Nova', desc: 'A blast of force around you: heavy damage and posture, throws foes back', cd: 25 } },
+  },
+
   // ---------------- Story ----------------
   // Maren speaks before each stage (pre) and after its guardian falls (post); depth lines for the stages that repeat.
   story: {

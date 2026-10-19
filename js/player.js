@@ -4,7 +4,8 @@ const Player = (() => {
   const P = CFG.player;
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
-  const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false };
+  const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
+    critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
   const gearStats = () => (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE;
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
 
@@ -49,23 +50,33 @@ const Player = (() => {
       if (p.st <= 0) return false;
       let data;
       if (b.act === 'heavy') { data = P.heavy; p.combo = 0; }
-      else { if (p.comboT > P.comboReset || p.combo >= P.light.length) p.combo = 0; data = P.light[p.combo % P.light.length]; p.combo++; }
+      else {
+        // Weapon mastery rank 2 adds a fourth, finishing blow to the light combo
+        const len = comboLen(p);
+        if (p.comboT > P.comboReset || p.combo >= len) p.combo = 0;
+        data = p.combo < P.light.length ? P.light[p.combo] : CFG.progress.finisher; p.combo++;
+      }
       startAttack(p, b.act, data); p.buffer = null; return true;
     }
     return false;
   }
 
+  const comboLen = p => P.light.length + (p.S.finisher ? 1 : 0);
   function startAttack(p, kind, data) {
     spend(p, data.cost);
     const { target, dir } = pickTarget(p);
     p.target = target;
     p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
     // The weapon and its bonuses scale the move: damage, posture, swing speed and reach; criticals roll per swing
-    const S = p.S, crit = Math.random() < S.crit;
+    // Talents: Fury (more below 40% health), Counter (after dashing through a blow), Bloodrage (faster and harder)
+    const S = p.S, crit = Math.random() < S.crit, low = p.hp < p.maxHp * 0.4;
+    const counter = p.counterT > 0 ? S.counter : 0; p.counterT = 0;
+    const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
     p.atk = Object.assign({}, data, {
-      dmg: data.dmg * S.dmg * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit,
-      wind: data.wind / S.speed, active: data.active / S.speed, recover: data.recover / S.speed, range: data.range + S.range,
+      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
+      wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
+    if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
     p.atkKind = kind; p.phase = 'wind'; p.phaseT = 0; p.struck = false;
     setState(p, 'attack');
   }
@@ -73,7 +84,7 @@ const Player = (() => {
   // The dash (state 'roll'): a short burst along the stick. In the behind view the hero keeps facing the camera's way,
   // so it can dash sideways or backwards; in the top-down view it turns to face the dash.
   function startRoll(p) {
-    spend(p, P.dodge.cost);
+    spend(p, P.dodge.cost * p.S.dashCost);
     const m = Input.move;
     p.rollDir = Math.hypot(m.x, m.z) > 0.2 ? Math.atan2(m.x, m.z) : p.facing;
     if (View.mode !== 'behind') p.facing = p.rollDir;
@@ -87,6 +98,9 @@ const Player = (() => {
 
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
+    for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
+    if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
     if (p.state !== 'dead') {
       if (p.stDelay > 0) p.stDelay -= dt;
@@ -138,10 +152,10 @@ const Player = (() => {
         const prog = p.phaseT / a.recover;
         // Cancels: dodge at any point of the recovery, next combo hit after a moment, block late in the recovery
         if (p.buffer && p.buffer.act === 'dodge') { p.comboT = 0; tryAct(p); }
-        else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < P.light.length) { p.comboT = 0; tryAct(p); }
+        else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < comboLen(p)) { p.comboT = 0; tryAct(p); }
         else if (p.buffer && prog > 0.6) { p.comboT = 0; tryAct(p); }
         else if (Input.block && prog > 0.5) { p.comboT = 0; p.combo = 0; setState(p, 'free'); }
-        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= P.light.length || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
+        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
@@ -210,10 +224,16 @@ const Player = (() => {
     if (p.state === 'dead') return null;
     const D = P.dodge, dmg = hit.dmg * e.mult;
     const shieldPos = Combat.chestPos(p.pos, 1.25).add(new THREE.Vector3(Math.sin(p.facing) * 0.5, 0, Math.cos(p.facing) * 0.5));
-    if (p.state === 'roll' && p.t >= D.iStart && p.t <= D.iEnd) {
+    if ((p.state === 'roll' && p.t >= D.iStart && p.t <= D.iEnd) || p.state === 'dance') {
       FX.text(Combat.chestPos(p.pos, 2.1), 'DODGE', 'dodge');
       G.stats.dodges++;
+      if (p.S.counter) p.counterT = 1.5;
       return 'dodge';
+    }
+    // Bulwark: every blockable hit is turned aside for free, from any side
+    if (p.bulwarkT > 0 && !hit.unblockable) {
+      Snd.play('block'); FX.burst(shieldPos, 0x9ad8ff, 10, 5); knock(p, e.pos, 1.5);
+      return 'block';
     }
     const facingOK = Combat.facingCheck(p.pos, p.facing, e.pos, P.block.angle);
     if (p.state === 'free' && p.blocking && facingOK) {
@@ -244,7 +264,7 @@ const Player = (() => {
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
     knock(p, e.pos, hit.aoe ? 9 : 5);
     G.stats.hitsTaken++;
-    if (!damage(p, dmg, e.pos)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
+    if (!damage(p, dmg, e.pos) && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
     return 'hit';
   }
 
@@ -272,5 +292,48 @@ const Player = (() => {
   }
   function revive(p) { setState(p, 'free'); p.kb.set(0, 0, 0); p.buffer = null; p.blocking = false; p.combo = 0; }
 
-  return { create, update, press, receive, recoil, drink, refit, revive };
+  // ---------------- Ultimates ----------------
+  function ultimate(p) {
+    const id = p.S.ult; if (!id || p.state === 'dead') return false;
+    if (p.ultCd > 0) { FX.text(Combat.chestPos(p.pos, 2.1), Math.ceil(p.ultCd) + 's', 'warn'); return false; }
+    if (p.state !== 'free' && p.state !== 'attack') return false;
+    const tree = Object.values(CFG.trees).find(t => t.ult.id === id), at = Combat.chestPos(p.pos, 1.2);
+    p.ultCd = tree.ult.cd; G.rumble(0.6, 0.6, 200);
+    FX.text(Combat.chestPos(p.pos, 2.5), tree.ult.name.toUpperCase(), 'crit');
+    if (id === 'bulwark') { p.bulwarkT = 3; Snd.play('parry'); FX.ring(p.pos, 1.6, 0x9ad8ff, 3, { r0: 1.6 }); FX.glint(at, 0x9ad8ff, 3, 0.5); }
+    if (id === 'rage') { p.rageT = 8; Snd.play('guardBreak'); FX.burst(at, 0xff4a2a, 30, 6); flash(p, 0xff2a10); }
+    if (id === 'nova') {
+      Snd.play('slam'); FX.shake(0.4); FX.ring(p.pos, 4, 0xc8a0ff, 0.5, { r0: 0.3 }); FX.burst(at, 0xc8a0ff, 40, 9, 0.6);
+      for (const e of G.enemies) {
+        if (!Enemy.targetable(e) || Combat.dist(p.pos, e.pos) > 4 + e.def.radius) continue;
+        Enemy.receive(e, { dmg: 40 * p.S.dmg, posture: 70, breaksGuard: true, critMult: p.S.critMult }, p);
+        const a = Combat.yawTo(p.pos, e.pos); e.pos.x += Math.sin(a) * 1.6; e.pos.z += Math.cos(a) * 1.6;
+      }
+    }
+    if (id === 'dance') { setState(p, 'dance'); p.danceN = 0; p.danceNext = 0; p.blocking = false; Snd.play('swing'); }
+    return true;
+  }
+  // Blade Dance: six strikes on the nearest foes, flickering between them, untouchable throughout
+  function danceStep(p, dt) {
+    p.danceNext -= dt;
+    if (p.danceNext <= 0) {
+      if (p.danceN >= 6) { setState(p, 'free'); return; }
+      p.danceN++; p.danceNext = 0.18;
+      let best = null, bd = 5;
+      for (const e of G.enemies) { if (!Enemy.targetable(e)) continue; const d = Combat.dist(p.pos, e.pos); if (d < bd) { bd = d; best = e; } }
+      if (best) {
+        FX.ghost(p.rig.root, 0x9affc8, 0.3);
+        const a = Combat.yawTo(best.pos, p.pos) + (p.danceN % 2 ? 0.9 : -0.9);
+        p.pos.set(best.pos.x + Math.sin(a) * (best.def.radius + 0.9), 0, best.pos.z + Math.cos(a) * (best.def.radius + 0.9));
+        p.facing = Combat.yawTo(p.pos, best.pos);
+        Enemy.receive(best, { dmg: 13 * p.S.dmg, posture: 12, critMult: p.S.critMult }, p);
+        Snd.play('hit'); FX.hitStop(0.03);
+      }
+    }
+    const r = p.rig; r.root.position.copy(p.pos); r.root.rotation.y = p.facing;
+    Rig.animate(r, { mode: 'attack', t: p.t, speed: 0, atk: p.danceN % 2 ? 'slashR' : 'slashL', phase: p.danceNext > 0.12 ? 'active' : 'recover', phaseT: 0.18 - p.danceNext, wind: 0.02, active: 0.06, recover: 0.12, p: 0.5 }, dt);
+    Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
+  }
+
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate };
 })();

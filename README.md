@@ -24,6 +24,21 @@ Every model is built in code from primitives, and there are no model, texture or
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
 - **Saving:** progress saves in the browser, and the title screen offers Continue.
 
+**Growth.**
+
+- **Levels:** kills give XP (guardians six times as much). Each level adds health, stamina and 2.5% power, and grants a talent point.
+- **Weapon mastery:** each weapon type ranks up with the hits it lands. Rank 1 gives +4% damage, rank 2 adds a fourth finishing blow to the light combo, and rank 3 gives +8% posture damage.
+- **Expertise:** talent points go into four trees, and you can mix at most two. Each tree has three talents of three ranks, then an ultimate once four points are spent in it:
+
+  | Tree | Talents | Ultimate (F or Y) |
+  | --- | --- | --- |
+  | Guardian | cheaper blocks, wider parry window, harder ripostes | **Bulwark:** 3 s of free blocks from every side |
+  | Duelist | cheaper dashes, a counter after dashing through a blow, critical chance | **Blade Dance:** six untouchable strikes between nearby foes |
+  | Berserker | more damage (double below 40% health), posture damage, life on hit | **Bloodrage:** 8 s of +40% damage, faster swings, no stagger |
+  | Arcanist | fire damage, damage reduction, stamina regen | **Nova:** a blast of force that hurts, breaks guards and throws foes back |
+
+- **Respec:** the training yard in camp shows everything and unlearns talents for gold. T opens Expertise anywhere.
+
 **Dungeon progression.** You fight your way north through a chain of sealed rooms. Each cleared room raises its far gate and the next room fades in out of the dark. Once you step through, the gate drops behind you and the room you left fades out and is unloaded. Stages change every four rooms (The Crypt, The Iron Keep, The Ogre Den), each with its own stone, torchlight, fog and enemies, and each ends in a guardian room. After the last stage they repeat with tougher enemies. See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Run
@@ -69,10 +84,12 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | Turn camera (behind view) | Mouse (click to capture) | Right stick (click to recentre) | Drag the right side |
 | Switch camera | B | View | 🎥 |
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
-| Heavy attack (breaks guards) | K / Q / middle-click | RT or Y | HEAVY |
+| Heavy attack (breaks guards) | K / Q / middle-click | RT | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
 | Dash in any direction (invulnerable for most of it) | Space | A or B | DASH |
 | Healing flask | R | D-pad up | ⚗ |
+| Ultimate (once learned) | F | Y | ULT |
+| Expertise (talents) | T | from the gear menu | from GEAR |
 | Talk / use (camp) | E | A (when a prompt shows) | ATTACK becomes TALK |
 | Gear (equipment and bag) | I or Tab | D-pad down | GEAR |
 | Menus | Arrows or W/S, Enter, Esc | D-pad or left stick, A, B | Tap |
@@ -110,6 +127,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
+| `tools/growth_test.js` | Headless check of levels, talent rules, every ultimate, mastery's fourth blow and respec |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
@@ -120,6 +138,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 node tools/combat_test.js     # set NODE_PATH=$(npm root -g) if Playwright is installed globally
 node tools/gamepad_test.js
 node tools/camp_test.js
+node tools/growth_test.js
 ```
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break and the riposte critical. It also plays through five rooms into stage 2 and checks that the gates open and the rooms behind unload.

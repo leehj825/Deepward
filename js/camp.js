@@ -118,6 +118,12 @@ const Camp = (() => {
       for (let k = 0; k < 2 + lv.apothecary * 2; k++) add(new THREE.SphereGeometry(0.08, 6, 5), potM, 4.6 + (k % 4) * 0.4, 0.9 + Math.floor(k / 4) * 0.2, 6.7, group, false);
       torch(5.2, 1.0, 6.4, 0xff5a6a, false);
     }
+    // Training yard sign: where talents are reviewed and unlearned
+    add(new THREE.BoxGeometry(0.12, 1.6, 0.12), darkWood, 11.2, 0.8, 4.6);
+    add(new THREE.BoxGeometry(0.9, 0.5, 0.06), wood, 11.2, 1.45, 4.6).rotation.y = -0.6;
+    for (let k = 0; k < 2; k++) add(new THREE.BoxGeometry(0.05, 1.1, 0.05), M(0x9ca2ad, { metalness: 0.5, roughness: 0.4 }), 10.7 + k * 0.25, 0.55, 5.1).rotation.z = 0.25;
+    block(11.2, 4.6, 0.4);
+    room.spots.push({ id: 'trainer', name: 'Training yard', verb: 'Expertise', x: 10.2, z: 4.4, r: 1.9 });
     // Training yard: one straw dummy per level
     for (let k = 0; k < lv.yard; k++) {
       const x = 9.6 - k * 1.6, z = 3.2;
