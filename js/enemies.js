@@ -80,7 +80,16 @@ const Enemy = (() => {
       Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 1.8 * e.def.scale), Settings.get('cues') ? '▲ PARRY!' : '!', 'amber');
       Rig.flash(e.rig, GLOW_AMBER, 0.45); e.flashT = 0.25;
     } else Snd.play('glint');
-    if (h.aoe) e.ring = FX.ring(aoeCenter(e, h), h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
+    // An area blow is aimed once, as it starts: at the warden, landing where the body will end up after its lunge or
+    // leap. The ring stays put and the blow lands on it, so a dash out of it works whatever the body does next.
+    e.aoeAt = e.aoeTo = null;
+    if (h.aoe) {
+      const p = G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const go = Math.min(h.lunge, Math.max(0, Combat.dist(e.pos, p.pos) - e.def.radius - 0.8));
+      e.aoeTo = e.pos.clone().addScaledVector(dir, go); e.aoeTo.y = 0;
+      e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
+    }
+    if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
   }
 
   function update(e, dt) {
@@ -88,6 +97,7 @@ const Enemy = (() => {
     const p = G.player, d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
+    if (def.regen && e.state !== 'dead' && e.postureT > 3 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regen * dt); updateBar(e); }   // a troll knits back together when left alone
     const turn = (want, rate) => { e.facing += Combat.wrap(want - e.facing) * Math.min(1, rate * dt); };
     // Frost slows every step; burning ticks twice a second until its damage is spent
     const slow = e.chillT > 0 ? 1 - e.chill : 1;
@@ -108,8 +118,8 @@ const Enemy = (() => {
       e.wanderT = (e.wanderT || 0) - dt;
       if (e.wanderT <= 0) { const a = Math.random() * Math.PI * 2, r = Math.random() * e.zone.r * 0.8; e.wanderTo = { x: e.zone.x + Math.sin(a) * r, z: e.zone.z + Math.cos(a) * r }; e.wanderT = 3 + Math.random() * 5; }
       const w = e.wanderTo, wd = w ? Math.hypot(w.x - e.pos.x, w.z - e.pos.z) : 0;
-      if (w && wd > 0.5 && e.wanderT < 6) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * 0.3); }
-      if (p.state !== 'dead' && d < (def.aggro || 9)) rouse(e);
+      if (w && wd > 0.5 && (e.wanderT < 6 || e.raid)) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * (e.raid ? 0.7 : 0.3)); }   // raiders march
+      if (p.state !== 'dead' && d < (def.aggro || 9) * (Items.rescued && Items.rescued('mira') ? 0.75 : 1)) rouse(e);   // Mira taught the warden to move quietly
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
       // Led too far from home, a beast of the Rim gives up and goes back, mending as it goes
@@ -139,17 +149,22 @@ const Enemy = (() => {
       else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.4);
     } else if (e.state === 'attack') {
       const h = e.atk.hits[e.hitIdx]; e.phaseT += dt;
+      // The lunge: an area blow goes to its planned spot and no further; any other closes on the warden
+      const lunge = sp => {
+        if (!e.aoeTo) { if (d > def.radius + 0.8) step(e.facing, sp); return; }
+        const rx = e.aoeTo.x - e.pos.x, rz = e.aoeTo.z - e.pos.z, rem = Math.hypot(rx, rz); if (rem < 0.01) return;
+        const k = Math.min(sp * slow * dt, rem) / rem; e.pos.x += rx * k; e.pos.z += rz * k;
+      };
       if (e.phase === 'wind') {
         // Tracks the player until shortly before the hit, then commits (that is the moment to roll sideways)
-        if (e.phaseT < h.wind - 0.22) turn(toP, 6);
+        if (e.phaseT < h.wind - 0.22) turn(e.aoeAt ? e.aimYaw : toP, 6);   // an area blow keeps to its ring
         Rig.glow(e.rig, glowOf(h), 0.2 + 1.3 * Math.min(1, e.phaseT / h.wind));
-        if (e.phaseT > h.wind * 0.65 && d > def.radius + 0.8 && !h.leap) step(e.facing, h.lunge / (h.wind * 0.35 + h.active));
+        if (e.phaseT > h.wind * 0.65 && !h.leap) lunge(h.lunge / (h.wind * 0.35 + h.active));
         // A feint: the swing stops short, the weapon drops, and the real blow comes quickly after
         if (h.feint && e.phaseT >= h.wind) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); return finishUpdate(e, dt, before); }
-        if (e.ring && h.aoe) { const c = aoeCenter(e, h); e.ring.m.position.set(c.x, 0.03, c.z); if (e.ring.fill) e.ring.fill.position.set(c.x, 0.025, c.z); }
         if (e.phaseT >= h.wind) { e.phase = 'active'; e.phaseT = 0; Snd.play('swing'); }
       } else if (e.phase === 'active') {
-        if (d > def.radius + 0.8) step(e.facing, h.leap ? h.lunge / h.active : h.lunge / (h.wind * 0.35 + h.active));
+        lunge(h.leap ? h.lunge / (h.active * 0.8) : h.lunge / (h.wind * 0.35 + h.active));   // a leap lands as it strikes
         if (!e.struck && e.phaseT >= h.active * (h.leap ? 0.8 : 0.5)) {
           e.struck = true;
           if (h.projectile) shoot(e, h); else if (h.raise) raise(e, h.raise); else Combat.enemyStrike(e, h);
@@ -197,7 +212,7 @@ const Enemy = (() => {
     const near = Combat.dist(e.pos, G.player.pos) < 5;
     let mode = e.state;
     if (e.state === 'hunt' || e.state === 'spawn') mode = guardUp(e) && near ? 'block' : e.speedK > 0.08 ? 'move' : 'idle';
-    const h = e.state === 'roar' ? ROAR[e.type === 'spider' ? 'spider' : 'other'] : e.atk && e.atk.hits[e.hitIdx];
+    const h = e.state === 'roar' ? ROAR[e.type === 'spider' ? 'spider' : e.type === 'mutant' ? 'mutant' : 'other'] : e.atk && e.atk.hits[e.hitIdx];
     if (e.state === 'roar') { mode = 'attack'; e.phase = 'wind'; e.phaseT = e.t; }
     Rig.animate(r, {
       mode, t: e.t, speed: e.speedK, mps: e.speedK * e.def.speed, cycle: e.cycle, dirF: e.dirF, dirS: e.dirS,
@@ -274,7 +289,7 @@ const Enemy = (() => {
     }
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
     const shelter = sheltered(e);
-    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1);
+    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1) * (1 - (def.dr || 0));   // dr: a stone hide
     if (shelter) FX.burst(Combat.chestPos(e.pos, 1.3 * def.scale), 0x6a9aff, 8, 4);
     if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
     FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
@@ -381,21 +396,21 @@ const Enemy = (() => {
 
   // ---------------- Guardians ----------------
   // A guardian is its kind grown into a boss (CFG.bosses): bigger, tougher, with its own moves and phases.
-  const ROAR = { other: { pose: 'heavy', wind: 1.4, active: 0.1, recover: 0.1 }, spider: { pose: 'pounce', wind: 1.4, active: 0.1, recover: 0.1 } };
+  const ROAR = { other: { pose: 'heavy', wind: 1.4, active: 0.1, recover: 0.1 }, mutant: { pose: 'roar', wind: 1.4, active: 0.1, recover: 0.1 }, spider: { pose: 'pounce', wind: 1.4, active: 0.1, recover: 0.1 } };
   const clone = o => JSON.parse(JSON.stringify(o));
   function scaleHits(attacks, reach) {
     for (const a of attacks) for (const h of a.hits) { h.range *= reach; if (h.aoe) { h.aoe.fwd *= reach; h.aoe.r *= reach; } }
     return attacks;
   }
   function makeBoss(e, si) {
-    const B = CFG.bosses[si];
+    const B = typeof si === 'object' ? si : CFG.bosses[si];                 // a stage's guardian, or a boss given whole (the big monsters)
     if (!B) { e.rig.root.scale.multiplyScalar(1.15); return; }
     const def = e.def = clone(e.def);                                       // this one enemy gets its own copy to grow and change
     def.scale *= B.scale; def.radius *= B.scale; def.posture *= B.posture; def.flinch = false;      // guardians shrug off light hits
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
-    e.boss = { B, next: 0 }; e.bossIdx = si;
+    e.boss = { B, next: 0 }; if (typeof si === 'number') e.bossIdx = si;
   }
   function checkPhase(e) {
     const ph = e.boss.B.phases[e.boss.next];
@@ -555,5 +570,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, rouse, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

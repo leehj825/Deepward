@@ -155,6 +155,9 @@ const Snd = (() => {
     elite: () => { tone(220, 0.6, 'sawtooth', 0.06, 330); tone(330, 0.6, 'triangle', 0.08, 495, 0.05); },
     shrine: () => { for (const [f, d] of [[392, 0], [494, 0.1], [587, 0.2], [784, 0.3]]) tone(f, 1.4, 'sine', 0.07, null, d); },
     achieve: () => { for (const [f, d] of [[523, 0], [659, 0.1], [784, 0.2], [1046, 0.32]]) tone(f, 0.5, 'triangle', 0.12, null, d); },
+    // The Hold's alarm: a long horn call, and the gate bell
+    horn: () => { for (const d of [0, 0.9]) { tone(110, 0.8, 'sawtooth', 0.11, 104, d); tone(165, 0.8, 'sawtooth', 0.05, 158, d + 0.03); tone(220, 0.7, 'triangle', 0.04, 214, d + 0.05); } },
+    bell: () => { for (const d of [0, 0.45, 0.9]) { tone(620, 1.2, 'sine', 0.1, 612, d); tone(1550, 0.7, 'sine', 0.035, 1530, d); tone(2480, 0.35, 'sine', 0.02, null, d); } },
     lose: () => { for (const [f, d] of [[392, 0], [311, 0.2], [262, 0.4]]) tone(f, 0.6, 'triangle', 0.14, null, d); },
   };
 

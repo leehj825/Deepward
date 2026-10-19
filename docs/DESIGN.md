@@ -29,6 +29,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Attack tokens:** at most two enemies wind up or swing at once, so crowds stay readable.
 - **Feel:** hit-stop on impact, slow motion on a parry, screen shake, swing trails, sparks and floating numbers.
 
+- **Area blows are aimed once.** When a red area blow starts, the foe picks its aim at the warden and where its lunge or leap will end (`aoeTo`, never past the warden); the floor ring is drawn there (`aoeAt`) and does not move. The foe turns to that aim, lunges or leaps exactly to `aoeTo`, and the blow lands on the ring, so a dash out of the ring is always safe. `tools/aoe_test.js` checks it.
 ## Progression through the dungeon (built)
 
 - **One dungeon per stage:** a winding run of five sections heading north. Each section is a wide hall, sized from `CFG.stages` times `sectionScale` (1.3) and shifted sideways from the last so the path bends. Straight open passages (4 m wide, 8 m long) join them. There are no gates, and the whole stage is built when you arrive.
@@ -135,17 +136,25 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 
 - `Camp.build` lays out a 48 × 36 m camp (`Camp.HW`, `HD`) in quarters joined by dirt paths. Static meshes are baked per material at the end (`Rig.bake`), keeping the flickering flames apart.
 - **People:** fixed NPCs (with spots for their services) turn to watch the hero; walkers (`n.path`) loop between points, pause, wait if the hero stands in the way, and greet once per visit. NPC rigs take a `tool` (hammer, spear, lute, basket).
+- **Postures:** each person has their own way of standing, sitting or kneeling (`npc.pose`, read by `Rig.posture`): an everyday clip from Nightfall's Mixamo library (relaxed, looking about, examining, holding, alert, kneeling, pulling plants, seated work) at their own pace and phase, played back and forth over part of a clip that does not loop, with fixed joint turns on top (`add` after the clip, `set` replacing it) and a pelvis height (`hipsY`). Sitting is hand-made legs and hands on the knees over a breathing clip; a worker at a bench keeps the clip's busy hands. The seated and kneeling (`still`) do not turn to watch the hero. Every rig idles at its own pace (`rig.pace`), and the hero idles at ease in the Hold.
 - **Services:** bard and captain lines come from `CFG.townsfolk` in turn (`S.talk`). Nell's bench reuses Bram's gem setting and adds cutting (3 of a kind → 1 of another). Ysolde's tonics (`CFG.camp.tonics`) are packed into `S.tonics`, drunk into `G.tonics` when a trip starts (`drinkTonics`), read by `Player.gearStats`, and cleared in camp. Odo's piece (`S.curio`) is rolled once per date.
 
 ## The Rim (built)
 
-- `Field.build` makes a room-like object that `World.enterCamp` adds beside the camp: one big rectangle (`CFG.field.size`) and a road (`corr`) through the palisade gap, so `constrain` and `inSpace` work unchanged. Trees, rocks, gravestones and the watchtower are obstacles (`pillars`); everything static is baked per material.
+- `Field.build` makes a room-like object that `World.enterCamp` adds beside the camp: one big rectangle (`CFG.field.size`) and a road (`corr`) through the palisade gap that overlaps the camp and the field by 2 m each (more than a body's width, or a walking hero would be pulled back at the joins), so `constrain` and `inSpace` work unchanged. Trees, rocks, gravestones and the watchtower are obstacles (`pillars`); everything static is baked per material.
 - **Mode:** `checkRim()` switches `G.mode` between `camp` and `field` as the hero crosses the gate: out, tonics are drunk and `tripGold` starts at zero; in, it is banked. Kills, XP and mastery count anywhere but the camp. A fall on the Rim loses `CFG.field.deathGoldLoss`.
 - **Zones:** `Field.update` tops each zone up to its `cap` while the hero is within 25 m of it (quickly at first, then every `respawn` seconds), never within 10 m of the hero; beasts more than 70 m away are let go, and none passes the gate.
 - **Beasts:** an enemy with a `zone` wanders until the hero is within `def.aggro` (or it is hit) and then hunts; `pack` beasts rouse their packmates. Past `zone.r + leash` it gives up, heals and walks home. Wolves and boars are hand-posed quadrupeds (`Rig.buildBeast` / `animateBeast`); the boar's `charge: [min, max, attack]` starts its unblockable charge from range. Goblin scouts are goblins with spears that throw.
 - **Materials:** `S.mats`; `CFG.matDrops` gives each kind's drops (full chance from a beast with a zone, a third below). `room.nodes` are herb patches and ore veins kept out of the bake so they can vanish when gathered (`Field.gather`) and grow back after `nodes.regrow` seconds. `CFG.crafts` are Bram's recipes (`Items.craft` rolls the piece at the warden's depth with the recipe's rarity, weight class and fixed affix kinds); tempering costs `CFG.temper`; Ysolde brews tonics from `herbs` (+ ore) and a fifth of the gold.
 - **Day and night:** `S.clock` (seconds, `CFG.day.length` per day) runs in play while the camp scene is up. `updateDay` blends sky and fog colour (with a warm band at dawn and dusk), hemisphere light, the sun's colour and strength, fog distance and torch strength (`G.torchK`, read by `World.updateLights`); leaving for the dungeon restores the base light and `curseWorld()` sets the fog. `G.isNight()` / `G.timeName()` drive the label and the Rim.
 - **Night zones and bosses:** a `night` zone (the graveyard) spawns only at night and crumbles at dawn; `nightMobs` / `nightCap` change a zone after dark. `CFG.field.bosses` each keep to a zone and a time of day; they spawn as named elites (`fieldBoss`, `champion`), get the boss bar when roused (`G.onFieldBoss`), and come back `respawn` seconds of real time after they fall (`S.fieldBoss`).
+- **Big monsters:** the Creature Pack's Mixamo clips are retargeted with Nightfall's converter and mirrored into `js/anims_mutant.js` (jump attacks hit on landing). `Rig.build('mutant', { variant })` builds one heavy humanoid (claws for the horror, `fist()` for the troll and golem) whose `rig.set = 'mu'` picks the mutant clips (walk / run, idle, swipe, punch, slam, leap, roar, death; hand-made staggers). Enemy defs add `regen` (share of health per second after 3 s untouched) and `dr` (damage turned). `CFG.monsterBosses` are boss definitions passed whole to `Enemy.makeBoss`, so they grow and change phase like guardians without joining the stages' list.
+- **Jobs:** `Jobs.list()` keeps three jobs in `S.jobs`. A hunt, guardian or field-boss job stores the lifetime count when pinned (`base`: `Codex.life().kinds`, `life().guardians`, `S.bossKills`) and measures from it; a gather job counts materials in hand and takes them when turned in. `Jobs.turnIn` pays gold (and a gem for boss jobs, a quarter of the time otherwise) and pins a fresh job; `S.jobsDone` counts them.
+- **Rescues:** a vault rolls `CFG.rescues.chance` for a captive (`Props.captive`: an NPC rig chained to a post). Freeing one calls `Items.rescue()`, which adds the next of `CFG.rescues.people` (or a named townsperson) to `S.rescued`; `Camp.build` gets the list and adds a walker for each (up to eight), who remembers where it was found (`where`, the stage's name) and says so in its greeting. Perks are read where they act: `Player.gearStats` (Ilsa, Aldo, gold found), `World.begin` (Pell marks every section seen) and the Rim's aggro range (Mira, ×0.75).
+- **The Ring:** `G.arenaList()` lists beaten guardians and the `CFG.arena.monsters` (open once their field boss is in `S.bossKills`; the Abomination once the other three are in `S.arena`). `G.enterArena` builds a one-section custom stage with only the lair (`stage.monster` makes the guardian spawn take `CFG.monsterBosses[monster]`), with the strength of the foe's depth. Its big chest pays through `arenaPay` (gold by depth, ×`first` for a first win, a gem) instead of unlocking a stage, and the hero walks home from the `arenaWon` panel. `G.arena` keeps captives out of the Ring and is cleared on every trip and at home.
+- **Raids:** `enterCamp` rolls `CFG.raid.chance` (from stage `from`) into `G.raid` with a start time; `G.startRaid` queues the band for the stage (`bands`) on the Rim road with `raid: true` and a zone at the gate, the first one an elite "Raid Chief". Raiders wander toward the gate at a march (0.7 speed), are never let go by `Field.update`, and while not roused and at the gate they wear it down (`batter` per second each) and swing at it. `updateRaid` shows the band and the gate in the HUD, pays `gold` (by stage) and `mats` when none are left, or takes `steal` of the gold (up to `stealMax`) and removes the band when the gate reaches 0. `clearEnemies` drops any raid. The horn and the gate bell (`room.bell`, swung in `Camp.update`) sound at the start; the minimap draws a pulsing ring at the gate and the band in red. Rook and the sentry (`guard` NPCs) walk out to posts beyond the gate (`defend`) and thrust at the nearest raider in reach every 2–3 s for 12% of its health, then walk home when the raid ends.
+- **Sefa's caravan:** `wandererComes` (on every homecoming) keeps `S.wander` for `stays` homecomings or rolls `chance` for a new one: two pieces a tier up (rare or better, priced ×`itemMult`), three of the `bundles`, a gem. `Camp.build` adds the wagon, Sefa and her spot when `lv.wanderer`.
+- **The Fen:** `Field.buildFen` lays out a second field east of the Hold (`CFG.fen`: zones placed by `out` from the near edge and `side` along the wall from the gate), built only once `S.stage >= fen.unlock` (`World.fenOpen`); until then the east gate is barred (doors and a spot where Rook explains). Field logic is shared and works from the field's side (`room.side`, `Field.inward`, `Field.at`): spawning near the warden, letting far beasts go (each beast keeps its `home` field), the barrier at the near edge, bosses from `room.def.bosses`, regrowth from `room.def.nodes`. `World.fieldAt` gives the field the warden is out in (mode, label, gathering), and the minimap draws every field. The Mirelord is a `monsterBosses` troll and a Ring monster (`fen: true`). Silk drops from spiders; two crafts use it. Jobs can ask for Fen bosses once it is open (pay ×1.3).
 - **Map:** in the Hold and on the Rim the minimap shows the camp, the road, the field and its zones (red where beasts are roused), the camp's services, beasts and the hero.
 
 ## Progression (built)
@@ -184,6 +193,12 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Performance readout:** Settings → Show performance writes FPS, frame time, `renderer.info` draw calls and triangles, quality and resolution step once a second.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
+
+## Skinned bodies (built)
+
+- `Rig.skin` merges every plain mesh of a character into one `SkinnedMesh` whose bones are the rig's own joints (each vertex bound wholly to its joint, colours per vertex). The joints animate exactly as before; the body draws in one call. Glowing, textured and see-through parts (weapons, shields, eyes) stay apart, and `rig.mats` holds the one body material, so hit flashes still work.
+- Every NPC, enemy, beast, spider and mimic is skinned; the hero is not (gear swaps rebuild parts, and dash after-images clone the parts).
+- Measured headless (draw calls / triangles): the Hold 624 → 125, the Rim 577 → 147, a raid at the gate 780 → 174, a dungeon section about 100. Herb patches and ore veins on the Rim are baked per node too. `tools/world_test.js` keeps the Hold under 200 calls.
 
 ## Minimap (built)
 
@@ -264,6 +279,21 @@ Result on Normal:
 - **Deaths:** the casual profile dies now and then to early guardians; the skilled one rarely.
 
 Real players are slower to react than the bot, so expect more deaths.
+
+### The world above (tuned against stage gold)
+
+A full stage pays about 490 gold at the Crypt and 3200 at the Throne (enemies, chests, a vault, the guardian). Against that:
+
+| | Crypt | Spider Depths | Throne |
+|---|---|---|---|
+| The Ring, rematch (`arena.gold` 70 × depth) | 70 | 196 | 448 |
+| The Ring, first win (× `first` 3.5) | 245 | 686 | 1568 |
+| A hunt job of 7 (`(15 + 9n) × (1 + 0.6·stage)`) | 78 | 218 | 499 |
+| A boss job | 120 | 336 | 768 |
+| A raid beaten (`90 × (1 + 0.5·stage)`, plus kills) | 90 | 225 | 495 |
+| Sefa's piece, a tier up (`itemMult` 3) | 108 | 422 | 739 |
+
+A Ring rematch pays about a seventh of a stage for a one-minute fight (and a gem), so it never beats going down; a first win about half. Jobs keep the same share of a stage at every depth. Sefa's gear costs about Bram's forge price for the next tier.
 
 ## Difficulty and accessibility (built)
 

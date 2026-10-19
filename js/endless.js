@@ -30,7 +30,8 @@ const Endless = (() => {
     rooms.push(lair ? { size: g.size.slice(), guardian: true, waves: g.waves.map(w => w.slice()) }
       : { size: g.size.slice(), waves: [Array.from({ length: size }, () => pick(pool)), Array.from({ length: Math.max(1, size - 1) }, () => pick(pool))] });
     return {
-      def: { name: (daily ? 'Daily Descent' : 'The Endless Deep') + ' · Floor ' + floor, theme: base.theme, guardian: base.guardian, champion: lair ? null : base.champion, rooms },
+      // From floor 4, a third of the floors bring a big monster as their champion instead (a mutant, a troll or a golem)
+      def: { name: (daily ? 'Daily Descent' : 'The Endless Deep') + ' · Floor ' + floor, theme: base.theme, guardian: base.guardian, champion: lair ? null : floor >= 4 && R() < 0.34 ? [{ kind: 'mutant', name: 'Deep Abomination', mods: ['swift'], hp: 1.0 }, { kind: 'troll', name: 'Cave Troll Chieftain', mods: ['vampiric'], hp: 1.0 }, { kind: 'golem', name: 'Deep Golem', mods: ['warded'], hp: 1.0 }][Math.floor(R() * 3)] : base.champion, rooms },
       si, lair,
     };
   }

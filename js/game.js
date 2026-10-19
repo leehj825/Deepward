@@ -294,20 +294,23 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
-    if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
-      const B = q.fieldBoss; Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp;
-      e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
+      const B = q.fieldBoss;
+      if (B.boss) Enemy.makeBoss(e, CFG.monsterBosses[B.boss]);             // a big monster: grown, with phases
+      else { Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp; e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; }
+      e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
     }
-    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
+    if (q.zone) { e.zone = q.zone; e.home = q.home; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
+    if (q.raid) e.raid = true;                                             // a raider on the Rim road
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
       const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
-    } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
+    } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true), q.raid ? 'Raid Chief' : undefined); e.rig.root.scale.multiplyScalar(1.18); }
     else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, G.cursed('hunted')); if (m) Enemy.makeElite(e, m); }
     if (G.cursed('frenzy')) { e.def.speed *= 1.25; e.frenzy = true; }                 // a curse of the Endless Deep
     G.enemies.push(e);
@@ -346,7 +349,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.fieldAt(p.pos) || World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -449,7 +452,7 @@ function updateLock(dt) {
 }
 G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
 function clearEnemies() {
-  G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+  G.raid = null; G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -457,10 +460,13 @@ function placeHero(at) {
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
   if (Tutorial.active) Tutorial.stop();
-  clearEnemies(); G.blessings = []; G.run = null; G.tonics = []; curseWorld();
+  clearEnemies(); G.blessings = []; G.run = null; G.arena = null; G.tonics = []; curseWorld();
+  if (atSpawn) wandererComes();
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
+  if (atSpawn) rollRaid();
+  if (World.fenOpen() && !S.fenSeen) { S.fenSeen = true; Items.save(); G.after(1.2, () => say([['Captain Rook', 'Five guardians down. I have unbarred the east gate: the Fen is yours to walk now.'], ['Captain Rook', 'Spiders the size of dogs in the Black Mire, the drowned dead in the Hollow at night, goblins working the old quarry. Bring silk back for Bram.']])); }
   const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
   if (atSpawn) {
     S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
@@ -528,17 +534,17 @@ G.onFieldBoss = (e, roused) => { if (roused) { G.boss = e; banner(e.fieldBoss.na
 // Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
 // the Hold the gold is banked and the tonics wear off
 function checkRim() {
-  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  const f = World.fieldAt(G.player.pos), out = !!f, want = out ? 'field' : 'camp';
   if (want === G.mode || Tutorial.active) return;
   G.mode = want;
-  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner(f.name.toUpperCase()); }
   else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
   Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
 }
 // Ysolde's tonics are drunk at the start of a trip and last until the warden is back in camp
 function drinkTonics() { const S = Items.S; G.tonics = (S.tonics || []).slice(); S.tonics = []; if (G.tonics.length) UI.toast('Tonics: ' + G.tonics.map(id => CFG.camp.tonics.find(t => t.id === id).name).join(', '), '#9aff8a'); }
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies(); G.blessings = []; G.run = null; if (!onward) drinkTonics();
+  clearEnemies(); G.blessings = []; G.run = null; G.arena = null; if (!onward) drinkTonics();
   const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
@@ -615,15 +621,99 @@ G.onChest = room => {
     if (it.uniq) { FX.ring(G.player.pos, 2.4, 0xff7a2a, 0.9, { r0: 0.3 }); Snd.play('wave'); }
   }
   if (Math.random() < GC.gemDrop.chest || big) G.after(it ? 1.2 : 0.2, () => gemFound(big ? GC.gemDrop.bigChest : 1));
-  if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
+  if (big && G.arena) { const A = G.arena, r = arenaPay(A); G.after(1.3, () => { if (G.arena) openPanel('arenaWon', Object.assign({ name: A.name }, r)); }); }
+  else if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
   else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
     G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
   } else Items.save();
 };
+// ---------------- World events: a raid on the gate, Sefa's caravan ----------------
+// Now and then, a while after the warden comes home, a band marches up the Rim road and batters the south gate
+function rollRaid() {
+  const S = Items.S, R = CFG.raid;
+  if (S.stage < R.from || Tutorial.active || Math.random() >= R.chance) return;
+  G.raid = { on: false, at: G.time + R.delay[0] + Math.random() * (R.delay[1] - R.delay[0]) };
+}
+G.startRaid = () => {
+  const f = World.field(), R = CFG.raid, S = Items.S, B = R.bands.find(b => S.stage <= b.upTo), gz = f.rect.z0 + 2.5;
+  const zone = { id: 'gate', name: 'The south gate', x: 0, z: gz, r: 3 }, m = Field.multOf({ mult: 1 });
+  G.raid = { on: true, gate: R.gate, zone, n: B.band.length + 1 };
+  [B.chief].concat(B.band).forEach((type, k) => G.queue.push({ type, at: new THREE.Vector3((k % 3 - 1) * 2.4, 0, gz + 24 + Math.floor(k / 3) * 2.6), mult: m.mult, hpMult: m.hpMult, zone, raid: true, elite: k === 0, t: G.time + k * 0.15 }));
+  banner('RAIDERS AT THE GATE'); Snd.play('horn'); G.after(1.8, () => Snd.play('bell')); G.rumble && G.rumble(0.5, 0.7, 500);
+  UI.toast('Captain Rook: Raiders on the Rim road! To the south gate!', '#ff7a2a');
+};
+function updateRaid(dt) {
+  const R = G.raid; if (!R || G.mode === 'dungeon') return;
+  if (!R.on) { if (G.time >= R.at && G.state === 'play' && !UI.open && World.field()) G.startRaid(); return; }
+  const band = G.enemies.filter(e => e.raid && e.state !== 'dead'), coming = G.queue.some(q => q.raid);
+  // Raiders at the gate batter it (they turn on the warden when the warden comes out)
+  for (const e of band) {
+    if (e.aggro || Math.hypot(e.pos.x - R.zone.x, e.pos.z - R.zone.z) > R.zone.r + 1.5) continue;
+    R.gate -= CFG.raid.batter * dt; e.batter = (e.batter || 0) - dt;
+    if (e.batter <= 0 && e.state === 'hunt') { e.batter = 1.4 + Math.random(); e.facing = Math.PI; Enemy.startAttack(e, 0); if (Combat.dist(e.pos, G.player.pos) < 22) Snd.play('block'); }
+  }
+  const S = Items.S;
+  if (!band.length && !coming) {                                         // the band is beaten: the Hold pays its warden
+    const g = Items.addGold(CFG.raid.gold * (1 + S.stage * CFG.raid.perStage) * G.player.S.goldFind);
+    for (const [k, n] of Object.entries(CFG.raid.mats)) Items.addMat(k, n);
+    S.raids = (S.raids || 0) + 1; G.raid = null; Items.save();
+    banner('THE GATE HOLDS'); Snd.play('achieve'); UI.toast(`The raiders are beaten: ◆ ${g}, ${Object.entries(CFG.raid.mats).map(([k, n]) => CFG.materials[k].icon + n).join(' ')}`, '#ffd040');
+    return;
+  }
+  if (R.gate <= 0) {                                                     // the gate breaks: they grab what they can and run
+    const lost = Math.min(CFG.raid.stealMax, Math.floor(S.gold * CFG.raid.steal)); S.gold -= lost;
+    for (const e of band) { e.remove = true; FX.burst(Combat.chestPos(e.pos, 1), 0x8a7a5a, 10, 3); if (G.lock === e) G.lock = null; }
+    G.queue = G.queue.filter(q => !q.raid); G.raid = null; Items.save();
+    banner('THE GATE IS BROKEN'); Snd.play('lose'); UI.toast(`The raiders broke the gate and ran off with ◆ ${lost}`, '#ff5a4a');
+    return;
+  }
+  $('foesN').textContent = `Raid: ${band.length + G.queue.filter(q => q.raid).length} · gate ${Math.ceil(R.gate / CFG.raid.gate * 100)}%`;
+}
+// Sefa's caravan: now and then camped in the Hold when the warden comes home, for two homecomings
+function wandererComes() {
+  const S = Items.S, W = CFG.wanderer;
+  if (S.wander && S.wander.left > 0) { S.wander.left--; return; }
+  S.wander = null;
+  if (S.stage < W.from || Math.random() >= W.chance) return;
+  const tier = Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), b = W.bundles.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+  S.wander = { left: W.stays - 1, items: [0, 1].map(() => Items.generate(tier, { minRarity: 2, boost: 0.8 })), bundles: b.map(x => Object.assign({}, x)), gem: Items.randomGem() };
+  G.after(2, () => UI.toast("Sefa's caravan has stopped in the Hold (north-west, by the smithy)", '#5ad8c8'));
+}
+// ---------------- The Ring ----------------
+// Varga's arena by the dummies: one lair, one foe. Guardians already beaten, the big monsters of the Rim once one has
+// fallen out there, and the Abomination for whoever has beaten all three in the Ring.
+G.arenaList = () => {
+  const S = Items.S, won = S.arena || {}, kills = S.bossKills || {}, out = [], top = Math.min(S.stage, CFG.stages.length);
+  CFG.stages.slice(0, top).forEach((st, si) => out.push({ id: 'g' + si, name: st.guardian, si, lvl: si, theme: st.theme, won: won['g' + si] || 0 }));
+  for (const M of CFG.arena.monsters) {
+    const B = CFG.monsterBosses[M.id], beaten = CFG.arena.monsters.filter(m => !m.final).every(m => won[m.id]);
+    const open = M.final ? beaten : (kills[M.unlock] || 0) > 0, hint = M.final ? 'Beat the others in the Ring' : 'Fell ' + ((CFG.field.bosses.concat(CFG.fen.bosses).find(b => b.id === M.unlock) || {}).name || '').replace(/^The /, 'the ') + (M.fen ? ' in the Fen' : ' on the Rim');
+    out.push({ id: M.id, name: B.name, monster: M.id, kind: M.kind, lvl: Math.max(0, top - 1) + (M.final ? 2 : 0), theme: M.theme, won: won[M.id] || 0, locked: !open && hint, final: !!M.final });
+  }
+  return out;
+};
+const arenaGold = A => Math.round(CFG.arena.gold * (1 + A.lvl * 0.6) * (A.won ? 1 : CFG.arena.first) * (A.final ? 2 : 1));
+function arenaPay(A) {
+  const S = Items.S; S.arena = S.arena || {}; const first = !S.arena[A.id];
+  S.arena[A.id] = (S.arena[A.id] || 0) + 1;
+  const gold = Items.addGold(arenaGold(A) * G.player.S.goldFind), gem = Items.randomGem(); Items.addGem(gem); Items.save();
+  return { gold, gem, first };
+}
+G.enterArena = A => fadeTo(() => {
+  clearEnemies(); G.blessings = []; G.run = null; drinkTonics(); Items.S.tripGold = 0;
+  const st = A.si !== undefined ? CFG.stages[A.si] : null, g = st && st.rooms.find(r => r.guardian);
+  const def = { name: 'The Ring · ' + A.name, theme: A.theme, guardian: A.name, monster: A.monster, rooms: [{ size: g ? g.size.slice() : [10, 9], guardian: true, waves: g ? g.waves.map(w => w.slice()) : [[A.kind]] }] };
+  G.arena = A;
+  const at = World.startCustom(def, { si: A.si || 0, k: A.lvl, mult: 1 + CFG.stageScale * A.lvl, hpMult: 1 + CFG.stageHp * A.lvl });
+  G.mode = 'dungeon'; G.stageK = A.lvl; curseWorld();
+  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  G.state = 'play'; $('waveN').textContent = World.label();
+});
+G.arenaGold = arenaGold;
 // ---------------- The Endless Deep ----------------
 // A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
-G.enterEndless = (daily, curses) => { drinkTonics(); G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
+G.enterEndless = (daily, curses) => { G.arena = null; drinkTonics(); G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
 // Is this curse on the current Endless climb?
 G.cursed = id => !!(G.run && G.run.curses && G.run.curses.includes(id));
 // Lightless closes the fog in and hides the map; anywhere else the air is as usual
@@ -685,6 +775,12 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'captive') {                                               // freed: they make their way to the Hold
+    Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
+    Items.S.rescued[Items.S.rescued.length - 1].where = World.label().split(' · ')[0];      // remembered: where the warden found them
+    Snd.play('shrine'); Codex.add && Codex.add('rescues'); Items.save(); G.spot = null;
+    return say([[who.name, P ? 'You came for me? I thought the Deep had me for good. I will find my way to the Hold.' : 'Thank you, warden. I will go home to the Hold.']].concat(P ? [['', 'Rescued ' + who.name + ': ' + P.perk + '.']] : []));
+  }
   if (s.id === 'gather') {                                                // a herb patch or an ore vein on the Rim
     const n = Field.gather(s.node), M = CFG.materials[s.node.kind];
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
@@ -695,6 +791,7 @@ function interact() {
     return say([[who, lines[i]]]);
   }
   if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
 // The training yard: Hobb's six lessons, in camp
@@ -849,7 +946,7 @@ function step(real) {
     World.update(dt, camera.position);
     if (World.inCamp()) checkRim();
     updateDay(dt);
-    updateSpawns();
+    updateSpawns(); updateRaid(dt);
     Enemy.updateArrows(dt);
     runTimers();
     FX.update(dt);

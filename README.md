@@ -28,12 +28,23 @@ Every model is built in code from primitives, and there are no model, texture or
 - The Rim grows tougher as you go deeper below. Kills give XP, gold and weapon mastery as in the dungeon.
 - **Day and night:** the Hold and the Rim keep a ten-minute day (dawn, day, dusk, night) that runs while you are up there and is kept with the save. The sky, fog, light and sun or moon follow it; by day you see much further, at night the torches matter. The dungeon below keeps its own light.
   - **At night** the dead rise in the Old Graveyard (by day it lies quiet) and the Meadow fills with more wolves. At dawn the dead crumble back into their graves.
+- **Big monsters:** three hulking creatures two to three times the warden's height share one code-built body and the Creature Pack's motion capture (idle, walk, run, claw swipe, punch, leaping slam, roar, death):
+  - **Deep Mutant** (clawed, teal-veined): swipes and punch-swipe combos, a leaping slam that shakes the ground (red, unblockable), and from 5 to 11 m a long leap onto you.
+  - **Cave Troll** (mossy, knuckle-fists, tusks): three-blow punch combos and a slam; it regenerates when left alone, so keep the pressure on.
+  - **Stone Golem** (boulder-fists, burning rune core): slow blows that crush a guard, a wide quake, and a stone hide that turns a quarter of every blow.
+  - As bosses they grow and fight in phases like the guardians. On the Rim: **the Ridge Horror** (a mutant) on the Broken Ridge by day, **the Forge Colossus** (a golem) there by night, and **Mossback** (a troll) in Thornwood at any hour. In the Endless Deep, from floor 4 a third of the floors bring one as their champion.
 - **Field bosses** (boss bar once roused; back five minutes after they fall):
   - **Old Tusk**, a huge armoured boar, walks the Meadow by day. Spoils: 4 tusks, 3 pelts, an epic-or-better piece and a gem.
   - **The Grave Knight**, a life-draining knight, rises in the Old Graveyard at night. Spoils: 5 bones, 2 ore, an epic-or-better piece and a gem.
 - **Materials:** beasts drop pelts 🐾, tusks 🦷 and ore ⛏ (the dead below drop bones 🦴, less often), and the Rim has herb patches 🌿 and ore veins to gather (E / A / TALK); they grow back after a while.
   - **Bram's Craft tab** makes hunter gear: Wolfhide Wraps, Tuskbreaker Gauntlets, Hunter's Boots, a Bone Charm, the Ring of the Pack and a Tusk-plated Hauberk (at your depth, rare or epic, with fixed bonuses). **Temper** raises a worn piece one + level for ore and scrap instead of gold.
   - **Ysolde brews** any tonic from herbs for a fifth of its price.
+- **The notice board** by the fire always holds three jobs: slay so many of a kind, bring materials, fell a field boss or beat a guardian again. A finished job is turned in at the board for gold (and sometimes a gem); a job you don't want can be torn down for a fresh one.
+- **Captives:** a vault below sometimes holds someone chained by the chest. Free them (E / A / TALK) and they come home to the Hold and walk its paths, and greet you with where you found them. The first four bring a lasting perk: **Pell the cartographer** maps every stage from the start, **Ilsa the cook** makes flasks heal 10% more, **Brother Aldo** gives +5% health, and **Mira the scout** makes the beasts of the Rim notice you later. Every rescue adds 2% gold found (up to 10%).
+- **The Ring:** Varga's arena past the dummies. Fight any guardian you have beaten again, alone in its lair, for gold and a gem (more the first time). The Ridge Horror, Mossback and the Forge Colossus join once you have felled them on the Rim, and **the Abomination**, the biggest of the great beasts, which calls trolls, wolves and goblins into the Ring, waits for whoever has beaten all three there.
+- **Raids:** now and then, a while after you come home, the horn sounds and the gate bell rings: a goblin band (wolves, boars and scouts with it, a troll chief from the Act I end) marches up the Rim road to batter the south gate. The HUD shows the band and the gate's strength, and the minimap pulses red at the gate. Captain Rook and the sentry go out past the gate and spear raiders in reach, but they cannot hold it alone. Beat them all for gold, pelts and ore; if the gate breaks, they run off with 8% of your gold (at most 400).
+- **Sefa's caravan:** some homecomings a painted wagon stands in the north-west of the Hold for two visits. Sefa sells two rare-or-better pieces a tier above your depth, bundles of materials and a loose gem, and buys spare materials.
+- **The Fen** (after the first five guardians): Captain Rook unbars the east gate onto a second, tougher field: a boardwalk over black pools, reeds, dead trees and willows. **The Reedbank** (goblins, scouts, spiders), **the Black Mire** (spiders; wolves at night), **the Drowned Hollow** around a sunken chapel (the dead, at night only) and **the Old Quarry** (brutes, goblins, shield-bearers). Field bosses: **the Mire Queen** (a huge spider, by day), **the Mirelord** (a troll boss, at night, who then joins the Ring), **the Drowned Bishop** (a warded bone caller, at night) and **the Quarry Foreman** (an armoured brute). Spiders drop **silk** 🕸, for Bram's **Fensilk Jerkin** and **Mirewalker Boots**.
 - Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
 
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
@@ -56,13 +67,13 @@ A box at the top says what to press in your own controls (keyboard, controller o
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
-- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass.
+- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass. People stand, sit and kneel in their own ways: Wenna and two villagers sit on the logs by the fire, Nell works seated at her bench, a gardener kneels at the vegetable patch, Maren stoops, Bram looks over his work, and the guards stand alert.
 - **The people of the Hold:**
   - **Maren**, the elder, tells the story before each stage and after its guardian falls. **Wenna the bard** sits with her by the fire and sings guardian lore.
   - **Bram the smith** (smiths' row, west) forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap. **Nell the gem cutter** next door sets and pries gems, and cuts three stones of one kind into one of another.
   - **Tilda the quartermaster** (market, east) sells three fresh pieces each time you return and buys what you don't need. **Ysolde the herbalist** sells tonics for the next trip: Wind Tonic (stamina back 30% faster), Iron Draught (10% less damage), Spare Flask (+1 flask) and Whetstone Oil (+10% damage). **Odo the curio dealer** has one rare-or-better piece a day.
   - **Captain Rook** keeps the south gate and knows the beasts of the Rim.
-  - **Sergeant Hobb** runs the training yard (south-east).
+  - **Sergeant Hobb** runs the training yard (south-east), and **Varga** keeps the Ring beside it.
 - **The camp ledger** turns gold into buildings, each with three levels that show in the camp:
   - **Forge:** better upgrades and better odds of rare work.
   - **Apothecary:** more and stronger healing flasks.
@@ -375,6 +386,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/camp.js` | The code-built camp: palisade, campfire, forge, stall, ledger, tents, the stairway gate, NPCs, building upgrades |
 | `js/ui.js` | Story dialogue and the menus (smithy, stall, ledger, gate, gear, stage cleared, fallen), with keyboard and controller navigation; boss bar, prompts, toasts |
 | `js/audio.js` | Synthesized sound effects and the generative score (WebAudio) |
+| `js/anims_mutant.js` | The big monsters' motion-capture clips (generated by `tools/extract_creature.js` from the Creature Pack; do not edit) |
 | `js/anims.js` | Motion-capture clips (generated by `tools/extract_anims.js` from Nightfall Settlement; do not edit) |
 | `js/mocap.js` | Turns the clips into quaternions and samples them, mapping Nightfall's bone names onto this rig |
 | `js/rig.js` | Code-built characters (hero, skeleton, knight, brute, archer, goblin, duelist, acolyte, shield-bearer, bone caller, an eight-legged spider and the mimic chest), spears, daggers, staffs, weapons, bows, shields; picks a clip per state, time-warps attacks so the impact frame lands on the game's hit, blends joints; hand-made poses for roll and stagger; swing trails |
@@ -383,13 +395,14 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
-| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings, mimics |
+| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings, mimics, captives |
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
 | `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
-| `js/field.js` | The Rim: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
+| `js/jobs.js` | The notice board's jobs: making them, counting progress, turning them in |
+| `js/field.js` | The Rim and the Fen: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -405,11 +418,13 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
-| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall |
+| `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
+| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
 | `tools/build_single.py` | Builds the single-file version |
+| `tools/extract_creature.js` | Turns the Creature Pack's mutant clips (retargeted with Nightfall Settlement's `retarget_mixamo.js` and `tools/creature_want.json`) into `js/anims_mutant.js` |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
 
 ## Testing

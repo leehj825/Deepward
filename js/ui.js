@@ -393,6 +393,44 @@ const UI = (() => {
       h += `</div><p class="dim">The mouse stays as it is: left-click attacks, right-click blocks, middle-click is a heavy attack.</p><div class="tact">${btn('Restore default controls', 'bindreset')}</div>`;
       return h + btn('Back', 'open', 'settings', false, 'leave');
     },
+    // Sefa's caravan: gear a tier above, bundles of materials, a gem; she buys spare materials
+    wanderer() {
+      const S = Items.S, W = S.wander, C = CFG.wanderer, lines = CFG.townsfolk.wanderer[1], full = S.inv.length >= CFG.gear.invSize;
+      let h = `<h2>Sefa's Caravan</h2><p class="sub">"${esc(lines[(S.jobsDone || 0) % lines.length])}"</p>${money()}`;
+      if (!W) return h + '<p class="dim">The caravan has moved on.</p>' + btn('Close', 'close', '', false, 'leave');
+      W.items.forEach((it, i) => { if (it) { const price = Math.round(Items.value(it) * C.itemMult); h += itemRow(it, btn('◆ ' + price, 'wbuy', i, S.gold < price || full, 'hot')); } });
+      W.bundles.forEach((b, i) => { const M = CFG.materials[b.id]; h += `<div class="irow${b.sold ? ' empty' : ''}"><div class="iinfo"><b>${M.icon} ${M.name} ×${b.n}</b></div><div class="ibtns">${b.sold ? '<small class="dim">Sold</small>' : btn('◆ ' + b.gold, 'wbundle', i, S.gold < b.gold)}</div></div>`; });
+      if (W.gem) { const g = CFG.gear.gems[W.gem]; h += `<div class="irow"><div class="iinfo"><b>${g.icon} ${esc(g.name)}</b> <small class="dim">a loose gem</small></div><div class="ibtns">${btn('◆ ' + C.gem, 'wgem', '', S.gold < C.gem)}</div></div>`; }
+      const have = Object.keys(CFG.materials).filter(k => (S.mats || {})[k] > 0);
+      if (have.length) h += `<p>She buys materials at ◆ ${C.buys} each: ` + have.map(k => btn(`${CFG.materials[k].icon} ${S.mats[k]} · sell 1`, 'wsell', k)).join('') + '</p>';
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // The notice board by the fire: three jobs, turned in here for gold (and sometimes a gem)
+    board() {
+      const S = Items.S;
+      let h = `<h2>Notice Board</h2><p class="sub">Pinned by the fire: work for anyone with a blade. ${S.jobsDone ? `Jobs done: ${S.jobsDone}` : ''}</p>${money()}`;
+      for (const j of Jobs.list()) {
+        const pr = Jobs.progress(j), ok = Jobs.done(j);
+        h += `<div class="irow${ok ? ' got' : ''}"><div class="iinfo"><b>${esc(j.title)}</b> <small class="goldc">◆ ${j.gold}${j.gem ? ' + a gem' : ''}</small><div class="istats">${pr} / ${j.need}${j.kind === 'gather' ? ' in hand' : ''}</div></div>`
+          + `<div class="ibtns">${btn('Turn in', 'jobin', j.id, !ok, ok ? 'hot' : '')}${btn('Tear down', 'jobdrop', j.id)}</div></div>`;
+      }
+      h += `<p class="dim">Hunts count from when the job was pinned. A torn-down job is replaced with a fresh one. ${matLine()}</p>`;
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // The Ring: Varga's arena. Old guardians and the big monsters of the Rim, fought again for gold and a gem.
+    arena() {
+      let h = `<h2>The Ring</h2><p class="sub">"Any foe you have beaten, I can find again. For a price paid in blood, and paid out in gold." · Varga</p>${money()}`;
+      for (const A of G.arenaList()) {
+        h += `<div class="irow${A.final ? ' uniq' : ''}${A.locked ? ' empty' : ''}"><div class="iinfo"><b>${esc(A.name)}</b> ${A.locked ? '' : `<small class="goldc">◆ ${G.arenaGold(A)} + a gem${A.won ? '' : ' (first win)'}</small>`}<div class="istats">${A.locked ? esc(A.locked) : A.won ? `Won ${A.won}×` : A.monster ? 'A great beast, not yet fought here' : 'A guardian, fought again'}</div></div>`
+          + `<div class="ibtns">${btn('Fight', 'ring', A.id, !!A.locked, A.locked ? '' : 'hot')}</div></div>`;
+      }
+      if (!G.arenaList().length) h += '<p class="dim">Beat a guardian of the Deep first. Varga only brings back what you have already beaten.</p>';
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    arenaWon(o) {
+      const g = CFG.gear.gems[o.gem];
+      return `<h2>Victory in the Ring</h2><p class="sub">${esc(o.name)} falls${o.first ? ' for the first time here' : ''}. The Hold roars.</p>${money()}<p>Won <b class="goldc">◆ ${o.gold}</b> and a gem: ${g.icon} ${esc(g.name)}.</p>${btn('Back to the Hold', 'ringhome', '', false, 'hot')}`;
+    },
     cleared(o) {
       const next = CFG.stages[(o.k + 1) % CFG.stages.length];
       return `<h2>Stage cleared</h2><p class="sub">${esc(o.guardian)} has fallen. The way deeper is open.</p>${money()}
@@ -409,6 +447,13 @@ const UI = (() => {
     const S = Items.S;
     if (a === 'close') return close();
     if (a === 'tab') { const [n, id] = arg.split(':'); tab[n] = id; render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
+    if (a === 'wbuy') { const W = S.wander, it = W && W.items[+arg], price = it && Math.round(Items.value(it) * CFG.wanderer.itemMult); if (it && S.gold >= price && Items.add(it)) { S.gold -= price; W.items[+arg] = null; Snd.play('glint'); toast('Bought: ' + Items.fullName(it), Items.colorOf(it)); changed(); } return render(); }
+    if (a === 'wbundle') { const b = S.wander && S.wander.bundles[+arg]; if (b && !b.sold && S.gold >= b.gold) { S.gold -= b.gold; Items.addMat(b.id, b.n); b.sold = true; Snd.play('glint'); Items.save(); } return render(); }
+    if (a === 'wgem') { const W = S.wander; if (W && W.gem && S.gold >= CFG.wanderer.gem) { S.gold -= CFG.wanderer.gem; Items.addGem(W.gem); toast('Gem: ' + CFG.gear.gems[W.gem].name, '#9ad8ff'); W.gem = null; Snd.play('glint'); Items.save(); } return render(); }
+    if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
+    if (a === 'jobin') { const r = Jobs.turnIn(+arg); if (r) { Snd.play('glint'); toast(`Job done: ◆ ${r.gold}` + (r.gem ? ` and ${CFG.gear.gems[r.gem].icon} ${CFG.gear.gems[r.gem].name}` : ''), '#ffd040'); changed(); } return render(); }
+    if (a === 'jobdrop') { Jobs.drop(+arg); Items.save(); return render(); }
+    if (a === 'ring') { const A = G.arenaList().find(x => x.id === arg); if (A && !A.locked) { close(); G.enterArena(A); } return; }
     if (a === 'next') { const o = open.opt; if (o.i < o.lines.length - 1) { o.i++; return render(); } return close(); }
     if (a === 'upgrade') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), c = it && Items.upgradeCost(it); if (it && S.gold >= c.gold && S.scrap >= c.scrap && it.plus < Items.maxPlus()) { S.gold -= c.gold; S.scrap -= c.scrap; it.plus++; Snd.play('block'); toast(`${Items.fullName(it)}`, R[it.rarity].color); changed(); } return render(); }
     if (a === 'forge') {
@@ -483,6 +528,7 @@ const UI = (() => {
     if (a === 'endlessgo') { const S = Items.S; S.endless = S.endless || { best: 0, daily: {} }; S.endless.lastCurses = (tab.curses || []).slice(); close(); return G.enterEndless(false, S.endless.lastCurses); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
+    if (a === 'ringhome') { close(); return G.wakeInCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }
     if (a === 'wake') { close(); return G.wakeInCamp(); }
   }
@@ -539,7 +585,7 @@ const UI = (() => {
     if (b.dataset.act === 'gsel' && tab.gsel === b.dataset.arg) { const [k, v] = b.dataset.arg.split(':'); return act(k === 'e' ? 'unequip' : 'equip', v); }
     act(b.dataset.act, b.dataset.arg);
   }
-  function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper') return; if (open.id === 'dialogue') return act('next'); close(); }
+  function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper' || open.id === 'arenaWon') return; if (open.id === 'dialogue') return act('next'); close(); }
 
   // ---------------- HUD bits ----------------
   let toastT = null;

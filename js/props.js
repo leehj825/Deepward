@@ -4,10 +4,10 @@
 // this module keeps them working.
 const Props = (() => {
   const F = CFG.features;
-  let pots = [], traps = [], shrines = [], mimics = [];
+  let pots = [], traps = [], shrines = [], mimics = [], captives = [];
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
   const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
-  function clear() { pots = []; traps = []; shrines = []; mimics = []; }
+  function clear() { pots = []; traps = []; shrines = []; mimics = []; captives = []; }
 
   // ---------------- Breakables ----------------
   // Along the walls, off the path and away from pillars and doorways
@@ -122,6 +122,8 @@ const Props = (() => {
   }
   // The shrine the hero is standing at, as a prompt spot
   function nearest(pos) {
+    const c = captives.find(c => !c.freed && Math.hypot(pos.x - c.x, pos.z - c.z) < 2.0);
+    if (c) return { id: 'captive', name: 'A captive', verb: 'Free', captive: c };
     const s = shrines.find(s => !s.used && Math.hypot(pos.x - s.x, pos.z - s.z) < 2.3);
     return s ? { id: 'shrine', name: 'Shrine of the Deep', verb: 'Pray', shrine: s } : null;
   }
@@ -150,14 +152,32 @@ const Props = (() => {
       G.queue.push({ type: 'mimic', at: new THREE.Vector3(m.x, 0, m.z), mult: m.mult.mult, hpMult: m.mult.hpMult, room: m.room, mimic: true, t: G.time });
     }
   }
-  function update(dt) { updateTraps(dt); updateShrines(dt); updateMimics(); }
+  // ---------------- Captives ----------------
+  // Someone chained to a post in a vault, waiting to be freed; they go home to the Hold
+  function captive(room, lx, z) {
+    const g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+    const wood = mat(0x4a3424), iron = mat(0x3a3a40, { roughness: 0.5, metalness: 0.6 });
+    put(g, new THREE.CylinderGeometry(0.12, 0.14, 2.2, 6), wood, 0, 1.1, -0.32);
+    for (const s of [-1, 1]) put(g, new THREE.TorusGeometry(0.09, 0.025, 4, 8), iron, s * 0.3, 1.0, -0.2).rotation.y = Math.PI / 2;
+    put(g, new THREE.BoxGeometry(0.7, 0.04, 0.04), iron, 0, 1.25, -0.28);
+    const rig = Rig.build('npc', { npc: { cloth: 0x5a5048, hair: 0x3a2a1a, skin: 0xd8a882, pose: { clip: 'kneel', rate: 0.7 } } });   // kneeling, chained
+    rig.root.rotation.y = Math.PI; g.add(rig.root); g.rotation.y = room.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+    captives.push({ g, rig, room, x: room.cx + lx, z, freed: false });
+  }
+  // Free a captive: they leave the vault (and walk into the Hold next time the warden is home)
+  function free(c) { c.freed = true; c.room.group.remove(c.g); FX.burst(new THREE.Vector3(c.x, 1, c.z), 0xffe0a0, 16, 3); }
+  function update(dt) {
+    updateTraps(dt); updateShrines(dt); updateMimics();
+    for (const c of captives) if (!c.freed && c.room.fade > 0.01) Rig.animate(c.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
+  }
   // Unbroken pots, crates and shrines are solid
   function blockers() {
     const out = [];
     for (const q of pots) if (!q.broken) out.push([q.x, q.z, q.r]);
     for (const s of shrines) out.push([s.x, s.z, s.r]);
     for (const m of mimics) if (!m.sprung) out.push([m.x, m.z, 0.55]);
+    for (const c of captives) if (!c.freed) out.push([c.x, c.z, 0.45]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, mimic, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, strike, trap, shrine, mimic, captive, free, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();

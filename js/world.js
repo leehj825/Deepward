@@ -311,6 +311,7 @@ const World = (() => {
       const t1 = Props.trap(room, 'spikes', cz, sx - dir * 1.7, 1.6, shd * 2 - 0.2), t2 = Props.trap(room, 'spikes', cz, sx + dir * 0.3, 1.6, shd * 2 - 0.2);
       t2.t = t1.t + (FE.spikes.idle + FE.spikes.warn + FE.spikes.up) / 2;
       addChest(room, false, { x: dir * (shw - 1.3), z: cz }, true);
+      if (!G.arena && Math.random() < CFG.rescues.chance) Props.captive(room, dir * (shw - 1.2), cz + (shd - 1.0));   // someone chained by the chest
     }
     setFade(room, 1);
     rooms.push(room); sides.push(room);
@@ -539,8 +540,10 @@ const World = (() => {
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
     clearAll();
-    rooms.push(Camp.build(scene, levels || Items.S.camp));
+    const fen = fenOpen();
+    rooms.push(Camp.build(scene, Object.assign({}, levels || (Items.S && Items.S.camp), { rescued: (Items.S && Items.S.rescued) || [], wanderer: !!(Items.S && Items.S.wander), fen })));
     rooms.push(Field.build(scene));                                         // the Rim, through the south gate
+    if (fen) rooms.push(Field.buildFen(scene));                             // the Fen, through the east gate (after Act I)
     applyTheme(CFG.themes.camp);
     return Camp.spawn;
   }
@@ -559,6 +562,7 @@ const World = (() => {
   }
   function begin(infos) {
     sections = plan(infos).map(build);
+    if (Items.rescued('pell')) for (const q of sections) q.seen = true;      // Pell the cartographer maps every stage ahead
     const r = sections[0]; applyTheme(r.th);
     active = r; r.state = 'start'; r.t = 0;
     banner(r.inf.stage.name.toUpperCase() + (r.inf.loop ? '  ·  DEPTH ' + (r.inf.loop + 1) : ''));
@@ -566,16 +570,19 @@ const World = (() => {
   }
   const inCamp = () => rooms.some(r => r.kind === 'camp');
   const camp = () => rooms.find(r => r.kind === 'camp');
-  const field = () => rooms.find(r => r.kind === 'field');
+  const field = () => rooms.find(r => r.kind === 'field' && r.side === 'south');           // the Rim
+  const fields = () => rooms.filter(r => r.kind === 'field');
+  const fieldAt = pos => fields().find(f => Field.at(f, pos)) || null;                    // the field the warden is out in
+  const fenOpen = () => !!(Items.S && Items.S.stage >= CFG.fen.unlock);
 
   function label() {
-    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
+    if (inCamp()) { const p = G.player, f = p && fieldAt(p.pos); if (f) { const z = Field.zoneAt(f, p.pos); return f.name + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field,
+    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field, fields, fieldAt, fenOpen,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();

@@ -127,6 +127,44 @@ const CFG = {
       flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.6, 2.6], xp: 12, gold: 8, aggro: 12,
       attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.8, active: 0.1, recover: 0.7, dmg: 11, posture: 10, range: 13, arc: 30, lunge: 0, projectile: { speed: 12 } }] }],
     },
+    // A hulking mutant from the Deep (its motion capture is the Creature Pack): claw swipes and punches, a leaping slam
+    // that shakes the ground around it (unblockable), and from 5-11 m a long leap onto the warden
+    mutant: {
+      name: 'Deep Mutant', rig: 'mutant', look: { variant: 'horror' }, hp: 260, posture: 160, postureRegen: 12, speed: 3.2, radius: 1.1, scale: 1.5,
+      flinch: false, hyperArmor: true, approach: 2.5, cooldown: [1.0, 1.8], xp: 80, gold: 50, aggro: 13, charge: [5, 11, 3],
+      attacks: [
+        { weight: 3, hits: [{ pose: 'swipe', wind: 0.75, active: 0.14, recover: 0.7, dmg: 26, posture: 30, range: 3.0, arc: 150, lunge: 1.2 }] },
+        { weight: 3, hits: [
+          { pose: 'punch', wind: 0.55, active: 0.1, recover: 0.2, dmg: 18, posture: 22, range: 2.8, arc: 70, lunge: 1.4 },
+          { pose: 'swipe', wind: 0.45, active: 0.14, recover: 0.7, dmg: 22, posture: 26, range: 3.0, arc: 150, lunge: 1.0 },
+        ] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.1, active: 0.22, recover: 1.0, dmg: 38, posture: 0, range: 3.2, arc: 360, aoe: { fwd: 2.0, r: 2.8 }, unblockable: true, lunge: 3.0, leap: true }] },
+        { weight: 0, hits: [{ pose: 'leap', wind: 0.9, active: 0.4, recover: 0.9, dmg: 30, posture: 0, range: 3.0, arc: 360, aoe: { fwd: 0.6, r: 3.0 }, unblockable: true, lunge: 9, leap: true }] },
+      ],
+    },
+    // The same great body as a cave troll: knuckle-fists in long combos, a ground slam, and it regenerates when left alone
+    troll: {
+      name: 'Cave Troll', rig: 'mutant', look: { variant: 'troll' }, hp: 300, posture: 150, postureRegen: 14, speed: 3.0, radius: 1.15, scale: 1.55,
+      flinch: false, hyperArmor: true, approach: 2.5, cooldown: [1.0, 1.9], xp: 85, gold: 50, aggro: 11, regen: 0.02,
+      attacks: [
+        { weight: 3, hits: [
+          { pose: 'punch', wind: 0.6, active: 0.1, recover: 0.18, dmg: 18, posture: 24, range: 2.9, arc: 70, lunge: 1.4 },
+          { pose: 'punch', wind: 0.4, active: 0.1, recover: 0.18, dmg: 18, posture: 24, range: 2.9, arc: 70, lunge: 1.2 },
+          { pose: 'swipe', wind: 0.5, active: 0.14, recover: 0.8, dmg: 26, posture: 32, range: 3.1, arc: 150, lunge: 1.0 },
+        ] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.15, active: 0.22, recover: 1.1, dmg: 40, posture: 0, range: 3.2, arc: 360, aoe: { fwd: 2.0, r: 3.0 }, unblockable: true, lunge: 2.6, leap: true }] },
+      ],
+    },
+    // ...and as a stone golem: slow boulder-fists that crush a guard, a quake that reaches far, and a stone hide (dr)
+    golem: {
+      name: 'Stone Golem', rig: 'mutant', look: { variant: 'golem' }, hp: 360, posture: 240, postureRegen: 10, speed: 2.3, radius: 1.25, scale: 1.65,
+      flinch: false, hyperArmor: true, approach: 2.6, cooldown: [1.3, 2.2], xp: 95, gold: 60, aggro: 10, dr: 0.25,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'punch', wind: 0.9, active: 0.12, recover: 0.8, dmg: 30, posture: 40, blockMult: 1.8, range: 3.0, arc: 80, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'swipe', wind: 1.0, active: 0.16, recover: 0.9, dmg: 28, posture: 36, blockMult: 1.5, range: 3.3, arc: 170, lunge: 0.8 }] },
+        { weight: 2, hits: [{ pose: 'slam', wind: 1.3, active: 0.24, recover: 1.2, dmg: 44, posture: 0, range: 3.4, arc: 360, aoe: { fwd: 1.6, r: 3.8 }, unblockable: true, lunge: 1.6, leap: true }] },
+      ],
+    },
     // ---- Act II ----
     // Throws slow orbs from afar; a parry sends an orb back at the caster
     caster: {
@@ -441,6 +479,7 @@ const CFG = {
   // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
   // after one falls); mult is how tough they are. The far ridge is the dangerous end.
   field: {
+    name: 'The Rim', side: 'south',
     size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
     zones: [
       { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], nightMobs: ['wolf', 'wolf', 'wolf', 'boar'], cap: 5, nightCap: 6, respawn: 25, mult: 1 },
@@ -452,10 +491,32 @@ const CFG = {
     // Field bosses: each keeps to its zone at its time of day, comes back respawn seconds (real time) after it falls
     bosses: [
       { id: 'oldtusk', name: 'Old Tusk', type: 'boar', zone: 'meadow', when: 'day', mods: ['armored'], hp: 6, scale: 1.7, respawn: 300, drops: { tusk: 4, pelt: 3 } },
+      { id: 'ridgehorror', name: 'The Ridge Horror', type: 'mutant', boss: 'horror', zone: 'ridge', when: 'day', respawn: 420, drops: { bone: 4, ore: 4, tusk: 2 } },
+      { id: 'colossus', name: 'The Forge Colossus', type: 'golem', boss: 'golem', zone: 'ridge', when: 'night', respawn: 420, drops: { ore: 8 } },
+      { id: 'mossback', name: 'Mossback', type: 'troll', boss: 'troll', zone: 'wood', when: 'any', respawn: 360, drops: { pelt: 4, herb: 4, tusk: 2 } },
       { id: 'graveknight', name: 'The Grave Knight', type: 'knight', zone: 'graves', when: 'night', mods: ['vampiric'], hp: 6, scale: 1.35, respawn: 300, drops: { bone: 5, ore: 2 } },
     ],
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
+  // The Fen: a second field through the east gate, opened when the first five guardians have fallen (the end of Act I).
+  // Black water, reeds, a drowned chapel and an old quarry; tougher than the Rim. Zones are placed by out (metres out
+  // from the field's near edge) and side (metres along the wall from the gate, north negative).
+  fen: {
+    name: 'The Fen', side: 'east', unlock: 5, gateZ: -7, size: [-63, 20, 80], gap: 5,    // size: lateral from, to (z), depth (x); the Rim starts past z 23
+    zones: [
+      { id: 'reeds', name: 'The Reedbank', out: 20, side: 8, r: 14, mobs: ['goblin', 'goblin', 'scout', 'spider'], cap: 6, respawn: 25, mult: 1.7 },
+      { id: 'mire', name: 'The Black Mire', out: 42, side: -26, r: 16, mobs: ['spider', 'spider', 'goblin', 'scout'], nightMobs: ['spider', 'spider', 'spider', 'wolf'], cap: 5, nightCap: 6, respawn: 30, mult: 2.0 },
+      { id: 'hollow', name: 'The Drowned Hollow', out: 50, side: 12, r: 14, mobs: ['skeleton', 'archer', 'skeleton', 'necro'], cap: 6, respawn: 30, mult: 2.1, night: true },
+      { id: 'quarry', name: 'The Old Quarry', out: 66, side: -12, r: 16, mobs: ['brute', 'goblin', 'scout', 'bearer'], cap: 6, respawn: 40, mult: 2.4 },
+    ],
+    nodes: { herb: 10, ore: 10, regrow: 150 },
+    bosses: [
+      { id: 'mirequeen', name: 'The Mire Queen', type: 'spider', zone: 'mire', when: 'day', mods: ['swift', 'vampiric'], hp: 7, scale: 2.0, respawn: 360, drops: { silk: 6, herb: 3 } },
+      { id: 'mirelord', name: 'The Mirelord', type: 'troll', boss: 'mirelord', zone: 'mire', when: 'night', respawn: 420, drops: { silk: 4, pelt: 4, ore: 3 } },
+      { id: 'bishop', name: 'The Drowned Bishop', type: 'necro', zone: 'hollow', when: 'night', mods: ['warded'], hp: 6, scale: 1.4, respawn: 300, drops: { bone: 6, silk: 2 } },
+      { id: 'foreman', name: 'The Quarry Foreman', type: 'brute', zone: 'quarry', when: 'any', mods: ['armored'], hp: 6, scale: 1.4, respawn: 360, drops: { ore: 6, tusk: 2 } },
+    ],
   },
   // The day in the Hold and on the Rim: length seconds from dawn to dawn (the dungeon below keeps no time). Day and
   // night colours for the sky and fog, the light, the sun or moon, and how far the fog lets you see.
@@ -468,10 +529,10 @@ const CFG = {
   // Ysolde brews tonics from herbs
   materials: {
     pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
-    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' }, silk: { name: 'Silk', icon: '🕸' },
   },
   matDrops: {                      // chance per kill on the Rim; below, a third of it
-    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['silk', 0.45], ['herb', 0.2]],
     skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
   },
   // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
@@ -481,9 +542,80 @@ const CFG = {
     { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
     { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
     { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'fenjerkin', name: 'Fensilk Jerkin', slot: 'armor', wc: 0, rarity: 2, aff: ['hp', 'regen'], need: { silk: 5, herb: 2 }, gold: 110 },
+    { id: 'mireboots', name: 'Mirewalker Boots', slot: 'boots', wc: 0, rarity: 2, aff: ['stamina', 'parry'], need: { silk: 3, pelt: 2 }, gold: 90 },
     { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
   ],
   temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
+  // The big monsters as bosses (Enemy.makeBoss takes these whole): grown, with phases like the guardians
+  monsterBosses: {
+    horror: { name: 'The Ridge Horror', scale: 1.15, hp: 3.5, posture: 1.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'THE HORROR ROARS', faster: 0.85, def: { speed: 3.8, cooldown: [0.7, 1.3] } },
+        { at: 0.3, shout: 'IT TEARS LOOSE', enrage: true, faster: 0.85, summon: ['wolf', 'wolf'] },
+      ] },
+    troll: { name: 'Mossback', scale: 1.15, hp: 3.5, posture: 1.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'MOSSBACK BELLOWS', def: { regen: 0.04 }, summon: ['scout', 'scout'] },
+        { at: 0.3, shout: 'HE WILL NOT FALL', enrage: true, faster: 0.8, def: { speed: 3.6 } },
+      ] },
+    abomination: { name: 'The Abomination', scale: 1.45, hp: 6, posture: 2, reach: 1.3,
+      phases: [
+        { at: 0.7, shout: 'IT CALLS ITS KIN', summon: ['troll'], faster: 0.9 },
+        { at: 0.45, shout: 'THE ARENA SHAKES', summon: ['wolf', 'wolf', 'scout'], def: { speed: 3.9, cooldown: [0.6, 1.2] } },
+        { at: 0.2, shout: 'IT WILL NOT DIE', enrage: true, faster: 0.75, def: { regen: 0.015 } },
+      ] },
+    mirelord: { name: 'The Mirelord', scale: 1.25, hp: 4.5, posture: 1.8, reach: 1.15,
+      phases: [
+        { at: 0.65, shout: 'THE MIRE STIRS', summon: ['spider', 'spider'], def: { regen: 0.03 } },
+        { at: 0.3, shout: 'IT RISES FROM THE BOG', enrage: true, faster: 0.8, summon: ['spider', 'goblin'], def: { speed: 3.6, cooldown: [0.7, 1.3] } },
+      ] },
+    golem: { name: 'The Forge Colossus', scale: 1.15, hp: 3.5, posture: 1.5, reach: 1.15,
+      phases: [
+        { at: 0.6, shout: 'THE CORE FLARES', faster: 0.85, def: { dr: 0.35 } },
+        { at: 0.3, shout: 'IT BREAKS OPEN', enrage: true, faster: 0.75, def: { dr: 0.1, speed: 3.0, cooldown: [0.8, 1.4] } },
+      ] },
+  },
+  // Captives in the dungeon's vaults: freed, they come to live in the Hold. The named ones bring a lasting perk; every
+  // rescue adds a little to the gold found (up to goldMax).
+  rescues: {
+    chance: 0.4, gold: 0.02, goldMax: 0.1,
+    people: [
+      { id: 'pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
+      { id: 'ilsa', name: 'Ilsa the cook', perk: 'Flasks heal 10% more', look: { cloth: 0x8a5a4a, hair: 0x3a2a1a, apron: true } },
+      { id: 'aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
+      { id: 'mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
+    ],
+    names: ['Tomas', 'Edda', 'Rolf', 'Greta', 'Hal', 'Wynn', 'Oswin', 'Bera'],
+  },
+  // The Ring, Varga's arena: fight again any guardian already beaten, and the big monsters once their field kin have fallen. The
+  // Abomination waits for whoever has beaten all three. Rewards: gold by depth, more the first time, and a gem.
+  arena: {
+    gold: 70, first: 3.5,
+    monsters: [
+      { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
+      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'mirelord', kind: 'troll', unlock: 'mirelord', theme: 'temple', fen: true },
+      { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
+    ],
+  },
+  // A raid on the south gate: now and then, a while after the warden comes home, a band marches up the Rim road and
+  // batters the gate. Beat them all for a reward; if the gate breaks, they carry off a share of the gold and run.
+  raid: {
+    chance: 0.22, from: 1, delay: [25, 50], gate: 100, batter: 0.7, steal: 0.08, stealMax: 400,
+    bands: [                                                      // by stage reached: the band, and its chief (an elite)
+      { upTo: 2, band: ['goblin', 'goblin', 'goblin', 'scout', 'wolf'], chief: 'goblin' },
+      { upTo: 5, band: ['goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'scout' },
+      { upTo: 99, band: ['goblin', 'goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'troll' },
+    ],
+    gold: 90, perStage: 0.5, mats: { pelt: 2, ore: 2 },
+  },
+  // Sefa's caravan: now and then she is camped in the Hold when the warden comes home, and stays for two homecomings.
+  // Gear a tier above the warden's depth, bundles of materials and a gem; she buys spare materials too.
+  wanderer: {
+    chance: 0.3, stays: 2, from: 1, itemMult: 3,
+    bundles: [{ id: 'herb', n: 4, gold: 60 }, { id: 'ore', n: 3, gold: 75 }, { id: 'pelt', n: 3, gold: 70 }, { id: 'tusk', n: 2, gold: 80 }, { id: 'bone', n: 4, gold: 60 }],
+    gem: 180, buys: 6,
+  },
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [
@@ -625,6 +757,11 @@ const CFG = {
   },
   // The people of Deepward Hold: what they say when spoken to (one line at a time, in turn)
   townsfolk: {
+    wanderer: ['Sefa the wanderer', [
+      'Roads, warden. All the roads lead past a hole in the ground eventually.',
+      'Steel from the cities south, forged by people who have never seen a ghoul. Better, somehow.',
+      'I buy what the Rim gives up. Pelts sell well where it snows.',
+    ]],
     bard: ['Wenna the bard', [
       'They say the Bone Warden was the first warden of this camp. He went down to hold the stair, and never came up.',
       'Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.',
@@ -638,6 +775,8 @@ const CFG = {
       'The south gate opens on the Rim: grass, wood and the old graveyard. Beasts, mostly. Good hunting for a warden.',
       'Wolves come in threes. Do not let them circle you.',
       'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
+      'Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.',
+      'The east gate opens on the Fen. Black water, spiders as big as dogs, and the drowned dead at night. Mind your footing.',
     ]],
     gemcutter: ['Nell the gem cutter', [
       'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',

@@ -87,6 +87,20 @@ const Rig = (() => {
     box(g, 0.1, 0.1, 0.22, iron, 0, 0, 0.42).rotation.y = Math.PI / 2;
     return { group: g, glowMats: [iron], tip: joint(g, 0, 0, 0.5), base: joint(g, 0, 0, 0.3) };
   }
+  // A mutant's claws: three hooked talons along the hand
+  function claws(hand) {
+    const g = joint(hand, 0, -0.06, 0), bone = std(0xd8d0bc, 0.4), glow = std(0x3affd8, 0.4); glow.emissive.setHex(0x1a8a70);
+    for (let k = -1; k <= 1; k++) { const c = mesh(new THREE.ConeGeometry(0.025, 0.24, 5).rotateX(Math.PI / 2), k ? bone : glow, g, k * 0.04, 0, 0.14); c.rotation.x = -0.25; }
+    return { group: g, glowMats: [bone, glow], tip: joint(g, 0, -0.04, 0.27), base: joint(g, 0, 0, 0.05) };
+  }
+  // A big fist: a troll's knuckles or a golem's boulder (its glowing runes are what telegraphs)
+  function fist(hand, VAR) {
+    const g = joint(hand, 0, -0.05, 0), golem = VAR === 'golem', m = std(golem ? 0x5a5650 : 0x4e6640, 0.9);
+    const f = golem ? box(g, 0.28, 0.26, 0.3, m, 0, -0.04, 0.04) : ball(g, 0.15, m, 0, -0.03, 0.04, 8, 6); if (!golem) f.scale.set(1.1, 0.9, 1.2);
+    const glow = std(golem ? 0xff8a2a : 0xe8e0c8, 0.5); if (golem) glow.emissive.setHex(0x8a3a10);
+    for (let k = -1; k <= 1; k++) box(g, 0.05, 0.05, 0.05, glow, k * 0.07, -0.02, golem ? 0.2 : 0.17);
+    return { group: g, glowMats: [m, glow], tip: joint(g, 0, -0.04, 0.22), base: joint(g, 0, 0, 0) };
+  }
   // A bard's lute and a villager's basket, held in the left hand
   function lute(hand) {
     const g = joint(hand, 0, -0.03, 0), wood = std(0x8a5a2a), dark = std(0x3a2416);
@@ -226,7 +240,7 @@ const Rig = (() => {
     if (kind === 'mimic') return buildMimic();
     if (kind === 'wolf' || kind === 'boar') return buildBeast(kind);
     const scout = kind === 'scout'; if (scout) kind = 'goblin';                // a goblin with throwing spears
-    const L = o.look || {}, N = o.npc || {};
+    const L = o.look || {}, N = o.npc || {}, VAR = o.variant || 'horror';       // VAR: a big monster's form (horror / troll / golem)
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
       hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
@@ -238,6 +252,7 @@ const Rig = (() => {
       brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
       caster: { skin: 0x8aa898, cloth: 0x1e4a4a, pants: 0x1a3434, boot: 0x14201e, w: 0.95, limbR: 0.9 },
       necro: { skin: 0xd8cfb4, cloth: 0x3a1e4a, pants: 0x3a1e4a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
+      mutant: { horror: { skin: 0x46505a, cloth: 0x24202a, pants: 0x2a2630, boot: 0x46505a, w: 1.5, limbR: 1.8 }, troll: { skin: 0x5a7048, cloth: 0x4a3a28, pants: 0x4a3a28, boot: 0x5a7048, w: 1.6, limbR: 1.9 }, golem: { skin: 0x6e6a64, cloth: 0x4a4642, pants: 0x4a4642, boot: 0x6e6a64, w: 1.75, limbR: 2.1 } }[VAR],
     }[kind];
     if (o.colors) Object.assign(S, o.colors);                              // a recoloured variant (the shield-bearer is a knight in blue)
     const rig = { kind, j: {}, mats: [], glowMats: [], trail: null };
@@ -274,7 +289,7 @@ const Rig = (() => {
     const spine = joint(hips, 0, 0.05, 0, 'YXZ'); rig.j.spine = spine;
     if (bony) {
       for (let i = 0; i < 4; i++) box(spine, 0.05, 0.05, 0.05, skin, 0, 0.03 + i * 0.07, -0.04);
-    } else mesh(new THREE.CylinderGeometry(0.15 * w, 0.155 * w, 0.24, 9), kind === 'brute' ? skin : cloth, spine, 0, 0.1, 0);
+    } else mesh(new THREE.CylinderGeometry(0.15 * w, 0.155 * w, 0.24, 9), kind === 'brute' || kind === 'mutant' ? skin : cloth, spine, 0, 0.1, 0);
     if (kind === 'brute') ball(spine, 0.21, skin, 0, 0.1, 0.06, 10, 8).scale.set(1.15, 0.9, 1);       // belly
     const chest = joint(spine, 0, 0.28, 0); rig.j.chest = chest;
     if (bony) {
@@ -285,7 +300,7 @@ const Rig = (() => {
       box(chest, 0.04, 0.24, 0.04, skin, 0, 0.06, 0.11);
       box(chest, 0.36, 0.04, 0.05, skin, 0, 0.21, 0);
     } else {
-      const torso = mesh(new THREE.CylinderGeometry(0.2 * w, 0.16 * w, 0.36, 9), kind === 'brute' ? skin : cloth, chest, 0, 0.08, 0);
+      const torso = mesh(new THREE.CylinderGeometry(0.2 * w, 0.16 * w, 0.36, 9), kind === 'brute' || kind === 'mutant' ? skin : cloth, chest, 0, 0.08, 0);
       torso.scale.z = 0.72;
       if (kind === 'hero') {
         if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, chest, 0, 0.09, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(chest, 0.12, steel, 0.21 * s, 0.22, 0, 8, 6).scale.set(1, 0.65, 1); }
@@ -311,6 +326,24 @@ const Rig = (() => {
         box(chest, 0.2, 0.42, 0.02, cloth, 0, 0.0, 0.15);                     // tabard
         for (const s of [1, -1]) ball(chest, 0.13, steel, 0.22 * s, 0.22, 0, 8, 6).scale.set(1, 0.7, 1.05);
       }
+      if (kind === 'mutant' && VAR === 'troll') {                          // a troll: mossy shoulders, a hide kilt, a rope belt of bones
+        const moss = std(0x3a5a2a);
+        for (const sd of [1, -1]) { ball(chest, 0.21, skin, 0.27 * sd, 0.2, -0.02, 9, 7).scale.set(1.1, 0.8, 1.0); for (let k = 0; k < 3; k++) ball(chest, 0.07, moss, 0.27 * sd + (k - 1) * 0.06, 0.33, -0.04 + k * 0.03, 5, 4); }
+        box(chest, 0.44, 0.22, 0.32, std(0x4a3a28), 0, -0.28, 0);
+        for (let k = 0; k < 3; k++) mesh(new THREE.ConeGeometry(0.025, 0.12, 4), std(0xe8e0c8), chest, -0.12 + k * 0.12, -0.38, 0.17).rotation.x = Math.PI;
+      } else if (kind === 'mutant' && VAR === 'golem') {                   // a golem: stone plates, a burning rune core
+        const core = glowMat(0xff8a2a), plate = std(0x5a5650, 0.95);
+        for (const sd of [1, -1]) { const sp = box(chest, 0.34, 0.24, 0.36, plate, 0.3 * sd, 0.22, 0); sp.rotation.z = -0.3 * sd; }
+        box(chest, 0.4, 0.34, 0.06, plate, 0, 0.05, 0.16); ball(chest, 0.07, core, 0, 0.06, 0.2, 7, 6);
+        for (const sd of [1, -1]) box(chest, 0.02, 0.18, 0.02, core, 0.1 * sd, -0.05, 0.195);
+        box(chest, 0.5, 0.18, 0.36, plate, 0, -0.28, 0);
+      } else if (kind === 'mutant') {                                      // a hunched hulk: heavy shoulders, back spikes, glowing teal veins
+        const vein = glowMat(0x3affd8);
+        for (const sd of [1, -1]) { ball(chest, 0.2, skin, 0.27 * sd, 0.2, -0.02, 9, 7).scale.set(1.1, 0.8, 1.0); box(chest, 0.03, 0.26, 0.02, vein, 0.12 * sd, 0.06, 0.15).rotation.z = 0.35 * sd; }
+        box(chest, 0.22, 0.03, 0.02, vein, 0, 0.18, 0.152);
+        for (let k = 0; k < 4; k++) mesh(new THREE.ConeGeometry(0.05, 0.2, 5), std(0x2a3038), chest, 0, 0.3 - k * 0.1, -0.2).rotation.x = -0.9;
+        box(chest, 0.42, 0.2, 0.3, std(0x24202a), 0, -0.28, 0);            // a ragged loincloth belt
+      }
       if (kind === 'brute') {
         const strap = box(chest, 0.08, 0.55, 0.04, leather, 0, 0.08, 0.15); strap.rotation.z = -0.6;
         ball(chest, 0.16, std(0x5a5048, 0.6, 0.3), -0.25, 0.22, 0, 8, 6).scale.set(1, 0.7, 1);
@@ -325,7 +358,18 @@ const Rig = (() => {
     const neck = joint(chest, 0, 0.26, 0, 'YXZ'); rig.j.neck = neck;
     limb(neck, 0.1, 0.05 * R, 0.06 * R, skin).position.y = 0.03;
     const head = joint(neck, 0, 0.14, 0); rig.j.head = head;
-    if (bony) {
+    if (kind === 'mutant' && VAR === 'troll') {                            // a long-nosed troll head with tusks and a tuft of hair
+      box(head, 0.26, 0.24, 0.26, skin, 0, 0, 0.02); box(head, 0.08, 0.14, 0.12, skin, 0, -0.02, 0.17);
+      box(head, 0.2, 0.1, 0.2, std(0x2a2018), 0, 0.15, -0.03);
+      for (const sd of [1, -1]) { ball(head, 0.022, glowMat(0xffd040), 0.07 * sd, 0.04, 0.14, 5, 4); const t = mesh(new THREE.ConeGeometry(0.025, 0.12, 5), std(0xe8e0c8), head, 0.08 * sd, -0.1, 0.13); t.rotation.set(0, 0, -0.2 * sd); mesh(new THREE.ConeGeometry(0.05, 0.16, 4), skin, head, 0.15 * sd, 0.04, 0).rotation.z = -1.2 * sd; }
+    } else if (kind === 'mutant' && VAR === 'golem') {                     // a blocky stone head with a burning eye slit
+      box(head, 0.3, 0.26, 0.28, std(0x5a5650, 0.95), 0, 0.02, 0); box(head, 0.2, 0.035, 0.02, glowMat(0xff8a2a), 0, 0.04, 0.142);
+    } else if (kind === 'mutant') {                                        // small for the body: a heavy brow, a jaw of teeth, glowing eyes
+      box(head, 0.24, 0.22, 0.24, skin, 0, 0, 0.02);
+      box(head, 0.26, 0.06, 0.08, std(0x2e343c), 0, 0.07, 0.12);
+      box(head, 0.2, 0.08, 0.14, skin, 0, -0.12, 0.08);
+      for (const sd of [1, -1]) { ball(head, 0.025, glowMat(0x3affd8), 0.06 * sd, 0.03, 0.14, 5, 4); mesh(new THREE.ConeGeometry(0.02, 0.07, 4), std(0xe8e0c8), head, 0.05 * sd, -0.1, 0.16).rotation.x = Math.PI; }
+    } else if (bony) {
       ball(head, 0.13, skin, 0, 0.02, 0, 10, 8).scale.set(1, 1.05, 1.1);
       box(head, 0.16, 0.07, 0.12, skin, 0, -0.1, 0.04);
       for (const s of [1, -1]) { ball(head, 0.035, dark, 0.05 * s, 0.02, 0.11, 6, 5); ball(head, 0.016, glowMat(0x7fe8ff), 0.05 * s, 0.02, 0.135, 5, 4); }
@@ -387,9 +431,9 @@ const Rig = (() => {
     // Arms
     for (const side of [1, -1]) {
       const n = side > 0 ? 'L' : 'R';
-      const sh = joint(chest, 0.22 * w * side + (kind === 'brute' ? 0.06 * side : 0), 0.2, 0, 'YXZ');
+      const sh = joint(chest, 0.22 * w * side + (kind === 'brute' || kind === 'mutant' ? 0.06 * side : 0), 0.2, 0, 'YXZ');
       ball(sh, 0.075 * R, bony ? skin : (kind === 'knight' ? steel : cloth));
-      limb(sh, 0.3, 0.068 * R, 0.058 * R, bony ? skin : (kind === 'brute' ? skin : cloth));
+      limb(sh, 0.3, 0.068 * R, 0.058 * R, bony ? skin : (kind === 'brute' || kind === 'mutant' ? skin : cloth));
       const el = joint(sh, 0, -0.3, 0);
       ball(el, 0.058 * R, bony ? skin : (kind === 'knight' ? steel : skin));
       limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
@@ -413,6 +457,7 @@ const Rig = (() => {
     // Weapons and shields
     let wpn = null;
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
+    else if (kind === 'mutant') { const hand = VAR === 'horror' ? claws : h => fist(h, VAR); wpn = hand(rig.j.hdR); const off = hand(rig.j.hdL); rig.offhand = off; rig.glowMats.push(...off.glowMats); }
     else if (kind === 'npc') {
       if (N.tool === 'hammer') wpn = hammer(rig.j.hdR);
       else if (N.tool === 'spear') wpn = spear(rig.j.hdR, {});
@@ -440,7 +485,7 @@ const Rig = (() => {
     // Motion capture drives every rig: sword-and-shield clips for people, great-sword clips for the two-handed brute.
     // The shield rides on the outside of the forearm, where the clips expect it (mirrored from Nightfall's rig).
     // A two-handed hero uses the great-sword clips, with the left hand held on the grip (gripIK)
-    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'brute' || L.twoHanded ? 'gs' : 'ss'; rig.calm = kind === 'npc'; rig.twoHand = kind === 'hero' && !!L.twoHanded;
+    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'mutant' ? 'mu' : kind === 'brute' || L.twoHanded ? 'gs' : 'ss'; rig.calm = kind === 'npc'; rig.twoHand = kind === 'hero' && !!L.twoHanded;
     if (rig.mocap && rig.shield) {
       rig.j.elL.add(rig.shield); rig.shield.position.set(0.14, -0.2, 0.02);
       rig.shield.rotation.set(0, Math.PI / 2, kind === 'knight' ? Math.PI / 2 : 0);    // face outward; a tall shield stands across the forearm
@@ -451,7 +496,9 @@ const Rig = (() => {
 
     root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
-    rig.time = Math.random() * 10;
+    rig.time = Math.random() * 10; rig.pace = 0.85 + Math.random() * 0.3;            // no two idle quite in step
+    if (N.pose) rig.posture = N.pose;
+    if (kind !== 'hero') skinRig(rig);                                          // one draw call per body (the hero keeps parts: gear swaps, after-images)
     rig.shieldYaw = 0;
     if (CFG.enemies[kind] && CFG.enemies[kind].scale) root.scale.setScalar(CFG.enemies[kind].scale);
     return rig;
@@ -484,6 +531,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
@@ -535,6 +583,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
@@ -584,6 +633,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   function animateMimic(rig, st, dt) {
@@ -774,8 +824,10 @@ const Rig = (() => {
     ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump', shoot: 'shoot' },
     gs: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', thrust: 'gsAttack', heavy: 'gsJumpAttack' },
     gsHero: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', heavy: 'gsSpin' },
+    mu: { swipe: 'brawlSwipe', punch: 'brawlPunch', slam: 'mJumpAttack', leap: 'mJumpAttack2', roar: 'mRoar', slashR: 'brawlSwipe', heavy: 'mJumpAttack' },
   };
   function locoClip(rig, st) {
+    if (rig.set === 'mu') return (st.mps || 0) > 2.8 ? { name: 'mRun', ref: 4.2 } : { name: 'mWalk', ref: 1.5 };
     const gs = rig.set === 'gs', run = (st.mps || 0) > 2.8, f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
     if (gs) {
       if (f > 0.5 || (rig.calm || st.calm)) return { name: run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
@@ -789,6 +841,19 @@ const Rig = (() => {
   }
   const out = { q: null, hipsY: 0.9, hipsZ: 0 };
   // Fills rig.tq with the clip pose for this state; returns the blend rate, or 0 when a hand-made pose should be used
+  // A posture: a clip (an everyday idle, kneeling, seated work) at the person's own pace and phase, played back and forth
+  // over part of it when it is not a loop, with fixed turns of some joints on top (P.add: joint -> Euler, applied after
+  // the clip's own rotation; P.set: joint -> Euler, replacing it)
+  const pq = new THREE.Quaternion(), pe = new THREE.Euler();
+  function posture(rig, P) {
+    const c = Mocap.clips[P.clip]; if (!c) return Mocap.sample('idleCalm', rig.time, out);
+    let t = rig.time * (P.rate || 1) + (P.phase || 0);
+    if (!c.loop) { const a = (P.from || 0) * c.d, d = Math.max(0.1, ((P.to || 1) - (P.from || 0)) * c.d), u = t % (2 * d); t = a + (u < d ? u : 2 * d - u); }
+    Mocap.sample(P.clip, t, out);
+    if (P.add) for (const j in P.add) { const e = P.add[j]; pe.set(e[0], e[1], e[2]); out.q[j].multiply(pq.setFromEuler(pe)); }
+    if (P.set) for (const j in P.set) { const e = P.set[j]; pe.set(e[0], e[1], e[2]); out.q[j].setFromEuler(pe); }
+    if (P.hipsY !== undefined) out.hipsY = P.hipsY;
+  }
   function mocapPose(rig, st, dt) {
     const gs = rig.set === 'gs', m = st.mode;
     out.q = rig.tq; out.hipsY = 0.9; out.hipsZ = 0;
@@ -799,7 +864,11 @@ const Rig = (() => {
       rig.loco += dt * Math.min(1.8, Math.max(0.4, (st.mps || 1.5) / lc.ref)) / c.d;
       Mocap.sample(lc.name, rig.loco * c.d, out);
     }
-    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) Mocap.sample(gs ? 'gsIdle' : (rig.calm || st.calm) ? 'idleCalm' : 'idle', rig.time, out);
+    if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) {
+      if (rig.posture && m !== 'spawn') posture(rig, rig.posture);                // a person's own way of standing, sitting or kneeling
+      else if (st.calm && !rig.calm && rig.set === 'ss') Mocap.sample('idleEase', rig.time, out);   // the hero at ease in the Hold
+      else Mocap.sample(rig.set === 'mu' ? 'mIdle' : gs ? 'gsIdle' : rig.calm ? 'idleCalm' : 'idle', rig.time * (rig.pace || 1), out);
+    }
     if (m === 'block') {                                                    // guard up; the legs keep walking underneath when moving
       if (gs && !rig.twoHand) return 0;
       if (gs) Mocap.sample('gsBlock', Math.min(st.blockT || 0, 0.45), out, moving ? Mocap.UPPER : Mocap.BONES);
@@ -816,8 +885,9 @@ const Rig = (() => {
       out.hipsZ = 0;                                                        // the game moves the body itself (lunges)
       return 30;
     }
+    if (rig.set === 'mu' && (m === 'hurt' || m === 'stagger' || m === 'broken')) return 0;   // no clip: the hand-made stagger
     if (m === 'hurt' || m === 'stagger') { Mocap.sample(gs ? 'gsImpact' : (rig.hurtVar ? 'impact2' : 'impact'), Math.min(st.t * 1.6, 0.75), out); out.hipsZ = 0; return 22; }
-    if (m === 'dead') { Mocap.sample(gs ? 'gsDie' : rig.dieVar ? 'die2' : 'die', st.t * 1.5, out); return 14; }
+    if (m === 'dead') { Mocap.sample(rig.set === 'mu' ? 'mDie' : gs ? 'gsDie' : rig.dieVar ? 'die2' : 'die', st.t * (rig.set === 'mu' ? 1.0 : 1.5), out); return 14; }
     return 0;                                                                // roll, broken, guard break: hand-made poses
   }
 
@@ -979,5 +1049,49 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
+  // ---------------- One skinned mesh per character ----------------
+  // A rig is a tree of joints, each holding a few rigid meshes: one draw call per mesh. skinRig() merges every plain mesh
+  // into a single SkinnedMesh whose bones are the joints themselves (each vertex bound wholly to its joint), with the
+  // colours carried per vertex, so the joints animate exactly as before and the whole body is drawn at once.
+  // Glowing, textured and see-through parts (weapons, shields) stay as they are.
+  const skM = new THREE.Matrix4(), skInv = new THREE.Matrix4(), skC = new THREE.Color();
+  function skinRig(rig) {
+    const root = rig.root; root.updateMatrixWorld(true); skInv.copy(root.matrixWorld).invert();
+    const meshes = [];
+    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !(rig.glowMats || []).includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
+    if (meshes.length < 2) return;
+    const bones = [], boneOf = new Map();
+    let n = 0; const parts = [];
+    for (const o of meshes) {
+      if (!boneOf.has(o.parent)) { boneOf.set(o.parent, bones.length); bones.push(o.parent); }
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(skM.multiplyMatrices(skInv, o.matrixWorld));                     // into the root's space, as posed now
+      parts.push([g, o.material.color, boneOf.get(o.parent)]); n += g.attributes.position.count;
+    }
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    let k = 0;
+    for (const [g, c, b] of parts) {
+      const cnt = g.attributes.position.count, vc = g.attributes.color;
+      pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3);
+      for (let v = 0; v < cnt; v++) {
+        if (vc) skC.setRGB(vc.getX(v) * c.r, vc.getY(v) * c.g, vc.getZ(v) * c.b); else skC.copy(c);
+        col[(k + v) * 3] = skC.r; col[(k + v) * 3 + 1] = skC.g; col[(k + v) * 3 + 2] = skC.b;
+        si[(k + v) * 4] = b; sw[(k + v) * 4] = 1;
+      }
+      k += cnt; g.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    geo.computeBoundingSphere(); geo.boundingSphere.radius += 0.6;                     // room for the limbs to swing
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.85, flatShading: true, skinning: true });
+    const body = new THREE.SkinnedMesh(geo, mat); body.castShadow = true; body.receiveShadow = true;
+    root.add(body); body.updateMatrixWorld(true);
+    body.bind(new THREE.Skeleton(bones), body.matrixWorld);
+    for (const o of meshes) { o.parent.remove(o); o.geometry.dispose(); }
+    rig.mats = rig.mats.filter(m => !meshes.some(o => o.material === m)).concat(mat); rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    rig.body3 = body;
+  }
+
+  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, skin: skinRig, ATTACKS };
 })();

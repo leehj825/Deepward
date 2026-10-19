@@ -48,7 +48,8 @@ const Camp = (() => {
     const stakeG = new THREE.CylinderGeometry(0.16, 0.18, 2.6, 6), tipG = new THREE.ConeGeometry(0.16, 0.4, 6); room.geos.push(stakeG, tipG);
     const stake = (x, z) => { const h = 0.9 + Math.random() * 0.25; const s = new THREE.Mesh(stakeG, wood); s.position.set(x, 1.3 * h, z); s.scale.y = h; s.castShadow = true; group.add(s); const t = new THREE.Mesh(tipG, wood); t.position.set(x, 2.6 * h + 0.2, z); group.add(t); };
     for (let x = -HW - 0.5; x <= HW + 0.5; x += 0.4) { if (Math.abs(x) > 3.4) stake(x, HD + 0.6); if (Math.abs(x) > 3.2) stake(x, -HD - 0.6); }
-    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); stake(HW + 0.6, z); }
+    const egz = CFG.fen.gateZ;                                                  // the east gate onto the Fen
+    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); if (Math.abs(z - egz) > 3.4) stake(HW + 0.6, z); }
     // Watchtowers at the corners
     for (const [x, z] of [[-HW + 1, -HD + 1], [HW - 1, -HD + 1], [-HW + 1, HD - 1], [HW - 1, HD - 1]]) {
       for (const [dx, dz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) add(new THREE.CylinderGeometry(0.12, 0.14, 5, 6), darkWood, x + dx, 2.5, z + dz);
@@ -59,7 +60,7 @@ const Camp = (() => {
     const pine = M(0x1e2a22), trunk = M(0x2a1e14);
     for (let i = 0; i < 70; i++) {
       const a = Math.random() * Math.PI * 2, r = 32 + Math.random() * 16, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
-      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2) continue;              // the south side is the Rim's
+      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2 || (lv.fen && x > HW)) continue;   // the south side is the Rim's, the east the Fen's
       const h = 4 + Math.random() * 5;
       add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z);
       add(new THREE.ConeGeometry(1.4 + Math.random(), h, 6), pine, x, 1 + h / 2, z);
@@ -69,7 +70,10 @@ const Camp = (() => {
     for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2; add(new THREE.DodecahedronGeometry(0.22, 0), stone, Math.cos(a) * 0.85, 0.12, 1 + Math.sin(a) * 0.85); }
     for (let k = 0; k < 4; k++) { const l = add(new THREE.CylinderGeometry(0.09, 0.1, 1.2, 6), darkWood, 0, 0.2, 1); l.rotation.set(Math.PI / 2 - 0.35, k * Math.PI / 4, 0); }
     torch(0, 0.45, 1, 0xff8a3a, true, 2.2); block(0, 1, 1.05);
-    for (const [x, z, ry] of [[-2.4, 1.6, 0.3], [2.6, 0.2, -0.4], [0.4, 3.4, 1.4], [-1.6, -1.4, -0.9]]) { const l = add(new THREE.CylinderGeometry(0.22, 0.24, 1.6, 7), wood, x, 0.22, z); l.rotation.set(0, ry, Math.PI / 2); block(x, z, 0.6); }
+    // Logs to sit on, laid around the fire (along the circle, so whoever sits faces the flames)
+    const logs = [[-2.4, 1.6], [2.6, 0.2], [0.4, 3.4], [-1.6, -1.4]];
+    for (const [x, z] of logs) { const l = add(new THREE.CylinderGeometry(0.22, 0.24, 1.6, 7), wood, x, 0.22, z); l.rotation.set(0, Math.atan2(-x, -(z - 1)), Math.PI / 2); block(x, z, 0.6); }
+    const facing = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
     // The camp ledger
     add(new THREE.BoxGeometry(0.15, 1.8, 0.15), darkWood, -3.4, 0.9, 4.6);
     add(new THREE.BoxGeometry(1.2, 0.8, 0.08), wood, -3.4, 1.55, 4.65);
@@ -78,6 +82,12 @@ const Camp = (() => {
     room.spots.push({ id: 'ledger', name: 'Camp ledger', verb: 'Upgrade camp', x: -3.4, z: 5.5, r: 1.8 });
     room.spots.push({ id: 'elder', name: 'Maren', verb: 'Talk', x: 2.4, z: 2.6, r: 2.0 });
     room.spots.push({ id: 'bard', name: 'Wenna the bard', verb: 'Listen', x: -3.2, z: 2.6, r: 1.8 });
+    // The notice board: jobs for the warden
+    for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 2.0, 0.12), darkWood, 3.6 + sd * 0.7, 1.0, 5.4);
+    add(new THREE.BoxGeometry(1.7, 1.1, 0.08), wood, 3.6, 1.45, 5.45); add(new THREE.BoxGeometry(1.9, 0.12, 0.3), roofM, 3.6, 2.05, 5.45);
+    for (let k = 0; k < 4; k++) add(new THREE.BoxGeometry(0.32, 0.38, 0.01), M(0xe8dcc0), 3.0 + k * 0.4, 1.45 + (k % 2) * 0.12, 5.5, group, false).rotation.z = (Math.random() - 0.5) * 0.3;
+    block(3.6, 5.4, 0.8);
+    room.spots.push({ id: 'board', name: 'Notice board', verb: 'Jobs', x: 3.6, z: 6.4, r: 1.8 });
 
     // ---- The stair down (north) ----
     const gz = -HD + 0.4;
@@ -156,6 +166,23 @@ const Camp = (() => {
     for (let k = 0; k < 2; k++) add(new THREE.BoxGeometry(0.05, 1.1, 0.05), steel, 17.5 + k * 0.25, 0.55, 10.5).rotation.z = 0.25;
     block(18, 10, 0.4);
     room.spots.push({ id: 'trainer', name: 'Training yard', verb: 'Expertise', x: 17, z: 11.2, r: 1.9 });
+    // The Ring, Varga's arena: a ring of stakes on the open ground north-east of the fire, where old foes are fought again
+    const rx = 13, rz = -12;
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; if (k === 12) continue; add(new THREE.CylinderGeometry(0.1, 0.12, 1.4, 5), darkWood, rx + Math.sin(a) * 3.4, 0.7, rz + Math.cos(a) * 3.4); block(rx + Math.sin(a) * 3.4, rz + Math.cos(a) * 3.4, 0.2); }
+    const sand = add(new THREE.CircleGeometry(3.3, 20), M(0x8a7a5a), rx, 0.02, rz); sand.rotation.x = -Math.PI / 2; sand.castShadow = false;
+    torch(rx - 3.9, 1.8, rz + 1.6, 0xff9a40); torch(rx + 3.9, 1.8, rz - 1.6, 0xff9a40);
+    room.spots.push({ id: 'arena', name: 'The Ring', verb: 'Fight', x: rx - 4.6, z: rz + 1.2, r: 1.9 });
+    // Sefa's caravan (some homecomings): a painted wagon on the open ground north-west, crates and a rug
+    if (lv.wanderer) {
+      const cx = -11, cz = -12;
+      add(new THREE.BoxGeometry(2.8, 0.8, 1.5), M(0x6a3a2a), cx, 0.9, cz); block(cx, cz, 1.7);
+      const roof = add(new THREE.CylinderGeometry(0.8, 0.8, 2.8, 10, 1, true, 0, Math.PI), M(0xffffff, { map: stripes('#2a8a8a', '#d8a040') }), cx, 1.3, cz); roof.rotation.z = Math.PI / 2; roof.material.side = THREE.DoubleSide;
+      for (const [dx, dz] of [[-1, -0.8], [1, -0.8], [-1, 0.8], [1, 0.8]]) { const w = add(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 10), darkWood, cx + dx, 0.45, cz + dz); w.rotation.x = Math.PI / 2; }
+      add(new THREE.BoxGeometry(2.4, 0.02, 1.6), M(0x8a2a3a), cx + 0.4, 0.02, cz + 2.4, group, false);
+      for (const [dx, dz, sz] of [[1.9, 1.4, 0.6], [2.4, 2.2, 0.5], [-1.6, 1.6, 0.55]]) { add(new THREE.BoxGeometry(sz, sz, sz), wood, cx + dx, sz / 2, cz + dz).rotation.y = dx; block(cx + dx, cz + dz, sz * 0.7); }
+      torch(cx - 1.5, 1.7, cz + 0.9, 0x5ad8c8, false);
+      room.spots.push({ id: 'wanderer', name: 'Sefa the wanderer', verb: 'Trade', x: cx + 0.4, z: cz + 3.2, r: 2.0 });
+    }
     // A rail fence around the yard and a straw dummy per level (one always stands)
     for (let x = 8; x <= 21; x += 1.6) { add(new THREE.BoxGeometry(0.1, 0.9, 0.1), darkWood, x, 0.45, 15.5); }
     add(new THREE.BoxGeometry(13, 0.08, 0.08), wood, 14.5, 0.75, 15.5);
@@ -202,30 +229,69 @@ const Camp = (() => {
     }
     // The gate doors stand open once the Rim is opened (World adds the road beyond); until then they are shut
     room.southGate = { z: sgz };
+    // The east gate: posts, a lintel and torches; barred with doors until the Fen is opened
+    for (const s of [-1, 1]) {
+      for (const [dx, dz] of [[-0.5, -0.6], [0.5, -0.6], [-0.5, 0.6], [0.5, 0.6]]) add(new THREE.CylinderGeometry(0.13, 0.15, 4.4, 6), darkWood, HW + 0.6 + dx, 2.2, egz + s * 3.6 + dz);
+      add(new THREE.BoxGeometry(1.6, 0.15, 1.7), wood, HW + 0.6, 3.4, egz + s * 3.6); torch(HW + 0.6, 3.6, egz + s * 3.6, lv.fen ? 0xb8e070 : 0xff9a40); block(HW + 0.6, egz + s * 3.6, 1.1);
+    }
+    if (!lv.fen) {
+      for (const s of [-1, 1]) { add(new THREE.BoxGeometry(0.25, 2.8, 2.9), darkWood, HW + 0.6, 1.4, egz + s * 1.45); add(new THREE.BoxGeometry(0.3, 0.2, 2.6), iron, HW + 0.45, 1.6, egz + s * 1.45); }
+      add(new THREE.BoxGeometry(0.2, 0.25, 5.6), iron, HW + 0.4, 1.4, egz);                              // the bar
+      room.spots.push({ id: 'eastgate', name: 'The east gate', verb: 'Look', x: HW - 1.4, z: egz, r: 1.8 });
+    }
+    path(15, -2, HW, egz, 1.7);
+    // The alarm bell beside the gate, rung when raiders come up the road (a group of its own, so it can swing)
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.14, 2.6, 0.14), darkWood, 6.2 + s * 0.55, 1.3, HD - 1.2);
+    add(new THREE.BoxGeometry(1.3, 0.14, 0.18), darkWood, 6.2, 2.6, HD - 1.2); block(6.2, HD - 1.2, 0.7);
+    const bell = new THREE.Group(); bell.position.set(6.2, 2.52, HD - 1.2); group.add(bell);
+    const bellM = M(0xb08a3a, { metalness: 0.6, roughness: 0.4 });
+    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.3, 0.42, 10, 1, true), bellM); bm.position.y = -0.24; bm.material.side = THREE.DoubleSide; bm.castShadow = true; bell.add(bm); room.geos.push(bm.geometry);
+    const clap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), iron); clap.position.y = -0.42; bell.add(clap); room.geos.push(clap.geometry);
+    room.bell = { g: bell, t: 0 };
     room.spots.push({ id: 'guard', name: 'Captain Rook', verb: 'Talk', x: -3.2, z: HD - 2.2, r: 1.8 });
 
     // ---- The people of the Hold ----
+    // Sitting: the legs bent over a seat and the pelvis lowered onto it, hands on the knees; the clip under it keeps the
+    // body breathing. A worker at a bench keeps the clip's busy hands and leans in.
+    const LEGS = { hips: [0, 0, 0], hipL: [-1.5, 0, 0.1], knL: [1.45, 0, 0], hipR: [-1.5, 0, -0.1], knR: [1.45, 0, 0] };
+    const SEAT = { clip: 'idleEase', rate: 0.5, hipsY: 0.48, still: true, set: Object.assign({ shL: [-0.55, 0, 0.12], elL: [-0.9, 0, 0], shR: [-0.55, 0, -0.12], elR: [-0.9, 0, 0] }, LEGS) };
+    const BENCH = { clip: 'seatWork', rate: 0.8, hipsY: 0.48, still: true, set: Object.assign({ spine: [0.25, 0, 0] }, LEGS) };
     const npc = (id, x, z, ry, opt, extra = {}) => {
       const r = Rig.build('npc', { npc: opt }); r.root.position.set(x, 0, z); r.root.rotation.y = ry; group.add(r.root);
-      const n = Object.assign({ id, rig: r, x, z, ry, face: ry }, extra); room.npcs.push(n); return n;
+      if (opt.seat) add(new THREE.CylinderGeometry(0.2, 0.24, opt.seat, 7), darkWood, x - Math.sin(ry) * 0.1, opt.seat / 2, z - Math.cos(ry) * 0.1);   // a stool
+      const n = Object.assign({ id, rig: r, x, z, ry, face: ry, still: !!(opt.pose && opt.pose.still) }, extra); room.npcs.push(n); return n;
     };
-    npc('smith', fx + 2.4, fz + 2.2, 0.9, { cloth: 0x5a4632, hair: 0x2a1a10, beard: true, apron: true, tool: 'hammer', skin: 0xc88b63 });
-    npc('trader', sx - 1.0, sz + 1.0, -2.4, { cloth: 0x6a2a2a, hair: 0x8a5a2b, scarf: 0xc9a23a, skin: 0xf1c9a0 });
-    npc('elder', 2.4, 1.7, -0.6, { cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
-    npc('bard', -3.2, 1.8, 1.0, { cloth: 0x6a3a6a, hair: 0xc88a3a, scarf: 0xd8b04a, skin: 0xf0c8a8, tool: 'lute' });
-    npc('gemcutter', nx + 1.0, nz + 1.0, 0.6, { cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
-    npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
-    npc('curio', wx - 1.4, wz + 0.9, -2.0, { cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
-    npc('guard', -3.2, HD - 1.4, Math.PI, { cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
-    npc('sentry', 3.2, HD - 1.4, Math.PI, { cloth: 0x4a4a5a, hair: 0x6a4a2a, scarf: 0x7a2a22, skin: 0xe2b088, tool: 'spear' });
+    npc('smith', fx + 2.4, fz + 2.2, 0.9, { pose: { clip: 'idleExamine' }, cloth: 0x5a4632, hair: 0x2a1a10, beard: true, apron: true, tool: 'hammer', skin: 0xc88b63 });
+    npc('trader', sx - 1.0, sz + 1.0, -2.4, { pose: { clip: 'idleLook', rate: 0.8 }, cloth: 0x6a2a2a, hair: 0x8a5a2b, scarf: 0xc9a23a, skin: 0xf1c9a0 });
+    npc('elder', 2.4, 1.7, -0.6, { pose: { clip: 'idleEase', rate: 0.7, add: { spine: [0.22, 0, 0], neck: [0.12, 0, 0] } }, cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
+    npc('bard', -2.4, 1.6, facing(-2.4, 1.6, 0, 1), { pose: SEAT, cloth: 0x6a3a6a, hair: 0xc88a3a, scarf: 0xd8b04a, skin: 0xf0c8a8, tool: 'lute' });
+    npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
+    npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
+    npc('curio', wx - 1.4, wz + 0.9, -2.0, { pose: { clip: 'idleExamine', phase: 2.5 }, cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
+    const guardN = npc('guard', -3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleAlert' }, cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
+    npc('arenamaster', 13 - 4.4, -12 - 0.2, -1.2, { pose: { clip: 'idleEase', rate: 0.9, phase: 3 }, cloth: 0x5a3a2a, hair: 0x6a6a6a, beard: true, scarf: 0xa03a2a, skin: 0xc89060, tool: 'spear' });
+    if (lv.wanderer) npc('wanderer', -11 + 1.2, -12 + 2.1, 0.4, { pose: { clip: 'idleLook', phase: 1 }, cloth: 0x2a6a6a, hair: 0x1a1a1a, scarf: 0xd8a040, skin: 0xa86a40 });
+    const sentryN = npc('sentry', 3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleShift' }, cloth: 0x4a4a5a, hair: 0x6a4a2a, scarf: 0x7a2a22, skin: 0xe2b088, tool: 'spear' });
     for (const n of room.npcs) block(n.x, n.z, 0.45);
+    // Rook and the sentry hold the gate in a raid: their post outside it, and their home inside
+    for (const [n, s] of [[guardN, -1], [sentryN, 1]]) Object.assign(n, { guard: true, home: [n.x, n.z], post: [s * 1.6, HD + 3.9], cd: 1 + Math.random() });
     // Villagers on their rounds: walk a loop of points, pause at each, greet the warden when close
-    const walker = (opt, pts) => { const n = npc('villager', pts[0][0], pts[0][1], 0, opt, { path: pts, pi: 1, wait: Math.random() * 3, greeted: false }); return n; };
+    // By the fire: two villagers sit on the logs; in the living quarter one kneels at the vegetable patch
+    npc('sitter', 2.6, 0.2, facing(2.6, 0.2, 0, 1), { pose: Object.assign({}, SEAT, { phase: 1.3 }), cloth: 0x6a4a3a, hair: 0x2a1a10, skin: 0xd8a07a, beard: true });
+    npc('sitter', 0.4, 3.4, facing(0.4, 3.4, 0, 1), { pose: Object.assign({}, SEAT, { phase: 2.1 }), cloth: 0x4a5a6a, hair: 0xa07a3a, skin: 0xf0c8a0 });
+    for (let k = 0; k < 6; k++) add(new THREE.ConeGeometry(0.12, 0.3, 4), M(0x5a8a3a), -18 + (k % 3) * 0.7, 0.15, -1.2 + Math.floor(k / 3) * 0.7);
+    npc('gardener', -16.6, -0.8, -Math.PI / 2, { pose: { clip: 'pullPlant', from: 0.1, to: 0.6, rate: 0.6, still: true }, cloth: 0x7a6a3a, hair: 0x5a3a1a, skin: 0xc89060 });
+    const EVERYDAY = ['idleEase', 'idleLook', 'idleUnarmed', 'idleHold', 'idleExamine'];
+    const walker = (opt, pts) => {
+      opt.pose = opt.pose || { clip: EVERYDAY[room.npcs.length % EVERYDAY.length], phase: Math.random() * 5 }; const n = npc('villager', pts[0][0], pts[0][1], 0, opt, { path: pts, pi: 1, wait: Math.random() * 3, greeted: false }); return n; };
     walker({ cloth: 0x7a5a3a, hair: 0x4a2a1a, skin: 0xe8b890, tool: 'basket' }, [[-10, 6], [-3, 7], [6, 7], [12, 3], [6, 7], [-3, 7]]);
     walker({ cloth: 0x5a6a7a, hair: 0x8a8a8a, elder: true, skin: 0xd8a07a }, [[-12, 12], [-10, 6.2], [-5, 9], [-8, 14]]);
     walker({ cloth: 0x8a3a2a, hair: 0x2a1a10, beard: true, skin: 0xb88050 }, [[-12, -2], [-6, -1], [-6, 4], [-12, 6]]);
     walker({ cloth: 0x3a6a5a, hair: 0xc8a050, skin: 0xf0d0b0 }, [[8, 2], [11, -1], [16, 3.5], [11, 8], [6, 9]]);
     walker({ cloth: 0x6a5a3a, hair: 0x5a3a1a, skin: 0xc89060 }, [[-2, 10], [4, 12], [2, 15], [-4, 14]]);
+    // The people the warden freed from the Deep live here now
+    const R = (lv.rescued || []).slice(0, 8);
+    R.forEach((r, k) => { const a = k / Math.max(1, R.length) * Math.PI * 2, cx = -12 + Math.cos(a) * 2, cz = 10 + Math.sin(a) * 2; walker(Object.assign({ skin: 0xe0b088 }, r.look || {}), [[cx, cz], [-6 + (k % 3) * 2, 6 + (k % 2)], [-14 + k, 13], [cx + 1, cz - 3]]).who = r; });
 
     // Embers rising from the fire
     const N = 40, pos = new Float32Array(N * 3), eg = new THREE.BufferGeometry();
@@ -240,10 +306,13 @@ const Camp = (() => {
 
   // NPCs breathe, and turn to watch the hero when he comes near; embers drift up
   function update(room, dt, heroPos) {
+    const raid = typeof G !== 'undefined' && G.raid && G.raid.on;
+    if (room.bell) { const b = room.bell; if (raid && b.t <= 0 && !b.rung) { b.t = 4; b.rung = true; } if (!raid) b.rung = false; b.t = Math.max(0, b.t - dt); b.g.rotation.x = Math.sin(b.t * 9) * 0.5 * Math.min(1, b.t); }
     for (const n of room.npcs) {
       if (n.path) { walk(n, dt, heroPos); continue; }
+      if (n.guard && (raid || Math.hypot(n.x - n.home[0], n.z - n.home[1]) > 0.1)) { defend(n, dt, raid); continue; }
       const d = heroPos ? Math.hypot(heroPos.x - n.x, heroPos.z - n.z) : 99;
-      const want = d < 4.5 ? Math.atan2(heroPos.x - n.x, heroPos.z - n.z) : n.ry;
+      const want = d < 4.5 && !n.still ? Math.atan2(heroPos.x - n.x, heroPos.z - n.z) : n.ry;   // the seated and kneeling keep at what they do
       let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 4);
       n.rig.root.rotation.y = n.face;
       Rig.animate(n.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
@@ -253,6 +322,31 @@ const Camp = (() => {
       for (let k = 0; k < p.count; k++) { let y = p.getY(k) + dt * (0.6 + (k % 5) * 0.15); if (y > 3.2) { y = 0.3; p.setX(k, (Math.random() - 0.5) * 0.8); p.setZ(k, 1 + (Math.random() - 0.5) * 0.8); } p.setY(k, y); p.setX(k, p.getX(k) + Math.sin(y * 3 + k) * dt * 0.1); }
       p.needsUpdate = true;
     }
+  }
+  // A guard in a raid: out to the post beyond the gate, spear at any raider in reach; home again after
+  function defend(n, dt, raid) {
+    const [tx, tz] = raid ? n.post : n.home, dx = tx - n.x, dz = tz - n.z, d = Math.hypot(dx, dz);
+    const foes = raid ? G.enemies.filter(e => e.raid && e.state !== 'dead' && Math.hypot(e.pos.x - n.x, e.pos.z - n.z) < 6) : [];
+    const foe = foes.sort((a, b) => Math.hypot(a.pos.x - n.x, a.pos.z - n.z) - Math.hypot(b.pos.x - n.x, b.pos.z - n.z))[0];
+    let mode = 'idle', st = { mode, t: 0, speed: 0, calm: false };
+    if (d > 0.1) {
+      n.x += dx / d * Math.min(3 * dt, d); n.z += dz / d * Math.min(3 * dt, d); n.face = Math.atan2(dx, dz);
+      st = { mode: 'move', t: 0, speed: 0.8, mps: 3, dirF: 1, dirS: 0, calm: false };
+    } else if (foe) {
+      n.face = Math.atan2(foe.pos.x - n.x, foe.pos.z - n.z);
+      n.cd -= dt; n.atkT = (n.atkT || 0) + dt;
+      if (n.cd <= 0) { n.cd = 2.2 + Math.random(); n.atkT = 0; n.struck = false; }
+      if (n.atkT < 0.9) {                                                   // a spear thrust: wind 0.35, strike 0.1, recover 0.45
+        const ph = n.atkT < 0.35 ? 'wind' : n.atkT < 0.45 ? 'active' : 'recover';
+        st = { mode: 'attack', atk: 'thrust', phase: ph, phaseT: ph === 'wind' ? n.atkT : ph === 'active' ? n.atkT - 0.35 : n.atkT - 0.45, wind: 0.35, active: 0.1, recover: 0.45, t: n.atkT };
+        if (ph !== 'wind' && !n.struck && Math.hypot(foe.pos.x - n.x, foe.pos.z - n.z) < 2.9) {
+          n.struck = true; Enemy.receive(foe, { dmg: foe.maxHp * 0.12, posture: 18 }, { pos: new THREE.Vector3(n.x, 0, n.z) });
+          if (typeof Snd !== 'undefined') Snd.play('hit');
+        }
+      }
+    }
+    n.rig.root.position.set(n.x, 0, n.z); n.rig.root.rotation.y = n.face;
+    Rig.animate(n.rig, st, dt);
   }
   // A villager on its round: walk to the next point, pause, go on; say hello once per visit when the warden comes close
   function walk(n, dt, heroPos) {
@@ -268,7 +362,8 @@ const Camp = (() => {
     if (!moving && near < 4) { const want = Math.atan2(heroPos.x - n.x, heroPos.z - n.z); let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 4); }
     if (near < 3 && !n.greeted && typeof FX !== 'undefined') {
       n.greeted = true; const L = CFG.townsfolk.villager[1];
-      FX.text(new THREE.Vector3(n.x, 2.2, n.z), L[Math.floor(Math.random() * L.length)], 'xp');
+      const line = n.who ? `${n.who.name}: you found me in ${n.who.where || 'the Deep'}. I won't forget it.` : L[Math.floor(Math.random() * L.length)];
+      FX.text(new THREE.Vector3(n.x, 2.2, n.z), line, 'xp');
     }
     n.rig.root.position.set(n.x, 0, n.z); n.rig.root.rotation.y = n.face;
     Rig.animate(n.rig, { mode: moving ? 'move' : 'idle', t: 0, speed: moving ? 0.35 : 0, mps: moving ? 1.15 : 0, dirF: 1, dirS: 0, calm: true }, dt);

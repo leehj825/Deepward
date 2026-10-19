@@ -69,6 +69,13 @@ const Codex = (() => {
     ['end10', 'No Bottom', 'Reach floor 10 of the Endless Deep', () => (S().endless || {}).best >= 10, 400],
     ['daily', 'Daily Bread', 'Clear a floor of the Daily Descent', () => ((S().endless || {}).daily || {}).best >= 2, 80],
     ['trained', "Hobb's Pupil", 'Finish the training yard', () => !!S().trained, 30],
+    ['rescue1', 'Not Left Behind', 'Free a captive from the Deep', () => (S().rescued || []).length >= 1, 60],
+    ['rescue4', 'Homecoming', 'Bring Pell, Ilsa, Aldo and Mira home', () => CFG.rescues.people.every(p => Items.rescued(p.id)), 250],
+    ['jobs10', 'Odd Jobs', 'Turn in ten jobs at the notice board', () => (S().jobsDone || 0) >= 10, 150],
+    ['ring1', 'Into the Ring', 'Win a fight in the Ring', () => Object.keys(S().arena || {}).length >= 1, 60],
+    ['raid1', 'The Gate Holds', 'Beat a raid on the south gate', () => (S().raids || 0) >= 1, 80],
+    ['raid5', 'Wall of the Hold', 'Beat five raids', () => (S().raids || 0) >= 5, 250],
+    ['abom', 'Abomination', 'Defeat the Abomination in the Ring', () => !!(S().arena || {}).abomination, 500],
   ].map(([id, name, desc, test, gold]) => ({ id, name, desc, test, gold }));
 
   function check(dt) {
