@@ -77,7 +77,7 @@ const SCENARIOS = {
     }
     out.blocked = blocked;
     // Monsters wake when you walk in, and chase you back through the passage
-    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
     G.player.maxHp = G.player.hp = 1e6;
     __dw.sim(6, () => { kill(); return S[0].state === 'cleared'; });
     G.player.pos.set(S[1].doorS, 0, S[1].southZ - 2.5); __dw.sim(2.2);
@@ -111,7 +111,7 @@ const SCENARIOS = {
     if (__dw.View.mode !== 'behind') return { skipped: true };
     const W = __dw.World, G = __dw.G, out = {}, V = THREE.Vector3;
     W.startStage(0); G.queue = []; G.player.maxHp = G.player.hp = 1e6;
-    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
     out.sides = W.sides.map(r => r.sideKind).sort().join();
     // Each side room is reachable: from its section, through the doorway, to its middle
     let blocked = 0;
@@ -124,7 +124,7 @@ const SCENARIOS = {
     const den = W.sides.find(r => r.sideKind === 'den');
     den.parent.state = 'cleared';
     G.player.pos.set(den.cx, 0, den.cz); __dw.sim(1.5);
-    const elite = G.enemies.find(e => e.elite && e.state !== 'dead');
+    const elite = G.enemies.find(e => e.room === den && e.elite && e.state !== 'dead');
     out.elite = !!elite && elite.hp > CFG.enemies[elite.type].hp * 1.5;
     G.player.pos.copy(den.exitAt).add(new V(-den.dir * 3, 0, 0));
     __dw.sim(10, () => { G.player.pos.copy(den.exitAt).add(new V(-den.dir * 3, 0, 0)); return elite && W.roomOf(elite.pos) === den.parent; });
@@ -153,6 +153,43 @@ const SCENARIOS = {
     document.querySelector('.pcard.shrine [data-act="bless"]').click();
     out.blessed = offers === 3 && G.blessings.length === 1 && sh.used && !__dw.UI.open && (G.player.S.dmg !== dmg0 || G.player.S.move !== mv0 || true);
     out.chip = document.getElementById('bless').textContent.length > 0 || (__dw.sim(0.05), document.getElementById('bless').textContent.length > 0);
+    return out;
+  })()`,
+  // Elites: armor softens light hits, a ward soaks hits and breaks, a vampire heals on a hit, a volatile one bursts;
+  // the middle section's last wave brings the stage's champion with a boss bar
+  elites: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const G = __dw.G, p = G.player, out = {}, at = p.pos.clone();
+    p.maxHp = p.hp = 1e6;
+    const mk = (mods, dz = -2.2) => { const e = __dw.spawn('skeleton', at.x, at.z + dz); e.state = 'hunt'; e.cooldown = 99; e.rig.root.position.y = 0; Enemy.makeElite(e, mods); return e; };
+    const plain = __dw.spawn('skeleton', at.x + 3, at.z - 2.2); plain.state = 'hunt'; plain.cooldown = 99;
+    const arm = mk(['armored']);
+    const h1 = plain.hp; Enemy.receive(plain, { dmg: 20, posture: 0 }, p); const h2 = arm.hp; Enemy.receive(arm, { dmg: 20, posture: 0 }, p);
+    out.armor = (h2 - arm.hp) < (h1 - plain.hp) * 0.7;
+    const h3 = arm.hp; Enemy.receive(arm, { dmg: 20, posture: 0, breaksGuard: true }, p); out.heavyThrough = (h3 - arm.hp) >= 11;
+    arm.state = 'dead'; plain.state = 'dead'; arm.hp = plain.hp = 0;
+    const w = mk(['warded']), hw = w.hp, res = [];
+    for (let k = 0; k < 3; k++) res.push(Enemy.receive(w, { dmg: 10, posture: 0 }, p));
+    res.push(Enemy.receive(w, { dmg: 10, posture: 0, breaksGuard: true }, p));
+    out.ward = res.join() === 'ward,ward,ward,ward' && w.hp === hw && w.ward === 0;
+    out.wardBroken = Enemy.receive(w, { dmg: 10, posture: 0 }, p) === 'hit' && w.hp < hw;
+    w.state = 'dead'; w.hp = 0;
+    const v = mk(['vampiric'], -1.6); v.hp = v.maxHp * 0.5; const hv = v.hp; v.cooldown = 0;
+    __dw.sim(4, () => v.hp > hv);
+    out.leech = v.hp > hv;
+    v.state = 'dead'; v.hp = 0;
+    const x = mk(['explosive'], -1.4), h0 = G.stats.hitsTaken;
+    x.state = 'broken'; Enemy.receive(x, { dmg: 9999, posture: 0 }, p);
+    __dw.sim(2, () => G.stats.hitsTaken > h0);
+    out.blast = G.stats.hitsTaken > h0;
+    out.tag = !!document.querySelector('.ebar .ename') || true;
+    // The champion
+    const W = __dw.World; W.startStage(0); G.queue = []; p.maxHp = p.hp = 1e6;
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn' && !e.champion) { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 9999, posture: 0 }, p); } };
+    const mid = W.sections[2]; W.sections.forEach(r => { if (r.j < 2) r.state = 'cleared'; });
+    p.pos.set(mid.doorS, 0, mid.southZ - 2.5);
+    __dw.sim(25, () => { kill(); p.hp = 1e6; return G.boss && G.boss.champion; });
+    out.champion = !!(G.boss && G.boss.champion) && G.boss.guardian === CFG.stages[0].champion.name && document.getElementById('bossName').textContent === CFG.stages[0].champion.name;
     return out;
   })()`,
   // An archer's arrow is stopped by a raised shield
@@ -253,6 +290,7 @@ const CHECKS = {
   feint: r => r.feinted && r.hitsTaken === 1,
   goblin: r => r.kills === 1,
   features: r => r.skipped || (r.sides === 'den,vault' && r.sideBlocked === 0 && r.elite && r.eliteChased && r.denChest && r.vaultChest && r.spikesHurt && r.potBroken && r.prompt === 'shrine' && r.blessed && r.chip),
+  elites: r => r.skipped || (r.armor && r.heavyThrough && r.ward && r.wardBroken && r.leech && r.blast && r.champion),
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

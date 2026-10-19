@@ -151,6 +151,10 @@ const Enemy = (() => {
       if (Math.floor(e.t * 3) !== Math.floor((e.t - dt) * 3)) FX.glint(Combat.chestPos(e.pos, 2.3 * def.scale), 0xffd040, 1.0, 0.3);
       if (e.t >= 2.4) { e.posture = 0; setState(e, 'hunt'); e.cooldown = 0.3; }
     } else if (e.state === 'dead') {
+      if (e.blast && !e.blown) {
+        if (Math.floor(e.t * 6) !== Math.floor((e.t - dt) * 6)) Snd.play('glint');
+        if (e.t >= e.blast.fuse) explode(e);
+      }
       if (e.t > 2.2) e.rig.root.position.y = -(e.t - 2.2) * 1.2;
       if (e.t > 3.6) e.remove = true;
     }
@@ -180,6 +184,12 @@ const Enemy = (() => {
       windRate: h ? 2.6 / h.wind : 12,
     }, dt);
     if (r.weapon) Rig.updateTrail(e.trail, r.weapon, e.state === 'attack' && e.phase === 'active' && !(h && h.projectile), h && (h.unblockable || h.parryOnly) ? glowOf(h) : undefined);
+    if (e.aura) { e.aura.material.opacity = e.state === 'dead' ? 0 : 0.45 + Math.sin(e.t * 5) * 0.2; }
+    if (e.bubble) {
+      if (e.ward <= 0 && e.state !== 'dead') { e.wardT += dt; if (e.wardT >= e.mods.warded.wardBack) { e.ward = e.mods.warded.ward; FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'WARD', 'amber'); } }
+      e.bubble.visible = e.ward > 0 && e.state !== 'dead';
+      e.bubble.material.opacity = 0.18 + Math.sin(e.t * 4) * 0.05;
+    }
     if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, e.enraged ? 0x5a0c06 : 0, e.enraged ? 1 : 0); }
   }
 
@@ -199,6 +209,14 @@ const Enemy = (() => {
   // The player's attack reaches this enemy. Returns 'crit', 'hit', 'blocked' or null.
   function receive(e, atk, p) {
     if (!targetable(e) || e.state === 'roar') return null;
+    // A ward soaks the blow (heavy attacks crack it twice as fast)
+    if (e.ward > 0) {
+      e.ward = Math.max(0, e.ward - (atk.breaksGuard ? 2 : 1)); e.wardT = 0;
+      FX.burst(Combat.chestPos(e.pos, 1.3 * e.def.scale), 0xa070ff, 12, 5);
+      if (e.ward === 0) { FX.text(Combat.chestPos(e.pos, 2.4 * e.def.scale), 'WARD BROKEN', 'crit'); Snd.play('guardBreak'); } else Snd.play('block');
+      return 'ward';
+    }
+    if (e.armored && !atk.breaksGuard && e.state !== 'broken') atk = Object.assign({}, atk, { dmg: atk.dmg * 0.6 });
     const def = e.def, frontal = Combat.facingCheck(e.pos, e.facing, p.pos, def.guardAngle || 140);
     const at = Combat.chestPos(e.pos, 1.2 * def.scale);
     if (e.state === 'broken') {
@@ -246,6 +264,7 @@ const Enemy = (() => {
     e.hp = 0; e.rig.dieVar = Math.random() < 0.5; setState(e, 'dead');
     Snd.play('die'); FX.burst(Combat.chestPos(e.pos, 1.0), BONE[e.type] ? 0xd8cfb4 : e.type === 'spider' ? 0x4a8a3a : 0x6a1a1a, 24, 6, 0.6);
     e.bar.remove();
+    if (e.blast) { FX.ring(new THREE.Vector3(e.pos.x, 0, e.pos.z), e.blast.r, 0xff3010, e.blast.fuse, { r0: 0.3, fill: true, fade: false }); FX.text(Combat.chestPos(e.pos, 2.0), '!', 'danger'); Snd.play('warn'); }
     G.onEnemyDeath(e);
     // A fallen guardian takes its summoned adds with it
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
@@ -262,9 +281,9 @@ const Enemy = (() => {
     const s = FX.project(Combat.chestPos(e.pos, 2.15 * e.def.scale + 0.15));
     e.bar.style.transform = `translate(${s.x - 30}px, ${s.y}px)`;
     e.bar.style.display = s.vis ? '' : 'none';
-    e.bar.firstChild.firstChild.style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
+    e.bar.querySelector('.hp i').style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
     const pk = e.posture / (e.def.posture * e.mult);
-    const pf = e.bar.lastChild.firstChild; pf.style.width = pk * 100 + '%';
+    const pf = e.bar.querySelector('.post i'); pf.style.width = pk * 100 + '%';
     pf.style.background = e.state === 'broken' ? '#ffd040' : pk > 0.7 ? '#ff7a30' : '#e8c060';
     e.bar.classList.toggle('broken', e.state === 'broken');
   }
@@ -340,6 +359,58 @@ const Enemy = (() => {
     Snd.play('warn');
   }
 
+  // ---------------- Elites ----------------
+  // Modifiers from CFG.elites: tougher numbers, a behaviour, an aura ring of their colour, and a name over the bar
+  const EL = CFG.elites, auraGeo = new THREE.RingGeometry(0.62, 0.86, 28).rotateX(-Math.PI / 2), auraMats = {};
+  function makeElite(e, mods, title) {
+    const def = e.def = JSON.parse(JSON.stringify(e.def));
+    e.mods = {}; e.elite = true;
+    for (const id of mods) {
+      const m = EL.mods[id]; if (!m) continue;
+      e.mods[id] = m;
+      e.hp *= m.hp; e.maxHp *= m.hp; if (m.posture) def.posture *= m.posture;
+      if (m.speed) def.speed *= m.speed;
+      if (m.wind) for (const a of def.attacks) for (const h of a.hits) h.wind *= m.wind;
+      if (m.cooldown) def.cooldown = def.cooldown.map(c => c * m.cooldown);
+      if (id === 'armored') e.armored = true;
+      if (id === 'vampiric') e.leech = m.leech;
+      if (id === 'explosive') e.blast = m.blast;
+      if (id === 'warded') { e.ward = m.ward; e.wardT = 0; }
+    }
+    const color = EL.mods[mods[0]] ? EL.mods[mods[0]].color : 0xffb040;
+    if (!auraMats[color]) auraMats[color] = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+    e.aura = new THREE.Mesh(auraGeo, auraMats[color].clone()); e.aura.position.y = 0.04; e.aura.scale.setScalar(def.radius / 0.55 / e.rig.root.scale.x); e.rig.root.add(e.aura);      // about the body's footprint
+    if (e.ward > 0) {
+      e.bubble = new THREE.Mesh(new THREE.SphereGeometry(1.0, 14, 10), new THREE.MeshBasicMaterial({ color: 0xa070ff, transparent: true, opacity: 0.2, depthWrite: false }));
+      const k = 1 / e.rig.root.scale.x; e.bubble.position.y = 1.0; e.bubble.scale.set(def.radius * 1.8 * k, 1.25, def.radius * 1.8 * k); e.rig.root.add(e.bubble);
+    }
+    const name = title || mods.map(id => EL.mods[id] && EL.mods[id].name).filter(Boolean).join(' ') + ' ' + def.name;
+    e.title = name;
+    const tag = document.createElement('div'); tag.className = 'ename'; tag.textContent = name;
+    tag.style.color = '#' + new THREE.Color(color).getHexString(); e.bar.prepend(tag); e.bar.classList.add('elite');
+  }
+  // A volatile elite bursts a moment after it falls
+  function explode(e) {
+    e.blown = true;
+    const B = e.blast, p = G.player, at = new THREE.Vector3(e.pos.x, 0, e.pos.z);
+    FX.ring(at, B.r, 0xff7a20, 0.5, { r0: 0.3 }); FX.burst(Combat.chestPos(e.pos, 0.8), 0xff8a30, 40, 9, 0.8); FX.shake(0.45); Snd.play('slam');
+    e.rig.root.visible = false;
+    if (p && p.state !== 'dead' && Combat.dist(p.pos, at) < B.r + CFG.player.radius) Player.receive(p, { pos: at, mult: e.mult }, { dmg: B.dmg, posture: 0, unblockable: true, aoe: true });
+  }
+  // A vampiric elite's blow landed
+  function leech(e, dmg) {
+    if (!e.leech || e.state === 'dead') return;
+    const n = dmg * e.leech; e.hp = Math.min(e.maxHp, e.hp + n);
+    FX.text(Combat.chestPos(e.pos, 2.3 * e.def.scale), '+' + Math.round(n), 'heal');
+  }
+  // Which modifiers a new enemy gets: none for most, more often deeper down
+  function rollElite(k, sure) {
+    const si = k % CFG.stages.length, loop = Math.floor(k / CFG.stages.length);
+    if (!sure && Math.random() >= EL.chance[si] + loop * EL.loopBonus) return null;
+    const ids = Object.keys(EL.mods).sort(() => Math.random() - 0.5);
+    return ids.slice(0, sure && loop > 0 ? 2 : 1);
+  }
+
   // ---------------- Arrows ----------------
   // Real projectiles: they fly from the bow toward where the hero stood, and can be blocked, parried (knocked aside) or dashed through
   const arrows = [];
@@ -373,5 +444,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { spawn, makeBoss, makeElite, rollElite, leech, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

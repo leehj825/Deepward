@@ -232,3 +232,4 @@ body:not(.playing) #padKeys { display: none !important; }
 #bless span { padding: 1px 7px; border-radius: 9px; background: rgba(154, 216, 255, 0.15); border: 1px solid rgba(154, 216, 255, 0.45); color: #cfeaff; }
 .ebar.elite .hp i { background: linear-gradient(#ffb040, #c06a10); }
 .ebar.elite { box-shadow: 0 0 6px rgba(255, 176, 64, 0.8); }
+.ebar .ename { font-size: 10px; font-weight: 700; white-space: nowrap; text-align: center; margin: 0 -40px 2px; text-shadow: 0 1px 2px #000, 0 0 4px #000; letter-spacing: 0.03em; }

@@ -112,35 +112,35 @@ const CFG = {
   // repeat with tougher enemies. size: [half width, half depth] in metres (times sectionScale); waves: the groups
   // that wake in turn when you walk into the section.
   stages: [
-    { name: 'The Crypt', theme: 'crypt', guardian: 'The Bone Warden', rooms: [
+    { name: 'The Crypt', theme: 'crypt', guardian: 'The Bone Warden', champion: { kind: 'knight', name: 'The Hollow Sentinel', mods: ['armored'] }, rooms: [
       { size: [7, 6], waves: [['skeleton']] },
       { size: [8, 7], waves: [['skeleton', 'archer']] },
       { size: [9, 7], pillars: true, waves: [['skeleton', 'skeleton'], ['skeleton', 'archer']] },
       { size: [8, 6], waves: [['skeleton', 'skeleton', 'archer']] },
       { size: [9, 8], guardian: true, waves: [['skeleton', 'skeleton']] },
     ] },
-    { name: 'The Iron Keep', theme: 'keep', guardian: 'Sir Aldric the Hollow', rooms: [
+    { name: 'The Iron Keep', theme: 'keep', guardian: 'Sir Aldric the Hollow', champion: { kind: 'brute', name: 'The Gaoler', mods: ['armored', 'vampiric'] }, rooms: [
       { size: [8, 7], waves: [['knight']] },
       { size: [9, 7], waves: [['knight', 'archer']] },
       { size: [9, 8], pillars: true, waves: [['knight', 'skeleton'], ['knight', 'archer', 'archer']] },
       { size: [8, 7], waves: [['knight', 'knight'], ['skeleton', 'archer']] },
       { size: [10, 8], guardian: true, waves: [['knight']] },
     ] },
-    { name: 'The Ogre Den', theme: 'den', guardian: 'The Den Mother', rooms: [
+    { name: 'The Ogre Den', theme: 'den', guardian: 'The Den Mother', champion: { kind: 'brute', name: 'Gorehide', mods: ['swift'] }, rooms: [
       { size: [9, 8], waves: [['goblin', 'goblin', 'goblin']] },
       { size: [10, 8], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
       { size: [10, 9], waves: [['goblin', 'goblin', 'goblin', 'goblin'], ['brute', 'archer']] },
       { size: [9, 7], pillars: true, waves: [['brute', 'brute']] },
       { size: [11, 9], guardian: true, waves: [['brute', 'goblin']] },
     ] },
-    { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', rooms: [
+    { name: 'The Spider Depths', theme: 'depths', guardian: 'The Brood Queen', champion: { kind: 'spider', name: 'The Widow', mods: ['vampiric', 'swift'] }, rooms: [
       { size: [9, 8], waves: [['spider']] },
       { size: [10, 8], pillars: true, waves: [['spider', 'spider']] },
       { size: [10, 9], waves: [['spider', 'goblin', 'goblin'], ['spider', 'spider']] },
       { size: [9, 8], pillars: true, waves: [['spider', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['spider']] },
     ] },
-    { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', rooms: [
+    { name: 'The Shadow Court', theme: 'court', guardian: 'The Pale Duelist', champion: { kind: 'duelist', name: 'The Black Herald', mods: ['warded', 'swift'] }, rooms: [
       { size: [9, 8], waves: [['duelist']] },
       { size: [10, 8], pillars: true, waves: [['duelist', 'archer']] },
       { size: [10, 9], waves: [['duelist', 'knight'], ['duelist', 'duelist']] },
@@ -222,6 +222,19 @@ const CFG = {
     breakables: [3, 6],            // pots and crates per section
     potGold: [3, 9], potGoldChance: 0.55, potFlask: 0.08,
   },
+  // Elites: an enemy with a modifier, an aura of its colour and its name over its health bar.
+  // chance: per stage (index), plus loopBonus each time the stages repeat. Den guards always get one (two when deeper).
+  elites: {
+    chance: [0.06, 0.09, 0.12, 0.15, 0.18], loopBonus: 0.08, reward: 2,
+    mods: {
+      armored: { name: 'Armored', color: 0xb8c4d0, hp: 1.4, posture: 1.4, desc: 'Light hits do 40% less; heavy attacks go through' },
+      swift: { name: 'Swift', color: 0x6ae8ff, hp: 1.0, speed: 1.4, wind: 0.8, cooldown: 0.7, desc: 'Moves and winds up faster' },
+      vampiric: { name: 'Vampiric', color: 0xd01a3a, hp: 1.25, leech: 0.6, desc: 'Heals when it hurts you' },
+      explosive: { name: 'Volatile', color: 0xff7a20, hp: 1.0, blast: { r: 3, dmg: 24, fuse: 1.3 }, desc: 'Bursts after it falls: get clear' },
+      warded: { name: 'Warded', color: 0xa070ff, hp: 1.0, ward: 4, wardBack: 7, desc: 'A ward soaks hits (heavies break it faster) and returns' },
+    },
+  },
+  championMult: 1.35,            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
   blessings: [
     { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },

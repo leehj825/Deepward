@@ -39,7 +39,7 @@ const path = require('path');
   await ev('guardian', `(() => {
     while (__dw.UI.open) document.querySelector('#pcard .pb').click();
     __dw.World.startStage(0); const W = __dw.World, G = __dw.G;
-    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
     const L = W.sections[W.sections.length - 1]; G.player.pos.set(L.doorS, 0, L.southZ - 2.5);
     __dw.sim(3);
     const boss = G.boss && G.boss.guardian;

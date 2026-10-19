@@ -150,3 +150,9 @@ Each stage's plan picks its extras (see `CFG.features`):
   - A dash's invulnerability gets you through either.
 - **Shrine:** one middle section without a side room gets one. It offers three of eight blessings, which stack into the hero's stats until the stage is left.
 - **Breakables:** 3 to 6 per section along the walls, off the path. They're solid until struck. Each gives a 55% chance of gold and an 8% chance of a flask refill (only if you're below your maximum).
+
+## Elites and champions (built)
+
+- **Chance:** a regular spawn rolls `CFG.elites.chance[stage]`, plus 8% for each repeat of the stages. Den guards always get one modifier, or two when deeper.
+- **Modifiers:** each changes the enemy's numbers and behaviour (armour, speed, life leech, death blast, a regenerating ward). Each also adds an additive aura ring of its colour and a name tag over the bar. Elites are worth 2× XP and gold.
+- **Champion:** the middle section's last wave adds the stage's champion from `CFG.stages[].champion`. It's a named elite at 1.35× strength and 1.25× size, it shows the boss bar, and it's worth 3×.

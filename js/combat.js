@@ -23,7 +23,7 @@ const Combat = (() => {
       if (!Enemy.targetable(e)) continue;
       if (!inArc(p.pos, p.facing, e.pos, atk.range, atk.arc, e.def.radius)) continue;
       const r = Enemy.receive(e, atk, p);
-      if (r === 'blocked') blocked++; else if (r) { landed++; if (r === 'crit') crit = true; }
+      if (r === 'blocked') blocked++; else if (r === 'ward') { /* soaked by a ward */ } else if (r) { landed++; if (r === 'crit') crit = true; }
     }
     const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
     if (broke && !landed) FX.hitStop(0.03);
@@ -53,6 +53,7 @@ const Combat = (() => {
     if (!reached) return;
     const res = Player.receive(p, e, hit);
     if (res === 'parry') Enemy.parried(e);
+    else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
 
   return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike };

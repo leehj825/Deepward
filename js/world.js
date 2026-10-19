@@ -76,6 +76,7 @@ const World = (() => {
     mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
+    if (count > 2) out[Math.floor(count / 2)].champion = info(first).stage.champion;          // the middle section's last wave
     return out;
   }
 
@@ -87,6 +88,7 @@ const World = (() => {
     const room = {
       i, j: P.j, inf, th, hw, hd, cx, southZ, northZ, cz, group, mats: [], geos: [], texs: [], torches: [], pillars: [],
       doorS: P.doorS, doorN: P.doorN, lair: last,
+      champion: P.champion || null, waves: P.champion ? def.waves.concat([[P.champion.kind]]) : null,
       fade: 1, fadeDir: 1, occl: 1, state: 'ahead', t: 0, wave: 0, waveDelay: 0,
       rect: { x0: cx - hw, x1: cx + hw, z0: northZ, z1: southZ },
       // The passage south of the section overlaps both sections by a metre so you can walk from one into the next
@@ -373,11 +375,13 @@ const World = (() => {
     list.forEach((type, k) => {
       const guardian = room.kind !== 'side' && room.inf.room.guardian && room.wave === 0 && k === 0;
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
+      const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
-    if (room.wave > 0) banner('MORE COME');
+    if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
+    else if (room.wave > 0) banner('MORE COME');
   }
 
   function enter(room) {

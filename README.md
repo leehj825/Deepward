@@ -40,6 +40,26 @@ Every model is built in code from primitives, and there are no model, texture or
 - **The Expertise screen** draws each tree as a column of nodes joined by lines that light up as you learn. Nodes you can learn now pulse, and dots under a node show its rank. Click a node (or select it with the d-pad and press A) to see its details below the trees: what it does now, what the next rank adds, and what is stopping you, with the Learn or Equip button. Pressing A again on the selected node learns it.
 - **Respec:** the training yard in camp shows everything and unlearns talents for gold. T opens Expertise anywhere.
 
+**Elites and champions.** Any enemy may come as an elite, more often deeper down. Elites are worth twice the XP and gold, and have a coloured aura ring and their name over the health bar:
+
+| Elite | What it does |
+| --- | --- |
+| Armored (steel) | Light hits do 40% less; heavy attacks go straight through |
+| Swift (cyan) | Moves 40% faster, winds up faster, attacks more often |
+| Vampiric (crimson) | Heals when it hurts you |
+| Volatile (orange) | After it falls, a red ring ticks for 1.3 s, then it bursts: get clear or dash |
+| Warded (violet) | A bubble soaks four hits (heavies count double), then breaks; it comes back after 7 s |
+
+The middle section of each stage ends with a **champion**: a named elite with its own boss bar, worth three times the reward.
+
+| Stage | Champion |
+| --- | --- |
+| The Crypt | The Hollow Sentinel (armored knight) |
+| The Iron Keep | The Gaoler (armored, vampiric brute) |
+| The Ogre Den | Gorehide (swift brute) |
+| The Spider Depths | The Widow (vampiric, swift spider) |
+| The Shadow Court | The Black Herald (warded, swift duelist) |
+
 **Guardians.** Each stage ends with a boss that fights in phases. At each mark on its health bar it roars (it can't be hurt, and the shockwave throws you back), then changes:
 
 | Stage | Guardian | Phases |
