@@ -342,7 +342,9 @@ const World = (() => {
       // Sections well beyond the fog are not drawn at all
       if (p && r.rect) {
         const dx = Math.max(r.rect.x0 - p.pos.x, 0, p.pos.x - r.rect.x1), dz = Math.max(r.rect.z0 - p.pos.z, 0, p.pos.z - (r.corr ? r.corr.z1 : r.rect.z1));
-        r.group.visible = Math.hypot(dx, dz) < CULL_DIST;
+        const far = Math.hypot(dx, dz);
+        r.group.visible = far < CULL_DIST;
+        if (far < 14) r.seen = true;                                      // close enough to show on the minimap
       }
       const behind = cam && cam.z > r.southZ + 0.2 && cam.z < r.southZ + CORR_LEN && Math.abs(cam.x - r.cx) < r.hw + 1;
       r.occl += ((behind ? 0.15 : 1) - r.occl) * Math.min(1, dt * 8);

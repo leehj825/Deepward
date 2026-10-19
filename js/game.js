@@ -30,6 +30,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     Input.keys[ev.code] = true;
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
+    if (ev.code === 'KeyN') MiniMap.toggle();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
@@ -562,6 +563,7 @@ function step(real) {
     FX.update(dt);
     updateHud();
     updateCamera(real);
+    MiniMap.draw(real);
   } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
     World.update(real);
     Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);

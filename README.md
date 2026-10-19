@@ -57,6 +57,13 @@ When a guardian falls, the adds it summoned crumble with it.
 - **Sections:** five wide halls, each 30% bigger than the old rooms, set off to the side of one another so the path bends. Open passages join them, so you can walk the whole stage freely.
 - **Waves:** walking into a section wakes its monsters, wave after wave. Enemies chase you through the passages if you fall back or run ahead.
 - **Chests and healing:** each cleared section heals you a little and leaves a chest beside the path.
+- **Minimap:** a round map in the top-right corner.
+  - **Layout:** sections appear as you get near them, joined by their passages.
+  - **Colours:** red while monsters are awake there, grey once cleared.
+  - **Markers:** gold for chests you haven't opened, a red skull for the guardian's lair, red dots for enemies, and a blue arrow for you.
+  - **Orientation:** in the behind view it turns so the way you look is up.
+  - **Compass:** a gold chevron on its rim points to the next area you haven't cleared (or the lair), with the distance underneath.
+  - **Full map:** tap it, or press N, to see the whole stage you've found so far.
 - **The lair:** the last section ends in a dark archway. When you step in, the stage's guardian comes out of it.
 - **After the guardian:** return to camp, or press on down the stair into the next stage.
 - **The stages:** The Crypt, The Iron Keep, The Ogre Den, The Spider Depths and The Shadow Court, each with its own stone, torchlight, fog and enemies. After the last one they repeat with tougher enemies.
@@ -128,6 +135,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | Move (strafe in the behind view) | WASD / arrows | Left stick | Left thumb (floating stick) |
 | Turn camera (behind view) | Mouse (click to capture) | Right stick (click to recentre) | Drag the right side |
 | Switch camera | B | View | 🎥 |
+| Full map | N | | Tap the minimap |
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
 | Heavy attack (breaks guards) | K / Q / middle-click | RT | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
@@ -173,6 +181,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
+| `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |

@@ -98,6 +98,7 @@ const SCENARIOS = {
     out.boss = !!(G.boss && G.boss.guardian) && Math.abs(G.boss.pos.z - L.lairAt.z) < 2.5;
     __dw.sim(20, () => { kill(); return L.state === 'cleared'; });
     out.lairCleared = L.state === 'cleared' && !!L.chest && L.chest.big;
+    __dw.sim(0.2); out.mapped = S.every(r => r.seen) && document.getElementById('minimap').style.display !== 'none' && /Stage cleared/.test(document.getElementById('mapInfo').textContent);
     // Press on into stage 2
     G.stageK = 0; G.mode = 'dungeon'; G.pressOn();
     await new Promise(r => setTimeout(r, 900));
@@ -202,7 +203,7 @@ const CHECKS = {
   pounceParry: r => r.parries === 1 && r.hitsTaken === 0,
   feint: r => r.feinted && r.hitsTaken === 1,
   goblin: r => r.kills === 1,
-  progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.next === 'The Iron Keep' && r.sameSize),
+  progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
   guardBreak: r => r.enemyHp < r.maxHp && (r.enemyState === 'stagger' || r.enemyState === 'broken'),

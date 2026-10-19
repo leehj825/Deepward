@@ -128,3 +128,11 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Culling:** sections more than 40 m away (past the fog) aren't drawn.
 - **Graphics quality:** sets resolution and shadow-map size, and turns enemy shadows into blobs on Medium or shadows off entirely on Low.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
+
+## Minimap (built)
+
+- **Canvas:** a round canvas in the corner, redrawn 20 times a second. A section is "seen" once the hero comes within 14 m of it.
+- **Colours:** sections are coloured by state (awake, cleared, the lair), with chests, enemies and the hero drawn on top.
+- **Orientation:** in the behind view the map rotates with the camera so up is where you look; the top view stays north-up.
+- **Compass:** a chevron on the rim points to the first section along the path that isn't cleared, or to the lair, and the text shows the distance.
+- **Full map:** tap or N fits everything found so far.

@@ -79,7 +79,7 @@ body.touch .ctl.mob { display: block; }
 #title { background: linear-gradient(90deg, rgba(4, 3, 6, 0.9) 0%, rgba(4, 3, 6, 0.6) 55%, rgba(4, 3, 6, 0.1) 100%); justify-content: flex-start; padding-left: max(16px, 6vw); }
 #title .card { text-align: left; }
 @media (max-aspect-ratio: 1/1) { #title { background: linear-gradient(rgba(4, 3, 6, 0.3), rgba(4, 3, 6, 0.92) 45%); align-items: flex-end; } }
-body:not(.playing) #hud, body:not(.playing) #waveBox, body:not(.playing) #keys, body:not(.playing) #pad, body:not(.playing) #pauseBtn { display: none !important; }
+body:not(.playing) #hud, body:not(.playing) #minimap, body:not(.playing) #mapInfo, body:not(.playing) #waveBox, body:not(.playing) #keys, body:not(.playing) #pad, body:not(.playing) #pauseBtn { display: none !important; }
 @media (max-width: 640px) {
   #hud { width: min(260px, 52vw); }
   #waveBox { left: auto; right: max(12px, env(safe-area-inset-right)); top: calc(56px + env(safe-area-inset-top)); transform: none; text-align: right; }
@@ -213,3 +213,16 @@ body:not(.playing) #padKeys { display: none !important; }
 .sval i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #8a6a2a, #f2d27a); opacity: 0.55; }
 .sval em { position: relative; display: block; text-align: center; line-height: 22px; font-size: 12px; font-style: normal; font-weight: 700; }
 @media (max-width: 480px) { .sval { width: 84px; } }
+
+/* Minimap */
+#minimap { position: fixed; top: calc(58px + env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 150px; height: 150px; border-radius: 50%; cursor: pointer; z-index: 5; transition: width 0.2s, height 0.2s; }
+#minimap.big { width: min(78vmin, 520px); height: min(78vmin, 520px); top: 50%; right: 50%; transform: translate(50%, -50%); z-index: 20; }
+#mapInfo { position: fixed; top: calc(214px + env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 150px; text-align: center; font-size: 12px; color: #f2d27a; text-shadow: 0 1px 3px #000; pointer-events: none; }
+@media (max-width: 640px) {
+  #minimap { width: 104px; height: 104px; top: calc(96px + env(safe-area-inset-top)); }
+  #mapInfo { width: 104px; top: calc(204px + env(safe-area-inset-top)); font-size: 11px; }
+}
+@media (max-height: 500px) {
+  #minimap { width: 96px; height: 96px; top: calc(54px + env(safe-area-inset-top)); }
+  #mapInfo { width: 96px; top: calc(152px + env(safe-area-inset-top)); font-size: 11px; }
+}
