@@ -1553,7 +1553,7 @@ const Rig = (() => {
 
   // ---------------- Helms ----------------
   // The hero's head is a 0.23 x 0.26 x 0.24 box centred on the head joint. Each helm fully covers its top half:
-  // 0 a leather cap, 1 a steel helm with a nasal guard, 2 a closed great helm with a visor slit.
+  // 0 a leather cap, 1 a squared steel helm with a nasal guard, 2 a closed great helm with a visor slit.
   function helmet(head, style, m) {
     const shell = mat => { const c = mat.clone(); c.side = THREE.DoubleSide; return c; };          // seen from below, the inside shows
     // The rims sit at 0.065, above the eyes (0.02), and the domes clear the head's top corners
@@ -1561,11 +1561,13 @@ const Rig = (() => {
       box(head, 0.27, 0.11, 0.28, m.leather, 0, 0.11, 0);
       const top = mesh(new THREE.SphereGeometry(0.15, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), shell(m.leather), head, 0, 0.165, 0); top.scale.set(0.95, 0.35, 0.98);
       box(head, 0.285, 0.025, 0.295, m.dark, 0, 0.065, 0);                   // stitched band
-    } else if (style === 1) {
-      const hm = mesh(new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), shell(m.steel), head, 0, 0.06, 0); hm.scale.set(1, 0.95, 1.03);
-      mesh(new THREE.TorusGeometry(0.2, 0.02, 5, 16).rotateX(Math.PI / 2), m.steel, head, 0, 0.06, 0);
-      box(head, 0.035, 0.1, 0.03, m.steel, 0, 0.02, 0.165);                  // nasal guard, down between the eyes
-      box(head, 0.02, 0.08, 0.3, m.steel, 0, 0.24, -0.02);                   // crest ridge
+    } else if (style === 1) {                                              // a squared steel helm, open-faced
+      box(head, 0.28, 0.15, 0.29, m.steel, 0, 0.13, 0);                      // the shell over the crown, rim above the eyes
+      box(head, 0.31, 0.022, 0.32, m.steel, 0, 0.06, 0.005);                 // brim
+      box(head, 0.035, 0.11, 0.03, m.steel, 0, 0.01, 0.16);                  // nasal guard, down between the eyes
+      for (const s of [1, -1]) box(head, 0.025, 0.15, 0.17, m.steel, 0.145 * s, -0.01, -0.04);   // cheek plates
+      box(head, 0.28, 0.14, 0.025, m.steel, 0, 0.0, -0.148);                  // neck guard
+      box(head, 0.03, 0.03, 0.3, m.dark, 0, 0.215, 0);                       // a dark ridge along the top
     } else {
       box(head, 0.29, 0.34, 0.33, m.steel, 0, 0.015, 0.01);                   // front at 0.175, clear of the nose
       box(head, 0.22, 0.03, 0.02, m.dark, 0, 0.03, 0.175);                   // visor slit
