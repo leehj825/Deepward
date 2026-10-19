@@ -8,7 +8,7 @@ on:
   push:
     tags: ['v*']
     branches: ['main', 'ccr-*']
-    paths: ['js/**', 'css/**', 'vendor/**', 'index.html', 'tools/make_www.js', 'tools/android_patch.js', 'package.json', 'package-lock.json', 'capacitor.config.json', '.github/workflows/android-debug.yml']
+    paths: ['js/**', 'css/**', 'vendor/**', 'index.html', 'tools/make_www.js', 'tools/android_patch.js', 'package.json', 'package-lock.json', 'capacitor.config.json', 'resources/**', 'icons/**', '.github/workflows/android-debug.yml']
 jobs:
   build:
     runs-on: ubuntu-latest

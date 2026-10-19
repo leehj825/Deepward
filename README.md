@@ -66,14 +66,16 @@ The Android app wraps the web game with [Capacitor](https://capacitorjs.com/).
 
 **Getting a debug APK from GitHub Actions:** the workflow "Android debug APK" (`.github/workflows/android-debug.yml`) runs on every push to `main` or a `ccr-*` branch that changes the game, on `v*` tags, and from the Actions tab (Run workflow). When it finishes, open the run and download the **deepward-debug-apk** artifact. It's a zip holding `deepward-debug-<commit>.apk`. Copy that to your phone and install it; you may need to allow installs from unknown sources.
 
-**What the workflow does:**
+**Release for Google Play:** the workflow "Android release" (`.github/workflows/android-release.yml`) builds a signed `.aab` for the Play Store and a signed APK. Run it from the Actions tab. Signing uses four repository secrets; [RELEASE.md](RELEASE.md) shows how to make the key and walks through the Play Console checklist.
+
+**What the debug workflow does:**
 
 1. Copies the game into `www/` (`npm run www`).
 2. Generates the Android project (`npx cap add android`).
-3. Patches it for fullscreen with the screen kept on (`tools/android_patch.js`).
+3. Patches it (`tools/android_patch.js`): fullscreen with the screen kept on, Deepward's icons and splash screens, a dark Android 12+ splash, and the version and signing from the environment.
 4. Builds with Gradle.
 
-The `android/` folder isn't committed. To customise the project (icons, splash screen, signing), generate it once, adjust it, and commit it; the workflow then uses yours.
+The `android/` folder isn't committed. It's generated on every build, and the patch applies the customisations. The icon is drawn in code by `tools/make_icons.py`.
 
 **Building locally** needs Node 22, JDK 17 and the Android SDK:
 
@@ -166,6 +168,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/boss_test.js` | Headless check of all five guardians: phases, roars, summons, Aldric's stance change, the Den Mother's rage, the Pale Duelist's blink |
 | `tools/settings_test.js` | Headless check of the settings menu, that each setting applies and is kept, and the music moods |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
+| `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
 
