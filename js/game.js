@@ -256,13 +256,14 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
       const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
-    else if (!q.guardian && !q.add && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
     G.enemies.push(e);
     return false;
   });
@@ -460,6 +461,10 @@ G.onEnemyDeath = e => {
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  if (e.type === 'mimic') {                                                // what a mimic swallowed
+    gemFound(1);
+    if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
+  }
   const p = G.player; if (p.S.u && p.S.u.oath && p.state !== 'dead') { const h = p.maxHp * 0.05; p.hp = Math.min(p.maxHp, p.hp + h); FX.text(Combat.chestPos(p.pos, 2.4), '+' + Math.round(h), 'heal'); }
 };
 function levelUp(n) {

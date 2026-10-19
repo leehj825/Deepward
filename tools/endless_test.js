@@ -14,7 +14,7 @@ const path = require('path');
   Object.assign(out, await pg.evaluate(() => {
     const o = {}; __dw.start('new'); while (__dw.UI.open) document.querySelector('#pcard .pb').click();
     __dw.openPanel('gate'); o.locked = !document.querySelector('[data-act="endless"]'); __dw.UI.close();
-    __dw.Items.S.stage = 5; __dw.openPanel('gate'); o.unlocked = document.querySelectorAll('[data-act="endless"]').length === 2;
+    __dw.Items.S.stage = CFG.stages.length; __dw.openPanel('gate'); o.unlocked = document.querySelectorAll('[data-act="endless"]').length === 2;
     // The daily floors are the same from one build to the next
     const a = Endless.floorDef(2, Endless.rng(1234), true), b = Endless.floorDef(2, Endless.rng(1234), true);
     o.seeded = JSON.stringify(a) === JSON.stringify(b);
@@ -55,7 +55,7 @@ const path = require('path');
   await pg.evaluate(() => { window.__floor = 0; window.__want = 'camp'; __dw.G.returnToCamp(); }); await wait();
   Object.assign(out, await pg.evaluate(() => {
     const o = {}; while (__dw.UI.open) document.querySelector('#pcard .pb').click();
-    o.home = __dw.G.mode === 'camp' && !__dw.G.run && __dw.Items.S.stage === 5;
+    o.home = __dw.G.mode === 'camp' && !__dw.G.run && __dw.Items.S.stage === CFG.stages.length;
     window.__want = 'dungeon'; window.__floor = 1; __dw.G.enterEndless(true); return o;
   }));
   await wait();

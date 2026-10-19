@@ -83,6 +83,40 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // ---- Act II ----
+    // Throws slow orbs from afar; a parry sends an orb back at the caster
+    caster: {
+      name: 'Drowned Acolyte', hp: 40, posture: 40, postureRegen: 14, speed: 2.4, radius: 0.42, scale: 1,
+      flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.8, 2.8], xp: 18, gold: 12,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 1.0, active: 0.1, recover: 0.8, dmg: 14, posture: 12, range: 13, arc: 30, lunge: 0, projectile: { speed: 8, orb: 0x4ae8d0, reflect: true } }] }],
+    },
+    // Shelters every ally within ward.r: they take ward.cut less damage while it stands
+    bearer: {
+      name: 'Shieldbearer', rig: 'knight', look: { colors: { cloth: 0x2a3a6a } }, hp: 110, posture: 90, postureRegen: 14, speed: 2.1, radius: 0.55, scale: 1.18,
+      flinch: false, guard: true, guardAngle: 160, approach: 2.0, cooldown: [1.4, 2.2], xp: 28, gold: 18, ward: { r: 5, cut: 0.45 },
+      attacks: [
+        { weight: 3, hits: [{ pose: 'thrust', wind: 0.7, active: 0.12, recover: 0.7, dmg: 16, posture: 22, range: 2.4, arc: 70, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'overhead', wind: 0.95, active: 0.12, recover: 0.8, dmg: 24, posture: 26, blockMult: 1.4, range: 2.4, arc: 80, lunge: 1.0 }] },
+      ],
+    },
+    // Raises skeletons from the floor (they crumble when it dies) and throws a cursed orb
+    necro: {
+      name: 'Bone Caller', hp: 55, posture: 45, postureRegen: 14, speed: 2.4, radius: 0.42, scale: 1.05,
+      flinch: true, ranged: [5, 9], solo: true, approach: 7, cooldown: [2.2, 3.2], xp: 26, gold: 16, raiseMax: 4,
+      attacks: [
+        { weight: 2, hits: [{ pose: 'overhead', wind: 1.2, active: 0.1, recover: 1.0, dmg: 0, posture: 0, range: 14, arc: 360, lunge: 0, raise: 2 }] },
+        { weight: 1, hits: [{ pose: 'shoot', wind: 0.9, active: 0.1, recover: 0.8, dmg: 16, posture: 14, range: 12, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0xb06aff, reflect: true } }] },
+      ],
+    },
+    // Looks like a chest until you come close
+    mimic: {
+      name: 'Mimic', rig: 'mimic', hp: 90, posture: 60, postureRegen: 16, speed: 3.6, radius: 0.55, scale: 1,
+      flinch: false, approach: 1.5, cooldown: [0.8, 1.4], xp: 40, gold: 45,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'bite', wind: 0.45, active: 0.1, recover: 0.45, dmg: 16, posture: 14, range: 1.9, arc: 90, lunge: 0.8 }] },
+        { weight: 2, hits: [{ pose: 'pounce', wind: 0.7, active: 0.3, recover: 0.8, dmg: 24, posture: 20, range: 2.2, arc: 110, lunge: 4.5, leap: true, parryOnly: true }] },
+      ],
+    },
     // Sergeant Hobb, who spars with the hero in the training yard (the tutorial gives him one move at a time)
     sparring: {
       name: 'Sergeant Hobb', rig: 'knight', hp: 99999, posture: 60, postureRegen: 0, speed: 1.4, radius: 0.5, scale: 1.0,
@@ -182,6 +216,42 @@ const CFG = {
       { size: [9, 8], pillars: true, waves: [['duelist', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['duelist']] },
     ] },
+    // ---- Act II ----
+    { name: 'The Sunken Temple', theme: 'temple', guardian: 'The Drowned Prophet', champion: { kind: 'caster', name: 'The Tidecaller', mods: ['warded'], hp: 3 }, rooms: [
+      { size: [9, 8], waves: [['caster', 'skeleton']] },
+      { size: [10, 8], pillars: true, waves: [['caster', 'caster', 'skeleton']] },
+      { size: [10, 9], waves: [['spider', 'caster'], ['skeleton', 'skeleton', 'caster']] },
+      { size: [9, 8], pillars: true, waves: [['caster', 'duelist', 'caster']] },
+      { size: [11, 9], guardian: true, waves: [['caster']] },
+    ] },
+    { name: 'The Frost Halls', theme: 'frost', guardian: 'The Frost Marshal', champion: { kind: 'bearer', name: 'The Ice Bulwark', mods: ['armored'] }, rooms: [
+      { size: [9, 8], waves: [['bearer', 'knight']] },
+      { size: [10, 8], pillars: true, waves: [['bearer', 'archer', 'archer']] },
+      { size: [10, 9], waves: [['knight', 'knight', 'bearer'], ['archer', 'caster']] },
+      { size: [9, 8], pillars: true, waves: [['bearer', 'duelist', 'knight']] },
+      { size: [11, 9], guardian: true, waves: [['bearer']] },
+    ] },
+    { name: 'The Ashen Forge', theme: 'forge', guardian: 'The Furnace Lord', champion: { kind: 'brute', name: 'The Slagborn', mods: ['explosive', 'armored'] }, rooms: [
+      { size: [10, 8], waves: [['goblin', 'goblin', 'bearer']] },
+      { size: [10, 9], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
+      { size: [11, 9], waves: [['brute', 'bearer'], ['goblin', 'goblin', 'goblin', 'caster']] },
+      { size: [10, 8], pillars: true, waves: [['brute', 'brute', 'bearer']] },
+      { size: [12, 10], guardian: true, waves: [['brute', 'goblin']] },
+    ] },
+    { name: 'The Bone Orchard', theme: 'orchard', guardian: 'The Bone Gardener', champion: { kind: 'necro', name: 'The Gravetender', mods: ['vampiric'], hp: 2.5 }, rooms: [
+      { size: [9, 8], waves: [['necro', 'skeleton']] },
+      { size: [10, 8], pillars: true, waves: [['necro', 'archer', 'skeleton']] },
+      { size: [10, 9], waves: [['necro', 'knight'], ['skeleton', 'skeleton', 'necro']] },
+      { size: [9, 8], pillars: true, waves: [['necro', 'spider', 'archer']] },
+      { size: [11, 9], guardian: true, waves: [['necro']] },
+    ] },
+    { name: 'The Throne of the Deep', theme: 'throne', guardian: 'The Hollow King', champion: { kind: 'duelist', name: "The King's Hand", mods: ['swift', 'warded'], hp: 3 }, rooms: [
+      { size: [10, 8], waves: [['duelist', 'bearer']] },
+      { size: [10, 9], pillars: true, waves: [['knight', 'caster', 'necro']] },
+      { size: [11, 9], waves: [['brute', 'bearer', 'caster'], ['duelist', 'duelist', 'spider']] },
+      { size: [10, 8], pillars: true, waves: [['necro', 'bearer', 'duelist']] },
+      { size: [12, 10], guardian: true, waves: [['knight']] },
+    ] },
   ],
 
   // Guardians: the first enemy of each stage's last room, grown into a boss. scale: size on top of its kind; hp / posture:
@@ -229,6 +299,51 @@ const CFG = {
           add: [{ weight: 3, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 18, posture: 18, range: 2.6, arc: 60, lunge: 1.4, blink: true }] }] },
         { at: 0.3, shout: 'SHADOWS, TO ME', summon: ['duelist', 'duelist'], faster: 0.85, def: { cooldown: [0.6, 1.1] } },
       ] },
+    // ---- Act II ----
+    { name: 'The Drowned Prophet', scale: 1.45, hp: 7, posture: 3, reach: 1.0,
+      add: [{ weight: 2, hits: [{ pose: 'shoot', wind: 0.75, active: 0.08, recover: 0.12, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }, { pose: 'shoot', wind: 0.3, active: 0.08, recover: 0.12, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }, { pose: 'shoot', wind: 0.3, active: 0.08, recover: 0.9, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }] }],
+      phases: [
+        { at: 0.66, shout: 'THE TIDE RISES', summon: ['caster', 'caster'] },
+        { at: 0.33, shout: 'DROWN WITH ME', summon: ['skeleton', 'spider'], faster: 0.8, def: { cooldown: [1.0, 1.6] } },
+      ] },
+    { name: 'The Frost Marshal', scale: 1.25, hp: 5, posture: 2.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'HOLD THE LINE', summon: ['bearer', 'knight'] },
+        { at: 0.3, shout: 'THE MARSHAL ADVANCES', stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.0, cooldown: [0.7, 1.2] },
+          attacks: [
+            { weight: 3, hits: [
+              { pose: 'slashR', wind: 0.6, active: 0.12, recover: 0.16, dmg: 22, posture: 24, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+              { pose: 'slashL', wind: 0.4, active: 0.12, recover: 0.8, dmg: 22, posture: 24, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+            ] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 32, posture: 0, range: 2.8, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+          ] },
+      ] },
+    { name: 'The Furnace Lord', scale: 1.35, hp: 5.5, posture: 2.6, reach: 1.15,
+      add: [{ weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.16, recover: 1.0, dmg: 36, posture: 0, range: 3, arc: 360, aoe: { fwd: 1.6, r: 3.2 }, unblockable: true, lunge: 0.6 }] }],
+      phases: [
+        { at: 0.65, shout: 'STOKE THE FIRES', summon: ['goblin', 'goblin', 'goblin'] },
+        { at: 0.3, shout: 'THE FURNACE ROARS', enrage: true, faster: 0.75, def: { speed: 3.4, cooldown: [0.5, 1.0] }, summon: ['bearer'] },
+      ] },
+    { name: 'The Bone Gardener', scale: 1.45, hp: 5.5, posture: 3, reach: 1.0,
+      phases: [
+        { at: 0.66, shout: 'THE ORCHARD WAKES', summon: ['skeleton', 'archer', 'skeleton'] },
+        { at: 0.33, shout: 'REAP', summon: ['knight', 'knight'], faster: 0.8, def: { cooldown: [1.2, 1.8], raiseMax: 6 } },
+      ] },
+    { name: 'The Hollow King', scale: 1.35, hp: 9, posture: 3, reach: 1.15,
+      phases: [
+        { at: 0.7, shout: 'KNEEL', stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] },
+          attacks: [
+            { weight: 3, hits: [
+              { pose: 'slashR', wind: 0.55, active: 0.12, recover: 0.14, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+              { pose: 'slashL', wind: 0.35, active: 0.12, recover: 0.7, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+            ] },
+            { weight: 2, hits: [{ pose: 'overhead', wind: 0.8, active: 0.12, recover: 0.8, dmg: 36, posture: 36, blockMult: 2, range: 2.7, arc: 70, lunge: 1.6, parryOnly: true }] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 34, posture: 0, range: 2.9, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+          ] },
+        { at: 0.4, shout: 'THE CROWN COMMANDS', summon: ['duelist', 'caster'],
+          add: [{ weight: 2, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 26, posture: 22, range: 2.7, arc: 60, lunge: 1.4, blink: true }] }] },
+        { at: 0.15, shout: 'I AM THE DEEP', enrage: true, faster: 0.8, def: { speed: 3.6, cooldown: [0.4, 0.9] } },
+      ] },
   ],
   addMult: 0.6,                  // summoned adds are this strong relative to the room's normal enemies
 
@@ -240,6 +355,11 @@ const CFG = {
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
     depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs' },
     court: { stone: [72, 68, 76], wall: [42, 38, 48], torch: 0xe8e0ff, fog: 0x07060c, hemi: 0x9090b0, decor: 'court' },
+    temple: { stone: [40, 66, 64], wall: [34, 56, 56], torch: 0x5affd0, fog: 0x03080a, hemi: 0x5a9a9a, decor: 'water' },
+    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice' },
+    forge: { stone: [52, 40, 36], wall: [44, 32, 28], torch: 0xff5a1a, fog: 0x0e0503, hemi: 0xc06a40, decor: 'forge' },
+    orchard: { stone: [62, 58, 50], wall: [52, 48, 42], torch: 0xd8ff9a, fog: 0x080806, hemi: 0x9aa080, decor: 'orchard' },
+    throne: { stone: [30, 26, 34], wall: [24, 20, 28], torch: 0xffc040, fog: 0x050307, hemi: 0x8a7aa0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
@@ -434,13 +554,23 @@ const CFG = {
       ['Past the Keep the tunnels open into the Den. Something big has been feeding there, and goblins scurry at its heels.', 'When its weapon burns red, do not block. Dash through it.'],
       ['Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.', 'Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.'],
       ['The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.', 'They lie with their blades. Watch the first swing, but answer the second.'],
+      ['Below the Court there is water, warden. A temple, drowned long before Varrow Hill had a name.', 'Its acolytes throw light that hurts. Parry it at the last moment and it goes back the way it came.'],
+      ['Under the temple the cold begins. The Frost Halls. Soldiers stand there still, behind great shields.', 'Kill the shield-bearers first. While they stand, every blade near them is hard to bite.'],
+      ['Then heat again. A forge, still burning, with no one to feed it but the Deep itself.', 'Brutes, goblins, fire. You know them all by now. You have never met so many at once.'],
+      ['Beneath the forge, an orchard of bone. Something there plants the dead and makes them grow.', 'Find the callers. Their skeletons fall when they do.'],
+      ['The last ring. A throne, and a king who was the first warden of all, before he went down and did not come up.', 'Bring him back to the light, or put him to rest. Either way, come home.'],
     ],
     post: [
       ['The Bone Warden is dust? Then the Crypt sleeps for a while.', 'Bram says the iron you hauled up is good. Spend your gold on the camp: a better forge makes better blades.'],
       ['Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.', 'Rest. Mend your gear. The Den waits below the Keep.'],
       ['The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.', 'Below the Den the walls are webbed. Rest first, warden.'],
       ['The Brood Queen... Bram will drink to that tonight, for his brother.', 'One ring remains that we know of. The Court. Go carefully.'],
-      ['The Pale Duelist bowed before she fell, they say. Courteous to the end.', 'The rings have no bottom, warden. Every time you go down, they will be stronger. But Deepward stands because of you.'],
+      ['The Pale Duelist bowed before she fell, they say. Courteous to the end.', 'And still the stair goes on. Water, below the Court. Rest, then go and see.'],
+      ['The Prophet is drowned twice over. The water is already going down.', 'Below it, Bram swears he felt the cold through the gate. Take a cloak.'],
+      ['The Frost Marshal held his hall for forty winters. You took it in an afternoon.', 'There is fire below the ice. Strange, the Deep.'],
+      ['The Furnace Lord is out. For the first time in memory, the stair is cold all the way down.', 'One more ring before the last, they say. An orchard. I do not like the sound of it.'],
+      ['The Gardener is buried in its own soil. The orchard will not grow again.', 'Below it, only the throne. You know who sits there now. So do I.'],
+      ['It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.', 'You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.'],
     ],
     depth: 'Depth {n}. The rings have shifted again and their dead have grown stronger. Take care, warden.',
   },

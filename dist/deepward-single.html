@@ -414,6 +414,40 @@ const CFG = {
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
     },
+    // ---- Act II ----
+    // Throws slow orbs from afar; a parry sends an orb back at the caster
+    caster: {
+      name: 'Drowned Acolyte', hp: 40, posture: 40, postureRegen: 14, speed: 2.4, radius: 0.42, scale: 1,
+      flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.8, 2.8], xp: 18, gold: 12,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 1.0, active: 0.1, recover: 0.8, dmg: 14, posture: 12, range: 13, arc: 30, lunge: 0, projectile: { speed: 8, orb: 0x4ae8d0, reflect: true } }] }],
+    },
+    // Shelters every ally within ward.r: they take ward.cut less damage while it stands
+    bearer: {
+      name: 'Shieldbearer', rig: 'knight', look: { colors: { cloth: 0x2a3a6a } }, hp: 110, posture: 90, postureRegen: 14, speed: 2.1, radius: 0.55, scale: 1.18,
+      flinch: false, guard: true, guardAngle: 160, approach: 2.0, cooldown: [1.4, 2.2], xp: 28, gold: 18, ward: { r: 5, cut: 0.45 },
+      attacks: [
+        { weight: 3, hits: [{ pose: 'thrust', wind: 0.7, active: 0.12, recover: 0.7, dmg: 16, posture: 22, range: 2.4, arc: 70, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'overhead', wind: 0.95, active: 0.12, recover: 0.8, dmg: 24, posture: 26, blockMult: 1.4, range: 2.4, arc: 80, lunge: 1.0 }] },
+      ],
+    },
+    // Raises skeletons from the floor (they crumble when it dies) and throws a cursed orb
+    necro: {
+      name: 'Bone Caller', hp: 55, posture: 45, postureRegen: 14, speed: 2.4, radius: 0.42, scale: 1.05,
+      flinch: true, ranged: [5, 9], solo: true, approach: 7, cooldown: [2.2, 3.2], xp: 26, gold: 16, raiseMax: 4,
+      attacks: [
+        { weight: 2, hits: [{ pose: 'overhead', wind: 1.2, active: 0.1, recover: 1.0, dmg: 0, posture: 0, range: 14, arc: 360, lunge: 0, raise: 2 }] },
+        { weight: 1, hits: [{ pose: 'shoot', wind: 0.9, active: 0.1, recover: 0.8, dmg: 16, posture: 14, range: 12, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0xb06aff, reflect: true } }] },
+      ],
+    },
+    // Looks like a chest until you come close
+    mimic: {
+      name: 'Mimic', rig: 'mimic', hp: 90, posture: 60, postureRegen: 16, speed: 3.6, radius: 0.55, scale: 1,
+      flinch: false, approach: 1.5, cooldown: [0.8, 1.4], xp: 40, gold: 45,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'bite', wind: 0.45, active: 0.1, recover: 0.45, dmg: 16, posture: 14, range: 1.9, arc: 90, lunge: 0.8 }] },
+        { weight: 2, hits: [{ pose: 'pounce', wind: 0.7, active: 0.3, recover: 0.8, dmg: 24, posture: 20, range: 2.2, arc: 110, lunge: 4.5, leap: true, parryOnly: true }] },
+      ],
+    },
     // Sergeant Hobb, who spars with the hero in the training yard (the tutorial gives him one move at a time)
     sparring: {
       name: 'Sergeant Hobb', rig: 'knight', hp: 99999, posture: 60, postureRegen: 0, speed: 1.4, radius: 0.5, scale: 1.0,
@@ -513,6 +547,42 @@ const CFG = {
       { size: [9, 8], pillars: true, waves: [['duelist', 'spider', 'archer']] },
       { size: [11, 9], guardian: true, waves: [['duelist']] },
     ] },
+    // ---- Act II ----
+    { name: 'The Sunken Temple', theme: 'temple', guardian: 'The Drowned Prophet', champion: { kind: 'caster', name: 'The Tidecaller', mods: ['warded'], hp: 3 }, rooms: [
+      { size: [9, 8], waves: [['caster', 'skeleton']] },
+      { size: [10, 8], pillars: true, waves: [['caster', 'caster', 'skeleton']] },
+      { size: [10, 9], waves: [['spider', 'caster'], ['skeleton', 'skeleton', 'caster']] },
+      { size: [9, 8], pillars: true, waves: [['caster', 'duelist', 'caster']] },
+      { size: [11, 9], guardian: true, waves: [['caster']] },
+    ] },
+    { name: 'The Frost Halls', theme: 'frost', guardian: 'The Frost Marshal', champion: { kind: 'bearer', name: 'The Ice Bulwark', mods: ['armored'] }, rooms: [
+      { size: [9, 8], waves: [['bearer', 'knight']] },
+      { size: [10, 8], pillars: true, waves: [['bearer', 'archer', 'archer']] },
+      { size: [10, 9], waves: [['knight', 'knight', 'bearer'], ['archer', 'caster']] },
+      { size: [9, 8], pillars: true, waves: [['bearer', 'duelist', 'knight']] },
+      { size: [11, 9], guardian: true, waves: [['bearer']] },
+    ] },
+    { name: 'The Ashen Forge', theme: 'forge', guardian: 'The Furnace Lord', champion: { kind: 'brute', name: 'The Slagborn', mods: ['explosive', 'armored'] }, rooms: [
+      { size: [10, 8], waves: [['goblin', 'goblin', 'bearer']] },
+      { size: [10, 9], pillars: true, waves: [['brute', 'goblin', 'goblin']] },
+      { size: [11, 9], waves: [['brute', 'bearer'], ['goblin', 'goblin', 'goblin', 'caster']] },
+      { size: [10, 8], pillars: true, waves: [['brute', 'brute', 'bearer']] },
+      { size: [12, 10], guardian: true, waves: [['brute', 'goblin']] },
+    ] },
+    { name: 'The Bone Orchard', theme: 'orchard', guardian: 'The Bone Gardener', champion: { kind: 'necro', name: 'The Gravetender', mods: ['vampiric'], hp: 2.5 }, rooms: [
+      { size: [9, 8], waves: [['necro', 'skeleton']] },
+      { size: [10, 8], pillars: true, waves: [['necro', 'archer', 'skeleton']] },
+      { size: [10, 9], waves: [['necro', 'knight'], ['skeleton', 'skeleton', 'necro']] },
+      { size: [9, 8], pillars: true, waves: [['necro', 'spider', 'archer']] },
+      { size: [11, 9], guardian: true, waves: [['necro']] },
+    ] },
+    { name: 'The Throne of the Deep', theme: 'throne', guardian: 'The Hollow King', champion: { kind: 'duelist', name: "The King's Hand", mods: ['swift', 'warded'], hp: 3 }, rooms: [
+      { size: [10, 8], waves: [['duelist', 'bearer']] },
+      { size: [10, 9], pillars: true, waves: [['knight', 'caster', 'necro']] },
+      { size: [11, 9], waves: [['brute', 'bearer', 'caster'], ['duelist', 'duelist', 'spider']] },
+      { size: [10, 8], pillars: true, waves: [['necro', 'bearer', 'duelist']] },
+      { size: [12, 10], guardian: true, waves: [['knight']] },
+    ] },
   ],
 
   // Guardians: the first enemy of each stage's last room, grown into a boss. scale: size on top of its kind; hp / posture:
@@ -560,6 +630,51 @@ const CFG = {
           add: [{ weight: 3, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 18, posture: 18, range: 2.6, arc: 60, lunge: 1.4, blink: true }] }] },
         { at: 0.3, shout: 'SHADOWS, TO ME', summon: ['duelist', 'duelist'], faster: 0.85, def: { cooldown: [0.6, 1.1] } },
       ] },
+    // ---- Act II ----
+    { name: 'The Drowned Prophet', scale: 1.45, hp: 7, posture: 3, reach: 1.0,
+      add: [{ weight: 2, hits: [{ pose: 'shoot', wind: 0.75, active: 0.08, recover: 0.12, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }, { pose: 'shoot', wind: 0.3, active: 0.08, recover: 0.12, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }, { pose: 'shoot', wind: 0.3, active: 0.08, recover: 0.9, dmg: 16, posture: 12, range: 14, arc: 30, lunge: 0, projectile: { speed: 9, orb: 0x4ae8d0, reflect: true } }] }],
+      phases: [
+        { at: 0.66, shout: 'THE TIDE RISES', summon: ['caster', 'caster'] },
+        { at: 0.33, shout: 'DROWN WITH ME', summon: ['skeleton', 'spider'], faster: 0.8, def: { cooldown: [1.0, 1.6] } },
+      ] },
+    { name: 'The Frost Marshal', scale: 1.25, hp: 5, posture: 2.6, reach: 1.1,
+      phases: [
+        { at: 0.6, shout: 'HOLD THE LINE', summon: ['bearer', 'knight'] },
+        { at: 0.3, shout: 'THE MARSHAL ADVANCES', stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.0, cooldown: [0.7, 1.2] },
+          attacks: [
+            { weight: 3, hits: [
+              { pose: 'slashR', wind: 0.6, active: 0.12, recover: 0.16, dmg: 22, posture: 24, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+              { pose: 'slashL', wind: 0.4, active: 0.12, recover: 0.8, dmg: 22, posture: 24, blockMult: 1.5, range: 2.7, arc: 130, lunge: 1.2 },
+            ] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 32, posture: 0, range: 2.8, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+          ] },
+      ] },
+    { name: 'The Furnace Lord', scale: 1.35, hp: 5.5, posture: 2.6, reach: 1.15,
+      add: [{ weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.16, recover: 1.0, dmg: 36, posture: 0, range: 3, arc: 360, aoe: { fwd: 1.6, r: 3.2 }, unblockable: true, lunge: 0.6 }] }],
+      phases: [
+        { at: 0.65, shout: 'STOKE THE FIRES', summon: ['goblin', 'goblin', 'goblin'] },
+        { at: 0.3, shout: 'THE FURNACE ROARS', enrage: true, faster: 0.75, def: { speed: 3.4, cooldown: [0.5, 1.0] }, summon: ['bearer'] },
+      ] },
+    { name: 'The Bone Gardener', scale: 1.45, hp: 5.5, posture: 3, reach: 1.0,
+      phases: [
+        { at: 0.66, shout: 'THE ORCHARD WAKES', summon: ['skeleton', 'archer', 'skeleton'] },
+        { at: 0.33, shout: 'REAP', summon: ['knight', 'knight'], faster: 0.8, def: { cooldown: [1.2, 1.8], raiseMax: 6 } },
+      ] },
+    { name: 'The Hollow King', scale: 1.35, hp: 9, posture: 3, reach: 1.15,
+      phases: [
+        { at: 0.7, shout: 'KNEEL', stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] },
+          attacks: [
+            { weight: 3, hits: [
+              { pose: 'slashR', wind: 0.55, active: 0.12, recover: 0.14, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+              { pose: 'slashL', wind: 0.35, active: 0.12, recover: 0.7, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+            ] },
+            { weight: 2, hits: [{ pose: 'overhead', wind: 0.8, active: 0.12, recover: 0.8, dmg: 36, posture: 36, blockMult: 2, range: 2.7, arc: 70, lunge: 1.6, parryOnly: true }] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 34, posture: 0, range: 2.9, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+          ] },
+        { at: 0.4, shout: 'THE CROWN COMMANDS', summon: ['duelist', 'caster'],
+          add: [{ weight: 2, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 26, posture: 22, range: 2.7, arc: 60, lunge: 1.4, blink: true }] }] },
+        { at: 0.15, shout: 'I AM THE DEEP', enrage: true, faster: 0.8, def: { speed: 3.6, cooldown: [0.4, 0.9] } },
+      ] },
   ],
   addMult: 0.6,                  // summoned adds are this strong relative to the room's normal enemies
 
@@ -571,6 +686,11 @@ const CFG = {
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
     depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs' },
     court: { stone: [72, 68, 76], wall: [42, 38, 48], torch: 0xe8e0ff, fog: 0x07060c, hemi: 0x9090b0, decor: 'court' },
+    temple: { stone: [40, 66, 64], wall: [34, 56, 56], torch: 0x5affd0, fog: 0x03080a, hemi: 0x5a9a9a, decor: 'water' },
+    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice' },
+    forge: { stone: [52, 40, 36], wall: [44, 32, 28], torch: 0xff5a1a, fog: 0x0e0503, hemi: 0xc06a40, decor: 'forge' },
+    orchard: { stone: [62, 58, 50], wall: [52, 48, 42], torch: 0xd8ff9a, fog: 0x080806, hemi: 0x9aa080, decor: 'orchard' },
+    throne: { stone: [30, 26, 34], wall: [24, 20, 28], torch: 0xffc040, fog: 0x050307, hemi: 0x8a7aa0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
@@ -765,13 +885,23 @@ const CFG = {
       ['Past the Keep the tunnels open into the Den. Something big has been feeding there, and goblins scurry at its heels.', 'When its weapon burns red, do not block. Dash through it.'],
       ['Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.', 'Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.'],
       ['The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.', 'They lie with their blades. Watch the first swing, but answer the second.'],
+      ['Below the Court there is water, warden. A temple, drowned long before Varrow Hill had a name.', 'Its acolytes throw light that hurts. Parry it at the last moment and it goes back the way it came.'],
+      ['Under the temple the cold begins. The Frost Halls. Soldiers stand there still, behind great shields.', 'Kill the shield-bearers first. While they stand, every blade near them is hard to bite.'],
+      ['Then heat again. A forge, still burning, with no one to feed it but the Deep itself.', 'Brutes, goblins, fire. You know them all by now. You have never met so many at once.'],
+      ['Beneath the forge, an orchard of bone. Something there plants the dead and makes them grow.', 'Find the callers. Their skeletons fall when they do.'],
+      ['The last ring. A throne, and a king who was the first warden of all, before he went down and did not come up.', 'Bring him back to the light, or put him to rest. Either way, come home.'],
     ],
     post: [
       ['The Bone Warden is dust? Then the Crypt sleeps for a while.', 'Bram says the iron you hauled up is good. Spend your gold on the camp: a better forge makes better blades.'],
       ['Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.', 'Rest. Mend your gear. The Den waits below the Keep.'],
       ['The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.', 'Below the Den the walls are webbed. Rest first, warden.'],
       ['The Brood Queen... Bram will drink to that tonight, for his brother.', 'One ring remains that we know of. The Court. Go carefully.'],
-      ['The Pale Duelist bowed before she fell, they say. Courteous to the end.', 'The rings have no bottom, warden. Every time you go down, they will be stronger. But Deepward stands because of you.'],
+      ['The Pale Duelist bowed before she fell, they say. Courteous to the end.', 'And still the stair goes on. Water, below the Court. Rest, then go and see.'],
+      ['The Prophet is drowned twice over. The water is already going down.', 'Below it, Bram swears he felt the cold through the gate. Take a cloak.'],
+      ['The Frost Marshal held his hall for forty winters. You took it in an afternoon.', 'There is fire below the ice. Strange, the Deep.'],
+      ['The Furnace Lord is out. For the first time in memory, the stair is cold all the way down.', 'One more ring before the last, they say. An orchard. I do not like the sound of it.'],
+      ['The Gardener is buried in its own soil. The orchard will not grow again.', 'Below it, only the throne. You know who sits there now. So do I.'],
+      ['It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.', 'You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.'],
     ],
     depth: 'Depth {n}. The rings have shifted again and their dead have grown stronger. Take care, warden.',
   },
@@ -1241,6 +1371,15 @@ const Rig = (() => {
     const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
     return { group: g, glowMats: [steel], tip, base, blade };
   }
+  // A caster's staff: a long crooked shaft with a glowing orb (or, for bone callers, a skull) at its head
+  function staff(hand, color, skull) {
+    const g = joint(hand, 0, -0.03, 0), wood = std(0x3a2a1e), orbM = std(color, 0.3); orbM.emissive.setHex(color); orbM.emissiveIntensity = 0.8;     // lit from within, and can still flash for telegraphs
+    mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.6, 6).rotateX(Math.PI / 2), wood, g, 0, 0, 0.45);
+    if (skull) { ball(g, 0.09, std(0xd8cfb4), 0, 0, 1.3, 8, 6); ball(g, 0.03, orbM, 0, 0.03, 1.38, 5, 4); }
+    else { mesh(new THREE.TorusGeometry(0.1, 0.018, 5, 10), wood, g, 0, 0, 1.32).rotation.y = Math.PI / 2; ball(g, 0.075, orbM, 0, 0, 1.32, 8, 6); }
+    const tip = joint(g, 0, 0, 1.35), base = joint(g, 0, 0, 1.0);
+    return { group: g, glowMats: [orbM], tip, base };
+  }
   // A spear held near its balance point: a long ash shaft with an iron leaf blade and a butt cap
   function spear(hand, o) {
     const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xc0c6d0, 0.35, 0.6), wood = std(0x6a4a2a);
@@ -1320,6 +1459,7 @@ const Rig = (() => {
   // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
   function build(kind, o = {}) {
     if (kind === 'spider') return buildSpider();
+    if (kind === 'mimic') return buildMimic();
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
@@ -1330,13 +1470,16 @@ const Rig = (() => {
       duelist: { skin: 0xe8e2d8, cloth: 0x2a2032, pants: 0x1e1a24, boot: 0x16141a, w: 0.95, limbR: 0.92 },
       knight: { skin: 0x5a606c, cloth: 0x6a1a1a, pants: 0x3a3e48, boot: 0x2a2c32, w: 1.08, limbR: 1.1 },
       brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
+      caster: { skin: 0x8aa898, cloth: 0x1e4a4a, pants: 0x1a3434, boot: 0x14201e, w: 0.95, limbR: 0.9 },
+      necro: { skin: 0xd8cfb4, cloth: 0x3a1e4a, pants: 0x3a1e4a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
     }[kind];
+    if (o.colors) Object.assign(S, o.colors);                              // a recoloured variant (the shield-bearer is a knight in blue)
     const rig = { kind, j: {}, mats: [], glowMats: [], trail: null };
     const root = new THREE.Group(), body = joint(root, 0, 0.5, 0), hips = joint(body, 0, 0.45, 0);
     rig.root = root; rig.body = body; rig.j.hips = hips;
     const skin = std(S.skin, kind === 'knight' ? 0.45 : 0.8, kind === 'knight' ? 0.55 : 0), cloth = std(S.cloth), pants = std(S.pants), boot = std(S.boot, 0.9);
     const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18);
-    const w = S.w, R = S.limbR, bony = kind === 'skeleton' || kind === 'archer';
+    const w = S.w, R = S.limbR, bony = kind === 'skeleton' || kind === 'archer' || kind === 'necro', robed = kind === 'caster' || kind === 'necro';
 
     // Pelvis and legs
     if (bony) { box(hips, 0.26, 0.1, 0.12, skin, 0, -0.02, 0); mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.34, 7, 1, true), std(0x3a2f2a, 1), hips, 0, -0.14, 0).material.side = THREE.DoubleSide; }
@@ -1388,6 +1531,7 @@ const Rig = (() => {
         box(chest, 0.36, 0.16, 0.26, cloth, 0, 0.3, -0.02);                                        // high collar
       }
       if (kind === 'goblin') { const v = box(chest, 0.34, 0.3, 0.26, std(0x5a4430), 0, 0.06, 0); v.rotation.z = 0.08; }
+      if (kind === 'caster') box(chest, 0.08, 0.4, 0.03, std(0x8ae8d0, 0.4), 0, 0.05, 0.13);       // a pale stole
       if (kind === 'npc') {
         if (N.apron) box(chest, 0.3, 0.55, 0.03, std(0x4a3420), 0, -0.05, 0.15);
         if (N.elder) mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 9, 1, true), cloth, chest, 0, -0.32, 0).material.side = THREE.DoubleSide;   // long robe
@@ -1404,6 +1548,11 @@ const Rig = (() => {
         for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(0.03, 0.12, 5), std(0xd8cfb4), chest, -0.25 + i * 0.04, 0.33, -0.02 + i * 0.03);
       }
     }
+    // Long robes for the casters (bony callers wear theirs over the ribs)
+    if (robed) {
+      mesh(new THREE.CylinderGeometry(0.2, 0.34, 0.95, 10, 1, true), cloth, chest, 0, -0.42, -0.01).material.side = THREE.DoubleSide;
+      box(chest, 0.34, 0.14, 0.26, cloth, 0, 0.25, -0.02);
+    }
     const neck = joint(chest, 0, 0.26, 0, 'YXZ'); rig.j.neck = neck;
     limb(neck, 0.1, 0.05 * R, 0.06 * R, skin).position.y = 0.03;
     const head = joint(neck, 0, 0.14, 0); rig.j.head = head;
@@ -1412,7 +1561,16 @@ const Rig = (() => {
       box(head, 0.16, 0.07, 0.12, skin, 0, -0.1, 0.04);
       for (const s of [1, -1]) { ball(head, 0.035, dark, 0.05 * s, 0.02, 0.11, 6, 5); ball(head, 0.016, glowMat(0x7fe8ff), 0.05 * s, 0.02, 0.135, 5, 4); }
       box(head, 0.03, 0.04, 0.02, dark, 0, -0.04, 0.135);
+      if (kind === 'necro') {                                              // a hood and a crown of thorns
+        const hood = mesh(new THREE.SphereGeometry(0.17, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.62), cloth, head, 0, 0.03, -0.02); hood.scale.set(1, 1.1, 1.15);
+        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; mesh(new THREE.ConeGeometry(0.02, 0.12, 4), std(0xc9a23a, 0.4, 0.5), head, Math.sin(a) * 0.13, 0.17, Math.cos(a) * 0.13); }
+      }
       if (kind === 'archer') { const hood = mesh(new THREE.SphereGeometry(0.17, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.62), cloth, head, 0, 0.03, -0.02); hood.scale.set(1, 1.1, 1.15); mesh(new THREE.ConeGeometry(0.1, 0.18, 6), cloth, head, 0, 0.0, -0.17).rotation.x = -1.9; }
+    } else if (kind === 'caster') {
+      box(head, 0.21, 0.24, 0.22, skin, 0, 0, 0);
+      for (const sd of [1, -1]) ball(head, 0.025, glowMat(0x4ae8d0), 0.05 * sd, 0.02, 0.115, 5, 4);
+      const hood = mesh(new THREE.SphereGeometry(0.18, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.65), cloth, head, 0, 0.03, -0.03); hood.scale.set(1, 1.15, 1.2);
+      mesh(new THREE.ConeGeometry(0.12, 0.22, 6), cloth, head, 0, 0.0, -0.2).rotation.x = -1.9;
     } else if (kind === 'goblin') {
       box(head, 0.24, 0.22, 0.22, skin, 0, 0, 0);
       for (const sd of [1, -1]) { const ear = mesh(new THREE.ConeGeometry(0.05, 0.26, 5), skin, head, 0.15 * sd, 0.04, -0.02); ear.rotation.z = -sd * 1.3; ball(head, 0.025, glowMat(0xffd040), 0.06 * sd, 0.03, 0.115, 5, 4); }
@@ -1488,6 +1646,8 @@ const Rig = (() => {
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
     else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
+    else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
+    else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);
     else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
@@ -1550,6 +1710,43 @@ const Rig = (() => {
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
+  }
+  // ---------------- The mimic: a chest with teeth (lid as jaw), hopping on stubby feet ----------------
+  function buildMimic() {
+    const rig = { kind: 'mimic', j: {}, mats: [], glowMats: [], mimic: true, time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), body = joint(root, 0, 0.3, 0); rig.root = root; rig.body = body;
+    const wood = std(0x6a4424), band = std(0xd9a92a, 0.4, 0.6), tooth = std(0xeee6d6, 0.5), flesh = std(0x6a1a1a, 0.8);
+    box(body, 0.9, 0.5, 0.62, wood, 0, 0, 0);
+    for (const x of [-0.35, 0.35]) box(body, 0.08, 0.52, 0.64, band, x, 0, 0);
+    box(body, 0.7, 0.04, 0.5, flesh, 0, 0.24, 0);                                        // the mouth's floor
+    for (let i = 0; i < 7; i++) mesh(new THREE.ConeGeometry(0.035, 0.12, 4), tooth, body, -0.36 + i * 0.12, 0.3, 0.29);
+    for (const x of [-0.32, 0.32]) for (const z of [-0.2, 0.2]) { const f = box(body, 0.12, 0.16, 0.12, std(0x3a2a1a), x, -0.3, z); f.userData.foot = true; }
+    const lid = joint(body, 0, 0.25, -0.31); rig.j.lid = lid;
+    mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.9, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, lid, 0, 0, 0.31);
+    for (const x of [-0.35, 0.35]) mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), band, lid, x, 0, 0.31);
+    for (let i = 0; i < 7; i++) mesh(new THREE.ConeGeometry(0.035, 0.12, 4), tooth, lid, -0.36 + i * 0.12, -0.04, 0.6).rotation.x = Math.PI;
+    for (const sd of [1, -1]) ball(lid, 0.05, glowMat(0xffd040), 0.18 * sd, 0.12, 0.55, 6, 5);
+    const tongue = box(body, 0.16, 0.05, 0.4, std(0xb03040, 0.7), 0, 0.27, 0.15); rig.j.tongue = tongue;
+    const tip = joint(lid, 0, -0.1, 0.62), base = joint(lid, 0, 0, 0.3);
+    rig.weapon = { group: lid, tip, base, glowMats: [tooth] }; rig.glowMats.push(tooth);
+    bake(root, true, rig.glowMats);
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  function animateMimic(rig, st, dt) {
+    rig.time += dt; const m = st.mode, sp = Math.min(1, st.speed || 0);
+    rig.loco += dt * (3 + 9 * sp);
+    let y = 0.3, open = -0.15 - Math.max(0, Math.sin(rig.time * 1.7)) * 0.12, pitch = 0, roll = 0;
+    if (m === 'move') { y = 0.3 + Math.abs(Math.sin(rig.loco)) * 0.28 * sp; open = -0.35; }
+    if (m === 'attack') { if (st.phase === 'wind') { open = -1.3; pitch = -0.25; y = 0.36; } else if (st.phase === 'active') { open = -0.05; pitch = 0.2; y = 0.5; } else open = -0.4; }
+    else if (m === 'stagger') { roll = Math.sin(rig.time * 40) * 0.1; open = -0.6; }
+    else if (m === 'broken') { open = -1.0; y = 0.24; pitch = 0.15; }
+    else if (m === 'dead') { open = -1.9; roll = Math.min(1, st.t * 2) * 1.2; y = 0.26; }
+    else if (m === 'spawn') open = -0.02;
+    const k = 1 - Math.exp(-16 * dt), b = rig.body;
+    b.position.y += (y - b.position.y) * k; b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.lid.rotation.x += (open - rig.j.lid.rotation.x) * Math.min(1, dt * (st.phase === 'active' ? 40 : 14));
   }
   function animateSpider(rig, st, dt) {
     rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0);
@@ -1775,6 +1972,7 @@ const Rig = (() => {
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     if (rig.spider) return animateSpider(rig, st, dt);
+    if (rig.mimic) return animateMimic(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
     const b = rig.body, hips = rig.j.hips;
@@ -2537,7 +2735,7 @@ const Enemy = (() => {
   const BONE = { skeleton: 1, archer: 1 };
 
   function spawn(scene, type, pos, mult = 1) {
-    const def = CFG.enemies[type], rig = Rig.build(def.rig || type);
+    const def = CFG.enemies[type], rig = Rig.build(def.rig || type, def.look || {});
     scene.add(rig.root);
     // Below high quality, enemies leave the shadow pass and get a soft blob under their feet instead
     if (G.quality && G.quality() !== 'high') { rig.root.traverse(o => { o.castShadow = false; }); rig.root.add(blob()); }
@@ -2552,6 +2750,10 @@ const Enemy = (() => {
     const bar = document.createElement('div'); bar.className = 'ebar';
     bar.innerHTML = '<div class="hp"><i></i></div><div class="post"><i></i></div>';
     document.getElementById('bars').appendChild(bar); e.bar = bar;
+    if (def.ward) {                                                       // the shield-bearer's sheltering circle
+      const ring = new THREE.Mesh(new THREE.RingGeometry(def.ward.r - 0.06, def.ward.r, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x6a9aff, transparent: true, opacity: 0.22, depthWrite: false }));
+      ring.position.y = 0.03; ring.scale.setScalar(1 / rig.root.scale.x || 1); rig.root.add(ring); e.wardRing = ring;
+    }
     FX.ring(e.pos, 1.4, 0x7fe8ff, 0.9, { r0: 0.2 });
     FX.burst(new THREE.Vector3(e.pos.x, 0.1, e.pos.z), 0x8a7a66, 14, 4, 0.6);
     return e;
@@ -2660,7 +2862,7 @@ const Enemy = (() => {
         if (d > def.radius + 0.8) step(e.facing, h.leap ? h.lunge / h.active : h.lunge / (h.wind * 0.35 + h.active));
         if (!e.struck && e.phaseT >= h.active * (h.leap ? 0.8 : 0.5)) {
           e.struck = true;
-          if (h.projectile) shoot(e, h); else Combat.enemyStrike(e, h);
+          if (h.projectile) shoot(e, h); else if (h.raise) raise(e, h.raise); else Combat.enemyStrike(e, h);
           if (e.state !== 'attack') return finishUpdate(e, dt, before);
         }
         if (e.phaseT >= h.active) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); }
@@ -2774,7 +2976,9 @@ const Enemy = (() => {
       return 'blocked';
     }
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
-    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0));
+    const shelter = sheltered(e);
+    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1);
+    if (shelter) FX.burst(Combat.chestPos(e.pos, 1.3 * def.scale), 0x6a9aff, 8, 4);
     if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
     FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
     hurtFlash(e);
@@ -2797,6 +3001,8 @@ const Enemy = (() => {
     e.bar.remove();
     if (e.blast) { FX.ring(new THREE.Vector3(e.pos.x, 0, e.pos.z), e.blast.r, 0xff3010, e.blast.fuse, { r0: 0.3, fill: true, fade: false }); FX.text(Combat.chestPos(e.pos, 2.0), '!', 'danger'); Snd.play('warn'); }
     G.onEnemyDeath(e);
+    // A bone caller's risen fall with it
+    for (const o of G.enemies) if (o.raisedBy === e && o.state !== 'dead') die(o);
     // A fallen guardian takes its summoned adds with it
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
@@ -2806,6 +3012,23 @@ const Enemy = (() => {
     if (!targetable(e) || e.state === 'roar' || !e.def) return;
     FX.burst(Combat.chestPos(e.pos, 0.9 * e.def.scale), color, 6, 3, 0.4); hurtFlash(e, color, 0.5);
     damage(e, n);
+  }
+  // A shield-bearer standing near shelters an ally (not itself)
+  function sheltered(e) {
+    for (const o of G.enemies) if (o !== e && o.def.ward && o.state !== 'dead' && Combat.dist(o.pos, e.pos) < o.def.ward.r) return o;
+    return null;
+  }
+  // A bone caller raises skeletons from the floor around it (up to raiseMax at once); they crumble when it dies
+  function raise(e, n) {
+    const have = G.enemies.filter(o => o.raisedBy === e && o.state !== 'dead').length + G.queue.filter(q => q.raisedBy === e).length;
+    const k = Math.min(n, (e.def.raiseMax || 4) - have);
+    FX.ring(e.pos, 2.4, 0xb06aff, 0.7, { r0: 0.4 }); Snd.play('warn');
+    for (let i = 0; i < k; i++) {
+      const a = Math.random() * Math.PI * 2, at = new THREE.Vector3(e.pos.x + Math.sin(a) * 2, 0, e.pos.z + Math.cos(a) * 2);
+      if (!World.inSpace(at.x, at.z, 0.5)) at.set(e.pos.x, 0, e.pos.z + 1);
+      FX.burst(new THREE.Vector3(at.x, 0.2, at.z), 0xb06aff, 14, 3, 0.6);
+      G.queue.push({ type: 'skeleton', at, mult: e.mult * 0.6, room: e.room, raisedBy: e, t: G.time + 0.3 + i * 0.3 });
+    }
   }
   // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
   // take a heavy critical instead.
@@ -2974,29 +3197,53 @@ const Enemy = (() => {
     }
     const from = e.rig.weapon.group.getWorldPosition(new THREE.Vector3()); from.y = Math.max(1.1, from.y);
     const p = G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
-    const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
-    g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron));
+    const g = new THREE.Group(), P = h.projectile;
+    let mats;
+    if (P.orb) {
+      // A glowing orb, slower than an arrow, that a parry sends back
+      const core = new THREE.MeshBasicMaterial({ color: 0xffffff }), halo = new THREE.MeshBasicMaterial({ color: P.orb, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), core), new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), halo));
+      mats = [core, halo]; Snd.play('glint');
+    } else {
+      const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
+      g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron)); mats = [wood, iron]; Snd.play('swing');
+    }
     g.position.copy(from); g.lookAt(from.clone().add(dir)); e.rig.root.parent.add(g);
-    arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: h.projectile.speed, hit: h, mult: e.mult, gone: 0, mats: [wood, iron] });
-    Snd.play('swing');
+    arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: P.speed, hit: h, mult: e.mult, gone: 0, mats, owner: e, orb: P.orb });
   }
   function updateArrows(dt) {
     const p = G.player;
     for (let i = arrows.length - 1; i >= 0; i--) {
       const a = arrows[i]; let done = false;
       a.pos.addScaledVector(a.dir, a.speed * dt); a.gone += a.speed * dt; a.g.position.copy(a.pos);
-      if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
+      if (a.orb && Math.random() < dt * 30) FX.burst(a.pos.clone(), a.back ? 0xffd040 : a.orb, 1, 0.6, 0.3);
+      if (a.back) {
+        // A reflected orb flies at enemies instead
+        for (const e of G.enemies) if (targetable(e) && Math.hypot(a.pos.x - e.pos.x, a.pos.z - e.pos.z) < e.def.radius + 0.35) {
+          receive(e, { dmg: a.hit.dmg * a.mult * 2.2, posture: 40, breaksGuard: true }, p); FX.burst(a.pos.clone(), 0xffd040, 20, 6); Snd.play('crit'); done = true;
+          if (e.state === 'dead' && typeof Codex !== 'undefined' && Items.S) Codex.add('reflectKills');
+          break;
+        }
+      } else if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
         const res = Player.receive(p, { pos: a.origin, mult: a.mult }, a.hit);
-        if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
-        if (res !== 'dodge') done = true;
+        if (res === 'parry' && a.hit.projectile.reflect) {
+          // Parried: back the way it came, at its caster (or wherever they stood), faster and golden
+          const to = a.owner && a.owner.state !== 'dead' ? Combat.chestPos(a.owner.pos, 1.1 * a.owner.def.scale) : a.origin;
+          a.dir = to.sub(a.pos).normalize(); a.speed *= 1.6; a.back = true; a.gone = 0;
+          a.mats[1] && a.mats[1].color && a.mats[1].color.setHex(0xffd040);
+          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry');
+        } else {
+          if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
+          if (res !== 'dodge') done = true;
+        }
       }
-      if (a.gone > 18 || a.pos.y < 0 || !World.inSpace(a.pos.x, a.pos.z, 0.2)) done = true;
+      if (a.gone > 20 || a.pos.y < 0 || !World.inSpace(a.pos.x, a.pos.z, 0.2)) done = true;
       if (done) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); arrows.splice(i, 1); }
     }
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
 
 </script>
@@ -3007,10 +3254,10 @@ const Enemy = (() => {
 // this module keeps them working.
 const Props = (() => {
   const F = CFG.features;
-  let pots = [], traps = [], shrines = [];
+  let pots = [], traps = [], shrines = [], mimics = [];
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
   const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
-  function clear() { pots = []; traps = []; shrines = []; }
+  function clear() { pots = []; traps = []; shrines = []; mimics = []; }
 
   // ---------------- Breakables ----------------
   // Along the walls, off the path and away from pillars and doorways
@@ -3134,15 +3381,35 @@ const Props = (() => {
     return pool.sort(() => Math.random() - 0.5).slice(0, 3);
   }
 
-  function update(dt) { updateTraps(dt); updateShrines(dt); }
+  // ---------------- Mimics ----------------
+  // A chest that is not a chest: it waits beside the path and springs when the hero comes close
+  function mimic(room, lx, z, mult) {
+    const g = new THREE.Group(); g.position.set(lx, 0, z); g.rotation.y = Math.PI / 2; room.group.add(g);
+    const wood = mat(0x6a4424), band = mat(0xd9a92a, { roughness: 0.4, metalness: 0.6 });
+    put(g, new THREE.BoxGeometry(0.9, 0.5, 0.6), wood, 0, 0.25, 0);
+    for (const x of [-0.35, 0.35]) put(g, new THREE.BoxGeometry(0.08, 0.52, 0.62), band, x, 0.25, 0);
+    put(g, new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0.5, 0);
+    mimics.push({ g, room, x: room.cx + lx, z, mult, sprung: false });
+  }
+  function updateMimics() {
+    const p = G.player; if (!p || p.state === 'dead') return;
+    for (const m of mimics) {
+      if (m.sprung || Math.hypot(p.pos.x - m.x, p.pos.z - m.z) > 1.9) continue;
+      m.sprung = true; m.room.group.remove(m.g);
+      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('warn'); FX.shake(0.25);
+      G.queue.push({ type: 'mimic', at: new THREE.Vector3(m.x, 0, m.z), mult: m.mult.mult, hpMult: m.mult.hpMult, room: m.room, mimic: true, t: G.time });
+    }
+  }
+  function update(dt) { updateTraps(dt); updateShrines(dt); updateMimics(); }
   // Unbroken pots, crates and shrines are solid
   function blockers() {
     const out = [];
     for (const q of pots) if (!q.broken) out.push([q.x, q.z, q.r]);
     for (const s of shrines) out.push([s.x, s.z, s.r]);
+    for (const m of mimics) if (!m.sprung) out.push([m.x, m.z, 0.55]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, strike, trap, shrine, mimic, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();
 
 </script>
@@ -3406,6 +3673,7 @@ const World = (() => {
     mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
+    if (infos[0].si >= 5 && mids.length) mids[mids.length - 1].mimic = true;                 // Act II: one chest is not a chest
     if (count > 2 && infos[0].stage.champion) out[Math.floor(count / 2)].champion = infos[0].stage.champion;          // the middle section's last wave
     return out;
   }
@@ -3518,6 +3786,10 @@ const World = (() => {
     const decorM2 = M(rgbHex(th.wall, -6));
     const webM = M(0xd8d8e8, { transparent: true, opacity: 0.35, side: THREE.DoubleSide }), goldM = M(0xc9a23a, { metalness: 0.6, roughness: 0.4 });
     const candleM = new THREE.MeshBasicMaterial({ color: 0xfff0c0 }); room.mats.push(candleM);
+    const waterM = M(0x2a6a6a, { transparent: true, opacity: 0.55, roughness: 0.1, metalness: 0.3 }), reedM = M(0x3a5a2a);
+    const iceM = M(0xbfe8ff, { roughness: 0.15, metalness: 0.1, emissive: 0x2a4a6a }), snowM = M(0xe8f0f8);
+    const anvilM = M(0x2a2a30, { metalness: 0.7, roughness: 0.4 }), emberM = new THREE.MeshBasicMaterial({ color: 0xff6a1a }); room.mats.push(emberM);
+    const boneM = M(0xd8cfb4);
     for (let k = 0; k < Math.round(hw * hd * 0.3); k++) {
       const x = (Math.random() * 2 - 1) * (hw - 0.8), z = cz + (Math.random() * 2 - 1) * (hd - 0.8);
       if (!offPath(x, z)) continue;
@@ -3537,6 +3809,23 @@ const World = (() => {
         if (r < 0.35) { const sac = add(new THREE.SphereGeometry(0.22 + Math.random() * 0.12, 8, 6), webM, x, 0.2, z, false); sac.scale.y = 1.3; }
         else if (r < 0.6) { const w = add(new THREE.PlaneGeometry(1.4, 1.0), webM, x, 0.9, z, false); w.rotation.set(0, Math.random() * 3, (Math.random() - 0.5) * 0.6); }
         else add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.3, 0), decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      } else if (th.decor === 'water') {                                // drowned: still pools, reeds, a fallen column
+        if (r < 0.4) add(new THREE.CircleGeometry(0.5 + Math.random() * 0.7, 14).rotateX(-Math.PI / 2), waterM, x, 0.015, z, false);
+        else if (r < 0.75) for (let q = 0; q < 4; q++) add(new THREE.ConeGeometry(0.025, 0.5 + Math.random() * 0.4, 4), reedM, x + (Math.random() - 0.5) * 0.3, 0.3, z + (Math.random() - 0.5) * 0.3, false);
+        else add(new THREE.CylinderGeometry(0.22, 0.22, 1.4, 8), decorM2, x, 0.22, z).rotation.set(0, Math.random() * 3, Math.PI / 2);
+      } else if (th.decor === 'ice') {                                  // frost: ice shards and drifts
+        if (r < 0.55) { const n = 2 + Math.floor(Math.random() * 3); for (let q = 0; q < n; q++) { const c = add(new THREE.ConeGeometry(0.08 + Math.random() * 0.1, 0.4 + Math.random() * 0.7, 5), iceM, x + (Math.random() - 0.5) * 0.4, 0.25, z + (Math.random() - 0.5) * 0.4); c.rotation.set((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6); } }
+        else add(new THREE.SphereGeometry(0.5, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), snowM, x, 0, z, false).scale.set(1.4, 0.35, 1);
+      } else if (th.decor === 'forge') {                                // a dead forge: anvils, slag and glowing embers
+        if (Math.abs(x) > hw - 2.4 && r < 0.4) { add(new THREE.BoxGeometry(0.5, 0.35, 0.3), decorM2, x, 0.18, z); add(new THREE.BoxGeometry(0.8, 0.14, 0.32), anvilM, x, 0.42, z); }
+        else if (r < 0.7) add(new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.12, 0), emberM, x, 0.06, z, false);
+        else add(new THREE.DodecahedronGeometry(0.2 + Math.random() * 0.25, 0), decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      } else if (th.decor === 'orchard') {                              // bone trees, skulls in the roots
+        if (r < 0.3 && Math.abs(x) > 2.5) {
+          const hgt = 1.6 + Math.random() * 1.2; add(new THREE.CylinderGeometry(0.06, 0.13, hgt, 6), boneM, x, hgt / 2, z);
+          for (let q = 0; q < 3; q++) { const br = add(new THREE.CylinderGeometry(0.025, 0.05, 0.8, 5), boneM, x, hgt * (0.55 + q * 0.15), z); br.rotation.set((Math.random() - 0.5) * 1.6, Math.random() * 3, 0.9 + Math.random() * 0.5); }
+        } else if (r < 0.6) add(new THREE.SphereGeometry(0.12, 6, 5), boneM, x, 0.1, z, false).scale.set(1, 0.9, 1.15);
+        else add(new THREE.CylinderGeometry(0.025, 0.03, 0.4, 5), boneM, x, 0.03, z, false).rotation.set(Math.PI / 2, 0, Math.random() * 3);
       } else if (th.decor === 'court') {
         if (Math.abs(x) > hw - 2.4 && r < 0.4) {                          // candelabras and broken statues line the walls
           add(new THREE.CylinderGeometry(0.04, 0.12, 1.4, 6), goldM, x, 0.7, z);
@@ -3553,6 +3842,10 @@ const World = (() => {
     // Props stay separate meshes: pots break, traps move, the shrine glows
     Props.breakables(room);
     if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
+    if (P.mimic) {
+      const sd = Math.random() < 0.5 ? -1 : 1, lx = sd * (hw - 1.6), mz = cz - hd * 0.3;
+      Props.mimic(room, offPath(lx, mz) ? lx : -lx, mz, multOf(inf));
+    }
     if (P.shrine) {
       const sd = P.side ? -P.side.dir : (Math.random() < 0.5 ? -1 : 1), lx = sd * (hw - 1.5);
       Props.shrine(room, lx, offPath(lx, cz + hd * 0.4) ? cz + hd * 0.4 : cz - hd * 0.4);
@@ -3689,6 +3982,10 @@ const World = (() => {
     return north ? new THREE.Vector3(r.doorS, 0, r.southZ - 1.5) : new THREE.Vector3(r.doorS, 0, sections[j - 1].northZ + 1.5);
   }
 
+  // How tough this stage's enemies are (damage / health multipliers)
+  function multOf(inf) {
+    return { mult: inf.mult || 1 + inf.loop * CFG.loopScale + (inf.si || 0) * CFG.stageScale, hpMult: inf.hpMult || 1 + (inf.si || 0) * CFG.stageHp };
+  }
   // ---------------- Encounters ----------------
   function spawnWave(room) {
     const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
@@ -3995,7 +4292,7 @@ const UI = (() => {
       if (Endless.unlocked()) {
         h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
         h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
-      } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
+      } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
     codex() {
@@ -4499,6 +4796,14 @@ const Codex = (() => {
     ['st3', 'Den Cleared', 'Defeat the Den Mother', () => S().stage >= 3, 120],
     ['st4', 'Silk and Ash', 'Defeat the Brood Queen', () => S().stage >= 4, 150],
     ['st5', 'Court Adjourned', 'Defeat the Pale Duelist', () => S().stage >= 5, 250],
+    ['st6', 'Dry Land', 'Defeat the Drowned Prophet', () => S().stage >= 6, 250],
+    ['st7', 'Thaw', 'Defeat the Frost Marshal', () => S().stage >= 7, 280],
+    ['st8', 'Banked Fires', 'Defeat the Furnace Lord', () => S().stage >= 8, 300],
+    ['st9', 'Fallow', 'Defeat the Bone Gardener', () => S().stage >= 9, 320],
+    ['st10', 'The Crown Falls', 'Defeat the Hollow King', () => S().stage >= 10, 600],
+    ['mimic', 'Not a Chest', 'Slay a mimic', () => (L().kinds.mimic || 0) >= 1, 60],
+    ['reflect', 'Return to Sender', 'Kill a foe with its own reflected orb', () => n('reflectKills') >= 1, 80],
+    ['champ10', 'All the Banners', 'Slay all ten champions', () => Object.keys(L().champs).length >= 10, 600],
     ['flawless', 'Untouched', 'Defeat a guardian without taking a hit', () => n('flawless') >= 1, 300],
     ['hard', 'Iron Will', 'Defeat a guardian on Hard', () => n('hardBosses') >= 1, 200],
     ['unique1', 'Storied Steel', 'Find a unique', () => S().uniques.length >= 1, 60],
@@ -4805,13 +5110,14 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
       const C = q.champion; Enemy.makeElite(e, C.mods, C.name);
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
-    else if (!q.guardian && !q.add && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
     G.enemies.push(e);
     return false;
   });
@@ -5009,6 +5315,10 @@ G.onEnemyDeath = e => {
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  if (e.type === 'mimic') {                                                // what a mimic swallowed
+    gemFound(1);
+    if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
+  }
   const p = G.player; if (p.S.u && p.S.u.oath && p.state !== 'dead') { const h = p.maxHp * 0.05; p.hp = Math.min(p.maxHp, p.hp + h); FX.text(Combat.chestPos(p.pos, 2.4), '+' + Math.round(h), 'heal'); }
 };
 function levelUp(n) {

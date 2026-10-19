@@ -76,6 +76,7 @@ const World = (() => {
     mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
     out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
     const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
+    if (infos[0].si >= 5 && mids.length) mids[mids.length - 1].mimic = true;                 // Act II: one chest is not a chest
     if (count > 2 && infos[0].stage.champion) out[Math.floor(count / 2)].champion = infos[0].stage.champion;          // the middle section's last wave
     return out;
   }
@@ -188,6 +189,10 @@ const World = (() => {
     const decorM2 = M(rgbHex(th.wall, -6));
     const webM = M(0xd8d8e8, { transparent: true, opacity: 0.35, side: THREE.DoubleSide }), goldM = M(0xc9a23a, { metalness: 0.6, roughness: 0.4 });
     const candleM = new THREE.MeshBasicMaterial({ color: 0xfff0c0 }); room.mats.push(candleM);
+    const waterM = M(0x2a6a6a, { transparent: true, opacity: 0.55, roughness: 0.1, metalness: 0.3 }), reedM = M(0x3a5a2a);
+    const iceM = M(0xbfe8ff, { roughness: 0.15, metalness: 0.1, emissive: 0x2a4a6a }), snowM = M(0xe8f0f8);
+    const anvilM = M(0x2a2a30, { metalness: 0.7, roughness: 0.4 }), emberM = new THREE.MeshBasicMaterial({ color: 0xff6a1a }); room.mats.push(emberM);
+    const boneM = M(0xd8cfb4);
     for (let k = 0; k < Math.round(hw * hd * 0.3); k++) {
       const x = (Math.random() * 2 - 1) * (hw - 0.8), z = cz + (Math.random() * 2 - 1) * (hd - 0.8);
       if (!offPath(x, z)) continue;
@@ -207,6 +212,23 @@ const World = (() => {
         if (r < 0.35) { const sac = add(new THREE.SphereGeometry(0.22 + Math.random() * 0.12, 8, 6), webM, x, 0.2, z, false); sac.scale.y = 1.3; }
         else if (r < 0.6) { const w = add(new THREE.PlaneGeometry(1.4, 1.0), webM, x, 0.9, z, false); w.rotation.set(0, Math.random() * 3, (Math.random() - 0.5) * 0.6); }
         else add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.3, 0), decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      } else if (th.decor === 'water') {                                // drowned: still pools, reeds, a fallen column
+        if (r < 0.4) add(new THREE.CircleGeometry(0.5 + Math.random() * 0.7, 14).rotateX(-Math.PI / 2), waterM, x, 0.015, z, false);
+        else if (r < 0.75) for (let q = 0; q < 4; q++) add(new THREE.ConeGeometry(0.025, 0.5 + Math.random() * 0.4, 4), reedM, x + (Math.random() - 0.5) * 0.3, 0.3, z + (Math.random() - 0.5) * 0.3, false);
+        else add(new THREE.CylinderGeometry(0.22, 0.22, 1.4, 8), decorM2, x, 0.22, z).rotation.set(0, Math.random() * 3, Math.PI / 2);
+      } else if (th.decor === 'ice') {                                  // frost: ice shards and drifts
+        if (r < 0.55) { const n = 2 + Math.floor(Math.random() * 3); for (let q = 0; q < n; q++) { const c = add(new THREE.ConeGeometry(0.08 + Math.random() * 0.1, 0.4 + Math.random() * 0.7, 5), iceM, x + (Math.random() - 0.5) * 0.4, 0.25, z + (Math.random() - 0.5) * 0.4); c.rotation.set((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6); } }
+        else add(new THREE.SphereGeometry(0.5, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), snowM, x, 0, z, false).scale.set(1.4, 0.35, 1);
+      } else if (th.decor === 'forge') {                                // a dead forge: anvils, slag and glowing embers
+        if (Math.abs(x) > hw - 2.4 && r < 0.4) { add(new THREE.BoxGeometry(0.5, 0.35, 0.3), decorM2, x, 0.18, z); add(new THREE.BoxGeometry(0.8, 0.14, 0.32), anvilM, x, 0.42, z); }
+        else if (r < 0.7) add(new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.12, 0), emberM, x, 0.06, z, false);
+        else add(new THREE.DodecahedronGeometry(0.2 + Math.random() * 0.25, 0), decorM2, x, 0.12, z).rotation.set(Math.random(), Math.random(), 0);
+      } else if (th.decor === 'orchard') {                              // bone trees, skulls in the roots
+        if (r < 0.3 && Math.abs(x) > 2.5) {
+          const hgt = 1.6 + Math.random() * 1.2; add(new THREE.CylinderGeometry(0.06, 0.13, hgt, 6), boneM, x, hgt / 2, z);
+          for (let q = 0; q < 3; q++) { const br = add(new THREE.CylinderGeometry(0.025, 0.05, 0.8, 5), boneM, x, hgt * (0.55 + q * 0.15), z); br.rotation.set((Math.random() - 0.5) * 1.6, Math.random() * 3, 0.9 + Math.random() * 0.5); }
+        } else if (r < 0.6) add(new THREE.SphereGeometry(0.12, 6, 5), boneM, x, 0.1, z, false).scale.set(1, 0.9, 1.15);
+        else add(new THREE.CylinderGeometry(0.025, 0.03, 0.4, 5), boneM, x, 0.03, z, false).rotation.set(Math.PI / 2, 0, Math.random() * 3);
       } else if (th.decor === 'court') {
         if (Math.abs(x) > hw - 2.4 && r < 0.4) {                          // candelabras and broken statues line the walls
           add(new THREE.CylinderGeometry(0.04, 0.12, 1.4, 6), goldM, x, 0.7, z);
@@ -223,6 +245,10 @@ const World = (() => {
     // Props stay separate meshes: pots break, traps move, the shrine glows
     Props.breakables(room);
     if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
+    if (P.mimic) {
+      const sd = Math.random() < 0.5 ? -1 : 1, lx = sd * (hw - 1.6), mz = cz - hd * 0.3;
+      Props.mimic(room, offPath(lx, mz) ? lx : -lx, mz, multOf(inf));
+    }
     if (P.shrine) {
       const sd = P.side ? -P.side.dir : (Math.random() < 0.5 ? -1 : 1), lx = sd * (hw - 1.5);
       Props.shrine(room, lx, offPath(lx, cz + hd * 0.4) ? cz + hd * 0.4 : cz - hd * 0.4);
@@ -359,6 +385,10 @@ const World = (() => {
     return north ? new THREE.Vector3(r.doorS, 0, r.southZ - 1.5) : new THREE.Vector3(r.doorS, 0, sections[j - 1].northZ + 1.5);
   }
 
+  // How tough this stage's enemies are (damage / health multipliers)
+  function multOf(inf) {
+    return { mult: inf.mult || 1 + inf.loop * CFG.loopScale + (inf.si || 0) * CFG.stageScale, hpMult: inf.hpMult || 1 + (inf.si || 0) * CFG.stageHp };
+  }
   // ---------------- Encounters ----------------
   function spawnWave(room) {
     const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;

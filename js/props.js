@@ -4,10 +4,10 @@
 // this module keeps them working.
 const Props = (() => {
   const F = CFG.features;
-  let pots = [], traps = [], shrines = [];
+  let pots = [], traps = [], shrines = [], mimics = [];
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
   const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
-  function clear() { pots = []; traps = []; shrines = []; }
+  function clear() { pots = []; traps = []; shrines = []; mimics = []; }
 
   // ---------------- Breakables ----------------
   // Along the walls, off the path and away from pillars and doorways
@@ -131,13 +131,33 @@ const Props = (() => {
     return pool.sort(() => Math.random() - 0.5).slice(0, 3);
   }
 
-  function update(dt) { updateTraps(dt); updateShrines(dt); }
+  // ---------------- Mimics ----------------
+  // A chest that is not a chest: it waits beside the path and springs when the hero comes close
+  function mimic(room, lx, z, mult) {
+    const g = new THREE.Group(); g.position.set(lx, 0, z); g.rotation.y = Math.PI / 2; room.group.add(g);
+    const wood = mat(0x6a4424), band = mat(0xd9a92a, { roughness: 0.4, metalness: 0.6 });
+    put(g, new THREE.BoxGeometry(0.9, 0.5, 0.6), wood, 0, 0.25, 0);
+    for (const x of [-0.35, 0.35]) put(g, new THREE.BoxGeometry(0.08, 0.52, 0.62), band, x, 0.25, 0);
+    put(g, new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0.5, 0);
+    mimics.push({ g, room, x: room.cx + lx, z, mult, sprung: false });
+  }
+  function updateMimics() {
+    const p = G.player; if (!p || p.state === 'dead') return;
+    for (const m of mimics) {
+      if (m.sprung || Math.hypot(p.pos.x - m.x, p.pos.z - m.z) > 1.9) continue;
+      m.sprung = true; m.room.group.remove(m.g);
+      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('warn'); FX.shake(0.25);
+      G.queue.push({ type: 'mimic', at: new THREE.Vector3(m.x, 0, m.z), mult: m.mult.mult, hpMult: m.mult.hpMult, room: m.room, mimic: true, t: G.time });
+    }
+  }
+  function update(dt) { updateTraps(dt); updateShrines(dt); updateMimics(); }
   // Unbroken pots, crates and shrines are solid
   function blockers() {
     const out = [];
     for (const q of pots) if (!q.broken) out.push([q.x, q.z, q.r]);
     for (const s of shrines) out.push([s.x, s.z, s.r]);
+    for (const m of mimics) if (!m.sprung) out.push([m.x, m.z, 0.55]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, strike, trap, shrine, mimic, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();

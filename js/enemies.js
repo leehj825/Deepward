@@ -7,7 +7,7 @@ const Enemy = (() => {
   const BONE = { skeleton: 1, archer: 1 };
 
   function spawn(scene, type, pos, mult = 1) {
-    const def = CFG.enemies[type], rig = Rig.build(def.rig || type);
+    const def = CFG.enemies[type], rig = Rig.build(def.rig || type, def.look || {});
     scene.add(rig.root);
     // Below high quality, enemies leave the shadow pass and get a soft blob under their feet instead
     if (G.quality && G.quality() !== 'high') { rig.root.traverse(o => { o.castShadow = false; }); rig.root.add(blob()); }
@@ -22,6 +22,10 @@ const Enemy = (() => {
     const bar = document.createElement('div'); bar.className = 'ebar';
     bar.innerHTML = '<div class="hp"><i></i></div><div class="post"><i></i></div>';
     document.getElementById('bars').appendChild(bar); e.bar = bar;
+    if (def.ward) {                                                       // the shield-bearer's sheltering circle
+      const ring = new THREE.Mesh(new THREE.RingGeometry(def.ward.r - 0.06, def.ward.r, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x6a9aff, transparent: true, opacity: 0.22, depthWrite: false }));
+      ring.position.y = 0.03; ring.scale.setScalar(1 / rig.root.scale.x || 1); rig.root.add(ring); e.wardRing = ring;
+    }
     FX.ring(e.pos, 1.4, 0x7fe8ff, 0.9, { r0: 0.2 });
     FX.burst(new THREE.Vector3(e.pos.x, 0.1, e.pos.z), 0x8a7a66, 14, 4, 0.6);
     return e;
@@ -130,7 +134,7 @@ const Enemy = (() => {
         if (d > def.radius + 0.8) step(e.facing, h.leap ? h.lunge / h.active : h.lunge / (h.wind * 0.35 + h.active));
         if (!e.struck && e.phaseT >= h.active * (h.leap ? 0.8 : 0.5)) {
           e.struck = true;
-          if (h.projectile) shoot(e, h); else Combat.enemyStrike(e, h);
+          if (h.projectile) shoot(e, h); else if (h.raise) raise(e, h.raise); else Combat.enemyStrike(e, h);
           if (e.state !== 'attack') return finishUpdate(e, dt, before);
         }
         if (e.phaseT >= h.active) { e.phase = 'recover'; e.phaseT = 0; endTelegraph(e); }
@@ -244,7 +248,9 @@ const Enemy = (() => {
       return 'blocked';
     }
     const back = !Combat.facingCheck(e.pos, e.facing, p.pos, 200);
-    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0));
+    const shelter = sheltered(e);
+    const dmg = atk.dmg * (back ? 1.3 : 1) * (1 + (atk.fire || 0)) * (shelter ? 1 - shelter.def.ward.cut : 1);
+    if (shelter) FX.burst(Combat.chestPos(e.pos, 1.3 * def.scale), 0x6a9aff, 8, 4);
     if (atk.fire) FX.burst(at, 0xff8a2a, 8, 4, 0.4);                      // Ember Edge
     FX.burst(at, BONE[e.type] ? 0xe8e0c8 : e.type === 'spider' ? 0x7aff6a : 0xc0201a, 10, 5);
     hurtFlash(e);
@@ -267,6 +273,8 @@ const Enemy = (() => {
     e.bar.remove();
     if (e.blast) { FX.ring(new THREE.Vector3(e.pos.x, 0, e.pos.z), e.blast.r, 0xff3010, e.blast.fuse, { r0: 0.3, fill: true, fade: false }); FX.text(Combat.chestPos(e.pos, 2.0), '!', 'danger'); Snd.play('warn'); }
     G.onEnemyDeath(e);
+    // A bone caller's risen fall with it
+    for (const o of G.enemies) if (o.raisedBy === e && o.state !== 'dead') die(o);
     // A fallen guardian takes its summoned adds with it
     if (e.boss) { G.queue = G.queue.filter(q => !q.add); for (const o of G.enemies) if (o.add && o.state !== 'dead') die(o); }
   }
@@ -276,6 +284,23 @@ const Enemy = (() => {
     if (!targetable(e) || e.state === 'roar' || !e.def) return;
     FX.burst(Combat.chestPos(e.pos, 0.9 * e.def.scale), color, 6, 3, 0.4); hurtFlash(e, color, 0.5);
     damage(e, n);
+  }
+  // A shield-bearer standing near shelters an ally (not itself)
+  function sheltered(e) {
+    for (const o of G.enemies) if (o !== e && o.def.ward && o.state !== 'dead' && Combat.dist(o.pos, e.pos) < o.def.ward.r) return o;
+    return null;
+  }
+  // A bone caller raises skeletons from the floor around it (up to raiseMax at once); they crumble when it dies
+  function raise(e, n) {
+    const have = G.enemies.filter(o => o.raisedBy === e && o.state !== 'dead').length + G.queue.filter(q => q.raisedBy === e).length;
+    const k = Math.min(n, (e.def.raiseMax || 4) - have);
+    FX.ring(e.pos, 2.4, 0xb06aff, 0.7, { r0: 0.4 }); Snd.play('warn');
+    for (let i = 0; i < k; i++) {
+      const a = Math.random() * Math.PI * 2, at = new THREE.Vector3(e.pos.x + Math.sin(a) * 2, 0, e.pos.z + Math.cos(a) * 2);
+      if (!World.inSpace(at.x, at.z, 0.5)) at.set(e.pos.x, 0, e.pos.z + 1);
+      FX.burst(new THREE.Vector3(at.x, 0.2, at.z), 0xb06aff, 14, 3, 0.6);
+      G.queue.push({ type: 'skeleton', at, mult: e.mult * 0.6, room: e.room, raisedBy: e, t: G.time + 0.3 + i * 0.3 });
+    }
   }
   // An execution: an untouchable finishing blow on a posture-broken enemy. Ordinary foes die; guardians and champions
   // take a heavy critical instead.
@@ -444,27 +469,51 @@ const Enemy = (() => {
     }
     const from = e.rig.weapon.group.getWorldPosition(new THREE.Vector3()); from.y = Math.max(1.1, from.y);
     const p = G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
-    const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
-    g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron));
+    const g = new THREE.Group(), P = h.projectile;
+    let mats;
+    if (P.orb) {
+      // A glowing orb, slower than an arrow, that a parry sends back
+      const core = new THREE.MeshBasicMaterial({ color: 0xffffff }), halo = new THREE.MeshBasicMaterial({ color: P.orb, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), core), new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), halo));
+      mats = [core, halo]; Snd.play('glint');
+    } else {
+      const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
+      g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron)); mats = [wood, iron]; Snd.play('swing');
+    }
     g.position.copy(from); g.lookAt(from.clone().add(dir)); e.rig.root.parent.add(g);
-    arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: h.projectile.speed, hit: h, mult: e.mult, gone: 0, mats: [wood, iron] });
-    Snd.play('swing');
+    arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: P.speed, hit: h, mult: e.mult, gone: 0, mats, owner: e, orb: P.orb });
   }
   function updateArrows(dt) {
     const p = G.player;
     for (let i = arrows.length - 1; i >= 0; i--) {
       const a = arrows[i]; let done = false;
       a.pos.addScaledVector(a.dir, a.speed * dt); a.gone += a.speed * dt; a.g.position.copy(a.pos);
-      if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
+      if (a.orb && Math.random() < dt * 30) FX.burst(a.pos.clone(), a.back ? 0xffd040 : a.orb, 1, 0.6, 0.3);
+      if (a.back) {
+        // A reflected orb flies at enemies instead
+        for (const e of G.enemies) if (targetable(e) && Math.hypot(a.pos.x - e.pos.x, a.pos.z - e.pos.z) < e.def.radius + 0.35) {
+          receive(e, { dmg: a.hit.dmg * a.mult * 2.2, posture: 40, breaksGuard: true }, p); FX.burst(a.pos.clone(), 0xffd040, 20, 6); Snd.play('crit'); done = true;
+          if (e.state === 'dead' && typeof Codex !== 'undefined' && Items.S) Codex.add('reflectKills');
+          break;
+        }
+      } else if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
         const res = Player.receive(p, { pos: a.origin, mult: a.mult }, a.hit);
-        if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
-        if (res !== 'dodge') done = true;
+        if (res === 'parry' && a.hit.projectile.reflect) {
+          // Parried: back the way it came, at its caster (or wherever they stood), faster and golden
+          const to = a.owner && a.owner.state !== 'dead' ? Combat.chestPos(a.owner.pos, 1.1 * a.owner.def.scale) : a.origin;
+          a.dir = to.sub(a.pos).normalize(); a.speed *= 1.6; a.back = true; a.gone = 0;
+          a.mats[1] && a.mats[1].color && a.mats[1].color.setHex(0xffd040);
+          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry');
+        } else {
+          if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
+          if (res !== 'dodge') done = true;
+        }
       }
-      if (a.gone > 18 || a.pos.y < 0 || !World.inSpace(a.pos.x, a.pos.z, 0.2)) done = true;
+      if (a.gone > 20 || a.pos.y < 0 || !World.inSpace(a.pos.x, a.pos.z, 0.2)) done = true;
       if (done) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); arrows.splice(i, 1); }
     }
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

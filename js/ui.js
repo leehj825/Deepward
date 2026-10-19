@@ -114,7 +114,7 @@ const UI = (() => {
       if (Endless.unlocked()) {
         h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
         h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
-      } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
+      } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
     codex() {

@@ -10,16 +10,16 @@ const path = require('path');
   await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
   await pg.waitForTimeout(300);
   const r = await pg.evaluate(() => {
-    const out = {}, G = __dw.G, kinds = ['skeleton', 'knight', 'brute', 'spider', 'duelist'];
+    const out = {}, G = __dw.G, kinds = ['skeleton', 'knight', 'brute', 'spider', 'duelist', 'caster', 'bearer', 'brute', 'necro', 'knight'];
     __dw.setView('behind');
     kinds.forEach((kind, si) => {
       __dw.arena(0); __dw.World.halt(); G.queue = [];
       const p = G.player, at = p.pos.clone();
       p.maxHp = p.hp = 1e6;
       const e = __dw.spawn(kind, at.x, at.z - 5); e.guardian = CFG.bosses[si].name; Enemy.makeBoss(e, si); G.boss = e;
-      const o = out[kind] = { bigger: e.def.scale > CFG.enemies[kind].scale, tougher: e.maxHp > CFG.enemies[kind].hp, phases: [] };
+      const o = out[si + ':' + kind] = { bigger: e.def.scale > CFG.enemies[kind].scale, tougher: e.maxHp > CFG.enemies[kind].hp, phases: [] };
       __dw.sim(1.2);
-      const hit = n => Enemy.receive(e, { dmg: n, posture: 0, breaksGuard: kind === 'knight' }, p);
+      const hit = n => Enemy.receive(e, { dmg: n, posture: 0, breaksGuard: kind === 'knight' || kind === 'bearer' }, p);
       for (const ph of CFG.bosses[si].phases) {
         e.state = 'hunt'; e.hp = e.maxHp * ph.at + 1; hit(5);
         const roared = e.state === 'roar', immune = hit(9999) === null && e.hp > 0;
@@ -28,9 +28,10 @@ const path = require('path');
         o.phases.push({ roared, immune, adds, wantAdds: (ph.summon || []).length });
       }
       o.adds = G.enemies.filter(x => x.add).length;
-      if (kind === 'knight') o.stance = e.rig.twoHand && !e.def.guard && !e.rig.shield && !!e.dropped;
+      if (kind === 'knight' || si === 6) o.stance = e.rig.twoHand && !e.def.guard && !e.rig.shield && !!e.dropped;
       if (kind === 'brute') o.enraged = !!e.enraged && e.def.speed > CFG.enemies.brute.speed;
-      if (kind === 'duelist') {
+      if (si === 9) o.enraged = !!e.enraged;
+      if (si === 4) {
         // Blink: strikes from behind the hero
         e.def.attacks = e.def.attacks.filter(a => a.hits[0].blink); e.cooldown = 0;
         p.pos.copy(at); p.facing = Math.PI; e.pos.set(at.x, 0, at.z - 2.2);
@@ -50,7 +51,7 @@ const path = require('path');
   let ok = !errs.length;
   for (const [k, o] of Object.entries(r)) {
     const good = o.bigger && o.tougher && o.dead && o.addsCrumbled && o.phases.every(ph => ph.roared && ph.immune && ph.adds >= ph.wantAdds)
-      && (k !== 'knight' || o.stance) && (k !== 'brute' || o.enraged) && (k !== 'duelist' || o.blink);
+      && (o.stance === undefined || o.stance) && (o.enraged === undefined || o.enraged) && (o.blink === undefined || o.blink);
     ok = ok && good;
     console.log((good ? 'PASS ' : 'FAIL ') + k.padEnd(9) + JSON.stringify(o));
   }

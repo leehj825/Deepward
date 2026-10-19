@@ -32,6 +32,15 @@ const Rig = (() => {
     const tip = joint(g, 0, 0, 0.13 + len + 0.12), base = joint(g, 0, 0, 0.16);
     return { group: g, glowMats: [steel], tip, base, blade };
   }
+  // A caster's staff: a long crooked shaft with a glowing orb (or, for bone callers, a skull) at its head
+  function staff(hand, color, skull) {
+    const g = joint(hand, 0, -0.03, 0), wood = std(0x3a2a1e), orbM = std(color, 0.3); orbM.emissive.setHex(color); orbM.emissiveIntensity = 0.8;     // lit from within, and can still flash for telegraphs
+    mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.6, 6).rotateX(Math.PI / 2), wood, g, 0, 0, 0.45);
+    if (skull) { ball(g, 0.09, std(0xd8cfb4), 0, 0, 1.3, 8, 6); ball(g, 0.03, orbM, 0, 0.03, 1.38, 5, 4); }
+    else { mesh(new THREE.TorusGeometry(0.1, 0.018, 5, 10), wood, g, 0, 0, 1.32).rotation.y = Math.PI / 2; ball(g, 0.075, orbM, 0, 0, 1.32, 8, 6); }
+    const tip = joint(g, 0, 0, 1.35), base = joint(g, 0, 0, 1.0);
+    return { group: g, glowMats: [orbM], tip, base };
+  }
   // A spear held near its balance point: a long ash shaft with an iron leaf blade and a butt cap
   function spear(hand, o) {
     const g = joint(hand, 0, -0.03, 0), steel = std(o.blade || 0xc0c6d0, 0.35, 0.6), wood = std(0x6a4a2a);
@@ -111,6 +120,7 @@ const Rig = (() => {
   // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
   function build(kind, o = {}) {
     if (kind === 'spider') return buildSpider();
+    if (kind === 'mimic') return buildMimic();
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
@@ -121,13 +131,16 @@ const Rig = (() => {
       duelist: { skin: 0xe8e2d8, cloth: 0x2a2032, pants: 0x1e1a24, boot: 0x16141a, w: 0.95, limbR: 0.92 },
       knight: { skin: 0x5a606c, cloth: 0x6a1a1a, pants: 0x3a3e48, boot: 0x2a2c32, w: 1.08, limbR: 1.1 },
       brute: { skin: 0x7d8a5a, cloth: 0x4a3420, pants: 0x4a3420, boot: 0x3a2a1a, w: 1.35, limbR: 1.45 },
+      caster: { skin: 0x8aa898, cloth: 0x1e4a4a, pants: 0x1a3434, boot: 0x14201e, w: 0.95, limbR: 0.9 },
+      necro: { skin: 0xd8cfb4, cloth: 0x3a1e4a, pants: 0x3a1e4a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
     }[kind];
+    if (o.colors) Object.assign(S, o.colors);                              // a recoloured variant (the shield-bearer is a knight in blue)
     const rig = { kind, j: {}, mats: [], glowMats: [], trail: null };
     const root = new THREE.Group(), body = joint(root, 0, 0.5, 0), hips = joint(body, 0, 0.45, 0);
     rig.root = root; rig.body = body; rig.j.hips = hips;
     const skin = std(S.skin, kind === 'knight' ? 0.45 : 0.8, kind === 'knight' ? 0.55 : 0), cloth = std(S.cloth), pants = std(S.pants), boot = std(S.boot, 0.9);
     const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18);
-    const w = S.w, R = S.limbR, bony = kind === 'skeleton' || kind === 'archer';
+    const w = S.w, R = S.limbR, bony = kind === 'skeleton' || kind === 'archer' || kind === 'necro', robed = kind === 'caster' || kind === 'necro';
 
     // Pelvis and legs
     if (bony) { box(hips, 0.26, 0.1, 0.12, skin, 0, -0.02, 0); mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.34, 7, 1, true), std(0x3a2f2a, 1), hips, 0, -0.14, 0).material.side = THREE.DoubleSide; }
@@ -179,6 +192,7 @@ const Rig = (() => {
         box(chest, 0.36, 0.16, 0.26, cloth, 0, 0.3, -0.02);                                        // high collar
       }
       if (kind === 'goblin') { const v = box(chest, 0.34, 0.3, 0.26, std(0x5a4430), 0, 0.06, 0); v.rotation.z = 0.08; }
+      if (kind === 'caster') box(chest, 0.08, 0.4, 0.03, std(0x8ae8d0, 0.4), 0, 0.05, 0.13);       // a pale stole
       if (kind === 'npc') {
         if (N.apron) box(chest, 0.3, 0.55, 0.03, std(0x4a3420), 0, -0.05, 0.15);
         if (N.elder) mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 9, 1, true), cloth, chest, 0, -0.32, 0).material.side = THREE.DoubleSide;   // long robe
@@ -195,6 +209,11 @@ const Rig = (() => {
         for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(0.03, 0.12, 5), std(0xd8cfb4), chest, -0.25 + i * 0.04, 0.33, -0.02 + i * 0.03);
       }
     }
+    // Long robes for the casters (bony callers wear theirs over the ribs)
+    if (robed) {
+      mesh(new THREE.CylinderGeometry(0.2, 0.34, 0.95, 10, 1, true), cloth, chest, 0, -0.42, -0.01).material.side = THREE.DoubleSide;
+      box(chest, 0.34, 0.14, 0.26, cloth, 0, 0.25, -0.02);
+    }
     const neck = joint(chest, 0, 0.26, 0, 'YXZ'); rig.j.neck = neck;
     limb(neck, 0.1, 0.05 * R, 0.06 * R, skin).position.y = 0.03;
     const head = joint(neck, 0, 0.14, 0); rig.j.head = head;
@@ -203,7 +222,16 @@ const Rig = (() => {
       box(head, 0.16, 0.07, 0.12, skin, 0, -0.1, 0.04);
       for (const s of [1, -1]) { ball(head, 0.035, dark, 0.05 * s, 0.02, 0.11, 6, 5); ball(head, 0.016, glowMat(0x7fe8ff), 0.05 * s, 0.02, 0.135, 5, 4); }
       box(head, 0.03, 0.04, 0.02, dark, 0, -0.04, 0.135);
+      if (kind === 'necro') {                                              // a hood and a crown of thorns
+        const hood = mesh(new THREE.SphereGeometry(0.17, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.62), cloth, head, 0, 0.03, -0.02); hood.scale.set(1, 1.1, 1.15);
+        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; mesh(new THREE.ConeGeometry(0.02, 0.12, 4), std(0xc9a23a, 0.4, 0.5), head, Math.sin(a) * 0.13, 0.17, Math.cos(a) * 0.13); }
+      }
       if (kind === 'archer') { const hood = mesh(new THREE.SphereGeometry(0.17, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.62), cloth, head, 0, 0.03, -0.02); hood.scale.set(1, 1.1, 1.15); mesh(new THREE.ConeGeometry(0.1, 0.18, 6), cloth, head, 0, 0.0, -0.17).rotation.x = -1.9; }
+    } else if (kind === 'caster') {
+      box(head, 0.21, 0.24, 0.22, skin, 0, 0, 0);
+      for (const sd of [1, -1]) ball(head, 0.025, glowMat(0x4ae8d0), 0.05 * sd, 0.02, 0.115, 5, 4);
+      const hood = mesh(new THREE.SphereGeometry(0.18, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.65), cloth, head, 0, 0.03, -0.03); hood.scale.set(1, 1.15, 1.2);
+      mesh(new THREE.ConeGeometry(0.12, 0.22, 6), cloth, head, 0, 0.0, -0.2).rotation.x = -1.9;
     } else if (kind === 'goblin') {
       box(head, 0.24, 0.22, 0.22, skin, 0, 0, 0);
       for (const sd of [1, -1]) { const ear = mesh(new THREE.ConeGeometry(0.05, 0.26, 5), skin, head, 0.15 * sd, 0.04, -0.02); ear.rotation.z = -sd * 1.3; ball(head, 0.025, glowMat(0xffd040), 0.06 * sd, 0.03, 0.115, 5, 4); }
@@ -279,6 +307,8 @@ const Rig = (() => {
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
     else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
+    else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
+    else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);
     else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
@@ -341,6 +371,43 @@ const Rig = (() => {
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
+  }
+  // ---------------- The mimic: a chest with teeth (lid as jaw), hopping on stubby feet ----------------
+  function buildMimic() {
+    const rig = { kind: 'mimic', j: {}, mats: [], glowMats: [], mimic: true, time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), body = joint(root, 0, 0.3, 0); rig.root = root; rig.body = body;
+    const wood = std(0x6a4424), band = std(0xd9a92a, 0.4, 0.6), tooth = std(0xeee6d6, 0.5), flesh = std(0x6a1a1a, 0.8);
+    box(body, 0.9, 0.5, 0.62, wood, 0, 0, 0);
+    for (const x of [-0.35, 0.35]) box(body, 0.08, 0.52, 0.64, band, x, 0, 0);
+    box(body, 0.7, 0.04, 0.5, flesh, 0, 0.24, 0);                                        // the mouth's floor
+    for (let i = 0; i < 7; i++) mesh(new THREE.ConeGeometry(0.035, 0.12, 4), tooth, body, -0.36 + i * 0.12, 0.3, 0.29);
+    for (const x of [-0.32, 0.32]) for (const z of [-0.2, 0.2]) { const f = box(body, 0.12, 0.16, 0.12, std(0x3a2a1a), x, -0.3, z); f.userData.foot = true; }
+    const lid = joint(body, 0, 0.25, -0.31); rig.j.lid = lid;
+    mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.9, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, lid, 0, 0, 0.31);
+    for (const x of [-0.35, 0.35]) mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), band, lid, x, 0, 0.31);
+    for (let i = 0; i < 7; i++) mesh(new THREE.ConeGeometry(0.035, 0.12, 4), tooth, lid, -0.36 + i * 0.12, -0.04, 0.6).rotation.x = Math.PI;
+    for (const sd of [1, -1]) ball(lid, 0.05, glowMat(0xffd040), 0.18 * sd, 0.12, 0.55, 6, 5);
+    const tongue = box(body, 0.16, 0.05, 0.4, std(0xb03040, 0.7), 0, 0.27, 0.15); rig.j.tongue = tongue;
+    const tip = joint(lid, 0, -0.1, 0.62), base = joint(lid, 0, 0, 0.3);
+    rig.weapon = { group: lid, tip, base, glowMats: [tooth] }; rig.glowMats.push(tooth);
+    bake(root, true, rig.glowMats);
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  function animateMimic(rig, st, dt) {
+    rig.time += dt; const m = st.mode, sp = Math.min(1, st.speed || 0);
+    rig.loco += dt * (3 + 9 * sp);
+    let y = 0.3, open = -0.15 - Math.max(0, Math.sin(rig.time * 1.7)) * 0.12, pitch = 0, roll = 0;
+    if (m === 'move') { y = 0.3 + Math.abs(Math.sin(rig.loco)) * 0.28 * sp; open = -0.35; }
+    if (m === 'attack') { if (st.phase === 'wind') { open = -1.3; pitch = -0.25; y = 0.36; } else if (st.phase === 'active') { open = -0.05; pitch = 0.2; y = 0.5; } else open = -0.4; }
+    else if (m === 'stagger') { roll = Math.sin(rig.time * 40) * 0.1; open = -0.6; }
+    else if (m === 'broken') { open = -1.0; y = 0.24; pitch = 0.15; }
+    else if (m === 'dead') { open = -1.9; roll = Math.min(1, st.t * 2) * 1.2; y = 0.26; }
+    else if (m === 'spawn') open = -0.02;
+    const k = 1 - Math.exp(-16 * dt), b = rig.body;
+    b.position.y += (y - b.position.y) * k; b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.lid.rotation.x += (open - rig.j.lid.rotation.x) * Math.min(1, dt * (st.phase === 'active' ? 40 : 14));
   }
   function animateSpider(rig, st, dt) {
     rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0);
@@ -566,6 +633,7 @@ const Rig = (() => {
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     if (rig.spider) return animateSpider(rig, st, dt);
+    if (rig.mimic) return animateMimic(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
     const b = rig.body, hips = rig.j.hips;

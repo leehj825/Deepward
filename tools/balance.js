@@ -1,9 +1,9 @@
 // Balance bot: a scripted warden plays every stage (and some Endless floors) at a set skill level, with gear and
 // levels typical for how far a player would have come, and reports deaths, time, damage taken and flasks per stage.
-// Run: node tools/balance.js [casual|skilled|both] [endlessFloors]   (needs Playwright)
+// Run: node tools/balance.js [casual|skilled|both] [endlessFloors] [fromStage] [toStage]   (needs Playwright)
 const { chromium } = require('playwright');
 const path = require('path');
-const who = process.argv[2] || 'both', floors = +(process.argv[3] || 6);
+const who = process.argv[2] || 'both', floors = +(process.argv[3] || 6), from = +(process.argv[4] || 0), to = +(process.argv[5] || 10);
 const PROFILES = {
   // chance to parry / block / dash a telegraphed blow in time, and to answer a parry-only pounce with a parry
   casual: { parry: 0.12, block: 0.7, dash: 0.55, pounce: 0.35, aggro: 0.6 },
@@ -122,15 +122,15 @@ const PROFILES = {
   });
   const rows = [];
   for (const name of who === 'both' ? ['casual', 'skilled'] : [who]) {
-    for (let k = 0; k < 5; k++) {
+    for (let k = from; k < to; k++) {
       const r = await pg.evaluate(([k, prof]) => { __dw.setView('top'); __dw.arena(k); outfit(k); return runStage('stage', k, prof); }, [k, PROFILES[name]]);
       rows.push(Object.assign({ who: name, what: 'stage ' + (k + 1) }, r)); console.log(JSON.stringify(rows[rows.length - 1]));
     }
     for (let f = 1; f <= floors; f++) {
       const r = await pg.evaluate(([f, prof]) => {
-        __dw.setView('top'); __dw.arena(4); outfit(4 + Math.floor(f / 2));
-        const G = __dw.G; G.run = Endless.newRun(false); G.run.seed = 777; G.run.floor = f; Endless.start(G.run); G.stageK = 4 + f;
-        return runStage('endless', 4 + f, prof);
+        __dw.setView('top'); __dw.arena(9); outfit(9 + Math.floor(f / 2));
+        const G = __dw.G; G.run = Endless.newRun(false); G.run.seed = 777; G.run.floor = f; Endless.start(G.run); G.stageK = 9 + f;
+        return runStage('endless', 9 + f, prof);
       }, [f, PROFILES[name]]);
       rows.push(Object.assign({ who: name, what: 'endless ' + f }, r)); console.log(JSON.stringify(rows[rows.length - 1]));
     }

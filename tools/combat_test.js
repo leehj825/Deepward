@@ -253,6 +253,48 @@ const SCENARIOS = {
     }
     return { bad: bad.join() };
   })()`,
+  // Act II: a parried orb flies back and hurts its caster; a shield-bearer shelters an ally; a bone caller raises
+  // skeletons that crumble when it falls; a mimic springs from a chest and pays a gem
+  act2: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const G = __dw.G, p = G.player, out = {}, at = p.pos.clone();
+    p.maxHp = p.hp = 1e5; p.facing = Math.PI; __dw.View.yaw = 0;
+    const c = __dw.spawn('caster', at.x, at.z - 7); c.state = 'hunt'; c.cooldown = 0; const ch = c.hp;
+    __dw.sim(6, () => {
+      p.pos.copy(at); p.facing = Math.atan2(c.pos.x - p.pos.x, c.pos.z - p.pos.z); __dw.View.yaw = p.facing + Math.PI;
+      // raise the shield just as the orb arrives
+      __dw.Input.touchBlock = Enemy.arrows.some(o => o.orb && !o.back && Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z) < 0.9);
+      return c.hp < ch;
+    });
+    out.reflected = c.hp < ch || 'manual';
+    c.state = 'dead'; c.hp = 0; __dw.Input.touchBlock = false; __dw.sim(0.5);
+    // Shelter: the same blow hurts less beside a shield-bearer
+    const far = __dw.spawn('skeleton', at.x + 6, at.z - 3), near = __dw.spawn('skeleton', at.x - 2, at.z - 3), bear = __dw.spawn('bearer', at.x - 3, at.z - 3);
+    for (const e of [far, near, bear]) { e.state = 'hunt'; e.cooldown = 99; e.rig.root.position.y = 0; }
+    const f0 = far.hp, n0 = near.hp; Enemy.receive(far, { dmg: 20, posture: 0 }, p); Enemy.receive(near, { dmg: 20, posture: 0 }, p);
+    out.shelter = (n0 - near.hp) < (f0 - far.hp) * 0.7 && !!bear.wardRing;
+    for (const e of [far, near, bear]) { e.state = 'dead'; e.hp = 0; }
+    __dw.sim(0.5);
+    // A bone caller raises, and its risen crumble with it
+    const nc = __dw.spawn('necro', at.x, at.z - 5); nc.state = 'hunt'; nc.cooldown = 0;
+    nc.def = JSON.parse(JSON.stringify(nc.def)); nc.def.attacks = nc.def.attacks.filter(a => a.hits[0].raise);
+    __dw.sim(5, () => G.enemies.some(e => e.raisedBy === nc && e.state !== 'dead' && e.state !== 'spawn'));
+    out.raised = G.enemies.filter(e => e.raisedBy === nc && e.state !== 'dead').length >= 1;
+    nc.state = 'broken'; Enemy.receive(nc, { dmg: 9999, posture: 0 }, p); __dw.sim(0.2);
+    out.crumbled = !G.enemies.some(e => e.raisedBy === nc && e.state !== 'dead');
+    // A mimic in an Act II stage
+    const W = __dw.World; W.startStage(5); G.queue = []; G.stageK = 5; G.mode = 'dungeon';
+    const m = Props.mimics[0]; out.mimicPlaced = !!m;
+    if (m) {
+      const g0 = Object.values(__dw.Items.S.gems).reduce((a, b) => a + b, 0);
+      p.pos.set(m.x + 1.2, 0, m.z); __dw.sim(1.5);
+      const mm = G.enemies.find(e => e.type === 'mimic'); out.sprang = !!mm && m.sprung;
+      if (mm) { mm.state = 'broken'; Enemy.receive(mm, { dmg: 99999, posture: 0 }, p); }
+      __dw.sim(1.5); __dw.UI.close();
+      out.mimicGem = Object.values(__dw.Items.S.gems).reduce((a, b) => a + b, 0) > g0;
+    }
+    return out;
+  })()`,
   // An archer's arrow is stopped by a raised shield
   arrowBlock: `(() => {
     const e = __dw.spawn('archer', 0, -3.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
@@ -354,6 +396,7 @@ const CHECKS = {
   elites: r => r.skipped || (r.armor && r.heavyThrough && r.ward && r.wardBroken && r.leech && r.blast && r.champion),
   depth: r => r.skipped || (r.spearShield && r.spearReach && r.daggers && r.daggerCuts >= 5 && r.dashCost < 14 && r.locked && r.camTurned && r.lockMoved && r.unlocked && r.broken && r.prompt && r.executed && r.bossSurvives),
   poses: r => r.bad === '',
+  act2: r => r.skipped || (r.reflected === true && r.shelter && r.raised && r.crumbled && r.mimicPlaced && r.sprang && r.mimicGem),
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',
