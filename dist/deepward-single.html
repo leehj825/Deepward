@@ -633,7 +633,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto' };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -1310,6 +1310,7 @@ const Rig = (() => {
     }
     rig.tq = {}; for (const n of ['hips', ...JOINTS]) rig.tq[n] = new THREE.Quaternion();
     rig.loco = 0;
+    bake(root, true, rig.glowMats);
 
     root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
@@ -1343,6 +1344,7 @@ const Rig = (() => {
         rig.legs.push({ hip, up, knee, base, phase: i * 1.6 + (side > 0 ? 0 : Math.PI), front: i === 0 });
       }
     });
+    bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
@@ -1647,6 +1649,55 @@ const Rig = (() => {
     aimLimb(el, ikD.subVectors(ikT, ikE).normalize(), w);
   }
 
+  // ---------------- Fewer draw calls ----------------
+  // Bakes the meshes directly under a node that share a material (and shadow setting) into one mesh; with deep, does
+  // the same under every joint. Joints, weapons and shields keep moving as before; only their parts are combined.
+  // With keep (a list of materials that must stay apart, such as glowing weapons), plain coloured materials that differ
+  // only in colour are combined too: each part's colour is baked into the mesh as vertex colours.
+  const mergeM = new THREE.Matrix4(), mergeC = new THREE.Color();
+  function mergeKey(o, keep) {
+    const m = o.material, sh = (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '');
+    if (!keep || keep.includes(m) || !m.isMeshStandardMaterial || m.map || m.vertexColors) return m.uuid + sh;
+    return ['v', Math.round(m.roughness * 4), Math.round(m.metalness * 2), m.emissive.getHex(), m.transparent, m.opacity, m.side, m.flatShading, sh].join('|');      // near enough roughness and metal share one material
+  }
+  function bake(node, deep = false, keep = null) {
+    if (deep) for (const c of node.children.slice()) if (!c.isMesh) bake(c, true, keep);
+    const groups = new Map();
+    for (const o of node.children) {
+      if (!o.isMesh || o.children.length || !o.geometry.attributes.normal) continue;
+      const key = mergeKey(o, keep);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(o);
+    }
+    for (const [key, list] of groups) {
+      if (list.length < 2) continue;
+      const colours = key[0] === 'v' && list.some(o => !o.material.color.equals(list[0].material.color));
+      let n = 0; const parts = [];
+      for (const o of list) {
+        o.updateMatrix(); mergeM.copy(o.matrix);
+        const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(mergeM);
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+        parts.push([g, o.material.color]); n += g.attributes.position.count;
+      }
+      const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = colours ? new Float32Array(n * 3) : null;
+      let k = 0;
+      for (const [g, c] of parts) {
+        const cnt = g.attributes.position.count;
+        pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3); uv.set(g.attributes.uv.array, k * 2);
+        if (col) for (let v = 0; v < cnt; v++) { col[(k + v) * 3] = c.r; col[(k + v) * 3 + 1] = c.g; col[(k + v) * 3 + 2] = c.b; }
+        k += cnt; g.dispose();
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      let mat = list[0].material;
+      if (col) { geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); mat = mat.clone(); mat.color.setHex(0xffffff); mat.vertexColors = true; }
+      geo.computeBoundingSphere();
+      const mm = new THREE.Mesh(geo, mat); mm.castShadow = list[0].castShadow; mm.receiveShadow = list[0].receiveShadow;
+      node.add(mm);
+      for (const o of list) node.remove(o);                                // never drawn, so nothing on the GPU to free
+    }
+  }
+
   // ---------------- Swing trail ----------------
   // A ribbon between the blade's base and tip over the last few frames, fading out (additive blending).
   function makeTrail(scene, color) {
@@ -1675,7 +1726,7 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, animate, flash, glow, makeTrail, updateTrail, ATTACKS };
+  return { build, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
 })();
 
 </script>
@@ -2222,6 +2273,8 @@ const Enemy = (() => {
   function spawn(scene, type, pos, mult = 1) {
     const def = CFG.enemies[type], rig = Rig.build(def.rig || type);
     scene.add(rig.root);
+    // Below high quality, enemies leave the shadow pass and get a soft blob under their feet instead
+    if (G.quality && G.quality() !== 'high') { rig.root.traverse(o => { o.castShadow = false; }); rig.root.add(blob()); }
     const e = {
       type, def, rig, trail: Rig.makeTrail(scene, type === 'brute' ? 0xff7a50 : 0xfff0c0),
       pos: pos.clone(), facing: Math.PI, mult,
@@ -2238,6 +2291,16 @@ const Enemy = (() => {
     return e;
   }
 
+  let blobGeo = null, blobMat = null;
+  function blob() {
+    if (!blobGeo) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 4, 32, 32, 31);
+      gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+      blobGeo = new THREE.PlaneGeometry(1.3, 1.3).rotateX(-Math.PI / 2);
+      blobMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false });
+    }
+    const m = new THREE.Mesh(blobGeo, blobMat); m.position.y = 0.03; m.renderOrder = -1; return m;
+  }
   const targetable = e => e.state !== 'dead' && e.state !== 'spawn';
   const attacking = () => G.enemies.reduce((n, o) => n + (o.state === 'attack' && !o.def.solo ? 1 : 0), 0);
   const guardUp = e => e.def.guard && e.state === 'hunt';
@@ -2766,7 +2829,7 @@ const Camp = (() => {
 // built at once; enemies chase you from section to section along the passages.
 // States of a section: ahead (not yet entered) -> start (a short breath) -> fight (waves) -> cleared.
 const World = (() => {
-  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6;
+  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
   let scene, hemi, rooms = [], sections = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
@@ -2966,6 +3029,7 @@ const World = (() => {
     }
     room.offPath = offPath;
 
+    Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     setFade(room, 1);
     rooms.push(room);
     return room;
@@ -3099,6 +3163,11 @@ const World = (() => {
         const c = r.chest;
         if (!c.opened && p && p.state !== 'dead' && Math.hypot(p.pos.x - c.x, p.pos.z - c.z) < 1.7) { c.opened = true; Snd.play('gate'); G.onChest(r); }
         if (c.opened && c.t < 1) { c.t = Math.min(1, c.t + dt * 2.5); c.lid.rotation.x = -1.9 * c.t; }
+      }
+      // Sections well beyond the fog are not drawn at all
+      if (p && r.rect) {
+        const dx = Math.max(r.rect.x0 - p.pos.x, 0, p.pos.x - r.rect.x1), dz = Math.max(r.rect.z0 - p.pos.z, 0, p.pos.z - (r.corr ? r.corr.z1 : r.rect.z1));
+        r.group.visible = Math.hypot(dx, dz) < CULL_DIST;
       }
       const behind = cam && cam.z > r.southZ + 0.2 && cam.z < r.southZ + CORR_LEN && Math.abs(cam.x - r.cx) < r.hw + 1;
       r.occl += ((behind ? 0.15 : 1) - r.occl) * Math.min(1, dt * 8);
@@ -3234,6 +3303,7 @@ const UI = (() => {
     return h + `<div class="tact">${b}</div></div>`;
   }
 
+  const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
   const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2] };      // min, max, step
 
   // ---------------- Panels ----------------
@@ -3330,6 +3400,7 @@ const UI = (() => {
       };
       const tog = (k, label, on, off) => `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn(Settings.get(k) ? on : off, 'toggle', k, false, Settings.get(k) ? 'on' : '')}</div></div>`;
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
+        + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
     },
@@ -3363,6 +3434,7 @@ const UI = (() => {
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
+    if (a === 'quality') { const order = ['auto', 'high', 'medium', 'low']; Settings.set('quality', order[(order.indexOf(Settings.get('quality')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'toggle') { Settings.set(arg, !Settings.get(arg)); Snd.play('glint'); return render(); }
     if (a === 'sreset') { Settings.reset(); Snd.play('glint'); return render(); }
     if (a === 'tsel') { tab.talent = arg; Snd.play('glint'); return render(); }
@@ -3624,8 +3696,7 @@ function readInput() {
 
 // ---------------- Scene ----------------
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
-renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07060a);
@@ -3642,6 +3713,23 @@ moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 40 });
 moon.shadow.bias = -0.0008;
 scene.add(moon, moon.target);
+// Graphics quality: high (sharp, soft 2048 shadows), medium (1.5x, 1024 shadows) or low (1x, no shadows).
+// 'auto' picks medium on touch devices (phones and tablets) and high elsewhere.
+const QUALITY = { high: { pr: 2, shadow: 2048, soft: true }, medium: { pr: 1.5, shadow: 1024, soft: false }, low: { pr: 1, shadow: 0 } };
+function quality() { const q = Settings.get('quality'); return q === 'auto' ? (('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'medium' : 'high') : q; }
+function applyQuality() {
+  const Q = QUALITY[quality()] || QUALITY.high, on = Q.shadow > 0;
+  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false);
+  if (on && moon.shadow.mapSize.x !== Q.shadow) { moon.shadow.mapSize.set(Q.shadow, Q.shadow); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } }
+  const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type) {
+    renderer.shadowMap.enabled = on; renderer.shadowMap.type = type;
+    scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
+  }
+}
+applyQuality();
+Settings.on(k => { if (k === 'quality') applyQuality(); });
+G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
 // Drifting dust motes that travel with the hero

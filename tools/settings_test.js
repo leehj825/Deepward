@@ -16,6 +16,9 @@ const path = require('path');
   out.fromTitle = await pg.evaluate(() => __dw.UI.open && __dw.G.state === 'menu' && !document.getElementById('title').classList.contains('show'));
   await pg.click('[data-act="set"][data-arg="music:-1"]'); await pg.click('[data-act="set"][data-arg="music:-1"]');
   await pg.click('[data-act="set"][data-arg="sens:1"]');
+  await pg.click('[data-act="quality"]'); await pg.click('[data-act="quality"]'); await pg.click('[data-act="quality"]');
+  out.lowQuality = await pg.evaluate(() => Settings.get('quality') === 'low' && !__dw.renderer.shadowMap.enabled && __dw.renderer.getPixelRatio() === 1);
+  await pg.click('[data-act="quality"]');
   await pg.click('[data-act="toggle"][data-arg="invertY"]'); await pg.click('[data-act="toggle"][data-arg="shake"]');
   await pg.click('[data-act="close"]');
   out.backToTitle = await pg.evaluate(() => __dw.G.state === 'title' && document.getElementById('title').classList.contains('show'));
@@ -56,7 +59,7 @@ const path = require('path');
   await pg.waitForTimeout(2500);
   out.scoreMood = await pg.evaluate(() => Snd.mood);
   await b.close();
-  const ok = !errs.length && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
+  const ok = !errs.length && out.lowQuality && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
     && out.noShake && out.fromPause && out.backToPause && out.camp === 'camp' && out.dungeon === 'dungeon' && out.combat === 'combat' && out.lingers === 'combat'
     && out.calm === 'dungeon' && out.boss === 'boss' && out.turned && out.inverted && out.scoreMood === 'boss';
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

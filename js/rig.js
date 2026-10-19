@@ -288,6 +288,7 @@ const Rig = (() => {
     }
     rig.tq = {}; for (const n of ['hips', ...JOINTS]) rig.tq[n] = new THREE.Quaternion();
     rig.loco = 0;
+    bake(root, true, rig.glowMats);
 
     root.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !rig.mats.includes(o.material)) rig.mats.push(o.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
@@ -321,6 +322,7 @@ const Rig = (() => {
         rig.legs.push({ hip, up, knee, base, phase: i * 1.6 + (side > 0 ? 0 : Math.PI), front: i === 0 });
       }
     });
+    bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
@@ -625,6 +627,55 @@ const Rig = (() => {
     aimLimb(el, ikD.subVectors(ikT, ikE).normalize(), w);
   }
 
+  // ---------------- Fewer draw calls ----------------
+  // Bakes the meshes directly under a node that share a material (and shadow setting) into one mesh; with deep, does
+  // the same under every joint. Joints, weapons and shields keep moving as before; only their parts are combined.
+  // With keep (a list of materials that must stay apart, such as glowing weapons), plain coloured materials that differ
+  // only in colour are combined too: each part's colour is baked into the mesh as vertex colours.
+  const mergeM = new THREE.Matrix4(), mergeC = new THREE.Color();
+  function mergeKey(o, keep) {
+    const m = o.material, sh = (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '');
+    if (!keep || keep.includes(m) || !m.isMeshStandardMaterial || m.map || m.vertexColors) return m.uuid + sh;
+    return ['v', Math.round(m.roughness * 4), Math.round(m.metalness * 2), m.emissive.getHex(), m.transparent, m.opacity, m.side, m.flatShading, sh].join('|');      // near enough roughness and metal share one material
+  }
+  function bake(node, deep = false, keep = null) {
+    if (deep) for (const c of node.children.slice()) if (!c.isMesh) bake(c, true, keep);
+    const groups = new Map();
+    for (const o of node.children) {
+      if (!o.isMesh || o.children.length || !o.geometry.attributes.normal) continue;
+      const key = mergeKey(o, keep);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(o);
+    }
+    for (const [key, list] of groups) {
+      if (list.length < 2) continue;
+      const colours = key[0] === 'v' && list.some(o => !o.material.color.equals(list[0].material.color));
+      let n = 0; const parts = [];
+      for (const o of list) {
+        o.updateMatrix(); mergeM.copy(o.matrix);
+        const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(mergeM);
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+        parts.push([g, o.material.color]); n += g.attributes.position.count;
+      }
+      const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = colours ? new Float32Array(n * 3) : null;
+      let k = 0;
+      for (const [g, c] of parts) {
+        const cnt = g.attributes.position.count;
+        pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3); uv.set(g.attributes.uv.array, k * 2);
+        if (col) for (let v = 0; v < cnt; v++) { col[(k + v) * 3] = c.r; col[(k + v) * 3 + 1] = c.g; col[(k + v) * 3 + 2] = c.b; }
+        k += cnt; g.dispose();
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      let mat = list[0].material;
+      if (col) { geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); mat = mat.clone(); mat.color.setHex(0xffffff); mat.vertexColors = true; }
+      geo.computeBoundingSphere();
+      const mm = new THREE.Mesh(geo, mat); mm.castShadow = list[0].castShadow; mm.receiveShadow = list[0].receiveShadow;
+      node.add(mm);
+      for (const o of list) node.remove(o);                                // never drawn, so nothing on the GPU to free
+    }
+  }
+
   // ---------------- Swing trail ----------------
   // A ribbon between the blade's base and tip over the last few frames, fading out (additive blending).
   function makeTrail(scene, color) {
@@ -653,5 +704,5 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, animate, flash, glow, makeTrail, updateTrail, ATTACKS };
+  return { build, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
 })();

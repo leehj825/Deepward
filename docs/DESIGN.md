@@ -120,3 +120,11 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Settings:** master, music and effects volume, look sensitivity, inverted vertical look and screen shake. They are kept apart from the save.
 - **Icon and splash:** drawn in code by `tools/make_icons.py` and copied into the generated Android project by `tools/android_patch.js`.
 - **Android:** only a debug APK is built for now (the "Android debug APK" workflow).
+
+## Performance (built)
+
+- **Static geometry:** each section's walls, floors, pillars and decor are baked into one mesh per material, so a section costs a handful of draw calls.
+- **Characters:** parts that share a joint are baked together, and their plain colours become vertex colours. Glowing weapon materials stay apart.
+- **Culling:** sections more than 40 m away (past the fog) aren't drawn.
+- **Graphics quality:** sets resolution and shadow-map size, and turns enemy shadows into blobs on Medium or shadows off entirely on Low.
+- **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.

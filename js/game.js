@@ -175,8 +175,7 @@ function readInput() {
 
 // ---------------- Scene ----------------
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
-renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07060a);
@@ -193,6 +192,23 @@ moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 40 });
 moon.shadow.bias = -0.0008;
 scene.add(moon, moon.target);
+// Graphics quality: high (sharp, soft 2048 shadows), medium (1.5x, 1024 shadows) or low (1x, no shadows).
+// 'auto' picks medium on touch devices (phones and tablets) and high elsewhere.
+const QUALITY = { high: { pr: 2, shadow: 2048, soft: true }, medium: { pr: 1.5, shadow: 1024, soft: false }, low: { pr: 1, shadow: 0 } };
+function quality() { const q = Settings.get('quality'); return q === 'auto' ? (('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'medium' : 'high') : q; }
+function applyQuality() {
+  const Q = QUALITY[quality()] || QUALITY.high, on = Q.shadow > 0;
+  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false);
+  if (on && moon.shadow.mapSize.x !== Q.shadow) { moon.shadow.mapSize.set(Q.shadow, Q.shadow); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } }
+  const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type) {
+    renderer.shadowMap.enabled = on; renderer.shadowMap.type = type;
+    scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
+  }
+}
+applyQuality();
+Settings.on(k => { if (k === 'quality') applyQuality(); });
+G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
 // Drifting dust motes that travel with the hero

@@ -106,6 +106,11 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
 - Look sensitivity (0.4× to 2.4×).
 - Inverted vertical look.
 - Screen shake on or off.
+- Graphics quality:
+  - **Auto:** Medium on phones and tablets, High elsewhere.
+  - **High:** sharp, with soft shadows.
+  - **Medium:** 1.5× resolution and smaller shadows; enemies get a soft blob shadow instead of a real one.
+  - **Low:** 1× resolution and no shadows.
 
 They are kept on the device, apart from the saved game. M still mutes everything.
 

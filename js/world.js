@@ -4,7 +4,7 @@
 // built at once; enemies chase you from section to section along the passages.
 // States of a section: ahead (not yet entered) -> start (a short breath) -> fight (waves) -> cleared.
 const World = (() => {
-  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6;
+  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
   let scene, hemi, rooms = [], sections = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
@@ -204,6 +204,7 @@ const World = (() => {
     }
     room.offPath = offPath;
 
+    Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     setFade(room, 1);
     rooms.push(room);
     return room;
@@ -337,6 +338,11 @@ const World = (() => {
         const c = r.chest;
         if (!c.opened && p && p.state !== 'dead' && Math.hypot(p.pos.x - c.x, p.pos.z - c.z) < 1.7) { c.opened = true; Snd.play('gate'); G.onChest(r); }
         if (c.opened && c.t < 1) { c.t = Math.min(1, c.t + dt * 2.5); c.lid.rotation.x = -1.9 * c.t; }
+      }
+      // Sections well beyond the fog are not drawn at all
+      if (p && r.rect) {
+        const dx = Math.max(r.rect.x0 - p.pos.x, 0, p.pos.x - r.rect.x1), dz = Math.max(r.rect.z0 - p.pos.z, 0, p.pos.z - (r.corr ? r.corr.z1 : r.rect.z1));
+        r.group.visible = Math.hypot(dx, dz) < CULL_DIST;
       }
       const behind = cam && cam.z > r.southZ + 0.2 && cam.z < r.southZ + CORR_LEN && Math.abs(cam.x - r.cx) < r.hw + 1;
       r.occl += ((behind ? 0.15 : 1) - r.occl) * Math.min(1, dt * 8);

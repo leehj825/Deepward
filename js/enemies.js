@@ -9,6 +9,8 @@ const Enemy = (() => {
   function spawn(scene, type, pos, mult = 1) {
     const def = CFG.enemies[type], rig = Rig.build(def.rig || type);
     scene.add(rig.root);
+    // Below high quality, enemies leave the shadow pass and get a soft blob under their feet instead
+    if (G.quality && G.quality() !== 'high') { rig.root.traverse(o => { o.castShadow = false; }); rig.root.add(blob()); }
     const e = {
       type, def, rig, trail: Rig.makeTrail(scene, type === 'brute' ? 0xff7a50 : 0xfff0c0),
       pos: pos.clone(), facing: Math.PI, mult,
@@ -25,6 +27,16 @@ const Enemy = (() => {
     return e;
   }
 
+  let blobGeo = null, blobMat = null;
+  function blob() {
+    if (!blobGeo) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 4, 32, 32, 31);
+      gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+      blobGeo = new THREE.PlaneGeometry(1.3, 1.3).rotateX(-Math.PI / 2);
+      blobMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false });
+    }
+    const m = new THREE.Mesh(blobGeo, blobMat); m.position.y = 0.03; m.renderOrder = -1; return m;
+  }
   const targetable = e => e.state !== 'dead' && e.state !== 'spawn';
   const attacking = () => G.enemies.reduce((n, o) => n + (o.state === 'attack' && !o.def.solo ? 1 : 0), 0);
   const guardUp = e => e.def.guard && e.state === 'hunt';
