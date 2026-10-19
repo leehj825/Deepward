@@ -136,3 +136,17 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Orientation:** in the behind view the map rotates with the camera so up is where you look; the top view stays north-up.
 - **Compass:** a chevron on the rim points to the first section along the path that isn't cleared, or to the lair, and the text shows the distance.
 - **Full map:** tap or N fits everything found so far.
+
+## Dungeon features (built)
+
+Each stage's plan picks its extras (see `CFG.features`):
+
+- **Side rooms:** two middle sections get one, off a random side wall through a 3.2 m doorway and a 4 m passage.
+  - **Elite's den:** the stage's main enemy kind at 1.9× strength, which drops a rich chest (2.5× gold, rare-or-better gear).
+  - **Vault:** the same rich chest, behind two spike plates whose cycles are half a beat apart.
+  - **Chasing:** enemies leave a side room by its doorway and enter it the same way.
+- **Traps:** two passages get one.
+  - **Spike plates** (idle 1.7 s, red warning 0.6 s, strike 0.6 s) and **blades** (2.4 s swing) both deal unblockable damage that rises with depth.
+  - A dash's invulnerability gets you through either.
+- **Shrine:** one middle section without a side room gets one. It offers three of eight blessings, which stack into the hero's stats until the stage is left.
+- **Breakables:** 3 to 6 per section along the walls, off the path. They're solid until struck. Each gives a 55% chance of gold and an 8% chance of a flask refill (only if you're below your maximum).

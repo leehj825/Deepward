@@ -237,6 +237,12 @@ body:not(.playing) #padKeys { display: none !important; }
   #mapInfo { width: 96px; top: calc(152px + env(safe-area-inset-top)); font-size: 11px; }
 }
 
+/* Blessings and elites */
+#bless { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; margin: 2px 0 4px; }
+#bless span { padding: 1px 7px; border-radius: 9px; background: rgba(154, 216, 255, 0.15); border: 1px solid rgba(154, 216, 255, 0.45); color: #cfeaff; }
+.ebar.elite .hp i { background: linear-gradient(#ffb040, #c06a10); }
+.ebar.elite { box-shadow: 0 0 6px rgba(255, 176, 64, 0.8); }
+
 </style>
 </head>
 <body>
@@ -246,6 +252,7 @@ body:not(.playing) #padKeys { display: none !important; }
   <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
   <div id="stBar" class="bar"><i id="stFill"></i></div>
   <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span></div>
+  <div id="bless"></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
@@ -511,6 +518,29 @@ const CFG = {
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
   roomHeal: 0.35,                // share of max health restored when a room is cleared
   sectionScale: 1.3,             // every section is built this much larger than its size above
+  // What else fills a stage: side rooms off the path, traps in the passages, a shrine, breakable pots and crates
+  features: {
+    sideRooms: 2,                  // per stage, off middle sections; each is an elite's den or a trapped vault
+    sideSize: [4.6, 4.2],          // half width, half depth
+    eliteMult: 1.9,                // the den's guard: this much tougher than its kind
+    vaultGold: [50, 110],          // the vault chest's gold (times the stage's depth bonus)
+    traps: 2,                      // passages with a trap per stage
+    spikes: { dmg: 16, idle: 1.7, warn: 0.6, up: 0.6 },     // a plate across the passage: the spikes peek out, then strike
+    blade: { dmg: 22, period: 2.4 },                         // a blade swinging across the passage
+    breakables: [3, 6],            // pots and crates per section
+    potGold: [3, 9], potGoldChance: 0.55, potFlask: 0.08,
+  },
+  // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
+  blessings: [
+    { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },
+    { id: 'iron', name: 'Iron Skin', icon: '🛡', desc: 'Take 15% less damage' },
+    { id: 'swift', name: 'Swiftness', icon: '💨', desc: 'Move 12% faster' },
+    { id: 'vigor', name: 'Vigor', icon: '⚡', desc: 'Stamina comes back 40% faster' },
+    { id: 'mending', name: 'Mending', icon: '✚', desc: 'Every parry heals 6% of your health' },
+    { id: 'fortune', name: 'Fortune', icon: '◆', desc: '+50% gold found' },
+    { id: 'thirst', name: 'Thirst', icon: '🩸', desc: '4% of the damage you deal comes back as health' },
+    { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
+  ],
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
@@ -1899,6 +1929,8 @@ const Combat = (() => {
       const r = Enemy.receive(e, atk, p);
       if (r === 'blocked') blocked++; else if (r) { landed++; if (r === 'crit') crit = true; }
     }
+    const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
+    if (broke && !landed) FX.hitStop(0.03);
     if (landed) {
       FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
       FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
@@ -1940,7 +1972,16 @@ const Player = (() => {
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
     critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
-  const gearStats = () => (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE;
+  // Gear, levels and talents, then any shrine blessings for this stage
+  function gearStats() {
+    const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
+    for (const b of (G.blessings || [])) {
+      if (b === 'wrath') S.dmg *= 1.2; else if (b === 'iron') S.dr = 1 - (1 - S.dr) * 0.85; else if (b === 'swift') S.move *= 1.12;
+      else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
+      else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
+    }
+    return S;
+  }
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
 
   function create(scene) {
@@ -2056,7 +2097,7 @@ const Player = (() => {
       const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
       p.dirF = mlen > 0.05 ? (m.x * fx + m.z * fz) / mlen : 1; p.dirS = mlen > 0.05 ? (m.x * fz - m.z * fx) / mlen : 0;
       const behind = View.mode === 'behind', dirMul = behind ? (p.dirF < -0.3 ? 0.72 : p.dirF < 0.5 ? 0.86 : 1) : 1;
-      const sp = (p.blocking ? P.blockSpeed : P.speed) * dirMul;
+      const sp = (p.blocking ? P.blockSpeed : P.speed) * dirMul * (p.S.move || 1);
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * sp * dt; p.pos.z += m.z / Math.max(1, mlen) * sp * dt; moveSpeed = mlen * sp; }
       let want = null;
       if (behind) want = View.yaw + Math.PI;                         // the body faces where the camera looks
@@ -2178,6 +2219,7 @@ const Player = (() => {
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
+        if (p.S.mending) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * p.S.mending); FX.text(Combat.chestPos(p.pos, 2.6), '+' + Math.round(p.maxHp * p.S.mending), 'heal'); }
         return 'parry';
       } else if (hit.parryOnly) {
         FX.text(Combat.chestPos(p.pos, 2.4), 'SHIELD SMASHED', 'warn'); FX.burst(shieldPos, 0xffa010, 12, 6);      // only a parry stops a pounce
@@ -2656,6 +2698,151 @@ const Enemy = (() => {
 
 </script>
 <script>
+// Deepward - what fills a stage besides monsters: breakable pots and crates (gold, now and then a flask), traps in the
+// passages (spike plates that peek before they strike; blades swinging across the way), and shrines where the hero
+// prays for one of three blessings that last until the stage is left. World builds them into a section's group;
+// this module keeps them working.
+const Props = (() => {
+  const F = CFG.features;
+  let pots = [], traps = [], shrines = [];
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
+  const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
+  function clear() { pots = []; traps = []; shrines = []; }
+
+  // ---------------- Breakables ----------------
+  // Along the walls, off the path and away from pillars and doorways
+  function breakables(room) {
+    const n = F.breakables[0] + Math.floor(Math.random() * (F.breakables[1] - F.breakables[0] + 1));
+    const clay = mat(room.th.decor === 'crates' ? 0x6a4a2c : 0x8a5a3a), wood = mat(0x6a4a2c), dark = mat(0x3a2a1e);
+    for (let k = 0, tries = 0; k < n && tries < 40; tries++) {
+      const side = Math.random() < 0.5 ? -1 : 1, lx = side * (room.hw - 0.9 - Math.random() * 1.4), z = room.cz + (Math.random() * 2 - 1) * (room.hd - 1.2);
+      const x = room.cx + lx;
+      if (!room.offPath(lx, z) || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (pr || CFG.pillarR) + 1)) continue;
+      if (pots.some(q => Math.hypot(q.x - x, q.z - z) < 1.1) || (room.sideDoor && Math.abs(z - room.sideDoor.z) < 2.6)) continue;
+      const g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+      const crate = Math.random() < 0.35;
+      if (crate) { put(g, new THREE.BoxGeometry(0.7, 0.7, 0.7), wood, 0, 0.35, 0).rotation.y = Math.random(); put(g, new THREE.BoxGeometry(0.74, 0.08, 0.74), dark, 0, 0.5, 0); }
+      else {
+        put(g, new THREE.CylinderGeometry(0.2, 0.17, 0.12, 8), clay, 0, 0.06, 0);
+        put(g, new THREE.SphereGeometry(0.3, 8, 6), clay, 0, 0.38, 0).scale.y = 1.15;
+        put(g, new THREE.CylinderGeometry(0.13, 0.16, 0.18, 8), clay, 0, 0.74, 0);
+      }
+      pots.push({ g, room, x, z, r: crate ? 0.5 : 0.38, crate, broken: false });
+      k++;
+    }
+  }
+  function smash(q) {
+    q.broken = true; q.room.group.remove(q.g);
+    const at = new THREE.Vector3(q.x, 0.5, q.z);
+    FX.burst(at, q.crate ? 0x8a6a40 : 0xa06a44, 16, 5, 0.7); Snd.play(q.crate ? 'guardBreak' : 'hit');
+    if (G.mode !== 'dungeon' || !Items.S) return;
+    const p = G.player, r = Math.random();
+    if (r < F.potFlask && p.flasks < p.S.flasks) { p.flasks++; FX.text(at.clone().setY(1.6), '+1 ⚗', 'heal'); Snd.play('wave'); }
+    else if (r < F.potFlask + F.potGoldChance) {
+      const g = Items.addGold((F.potGold[0] + Math.random() * (F.potGold[1] - F.potGold[0])) * (1 + G.stageK * 0.5) * p.S.goldFind);
+      FX.text(at.clone().setY(1.6), '+' + g + ' ◆', 'gold');
+    }
+  }
+  // The hero's swing: pots and crates in its arc break. Returns how many.
+  function strike(p, atk) {
+    let n = 0;
+    for (const q of pots) if (!q.broken && Combat.inArc(p.pos, p.facing, q, atk.range, atk.arc, q.r)) { smash(q); n++; }
+    return n;
+  }
+
+  // ---------------- Traps ----------------
+  // A spike plate across a passage at z, or a blade swinging across it
+  function trap(room, kind, z, x0 = room.doorS, w = 3.6, L = 2.4) {
+    const lx = x0 - room.cx, iron = mat(0x3a3a40, { roughness: 0.5, metalness: 0.6 }), steel = mat(0xb8bec8, { roughness: 0.3, metalness: 0.8 });
+    if (kind === 'spikes') {
+      put(room.group, new THREE.BoxGeometry(w, 0.06, L), iron, lx, 0.03, z, false);
+      const holes = mat(0x101012); put(room.group, new THREE.PlaneGeometry(w - 0.3, L - 0.3).rotateX(-Math.PI / 2), holes, lx, 0.065, z, false);
+      const sp = new THREE.Group(); sp.position.set(lx, -0.45, z); room.group.add(sp);
+      const cone = new THREE.ConeGeometry(0.06, 0.5, 4);
+      const nx = Math.max(2, Math.round(w / 0.55)), nz = Math.max(2, Math.round(L / 0.55));
+      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) put(sp, cone, steel, (i / (nx - 1) - 0.5) * (w - 0.4), 0.25, (j / (nz - 1) - 0.5) * (L - 0.4), false);
+      Rig.bake(sp);
+      const t = { kind, room, x: x0, z, w, L, sp, steel, phase: 'idle', t: Math.random() * F.spikes.idle, hit: new Set() };
+      traps.push(t); return t;
+    }
+    // Blade: hangs from a beam, swings across the passage (along x)
+    const pivot = new THREE.Group(); pivot.position.set(lx, 3.3, z); room.group.add(pivot);
+    put(room.group, new THREE.BoxGeometry(w + 0.6, 0.25, 0.3), iron, lx, 3.35, z, false);
+    const Lr = 2.5;
+    put(pivot, new THREE.CylinderGeometry(0.04, 0.04, Lr, 6), iron, 0, -Lr / 2, 0);
+    // a half moon, its sharp curve hanging down, flat side across the passage
+    put(pivot, new THREE.CylinderGeometry(0.8, 0.8, 0.06, 18, 1, false, -Math.PI / 2, Math.PI), steel, 0, -Lr + 0.05, 0).rotation.x = Math.PI / 2;
+    const t = { kind, room, x: x0, z, w, Lr, pivot, steel, t: Math.random() * F.blade.period, cd: 0, whoosh: 0 };
+    traps.push(t); return t;
+  }
+  const dmgMult = () => 1 + Math.floor((G.stageK || 0) / CFG.stages.length) * CFG.loopScale + (G.stageK || 0) % CFG.stages.length * 0.12;
+  function hurt(t, from, dmg) {
+    const p = G.player;
+    if (!p || p.state === 'dead' || G.mode !== 'dungeon') return;
+    Player.receive(p, { pos: from, mult: dmgMult() }, { dmg, posture: 0, unblockable: true, aoe: true });
+  }
+  function updateTraps(dt) {
+    const p = G.player;
+    for (const t of traps) {
+      t.t += dt;
+      if (t.kind === 'spikes') {
+        const S = F.spikes, near = p && Math.abs(p.pos.x - t.x) < t.w / 2 + 0.2 && Math.abs(p.pos.z - t.z) < t.L / 2 + 0.2;
+        if (t.phase === 'idle' && t.t > S.idle) { t.phase = 'warn'; t.t = 0; if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 8) Snd.play('glint'); }
+        else if (t.phase === 'warn' && t.t > S.warn) { t.phase = 'up'; t.t = 0; t.hit.clear(); if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 10) Snd.play('slam'); }
+        else if (t.phase === 'up' && t.t > S.up) { t.phase = 'idle'; t.t = 0; }
+        const want = t.phase === 'warn' ? -0.33 : t.phase === 'up' ? 0.02 : -0.45;
+        t.sp.position.y += (want - t.sp.position.y) * Math.min(1, dt * (t.phase === 'up' ? 30 : 10));
+        t.steel.emissive.setHex(t.phase === 'warn' ? 0xff2a10 : 0x000000).multiplyScalar(t.phase === 'warn' ? 0.6 : 0);
+        if (t.phase === 'up' && near && !t.hit.has('p')) { t.hit.add('p'); hurt(t, new THREE.Vector3(t.x, 0, t.z + (p.pos.z > t.z ? -2 : 2)), S.dmg); }
+      } else {
+        const B = F.blade, th = Math.sin(t.t / B.period * Math.PI * 2) * 1.15, bx = t.x + Math.sin(th) * t.Lr, by = 3.3 - Math.cos(th) * t.Lr;
+        t.pivot.rotation.z = th;
+        t.cd -= dt; t.whoosh -= dt;
+        if (Math.abs(th) < 0.25 && t.whoosh <= 0 && p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 9) { Snd.play('heavySwing'); t.whoosh = B.period / 2 - 0.1; }
+        if (p && t.cd <= 0 && by < 1.7 && Math.abs(p.pos.x - bx) < 0.6 && Math.abs(p.pos.z - t.z) < 0.6) { t.cd = 0.8; hurt(t, new THREE.Vector3(bx - Math.sign(Math.cos(t.t / B.period * Math.PI * 2)) * 2, 0, t.z), B.dmg); }
+      }
+    }
+  }
+
+  // ---------------- Shrines ----------------
+  function shrine(room, lx, z) {
+    const stone = mat(0x6a6a78), rune = new THREE.MeshStandardMaterial({ color: 0x9ad8ff, emissive: 0x4ab0ff, emissiveIntensity: 1.2, roughness: 0.3 });
+    const g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+    put(g, new THREE.CylinderGeometry(0.9, 1.0, 0.3, 8), stone, 0, 0.15, 0);
+    put(g, new THREE.BoxGeometry(0.6, 1.8, 0.6), stone, 0, 1.2, 0).scale.set(1, 1, 1);
+    put(g, new THREE.ConeGeometry(0.45, 0.5, 4), stone, 0, 2.35, 0).rotation.y = Math.PI / 4;
+    const gem = put(g, new THREE.OctahedronGeometry(0.22, 0), rune, 0, 1.4, 0.33, false);
+    const s = { g, gem, rune, room, x: room.cx + lx, z, r: 0.9, used: false };
+    shrines.push(s); return s;
+  }
+  function updateShrines(dt) {
+    const now = performance.now() / 1000;
+    for (const s of shrines) { s.gem.rotation.y += dt * 1.5; s.gem.position.y = 1.4 + Math.sin(now * 2) * 0.05; s.rune.emissiveIntensity = s.used ? 0.1 : 1 + Math.sin(now * 3) * 0.3; }
+  }
+  // The shrine the hero is standing at, as a prompt spot
+  function nearest(pos) {
+    const s = shrines.find(s => !s.used && Math.hypot(pos.x - s.x, pos.z - s.z) < 2.3);
+    return s ? { id: 'shrine', name: 'Shrine of the Deep', verb: 'Pray', shrine: s } : null;
+  }
+  // Three blessings to choose from, none the hero already has
+  function offer() {
+    const have = G.blessings || [], pool = CFG.blessings.filter(b => !have.includes(b.id));
+    return pool.sort(() => Math.random() - 0.5).slice(0, 3);
+  }
+
+  function update(dt) { updateTraps(dt); updateShrines(dt); }
+  // Unbroken pots, crates and shrines are solid
+  function blockers() {
+    const out = [];
+    for (const q of pots) if (!q.broken) out.push([q.x, q.z, q.r]);
+    for (const s of shrines) out.push([s.x, s.z, s.r]);
+    return out;
+  }
+  return { clear, breakables, strike, trap, shrine, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+})();
+
+</script>
+<script>
 // Deepward - the settlement camp on the rim of the Deep: a palisaded clearing with a campfire, Bram's forge, Tilda's stall,
 // Maren by the fire, the camp ledger and the stairway gate down into the dungeon. Built in code like everything else.
 // The camp's buildings (forge, apothecary, training yard) grow with their levels. Camp.build returns a room-like object
@@ -2843,8 +3030,9 @@ const Camp = (() => {
 // built at once; enemies chase you from section to section along the passages.
 // States of a section: ahead (not yet entered) -> start (a short breath) -> fight (waves) -> cleared.
 const World = (() => {
-  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
-  let scene, hemi, rooms = [], sections = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
+  const CORR_LEN = 8, DOOR = 2.0, SIDE_DOOR = 1.6, SIDE_LEN = 4, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
+  const FE = CFG.features;
+  let scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
   // Which stage, room and loop a running room index falls in
@@ -2909,6 +3097,11 @@ const World = (() => {
       p.northZ = p.southZ - hd * 2;
       out.push(p); prev = p;
     }
+    // Extras: side rooms (an elite's den, then a trapped vault) off middle sections, traps in some passages, one shrine
+    const mids = out.filter(p => p.j > 0 && p.j < count - 1).sort(() => Math.random() - 0.5);
+    mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
+    out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
+    const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
     return out;
   }
 
@@ -2952,7 +3145,14 @@ const World = (() => {
       if (door === null) return wallBox(b - a, h, 1, 0, y, z);
       wallBox(door - DOOR - a, h, 1, (a + door - DOOR) / 2, y, z); wallBox(b - door - DOOR, h, 1, (door + DOOR + b) / 2, y, z);
     }
-    wallBox(1, WALL_H, hd * 2 + 2, -hw - 0.5, WALL_H / 2, cz); wallBox(1, WALL_H, hd * 2 + 2, hw + 0.5, WALL_H / 2, cz);
+    // Side walls; one may open into a side room
+    for (const sd of [-1, 1]) {
+      const x = sd * (hw + 0.5), a = cz - hd - 1, b = cz + hd + 1;
+      if (!P.side || P.side.dir !== sd) { wallBox(1, WALL_H, b - a, x, WALL_H / 2, cz); continue; }
+      wallBox(1, WALL_H, cz - SIDE_DOOR - a, x, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); wallBox(1, WALL_H, b - cz - SIDE_DOOR, x, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
+      wallBox(1, WALL_H - 2.8, SIDE_DOOR * 2, x, 2.8 + (WALL_H - 2.8) / 2, cz);
+      room.sideDoor = { dir: sd, z: cz };
+    }
     wallRow(northZ - 0.5, WALL_H, dn);
     if (dn !== null) wallBox(DOOR * 2, WALL_H - 3.0, 1, dn, 3.0 + (WALL_H - 3.0) / 2, northZ - 0.5);
     // The south wall stays low so the high camera can see in; posts and a lintel frame its open doorway
@@ -3000,7 +3200,7 @@ const World = (() => {
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
     for (const s of [-1, 1]) {
-      for (const f of [-0.6, 0, 0.6]) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
+      for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
     if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
@@ -3044,8 +3244,74 @@ const World = (() => {
     room.offPath = offPath;
 
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
+    // Props stay separate meshes: pots break, traps move, the shrine glows
+    Props.breakables(room);
+    if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
+    if (P.shrine) {
+      const sd = P.side ? -P.side.dir : (Math.random() < 0.5 ? -1 : 1), lx = sd * (hw - 1.5);
+      Props.shrine(room, lx, offPath(lx, cz + hd * 0.4) ? cz + hd * 0.4 : cz - hd * 0.4);
+    }
     setFade(room, 1);
     rooms.push(room);
+    if (P.side) buildSide(room, P.side);
+    return room;
+  }
+  // ---------------- Side rooms ----------------
+  // A dead end off a section's side wall, through a short passage: an elite's den (the guard drops a rich chest) or a
+  // vault (a rich chest behind two spike plates). It is not on the path, so the minimap's compass ignores it.
+  function buildSide(par, { dir, kind }) {
+    const [shw, shd] = FE.sideSize, th = par.th, T = themeTex(par.inf.stage.theme);
+    const sx = par.cx + dir * (par.hw + 2 + SIDE_LEN + shw), cz = par.cz;
+    const group = new THREE.Group(); group.position.x = sx; scene.add(group);
+    const room = {
+      kind: 'side', sideKind: kind, dir, parent: par, i: par.i, j: par.j, inf: par.inf, th, hw: shw, hd: shd, cx: sx, cz,
+      southZ: cz + shd, northZ: cz - shd, group, mats: [], geos: [], texs: [], torches: [], pillars: [], occluders: [],
+      fade: 1, fadeDir: 1, occl: 1, state: kind === 'vault' ? 'vault' : 'ahead', t: 0, wave: 0, waveDelay: 0, offPath: () => true,
+      rect: { x0: sx - shw, x1: sx + shw, z0: cz - shd, z1: cz + shd },
+      corr: { x0: Math.min(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), x1: Math.max(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), z0: cz - SIDE_DOOR + 0.1, z1: cz + SIDE_DOOR - 0.1 },
+      exitAt: new THREE.Vector3(par.cx + dir * (par.hw - 1.6), 0, cz), entryAt: new THREE.Vector3(par.cx + dir * (par.hw + 1 + SIDE_LEN / 2), 0, cz),
+    };
+    if (kind === 'den') { const main = par.inf.stage.rooms[0].waves[0][0]; room.waves = [[main]]; room.elite = true; }
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); m.userData.op = 1; room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const texFor = (t, rx, ry) => { const c = t.clone(); c.needsUpdate = true; c.repeat.set(rx, ry); room.texs.push(c); return c; };
+    const wallM = M(0xffffff, { map: T.wall, roughness: 0.95, flatShading: false });
+    const box = (w, h, d, x, y, z) => {
+      if (w <= 0.01 || d <= 0.01) return;
+      const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const n = f * 4 + k; uv.setXY(n, uv.getX(n) * dims[f][0] / 3, uv.getY(n) * dims[f][1] / 3); }
+      add(g, wallM, x, y, z);
+    };
+    // Floor: room and passage
+    add(new THREE.PlaneGeometry(shw * 2 + 2, shd * 2 + 2).rotateX(-Math.PI / 2), M(0xffffff, { map: texFor(T.floor, (shw * 2 + 2) / 4, (shd * 2 + 2) / 4), roughness: 0.95, flatShading: false }), 0, 0, cz, false);
+    const pc = -dir * (shw + 1 + SIDE_LEN / 2);                               // the passage's centre, in this room's x
+    add(new THREE.PlaneGeometry(SIDE_LEN + 2, SIDE_DOOR * 2 + 2).rotateX(-Math.PI / 2), M(0xffffff, { map: texFor(T.floor, (SIDE_LEN + 2) / 4, 1), roughness: 0.95, flatShading: false }), pc, 0.001, cz, false);
+    // Walls: far, north and (low, for the high camera) south; the near wall has the doorway
+    box(1, WALL_H, shd * 2 + 2, dir * (shw + 0.5), WALL_H / 2, cz);
+    box(shw * 2 + 2, WALL_H, 1, 0, WALL_H / 2, cz - shd - 0.5);
+    box(shw * 2 + 2, 0.7, 1, 0, 0.35, cz + shd + 0.5);
+    const nx = -dir * (shw + 0.5), a = cz - shd - 1, b = cz + shd + 1;
+    box(1, WALL_H, cz - SIDE_DOOR - a, nx, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); box(1, WALL_H, b - cz - SIDE_DOOR, nx, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
+    box(1, WALL_H - 2.8, SIDE_DOOR * 2, nx, 2.8 + (WALL_H - 2.8) / 2, cz);
+    for (const s of [-1, 1]) box(SIDE_LEN, WALL_H, 1, pc, WALL_H / 2, cz + s * (SIDE_DOOR + 0.5));
+    // Torches on the north wall
+    const flameM = new THREE.MeshBasicMaterial({ color: kind === 'vault' ? 0xffd040 : 0xff5030 }); room.mats.push(flameM);
+    for (const s of [-1, 1]) {
+      const fl = add(new THREE.ConeGeometry(0.1, 0.32, 6), flameM, s * shw * 0.5, 2.5, cz - shd + 0.1, false);
+      room.torches.push({ pos: new THREE.Vector3(sx + s * shw * 0.5, 2.6, cz - shd + 0.7), fl, seed: Math.random() * 10, color: kind === 'vault' ? 0xffc060 : 0xff6040 });
+    }
+    // Rubble in the corners
+    const rub = M(rgbHex(th.wall, 4));
+    for (let k = 0; k < 6; k++) add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.25, 0), rub, (Math.random() < 0.5 ? -1 : 1) * (shw - 0.6), 0.12, cz + (Math.random() < 0.5 ? -1 : 1) * (shd - 0.6 - Math.random()));
+    Rig.bake(group);
+    if (kind === 'vault') {
+      // Two spike plates across the room, out of step with each other, guard a rich chest
+      const t1 = Props.trap(room, 'spikes', cz, sx - dir * 1.7, 1.6, shd * 2 - 0.2), t2 = Props.trap(room, 'spikes', cz, sx + dir * 0.3, 1.6, shd * 2 - 0.2);
+      t2.t = t1.t + (FE.spikes.idle + FE.spikes.warn + FE.spikes.up) / 2;
+      addChest(room, false, { x: dir * (shw - 1.3), z: cz }, true);
+    }
+    setFade(room, 1);
+    rooms.push(room); sides.push(room);
     return room;
   }
   function rgbHex(c, d = 0) { return ((Math.max(0, c[0] + d) | 0) << 16) | ((Math.max(0, c[1] + d) | 0) << 8) | (Math.max(0, c[2] + d) | 0); }
@@ -3068,7 +3334,7 @@ const World = (() => {
     for (const t of room.texs) t.dispose();
     rooms.splice(rooms.indexOf(room), 1);
   }
-  function clearAll() { for (const r of rooms.slice()) dispose(r); sections = []; active = null; }
+  function clearAll() { for (const r of rooms.slice()) dispose(r); sections = []; sides = []; active = null; Props.clear(); }
 
   // ---------------- Walkable space ----------------
   const inRect = (q, x, z, pad = 0) => x > q.x0 - pad && x < q.x1 + pad && z > q.z0 - pad && z < q.z1 + pad;
@@ -3086,10 +3352,12 @@ const World = (() => {
       if (d < bd) { bd = d; bx = x; bz = z; if (d === 0) break; }
     }
     pos.x = bx; pos.z = bz;
-    for (const r of rooms) for (const [px, pz, pr] of r.pillars) {
+    const push = ([px, pz, pr]) => {
       const dx = pos.x - px, dz = pos.z - pz, d = Math.hypot(dx, dz), min = (pr || CFG.pillarR) + rad;
       if (d < min && d > 1e-4) { pos.x = px + dx / d * min; pos.z = pz + dz / d * min; }
-    }
+    };
+    for (const r of rooms) r.pillars.forEach(push);
+    Props.blockers().forEach(push);
   }
   // Is a point inside the built space (sections and passages)?
   function inSpace(x, z, pad = 0.5) { return walkRects().some(q => inRect(q, x, z, pad)); }
@@ -3102,7 +3370,12 @@ const World = (() => {
     return null;
   }
   // Enemies chasing the hero into another section head for the doorway on the way (null: go straight for them)
+  const sideOf = pos => sides.find(s => inRect(s.rect, pos.x, pos.z) || inRect(s.corr, pos.x, pos.z)) || null;
   function route(from, to) {
+    const fs = sideOf(from), ts = sideOf(to);
+    if (fs && fs === ts) return null;
+    if (fs) return fs.exitAt;                                              // leave a side room by its doorway first
+    if (ts) { if (along(from) === ts.j * 2) return ts.entryAt; to = new THREE.Vector3(ts.parent.cx, 0, ts.parent.cz); }
     const a = along(from), b = along(to);
     if (a === null || b === null || a === b) return null;
     const j = Math.ceil(a / 2), r = sections[j], north = b > a;
@@ -3112,7 +3385,7 @@ const World = (() => {
 
   // ---------------- Encounters ----------------
   function spawnWave(room) {
-    const list = room.inf.room.waves[room.wave], p = G.player;
+    const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
     const mult = 1 + room.inf.loop * CFG.loopScale;
     // Spawn spots: across the section, away from the hero and the pillars
     const spots = [];
@@ -3124,15 +3397,21 @@ const World = (() => {
     }
     spots.sort(() => Math.random() - 0.5);
     list.forEach((type, k) => {
-      const guardian = room.inf.room.guardian && room.wave === 0 && k === 0;
+      const guardian = room.kind !== 'side' && room.inf.room.guardian && room.wave === 0 && k === 0;
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
-      G.queue.push({ type, at, mult: mult * (guardian ? CFG.guardianMult : 1), guardian: guardian && room.inf.stage.guardian, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
+      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.wave > 0) banner('MORE COME');
   }
 
   function enter(room) {
+    if (room.kind === 'side') {
+      banner(room.sideKind === 'den' ? "ELITE'S DEN" : 'TREASURE VAULT');
+      if (room.sideKind === 'den') { room.state = 'start'; room.t = 0; }
+      return;
+    }
     room.state = 'start'; room.t = 0;
     active = room;
     const inf = room.inf;
@@ -3144,18 +3423,20 @@ const World = (() => {
     room.state = 'cleared';
     const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.roomHeal);
     G.stats.rooms++;
+    if (room.kind === 'side') { addChest(room, false, { x: room.dir * (room.hw - 1.3), z: room.cz }, true); banner('DEN CLEARED'); return; }
     const guardian = !!room.inf.room.guardian;
     addChest(room, guardian);
     banner(guardian ? 'STAGE CLEARED' : 'AREA CLEARED');
   }
 
   // A chest left in each cleared section, beside the path; the guardian's is bigger and stands before the lair
-  function addChest(room, big) {
-    const g = new THREE.Group(), s = big ? 1.35 : 1;
+  function addChest(room, big, at = null, rich = false) {
+    const g = new THREE.Group(), s = big ? 1.35 : rich ? 1.15 : 1;
     let x = big ? 0 : (room.offPath(-3.6, room.cz) ? -Math.min(room.hw - 2, 3.6) : Math.min(room.hw - 2, 3.6)), z = big ? room.northZ + 4.5 : room.cz;
     if (!big && !room.offPath(x, z)) x = Math.sign(x) * (room.hw - 1.6);
+    if (at) { x = at.x; z = at.z; }
     g.position.set(x, 0, z); g.rotation.y = big ? 0 : Math.PI / 2; g.scale.setScalar(s); room.group.add(g);
-    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4424, roughness: 0.85, flatShading: true }), band = new THREE.MeshStandardMaterial({ color: big ? 0xd9a92a : 0x6a6d75, roughness: 0.4, metalness: 0.6, flatShading: true });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4424, roughness: 0.85, flatShading: true }), band = new THREE.MeshStandardMaterial({ color: big || rich ? 0xd9a92a : 0x6a6d75, roughness: 0.4, metalness: 0.6, flatShading: true });
     room.mats.push(wood, band);
     const add = (geo, m, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); room.geos.push(geo); return o; };
     add(new THREE.BoxGeometry(0.9, 0.5, 0.6), wood, 0, 0.25, 0);
@@ -3163,7 +3444,7 @@ const World = (() => {
     const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.3); g.add(lid);
     add(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0, 0.3, lid);
     add(new THREE.BoxGeometry(0.12, 0.14, 0.05), band, 0, -0.02, 0.62, lid);
-    room.chest = { g, lid, big, opened: false, x: room.cx + x, z, t: 0 };
+    room.chest = { g, lid, big, rich, opened: false, x: room.cx + x, z, t: 0 };
     room.pillars.push([room.cx + x, z, 0.55 * s]);
     FX.glint(new THREE.Vector3(room.cx + x, 0.9, z), big ? 0xffd040 : 0xfff0c0, 2, 0.6);
   }
@@ -3193,20 +3474,25 @@ const World = (() => {
       }
     }
     if (p && G.state === 'play' && !halted) {
-      for (const r of sections) if (r.state === 'ahead' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) enter(r);
-      for (const a of sections) {
+      const areas = sections.concat(sides);
+      for (const r of areas) {
+        if (r.state === 'ahead' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) enter(r);
+        else if (r.state === 'vault' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) { enter(r); r.state = 'cleared'; }
+      }
+      for (const a of areas) {
         if (a.state === 'ahead' || a.state === 'cleared') continue;
         a.t += dt;
-        if (a.state === 'start' && a.t > (a.inf.room.guardian ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
+        if (a.state === 'start' && a.t > (a.inf.room.guardian && a.kind !== 'side' ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
         else if (a.state === 'fight') {
           const alive = G.enemies.some(e => e.room === a && e.state !== 'dead') || G.queue.some(q => q.room === a);
           if (!alive) {
-            if (a.wave < a.inf.room.waves.length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            if (a.wave < (a.waves || a.inf.room.waves).length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
             else if (p.state !== 'dead') clearRoom(a);
           }
         }
       }
     }
+    Props.update(dt);
     // Colours drift toward the new stage's fog and ambient light
     if (fogTo) { scene.fog.color.lerp(fogTo, Math.min(1, dt * 1.2)); scene.background.copy(scene.fog.color); }
     if (hemiTo) hemi.color.lerp(hemiTo, Math.min(1, dt * 1.2));
@@ -3267,7 +3553,7 @@ const World = (() => {
 
   return {
     init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, inCamp, camp,
-    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; },
+    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; },
   };
 })();
 
@@ -3408,6 +3694,11 @@ const UI = (() => {
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
     },
+    shrine(o) {
+      let h = `<h2>Shrine of the Deep</h2><p class="sub">The stone hums. Choose one blessing; it holds until you leave this stage.</p>`;
+      for (const b of o.offers) h += `<div class="irow"><div class="iinfo"><b>${b.icon} ${esc(b.name)}</b><div class="istats">${esc(b.desc)}</div></div><div class="ibtns">${btn('Choose', 'bless', b.id, false, 'hot')}</div></div>`;
+      return h + btn('Leave it be', 'close', '', false, 'leave');
+    },
     settings() {
       const pct = v => Math.round(v * 100) + '%';
       const row = (k, label, fmt) => {
@@ -3450,6 +3741,7 @@ const UI = (() => {
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
+    if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
     if (a === 'quality') { const order = ['auto', 'high', 'medium', 'low']; Settings.set('quality', order[(order.indexOf(Settings.get('quality')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'toggle') { Settings.set(arg, !Settings.get(arg)); Snd.play('glint'); return render(); }
     if (a === 'sreset') { Settings.reset(); Snd.play('glint'); return render(); }
@@ -3568,7 +3860,7 @@ const MiniMap = (() => {
     // World to map: the whole stage when big, about 46 m across around the hero otherwise
     let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
     if (big) {
-      const K = S.filter(r => r.seen).concat(S[0]);                       // fit what has been found so far
+      const K = S.concat(World.sides).filter(r => r.seen).concat(S[0]);                       // fit what has been found so far
       const x0 = Math.min(...K.map(r => r.rect.x0)), x1 = Math.max(...K.map(r => r.rect.x1)), z0 = Math.min(...K.map(r => r.rect.z0)), z1 = Math.max(...K.map(r => r.rect.z1));
       scale = (W * 0.86) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2;
     } else { scale = W / 46; if (View.mode === 'behind') rot = View.yaw; }
@@ -3585,6 +3877,12 @@ const MiniMap = (() => {
         ctx.fillRect(r.lairAt.x - 0.6, r.lairAt.z - 0.6, 1.2, 0.9);
       }
     }
+    for (const r of World.sides) {
+      if (!r.seen) continue;
+      rect(r.corr, C.floor); rect(r.rect, r.state === 'fight' || r.state === 'start' ? C.fight : r.state === 'cleared' ? C.clear : 'rgba(170,130,60,0.6)');
+      if (r.chest && !r.chest.opened) { ctx.fillStyle = '#ffd040'; ctx.fillRect(r.chest.x - 0.7, r.chest.z - 0.5, 1.4, 1.0); }
+    }
+    for (const q of Props.shrines) if (q.room.seen) { ctx.fillStyle = q.used ? '#5a7a90' : '#9ad8ff'; ctx.beginPath(); ctx.arc(q.x, q.z, 0.9, 0, Math.PI * 2); ctx.fill(); }
     for (const e of G.enemies) {
       if (e.state === 'dead') continue;
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();
@@ -3872,6 +4170,7 @@ function updateSpawns() {
     e.room = q.room;
     if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.elite) { e.elite = true; e.rig.root.scale.multiplyScalar(1.18); e.bar.classList.add('elite'); }
     G.enemies.push(e);
     return false;
   });
@@ -3906,8 +4205,13 @@ function updateHud() {
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
   }
   $('flaskN').textContent = p.flasks;
-  // In camp, the nearest person or place you can use
-  const spot = G.mode === 'camp' && p.state !== 'dead' ? Camp.nearest(World.camp(), p.pos) : null;
+  // In camp, the nearest person or place you can use; in the dungeon, a shrine
+  const spot = p.state === 'dead' ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const bl = (G.blessings || []).join();
+  if (bl !== G.shownBless) {
+    G.shownBless = bl;
+    $('bless').innerHTML = (G.blessings || []).map(id => { const b = CFG.blessings.find(x => x.id === id); return `<span title="${b.name}: ${b.desc}">${b.icon} ${b.name}</span>`; }).join('');
+  }
   if (spot !== G.spot) {
     G.spot = spot;
     const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
@@ -3962,7 +4266,7 @@ function placeHero(at) {
 }
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
-  clearEnemies();
+  clearEnemies(); G.blessings = [];
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -3992,7 +4296,7 @@ G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies();
+  clearEnemies(); G.blessings = [];
   const at = World.startStage(k);
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
@@ -4037,13 +4341,13 @@ G.onHits = (n, crit) => {
 };
 // A cleared room's chest: gold, maybe gear; the guardian's chest always holds gear and unlocks the next stage
 G.onChest = room => {
-  const S = Items.S, big = room.chest.big, k = room.inf.k, C = CFG.chest;
-  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : 1) * G.player.S.goldFind);
+  const S = Items.S, big = room.chest.big, rich = room.chest.rich, k = room.inf.k, C = CFG.chest;
+  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : rich ? 2.5 : 1) * G.player.S.goldFind);
   FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
   FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
   let it = null;
-  if (big || Math.random() < C.itemChance) {
-    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big ? 1 : 0, boost: big ? 1 : 0 });
+  if (big || rich || Math.random() < C.itemChance) {
+    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
     if (Items.add(it)) UI.toast('Found: ' + Items.fullName(it) + ' (' + CFG.gear.rarities[it.rarity].name + ')', CFG.gear.rarities[it.rarity].color);
     else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
   }
@@ -4085,8 +4389,16 @@ function interact() {
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
     return say(lines);
   }
+  if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   openPanel(s.id === 'trainer' ? 'talents' : s.id, s.id === 'trainer' ? { trainer: true } : undefined);
 }
+// A blessing chosen at a shrine: it lasts until the hero leaves the stage
+G.bless = (id, shrine) => {
+  (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true;
+  Player.refit(G.player, scene, false); Snd.play('wave');
+  const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
+  FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
+};
 $('startBtn').addEventListener('click', () => startGame('new'));
 $('contBtn').addEventListener('click', () => startGame('continue'));
 if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }

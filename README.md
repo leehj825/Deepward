@@ -57,6 +57,11 @@ When a guardian falls, the adds it summoned crumble with it.
 - **Sections:** five wide halls, each 30% bigger than the old rooms, set off to the side of one another so the path bends. Open passages join them, so you can walk the whole stage freely.
 - **Waves:** walking into a section wakes its monsters, wave after wave. Enemies chase you through the passages if you fall back or run ahead.
 - **Chests and healing:** each cleared section heals you a little and leaves a chest beside the path.
+- **Off the path:**
+  - **Side rooms:** two per stage, through doorways in a section's side wall. An **elite's den** holds one tougher guard (orange health bar) who drops a rich chest. A **treasure vault** holds a rich chest behind two spike plates that strike out of step.
+  - **Traps:** two passages per stage. **Spike plates** glow red and rattle before they strike. **Swinging blades** sweep across the passage. Both are unblockable, so time your crossing or dash through.
+  - **Shrine:** one per stage, a glowing obelisk. Walk up and press E (A, or TALK on touch) to pray, then pick one of three blessings that last until you leave the stage. The choices are Wrath, Iron Skin, Swiftness, Vigor, Mending, Fortune, Thirst and Steady Hand. Your blessings show under the gold.
+  - **Pots and crates:** they line the walls. Smash them for gold, and now and then a flask refill.
 - **Minimap:** a round map in the top-right corner.
   - **Layout:** sections appear as you get near them, joined by their passages.
   - **Colours:** red while monsters are awake there, grey once cleared.
@@ -181,6 +186,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
+| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -204,4 +210,4 @@ node tools/boss_test.js
 node tools/settings_test.js
 ```
 
-It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2.
+It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2. It also checks that the side rooms are reachable, the den's elite chases you out, the vault's spikes hurt, pots break, and a shrine's blessing applies.

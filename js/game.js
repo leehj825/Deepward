@@ -251,6 +251,7 @@ function updateSpawns() {
     e.room = q.room;
     if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.elite) { e.elite = true; e.rig.root.scale.multiplyScalar(1.18); e.bar.classList.add('elite'); }
     G.enemies.push(e);
     return false;
   });
@@ -285,8 +286,13 @@ function updateHud() {
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
   }
   $('flaskN').textContent = p.flasks;
-  // In camp, the nearest person or place you can use
-  const spot = G.mode === 'camp' && p.state !== 'dead' ? Camp.nearest(World.camp(), p.pos) : null;
+  // In camp, the nearest person or place you can use; in the dungeon, a shrine
+  const spot = p.state === 'dead' ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const bl = (G.blessings || []).join();
+  if (bl !== G.shownBless) {
+    G.shownBless = bl;
+    $('bless').innerHTML = (G.blessings || []).map(id => { const b = CFG.blessings.find(x => x.id === id); return `<span title="${b.name}: ${b.desc}">${b.icon} ${b.name}</span>`; }).join('');
+  }
   if (spot !== G.spot) {
     G.spot = spot;
     const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
@@ -341,7 +347,7 @@ function placeHero(at) {
 }
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
-  clearEnemies();
+  clearEnemies(); G.blessings = [];
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -371,7 +377,7 @@ G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies();
+  clearEnemies(); G.blessings = [];
   const at = World.startStage(k);
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
@@ -416,13 +422,13 @@ G.onHits = (n, crit) => {
 };
 // A cleared room's chest: gold, maybe gear; the guardian's chest always holds gear and unlocks the next stage
 G.onChest = room => {
-  const S = Items.S, big = room.chest.big, k = room.inf.k, C = CFG.chest;
-  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : 1) * G.player.S.goldFind);
+  const S = Items.S, big = room.chest.big, rich = room.chest.rich, k = room.inf.k, C = CFG.chest;
+  const gold = Items.addGold((C.gold[0] + Math.random() * (C.gold[1] - C.gold[0])) * (1 + k * 0.6) * (big ? 4 : rich ? 2.5 : 1) * G.player.S.goldFind);
   FX.text(new THREE.Vector3(room.chest.x, 1.8, room.chest.z), '+' + gold + ' ◆', 'gold');
   FX.burst(new THREE.Vector3(room.chest.x, 0.8, room.chest.z), 0xffd040, 24, 5);
   let it = null;
-  if (big || Math.random() < C.itemChance) {
-    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big ? 1 : 0, boost: big ? 1 : 0 });
+  if (big || rich || Math.random() < C.itemChance) {
+    it = Items.generate(Math.min(k, CFG.gear.tierNames.length - 1), { minRarity: big || rich ? 1 : 0, boost: big ? 1 : rich ? 0.7 : 0 });
     if (Items.add(it)) UI.toast('Found: ' + Items.fullName(it) + ' (' + CFG.gear.rarities[it.rarity].name + ')', CFG.gear.rarities[it.rarity].color);
     else UI.toast('Bag full: ' + Items.fullName(it) + ' broken down for scrap');
   }
@@ -464,8 +470,16 @@ function interact() {
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
     return say(lines);
   }
+  if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   openPanel(s.id === 'trainer' ? 'talents' : s.id, s.id === 'trainer' ? { trainer: true } : undefined);
 }
+// A blessing chosen at a shrine: it lasts until the hero leaves the stage
+G.bless = (id, shrine) => {
+  (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true;
+  Player.refit(G.player, scene, false); Snd.play('wave');
+  const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
+  FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
+};
 $('startBtn').addEventListener('click', () => startGame('new'));
 $('contBtn').addEventListener('click', () => startGame('continue'));
 if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }

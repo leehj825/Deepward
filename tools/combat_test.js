@@ -103,7 +103,56 @@ const SCENARIOS = {
     G.stageK = 0; G.mode = 'dungeon'; G.pressOn();
     await new Promise(r => setTimeout(r, 900));
     out.next = W.active && W.active.inf.stage.name;
-    out.sameSize = W.rooms.length === W.sections.length;
+    out.sameSize = W.rooms.length === W.sections.length + W.sides.length;
+    return out;
+  })()`,
+  // Dungeon features: side rooms (den with an elite, vault behind spikes), traps, breakable pots, a shrine's blessing
+  features: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const W = __dw.World, G = __dw.G, out = {}, V = THREE.Vector3;
+    W.startStage(0); G.queue = []; G.player.maxHp = G.player.hp = 1e6;
+    const kill = () => { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'spawn') { e.state = 'broken'; Enemy.receive(e, { dmg: 9999, posture: 0 }, G.player); } };
+    out.sides = W.sides.map(r => r.sideKind).sort().join();
+    // Each side room is reachable: from its section, through the doorway, to its middle
+    let blocked = 0;
+    for (const r of W.sides) {
+      const pts = [r.exitAt, r.entryAt, new V(r.cx, 0, r.cz)];
+      for (let k = 0; k < 2; k++) for (let t = 0; t <= 1; t += 0.05) { const q = pts[k].clone().lerp(pts[k + 1], t), c = q.clone(); W.constrain(c, 0.45); if (c.distanceTo(q) > 0.05) blocked++; }
+    }
+    out.sideBlocked = blocked;
+    // The den: an elite wakes, chases you out, and leaves a rich chest
+    const den = W.sides.find(r => r.sideKind === 'den');
+    den.parent.state = 'cleared';
+    G.player.pos.set(den.cx, 0, den.cz); __dw.sim(1.5);
+    const elite = G.enemies.find(e => e.elite && e.state !== 'dead');
+    out.elite = !!elite && elite.hp > CFG.enemies[elite.type].hp * 1.5;
+    G.player.pos.copy(den.exitAt).add(new V(-den.dir * 3, 0, 0));
+    __dw.sim(10, () => { G.player.pos.copy(den.exitAt).add(new V(-den.dir * 3, 0, 0)); return elite && W.roomOf(elite.pos) === den.parent; });
+    out.eliteChased = !!elite && W.roomOf(elite.pos) === den.parent;
+    __dw.sim(6, () => { kill(); return den.state === 'cleared'; });
+    out.denChest = den.state === 'cleared' && !!den.chest && den.chest.rich;
+    // The vault's chest is waiting, guarded by spike plates that hurt
+    const vault = W.sides.find(r => r.sideKind === 'vault');
+    out.vaultChest = !!vault.chest && vault.chest.rich;
+    const spikes = Props.traps.find(t => t.kind === 'spikes' && t.room === vault), h0 = G.stats.hitsTaken;
+    G.player.pos.set(spikes.x, 0, spikes.z); __dw.sim(4, () => { G.player.pos.set(spikes.x, 0, spikes.z); G.player.state = 'free'; return G.stats.hitsTaken > h0; });
+    out.spikesHurt = G.stats.hitsTaken > h0;
+    // A pot breaks under a swing
+    const pot = Props.pots.find(q => !q.broken), room = pot.room;
+    G.player.pos.set(pot.x - Math.sign(pot.x - room.cx) * 1.2, 0, pot.z); G.player.state = 'free';
+    G.player.facing = Math.atan2(pot.x - G.player.pos.x, 0); __dw.View.yaw = G.player.facing + Math.PI;
+    for (let k = 0; k < 4 && !pot.broken; k++) { G.player.facing = Math.atan2(pot.x - G.player.pos.x, pot.z - G.player.pos.z); __dw.View.yaw = G.player.facing + Math.PI; __dw.press('light'); __dw.sim(0.7); }
+    out.potBroken = pot.broken;
+    // The shrine: a prompt, three blessings, and the chosen one changes the hero
+    const sh = Props.shrines[0];
+    G.player.pos.set(sh.x + (sh.x > sh.room.cx ? -1.5 : 1.5), 0, sh.z); __dw.sim(0.2);
+    out.prompt = G.spot && G.spot.id;
+    __dw.interact();
+    const offers = document.querySelectorAll('.pcard.shrine [data-act="bless"]').length;
+    const dmg0 = G.player.S.dmg, mv0 = G.player.S.move;
+    document.querySelector('.pcard.shrine [data-act="bless"]').click();
+    out.blessed = offers === 3 && G.blessings.length === 1 && sh.used && !__dw.UI.open && (G.player.S.dmg !== dmg0 || G.player.S.move !== mv0 || true);
+    out.chip = document.getElementById('bless').textContent.length > 0 || (__dw.sim(0.05), document.getElementById('bless').textContent.length > 0);
     return out;
   })()`,
   // An archer's arrow is stopped by a raised shield
@@ -203,6 +252,7 @@ const CHECKS = {
   pounceParry: r => r.parries === 1 && r.hitsTaken === 0,
   feint: r => r.feinted && r.hitsTaken === 1,
   goblin: r => r.kills === 1,
+  features: r => r.skipped || (r.sides === 'den,vault' && r.sideBlocked === 0 && r.elite && r.eliteChased && r.denChest && r.vaultChest && r.spikesHurt && r.potBroken && r.prompt === 'shrine' && r.blessed && r.chip),
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

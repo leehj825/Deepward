@@ -31,7 +31,7 @@ const MiniMap = (() => {
     // World to map: the whole stage when big, about 46 m across around the hero otherwise
     let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
     if (big) {
-      const K = S.filter(r => r.seen).concat(S[0]);                       // fit what has been found so far
+      const K = S.concat(World.sides).filter(r => r.seen).concat(S[0]);                       // fit what has been found so far
       const x0 = Math.min(...K.map(r => r.rect.x0)), x1 = Math.max(...K.map(r => r.rect.x1)), z0 = Math.min(...K.map(r => r.rect.z0)), z1 = Math.max(...K.map(r => r.rect.z1));
       scale = (W * 0.86) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2;
     } else { scale = W / 46; if (View.mode === 'behind') rot = View.yaw; }
@@ -48,6 +48,12 @@ const MiniMap = (() => {
         ctx.fillRect(r.lairAt.x - 0.6, r.lairAt.z - 0.6, 1.2, 0.9);
       }
     }
+    for (const r of World.sides) {
+      if (!r.seen) continue;
+      rect(r.corr, C.floor); rect(r.rect, r.state === 'fight' || r.state === 'start' ? C.fight : r.state === 'cleared' ? C.clear : 'rgba(170,130,60,0.6)');
+      if (r.chest && !r.chest.opened) { ctx.fillStyle = '#ffd040'; ctx.fillRect(r.chest.x - 0.7, r.chest.z - 0.5, 1.4, 1.0); }
+    }
+    for (const q of Props.shrines) if (q.room.seen) { ctx.fillStyle = q.used ? '#5a7a90' : '#9ad8ff'; ctx.beginPath(); ctx.arc(q.x, q.z, 0.9, 0, Math.PI * 2); ctx.fill(); }
     for (const e of G.enemies) {
       if (e.state === 'dead') continue;
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();

@@ -6,7 +6,16 @@ const Player = (() => {
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
     critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
-  const gearStats = () => (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE;
+  // Gear, levels and talents, then any shrine blessings for this stage
+  function gearStats() {
+    const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
+    for (const b of (G.blessings || [])) {
+      if (b === 'wrath') S.dmg *= 1.2; else if (b === 'iron') S.dr = 1 - (1 - S.dr) * 0.85; else if (b === 'swift') S.move *= 1.12;
+      else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
+      else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
+    }
+    return S;
+  }
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
 
   function create(scene) {
@@ -122,7 +131,7 @@ const Player = (() => {
       const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
       p.dirF = mlen > 0.05 ? (m.x * fx + m.z * fz) / mlen : 1; p.dirS = mlen > 0.05 ? (m.x * fz - m.z * fx) / mlen : 0;
       const behind = View.mode === 'behind', dirMul = behind ? (p.dirF < -0.3 ? 0.72 : p.dirF < 0.5 ? 0.86 : 1) : 1;
-      const sp = (p.blocking ? P.blockSpeed : P.speed) * dirMul;
+      const sp = (p.blocking ? P.blockSpeed : P.speed) * dirMul * (p.S.move || 1);
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * sp * dt; p.pos.z += m.z / Math.max(1, mlen) * sp * dt; moveSpeed = mlen * sp; }
       let want = null;
       if (behind) want = View.yaw + Math.PI;                         // the body faces where the camera looks
@@ -244,6 +253,7 @@ const Player = (() => {
         FX.text(Combat.chestPos(p.pos, 2.2), 'PARRY', 'parry');
         FX.slowmo(CFG.feel.parrySlowmo, CFG.feel.parrySlowScale); FX.shake(CFG.feel.shake.parry); G.rumble(0.3, 0.8, 120);
         G.stats.parries++;
+        if (p.S.mending) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * p.S.mending); FX.text(Combat.chestPos(p.pos, 2.6), '+' + Math.round(p.maxHp * p.S.mending), 'heal'); }
         return 'parry';
       } else if (hit.parryOnly) {
         FX.text(Combat.chestPos(p.pos, 2.4), 'SHIELD SMASHED', 'warn'); FX.burst(shieldPos, 0xffa010, 12, 6);      // only a parry stops a pounce

@@ -210,6 +210,29 @@ const CFG = {
   loopScale: 0.3,                // +30% enemy health and damage each time the stages repeat
   roomHeal: 0.35,                // share of max health restored when a room is cleared
   sectionScale: 1.3,             // every section is built this much larger than its size above
+  // What else fills a stage: side rooms off the path, traps in the passages, a shrine, breakable pots and crates
+  features: {
+    sideRooms: 2,                  // per stage, off middle sections; each is an elite's den or a trapped vault
+    sideSize: [4.6, 4.2],          // half width, half depth
+    eliteMult: 1.9,                // the den's guard: this much tougher than its kind
+    vaultGold: [50, 110],          // the vault chest's gold (times the stage's depth bonus)
+    traps: 2,                      // passages with a trap per stage
+    spikes: { dmg: 16, idle: 1.7, warn: 0.6, up: 0.6 },     // a plate across the passage: the spikes peek out, then strike
+    blade: { dmg: 22, period: 2.4 },                         // a blade swinging across the passage
+    breakables: [3, 6],            // pots and crates per section
+    potGold: [3, 9], potGoldChance: 0.55, potFlask: 0.08,
+  },
+  // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
+  blessings: [
+    { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },
+    { id: 'iron', name: 'Iron Skin', icon: '🛡', desc: 'Take 15% less damage' },
+    { id: 'swift', name: 'Swiftness', icon: '💨', desc: 'Move 12% faster' },
+    { id: 'vigor', name: 'Vigor', icon: '⚡', desc: 'Stamina comes back 40% faster' },
+    { id: 'mending', name: 'Mending', icon: '✚', desc: 'Every parry heals 6% of your health' },
+    { id: 'fortune', name: 'Fortune', icon: '◆', desc: '+50% gold found' },
+    { id: 'thirst', name: 'Thirst', icon: '🩸', desc: '4% of the damage you deal comes back as health' },
+    { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
+  ],
   tips: {
     skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',

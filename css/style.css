@@ -226,3 +226,9 @@ body:not(.playing) #padKeys { display: none !important; }
   #minimap { width: 96px; height: 96px; top: calc(54px + env(safe-area-inset-top)); }
   #mapInfo { width: 96px; top: calc(152px + env(safe-area-inset-top)); font-size: 11px; }
 }
+
+/* Blessings and elites */
+#bless { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; margin: 2px 0 4px; }
+#bless span { padding: 1px 7px; border-radius: 9px; background: rgba(154, 216, 255, 0.15); border: 1px solid rgba(154, 216, 255, 0.45); color: #cfeaff; }
+.ebar.elite .hp i { background: linear-gradient(#ffb040, #c06a10); }
+.ebar.elite { box-shadow: 0 0 6px rgba(255, 176, 64, 0.8); }

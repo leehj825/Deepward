@@ -4,8 +4,9 @@
 // built at once; enemies chase you from section to section along the passages.
 // States of a section: ahead (not yet entered) -> start (a short breath) -> fight (waves) -> cleared.
 const World = (() => {
-  const CORR_LEN = 8, DOOR = 2.0, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
-  let scene, hemi, rooms = [], sections = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
+  const CORR_LEN = 8, DOOR = 2.0, SIDE_DOOR = 1.6, SIDE_LEN = 4, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
+  const FE = CFG.features;
+  let scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
   // Which stage, room and loop a running room index falls in
@@ -70,6 +71,11 @@ const World = (() => {
       p.northZ = p.southZ - hd * 2;
       out.push(p); prev = p;
     }
+    // Extras: side rooms (an elite's den, then a trapped vault) off middle sections, traps in some passages, one shrine
+    const mids = out.filter(p => p.j > 0 && p.j < count - 1).sort(() => Math.random() - 0.5);
+    mids.slice(0, FE.sideRooms).forEach((p, k) => { p.side = { dir: Math.random() < 0.5 ? -1 : 1, kind: k % 2 ? 'vault' : 'den' }; });
+    out.filter(p => p.j > 0).sort(() => Math.random() - 0.5).slice(0, FE.traps).forEach(p => { p.trap = Math.random() < 0.5 ? 'spikes' : 'blade'; });
+    const sh = mids.find(p => !p.side) || mids[0]; if (sh) sh.shrine = true;
     return out;
   }
 
@@ -113,7 +119,14 @@ const World = (() => {
       if (door === null) return wallBox(b - a, h, 1, 0, y, z);
       wallBox(door - DOOR - a, h, 1, (a + door - DOOR) / 2, y, z); wallBox(b - door - DOOR, h, 1, (door + DOOR + b) / 2, y, z);
     }
-    wallBox(1, WALL_H, hd * 2 + 2, -hw - 0.5, WALL_H / 2, cz); wallBox(1, WALL_H, hd * 2 + 2, hw + 0.5, WALL_H / 2, cz);
+    // Side walls; one may open into a side room
+    for (const sd of [-1, 1]) {
+      const x = sd * (hw + 0.5), a = cz - hd - 1, b = cz + hd + 1;
+      if (!P.side || P.side.dir !== sd) { wallBox(1, WALL_H, b - a, x, WALL_H / 2, cz); continue; }
+      wallBox(1, WALL_H, cz - SIDE_DOOR - a, x, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); wallBox(1, WALL_H, b - cz - SIDE_DOOR, x, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
+      wallBox(1, WALL_H - 2.8, SIDE_DOOR * 2, x, 2.8 + (WALL_H - 2.8) / 2, cz);
+      room.sideDoor = { dir: sd, z: cz };
+    }
     wallRow(northZ - 0.5, WALL_H, dn);
     if (dn !== null) wallBox(DOOR * 2, WALL_H - 3.0, 1, dn, 3.0 + (WALL_H - 3.0) / 2, northZ - 0.5);
     // The south wall stays low so the high camera can see in; posts and a lintel frame its open doorway
@@ -161,7 +174,7 @@ const World = (() => {
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
     for (const s of [-1, 1]) {
-      for (const f of [-0.6, 0, 0.6]) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
+      for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
     if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
@@ -205,8 +218,74 @@ const World = (() => {
     room.offPath = offPath;
 
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
+    // Props stay separate meshes: pots break, traps move, the shrine glows
+    Props.breakables(room);
+    if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
+    if (P.shrine) {
+      const sd = P.side ? -P.side.dir : (Math.random() < 0.5 ? -1 : 1), lx = sd * (hw - 1.5);
+      Props.shrine(room, lx, offPath(lx, cz + hd * 0.4) ? cz + hd * 0.4 : cz - hd * 0.4);
+    }
     setFade(room, 1);
     rooms.push(room);
+    if (P.side) buildSide(room, P.side);
+    return room;
+  }
+  // ---------------- Side rooms ----------------
+  // A dead end off a section's side wall, through a short passage: an elite's den (the guard drops a rich chest) or a
+  // vault (a rich chest behind two spike plates). It is not on the path, so the minimap's compass ignores it.
+  function buildSide(par, { dir, kind }) {
+    const [shw, shd] = FE.sideSize, th = par.th, T = themeTex(par.inf.stage.theme);
+    const sx = par.cx + dir * (par.hw + 2 + SIDE_LEN + shw), cz = par.cz;
+    const group = new THREE.Group(); group.position.x = sx; scene.add(group);
+    const room = {
+      kind: 'side', sideKind: kind, dir, parent: par, i: par.i, j: par.j, inf: par.inf, th, hw: shw, hd: shd, cx: sx, cz,
+      southZ: cz + shd, northZ: cz - shd, group, mats: [], geos: [], texs: [], torches: [], pillars: [], occluders: [],
+      fade: 1, fadeDir: 1, occl: 1, state: kind === 'vault' ? 'vault' : 'ahead', t: 0, wave: 0, waveDelay: 0, offPath: () => true,
+      rect: { x0: sx - shw, x1: sx + shw, z0: cz - shd, z1: cz + shd },
+      corr: { x0: Math.min(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), x1: Math.max(par.cx + dir * (par.hw - 1), par.cx + dir * (par.hw + SIDE_LEN + 3)), z0: cz - SIDE_DOOR + 0.1, z1: cz + SIDE_DOOR - 0.1 },
+      exitAt: new THREE.Vector3(par.cx + dir * (par.hw - 1.6), 0, cz), entryAt: new THREE.Vector3(par.cx + dir * (par.hw + 1 + SIDE_LEN / 2), 0, cz),
+    };
+    if (kind === 'den') { const main = par.inf.stage.rooms[0].waves[0][0]; room.waves = [[main]]; room.elite = true; }
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, flatShading: true }, o)); m.userData.op = 1; room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const texFor = (t, rx, ry) => { const c = t.clone(); c.needsUpdate = true; c.repeat.set(rx, ry); room.texs.push(c); return c; };
+    const wallM = M(0xffffff, { map: T.wall, roughness: 0.95, flatShading: false });
+    const box = (w, h, d, x, y, z) => {
+      if (w <= 0.01 || d <= 0.01) return;
+      const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const n = f * 4 + k; uv.setXY(n, uv.getX(n) * dims[f][0] / 3, uv.getY(n) * dims[f][1] / 3); }
+      add(g, wallM, x, y, z);
+    };
+    // Floor: room and passage
+    add(new THREE.PlaneGeometry(shw * 2 + 2, shd * 2 + 2).rotateX(-Math.PI / 2), M(0xffffff, { map: texFor(T.floor, (shw * 2 + 2) / 4, (shd * 2 + 2) / 4), roughness: 0.95, flatShading: false }), 0, 0, cz, false);
+    const pc = -dir * (shw + 1 + SIDE_LEN / 2);                               // the passage's centre, in this room's x
+    add(new THREE.PlaneGeometry(SIDE_LEN + 2, SIDE_DOOR * 2 + 2).rotateX(-Math.PI / 2), M(0xffffff, { map: texFor(T.floor, (SIDE_LEN + 2) / 4, 1), roughness: 0.95, flatShading: false }), pc, 0.001, cz, false);
+    // Walls: far, north and (low, for the high camera) south; the near wall has the doorway
+    box(1, WALL_H, shd * 2 + 2, dir * (shw + 0.5), WALL_H / 2, cz);
+    box(shw * 2 + 2, WALL_H, 1, 0, WALL_H / 2, cz - shd - 0.5);
+    box(shw * 2 + 2, 0.7, 1, 0, 0.35, cz + shd + 0.5);
+    const nx = -dir * (shw + 0.5), a = cz - shd - 1, b = cz + shd + 1;
+    box(1, WALL_H, cz - SIDE_DOOR - a, nx, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); box(1, WALL_H, b - cz - SIDE_DOOR, nx, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
+    box(1, WALL_H - 2.8, SIDE_DOOR * 2, nx, 2.8 + (WALL_H - 2.8) / 2, cz);
+    for (const s of [-1, 1]) box(SIDE_LEN, WALL_H, 1, pc, WALL_H / 2, cz + s * (SIDE_DOOR + 0.5));
+    // Torches on the north wall
+    const flameM = new THREE.MeshBasicMaterial({ color: kind === 'vault' ? 0xffd040 : 0xff5030 }); room.mats.push(flameM);
+    for (const s of [-1, 1]) {
+      const fl = add(new THREE.ConeGeometry(0.1, 0.32, 6), flameM, s * shw * 0.5, 2.5, cz - shd + 0.1, false);
+      room.torches.push({ pos: new THREE.Vector3(sx + s * shw * 0.5, 2.6, cz - shd + 0.7), fl, seed: Math.random() * 10, color: kind === 'vault' ? 0xffc060 : 0xff6040 });
+    }
+    // Rubble in the corners
+    const rub = M(rgbHex(th.wall, 4));
+    for (let k = 0; k < 6; k++) add(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.25, 0), rub, (Math.random() < 0.5 ? -1 : 1) * (shw - 0.6), 0.12, cz + (Math.random() < 0.5 ? -1 : 1) * (shd - 0.6 - Math.random()));
+    Rig.bake(group);
+    if (kind === 'vault') {
+      // Two spike plates across the room, out of step with each other, guard a rich chest
+      const t1 = Props.trap(room, 'spikes', cz, sx - dir * 1.7, 1.6, shd * 2 - 0.2), t2 = Props.trap(room, 'spikes', cz, sx + dir * 0.3, 1.6, shd * 2 - 0.2);
+      t2.t = t1.t + (FE.spikes.idle + FE.spikes.warn + FE.spikes.up) / 2;
+      addChest(room, false, { x: dir * (shw - 1.3), z: cz }, true);
+    }
+    setFade(room, 1);
+    rooms.push(room); sides.push(room);
     return room;
   }
   function rgbHex(c, d = 0) { return ((Math.max(0, c[0] + d) | 0) << 16) | ((Math.max(0, c[1] + d) | 0) << 8) | (Math.max(0, c[2] + d) | 0); }
@@ -229,7 +308,7 @@ const World = (() => {
     for (const t of room.texs) t.dispose();
     rooms.splice(rooms.indexOf(room), 1);
   }
-  function clearAll() { for (const r of rooms.slice()) dispose(r); sections = []; active = null; }
+  function clearAll() { for (const r of rooms.slice()) dispose(r); sections = []; sides = []; active = null; Props.clear(); }
 
   // ---------------- Walkable space ----------------
   const inRect = (q, x, z, pad = 0) => x > q.x0 - pad && x < q.x1 + pad && z > q.z0 - pad && z < q.z1 + pad;
@@ -247,10 +326,12 @@ const World = (() => {
       if (d < bd) { bd = d; bx = x; bz = z; if (d === 0) break; }
     }
     pos.x = bx; pos.z = bz;
-    for (const r of rooms) for (const [px, pz, pr] of r.pillars) {
+    const push = ([px, pz, pr]) => {
       const dx = pos.x - px, dz = pos.z - pz, d = Math.hypot(dx, dz), min = (pr || CFG.pillarR) + rad;
       if (d < min && d > 1e-4) { pos.x = px + dx / d * min; pos.z = pz + dz / d * min; }
-    }
+    };
+    for (const r of rooms) r.pillars.forEach(push);
+    Props.blockers().forEach(push);
   }
   // Is a point inside the built space (sections and passages)?
   function inSpace(x, z, pad = 0.5) { return walkRects().some(q => inRect(q, x, z, pad)); }
@@ -263,7 +344,12 @@ const World = (() => {
     return null;
   }
   // Enemies chasing the hero into another section head for the doorway on the way (null: go straight for them)
+  const sideOf = pos => sides.find(s => inRect(s.rect, pos.x, pos.z) || inRect(s.corr, pos.x, pos.z)) || null;
   function route(from, to) {
+    const fs = sideOf(from), ts = sideOf(to);
+    if (fs && fs === ts) return null;
+    if (fs) return fs.exitAt;                                              // leave a side room by its doorway first
+    if (ts) { if (along(from) === ts.j * 2) return ts.entryAt; to = new THREE.Vector3(ts.parent.cx, 0, ts.parent.cz); }
     const a = along(from), b = along(to);
     if (a === null || b === null || a === b) return null;
     const j = Math.ceil(a / 2), r = sections[j], north = b > a;
@@ -273,7 +359,7 @@ const World = (() => {
 
   // ---------------- Encounters ----------------
   function spawnWave(room) {
-    const list = room.inf.room.waves[room.wave], p = G.player;
+    const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
     const mult = 1 + room.inf.loop * CFG.loopScale;
     // Spawn spots: across the section, away from the hero and the pillars
     const spots = [];
@@ -285,15 +371,21 @@ const World = (() => {
     }
     spots.sort(() => Math.random() - 0.5);
     list.forEach((type, k) => {
-      const guardian = room.inf.room.guardian && room.wave === 0 && k === 0;
+      const guardian = room.kind !== 'side' && room.inf.room.guardian && room.wave === 0 && k === 0;
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
-      G.queue.push({ type, at, mult: mult * (guardian ? CFG.guardianMult : 1), guardian: guardian && room.inf.stage.guardian, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
+      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.wave > 0) banner('MORE COME');
   }
 
   function enter(room) {
+    if (room.kind === 'side') {
+      banner(room.sideKind === 'den' ? "ELITE'S DEN" : 'TREASURE VAULT');
+      if (room.sideKind === 'den') { room.state = 'start'; room.t = 0; }
+      return;
+    }
     room.state = 'start'; room.t = 0;
     active = room;
     const inf = room.inf;
@@ -305,18 +397,20 @@ const World = (() => {
     room.state = 'cleared';
     const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * CFG.roomHeal);
     G.stats.rooms++;
+    if (room.kind === 'side') { addChest(room, false, { x: room.dir * (room.hw - 1.3), z: room.cz }, true); banner('DEN CLEARED'); return; }
     const guardian = !!room.inf.room.guardian;
     addChest(room, guardian);
     banner(guardian ? 'STAGE CLEARED' : 'AREA CLEARED');
   }
 
   // A chest left in each cleared section, beside the path; the guardian's is bigger and stands before the lair
-  function addChest(room, big) {
-    const g = new THREE.Group(), s = big ? 1.35 : 1;
+  function addChest(room, big, at = null, rich = false) {
+    const g = new THREE.Group(), s = big ? 1.35 : rich ? 1.15 : 1;
     let x = big ? 0 : (room.offPath(-3.6, room.cz) ? -Math.min(room.hw - 2, 3.6) : Math.min(room.hw - 2, 3.6)), z = big ? room.northZ + 4.5 : room.cz;
     if (!big && !room.offPath(x, z)) x = Math.sign(x) * (room.hw - 1.6);
+    if (at) { x = at.x; z = at.z; }
     g.position.set(x, 0, z); g.rotation.y = big ? 0 : Math.PI / 2; g.scale.setScalar(s); room.group.add(g);
-    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4424, roughness: 0.85, flatShading: true }), band = new THREE.MeshStandardMaterial({ color: big ? 0xd9a92a : 0x6a6d75, roughness: 0.4, metalness: 0.6, flatShading: true });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4424, roughness: 0.85, flatShading: true }), band = new THREE.MeshStandardMaterial({ color: big || rich ? 0xd9a92a : 0x6a6d75, roughness: 0.4, metalness: 0.6, flatShading: true });
     room.mats.push(wood, band);
     const add = (geo, m, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); room.geos.push(geo); return o; };
     add(new THREE.BoxGeometry(0.9, 0.5, 0.6), wood, 0, 0.25, 0);
@@ -324,7 +418,7 @@ const World = (() => {
     const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.3); g.add(lid);
     add(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), wood, 0, 0, 0.3, lid);
     add(new THREE.BoxGeometry(0.12, 0.14, 0.05), band, 0, -0.02, 0.62, lid);
-    room.chest = { g, lid, big, opened: false, x: room.cx + x, z, t: 0 };
+    room.chest = { g, lid, big, rich, opened: false, x: room.cx + x, z, t: 0 };
     room.pillars.push([room.cx + x, z, 0.55 * s]);
     FX.glint(new THREE.Vector3(room.cx + x, 0.9, z), big ? 0xffd040 : 0xfff0c0, 2, 0.6);
   }
@@ -354,20 +448,25 @@ const World = (() => {
       }
     }
     if (p && G.state === 'play' && !halted) {
-      for (const r of sections) if (r.state === 'ahead' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) enter(r);
-      for (const a of sections) {
+      const areas = sections.concat(sides);
+      for (const r of areas) {
+        if (r.state === 'ahead' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) enter(r);
+        else if (r.state === 'vault' && inRect(r.rect, p.pos.x, p.pos.z, -0.8)) { enter(r); r.state = 'cleared'; }
+      }
+      for (const a of areas) {
         if (a.state === 'ahead' || a.state === 'cleared') continue;
         a.t += dt;
-        if (a.state === 'start' && a.t > (a.inf.room.guardian ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
+        if (a.state === 'start' && a.t > (a.inf.room.guardian && a.kind !== 'side' ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
         else if (a.state === 'fight') {
           const alive = G.enemies.some(e => e.room === a && e.state !== 'dead') || G.queue.some(q => q.room === a);
           if (!alive) {
-            if (a.wave < a.inf.room.waves.length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            if (a.wave < (a.waves || a.inf.room.waves).length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
             else if (p.state !== 'dead') clearRoom(a);
           }
         }
       }
     }
+    Props.update(dt);
     // Colours drift toward the new stage's fog and ambient light
     if (fogTo) { scene.fog.color.lerp(fogTo, Math.min(1, dt * 1.2)); scene.background.copy(scene.fog.color); }
     if (hemiTo) hemi.color.lerp(hemiTo, Math.min(1, dt * 1.2));
@@ -428,6 +527,6 @@ const World = (() => {
 
   return {
     init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, inCamp, camp,
-    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; },
+    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; },
   };
 })();

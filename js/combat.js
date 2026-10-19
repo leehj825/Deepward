@@ -25,6 +25,8 @@ const Combat = (() => {
       const r = Enemy.receive(e, atk, p);
       if (r === 'blocked') blocked++; else if (r) { landed++; if (r === 'crit') crit = true; }
     }
+    const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
+    if (broke && !landed) FX.hitStop(0.03);
     if (landed) {
       FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
       FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
