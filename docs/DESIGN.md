@@ -206,3 +206,9 @@ Result on Normal:
 - **Deaths:** the casual profile dies now and then to early guardians; the skilled one rarely.
 
 Real players are slower to react than the bot, so expect more deaths.
+
+## Difficulty and accessibility (built)
+
+- **Difficulty:** `CFG.difficulty` scales damage taken (`Player.damage`), enemy health at spawn, enemy cooldowns and the number allowed to attack at once, and shifts the parry window. It can change at any time from Settings and applies to new spawns.
+- **Telegraph words:** text over red and amber telegraphs, for colour-blind players.
+- **Effects:** hit-stop and slow motion can each be turned off, and `FX` respects both settings.

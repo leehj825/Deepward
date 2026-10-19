@@ -210,7 +210,7 @@ function applyQuality() {
   }
 }
 applyQuality();
-Settings.on(k => { if (k === 'quality') applyQuality(); });
+Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
 G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
@@ -251,7 +251,7 @@ function updateSpawns() {
     if (G.time < q.t) return true;
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
-    if (q.hpMult) { e.hp *= q.hpMult; e.maxHp *= q.hpMult; }
+    const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.champion) {

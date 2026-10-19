@@ -48,6 +48,23 @@ const path = require('path');
     Snd.init();
     return o;
   }));
+  // Difficulty: Story halves the damage taken and widens the parry window; Hard does the opposite; telegraph words show
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, p = G.player;
+    const hitFor = d => { Settings.set('difficulty', d); p.maxHp = p.hp = 500; p.state = 'free'; p.blocking = false;
+      const e = __dw.spawn('skeleton', p.pos.x, p.pos.z - 1.5); const h0 = p.hp; Player.receive(p, e, e.def.attacks[0].hits[0]); e.state = 'dead'; e.hp = 0; return h0 - p.hp; };
+    const n = hitFor('normal'), st = hitFor('story'), hd = hitFor('hard');
+    o.storyHalf = Math.abs(st - n / 2) < 0.6 && hd > n * 1.3;
+    Settings.set('difficulty', 'story'); o.storyParry = G.player.S.parry > CFG.player.block.parryWindow + 0.07;
+    Settings.set('difficulty', 'normal');
+    Settings.set('cues', true); const e = __dw.spawn('brute', p.pos.x, p.pos.z - 2); e.state = 'hunt'; e.cooldown = 0;
+    e.def = JSON.parse(JSON.stringify(e.def)); e.def.attacks = e.def.attacks.filter(a => a.hits[0].unblockable);
+    __dw.sim(1.5, () => /DASH/.test(document.getElementById('floaters').textContent));
+    o.cueWords = /DASH/.test(document.getElementById('floaters').textContent);
+    Settings.set('cues', false); Settings.set('hitstop', false); FX.hitStop(0.5); o.noHitstop = FX.scaleDt(0.016) > 0;
+    Settings.set('hitstop', true); e.state = 'dead'; e.hp = 0;
+    return o;
+  }));
   // The pad's right stick turns the camera by the sensitivity, inverted vertically
   await pg.evaluate(() => {
     const pad = { connected: true, mapping: 'standard', index: 0, id: 'Xbox', axes: [0, 0, 0.9, 0.9], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
@@ -59,7 +76,7 @@ const path = require('path');
   await pg.waitForTimeout(2500);
   out.scoreMood = await pg.evaluate(() => Snd.mood);
   await b.close();
-  const ok = !errs.length && out.lowQuality && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
+  const ok = !errs.length && out.storyHalf && out.storyParry && out.cueWords && out.noHitstop && out.lowQuality && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
     && out.noShake && out.fromPause && out.backToPause && out.camp === 'camp' && out.dungeon === 'dungeon' && out.combat === 'combat' && out.lingers === 'combat'
     && out.calm === 'dungeon' && out.boss === 'boss' && out.turned && out.inverted && out.scoreMood === 'boss';
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

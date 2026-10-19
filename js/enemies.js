@@ -70,10 +70,10 @@ const Enemy = (() => {
     const tipPos = () => e.rig.weapon.tip.getWorldPosition(new THREE.Vector3());
     FX.glint(tipPos(), glowOf(h), h.unblockable || h.parryOnly ? 2.2 : 1.3, Math.min(0.5, h.wind * 0.6), tipPos);
     if (h.unblockable) {
-      Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), '!', 'danger');
+      Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), Settings.get('cues') ? '✖ DASH!' : '!', 'danger');
       Rig.flash(e.rig, GLOW_RED, 0.5); e.flashT = 0.25;
     } else if (h.parryOnly) {
-      Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 1.8 * e.def.scale), '!', 'amber');
+      Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 1.8 * e.def.scale), Settings.get('cues') ? '▲ PARRY!' : '!', 'amber');
       Rig.flash(e.rig, GLOW_AMBER, 0.45); e.flashT = 0.25;
     } else Snd.play('glint');
     if (h.aoe) e.ring = FX.ring(aoeCenter(e, h), h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
@@ -109,7 +109,7 @@ const Enemy = (() => {
         else if (d > far) step(toP, def.speed);
         else step(toP + Math.PI / 2 * e.strafeDir, def.speed * 0.45);
       }
-      else if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers) startAttack(e);
+      else if (playerOK && e.cooldown <= 0 && d <= reach && attacking() < CFG.maxAttackers + Settings.diff.attackers) startAttack(e);
       else if (!playerOK) { /* stand and gloat */ }
       else if (e.cooldown <= 0 && d > reach) step(toP, def.speed);
       else if (d > def.approach + 1.2) step(toP, def.speed);
@@ -137,7 +137,7 @@ const Enemy = (() => {
       } else if (e.phase === 'recover') {
         if (e.phaseT >= h.recover) {
           if (e.hitIdx < e.atk.hits.length - 1) { e.hitIdx++; beginHit(e); }
-          else { e.cooldown = def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0]); setState(e, 'hunt'); }
+          else { e.cooldown = (def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0])) * Settings.diff.cooldown; setState(e, 'hunt'); }
         }
       }
     } else if (e.state === 'roar') {

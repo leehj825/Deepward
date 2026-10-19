@@ -109,8 +109,8 @@ const FX = (() => {
   return {
     init, burst, glint, ring, killRing, ghost, text, update, scaleDt, project,
     shake(a) { if (!Settings.get('shake')) return; cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
-    hitStop(t) { time.stop = Math.max(time.stop, t); },
-    slowmo(t, s) { time.slow = t; time.slowScale = s; },
+    hitStop(t) { if (Settings.get('hitstop')) time.stop = Math.max(time.stop, t); },
+    slowmo(t, s) { if (Settings.get('slowmo')) { time.slow = t; time.slowScale = s; } },
     get shakeAmt() { return cam.shake; },
     clear() {
       for (const s of sparks) scene.remove(s.o); sparks.length = 0;

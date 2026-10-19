@@ -128,7 +128,14 @@ const CFG = {
       ],
     },
   },
-  maxAttackers: 2,               // enemies that may be winding up or swinging at the same time
+  maxAttackers: 2,
+  // Difficulty (Settings): damage the hero takes, enemy health, how long enemies wait between attacks, extra enemies
+  // allowed to attack at once, and a change to the parry window
+  difficulty: {
+    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: 0, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
+    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, parry: 0, desc: 'As intended' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, parry: -0.03, desc: 'Harder hits, tougher foes, three may attack at once, a tight parry window' },
+  },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages
   // repeat with tougher enemies. size: [half width, half depth] in metres (times sectionScale); waves: the groups

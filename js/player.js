@@ -9,6 +9,7 @@ const Player = (() => {
   // Gear, levels and talents, then any shrine blessings for this stage
   function gearStats() {
     const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
+    S.parry = Math.max(0.08, S.parry + Settings.diff.parry);
     for (const b of (G.blessings || [])) {
       if (b === 'wrath') S.dmg *= 1.2; else if (b === 'iron') S.dr = 1 - (1 - S.dr) * 0.85; else if (b === 'swift') S.move *= 1.12;
       else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
@@ -254,7 +255,7 @@ const Player = (() => {
 
   function flash(p, c) { p.flashT = 0.2; p.flashC = c; }
   function damage(p, n, from) {
-    n *= 1 - p.S.dr;                                                      // armour
+    n *= (1 - p.S.dr) * Settings.diff.dmg;                                // armour, then the difficulty
     p.hp = Math.max(0, p.hp - n);
     FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
     if (p.hp <= 0) { p.rig.dieVar = Math.random() < 0.5; setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }

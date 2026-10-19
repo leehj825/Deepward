@@ -173,6 +173,12 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
 - Look sensitivity (0.4× to 2.4×).
 - Inverted vertical look.
 - Screen shake on or off.
+- Difficulty:
+  - **Story:** half the damage, 25% softer foes, enemies attack 40% less often, and the parry window is 0.08 s wider.
+  - **Normal:** as tuned.
+  - **Hard:** 35% more damage, 20% tougher foes, quicker attacks, three may attack at once, and a tighter parry window.
+- Telegraph words: ✖ DASH! over unblockable attacks and ▲ PARRY! over parry-only ones, so you don't have to rely on red and amber.
+- Hit-stop and slow motion, each on or off.
 - Graphics quality:
   - **Auto:** Medium on phones and tablets, High elsewhere.
   - **High:** sharp, with soft shadows.
