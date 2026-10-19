@@ -48,7 +48,8 @@ const Camp = (() => {
     const stakeG = new THREE.CylinderGeometry(0.16, 0.18, 2.6, 6), tipG = new THREE.ConeGeometry(0.16, 0.4, 6); room.geos.push(stakeG, tipG);
     const stake = (x, z) => { const h = 0.9 + Math.random() * 0.25; const s = new THREE.Mesh(stakeG, wood); s.position.set(x, 1.3 * h, z); s.scale.y = h; s.castShadow = true; group.add(s); const t = new THREE.Mesh(tipG, wood); t.position.set(x, 2.6 * h + 0.2, z); group.add(t); };
     for (let x = -HW - 0.5; x <= HW + 0.5; x += 0.4) { if (Math.abs(x) > 3.4) stake(x, HD + 0.6); if (Math.abs(x) > 3.2) stake(x, -HD - 0.6); }
-    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); stake(HW + 0.6, z); }
+    const egz = CFG.fen.gateZ;                                                  // the east gate onto the Fen
+    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); if (Math.abs(z - egz) > 3.4) stake(HW + 0.6, z); }
     // Watchtowers at the corners
     for (const [x, z] of [[-HW + 1, -HD + 1], [HW - 1, -HD + 1], [-HW + 1, HD - 1], [HW - 1, HD - 1]]) {
       for (const [dx, dz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) add(new THREE.CylinderGeometry(0.12, 0.14, 5, 6), darkWood, x + dx, 2.5, z + dz);
@@ -59,7 +60,7 @@ const Camp = (() => {
     const pine = M(0x1e2a22), trunk = M(0x2a1e14);
     for (let i = 0; i < 70; i++) {
       const a = Math.random() * Math.PI * 2, r = 32 + Math.random() * 16, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
-      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2) continue;              // the south side is the Rim's
+      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2 || (lv.fen && x > HW)) continue;   // the south side is the Rim's, the east the Fen's
       const h = 4 + Math.random() * 5;
       add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z);
       add(new THREE.ConeGeometry(1.4 + Math.random(), h, 6), pine, x, 1 + h / 2, z);
@@ -228,6 +229,17 @@ const Camp = (() => {
     }
     // The gate doors stand open once the Rim is opened (World adds the road beyond); until then they are shut
     room.southGate = { z: sgz };
+    // The east gate: posts, a lintel and torches; barred with doors until the Fen is opened
+    for (const s of [-1, 1]) {
+      for (const [dx, dz] of [[-0.5, -0.6], [0.5, -0.6], [-0.5, 0.6], [0.5, 0.6]]) add(new THREE.CylinderGeometry(0.13, 0.15, 4.4, 6), darkWood, HW + 0.6 + dx, 2.2, egz + s * 3.6 + dz);
+      add(new THREE.BoxGeometry(1.6, 0.15, 1.7), wood, HW + 0.6, 3.4, egz + s * 3.6); torch(HW + 0.6, 3.6, egz + s * 3.6, lv.fen ? 0xb8e070 : 0xff9a40); block(HW + 0.6, egz + s * 3.6, 1.1);
+    }
+    if (!lv.fen) {
+      for (const s of [-1, 1]) { add(new THREE.BoxGeometry(0.25, 2.8, 2.9), darkWood, HW + 0.6, 1.4, egz + s * 1.45); add(new THREE.BoxGeometry(0.3, 0.2, 2.6), iron, HW + 0.45, 1.6, egz + s * 1.45); }
+      add(new THREE.BoxGeometry(0.2, 0.25, 5.6), iron, HW + 0.4, 1.4, egz);                              // the bar
+      room.spots.push({ id: 'eastgate', name: 'The east gate', verb: 'Look', x: HW - 1.4, z: egz, r: 1.8 });
+    }
+    path(15, -2, HW, egz, 1.7);
     // The alarm bell beside the gate, rung when raiders come up the road (a group of its own, so it can swing)
     for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.14, 2.6, 0.14), darkWood, 6.2 + s * 0.55, 1.3, HD - 1.2);
     add(new THREE.BoxGeometry(1.3, 0.14, 0.18), darkWood, 6.2, 2.6, HD - 1.2); block(6.2, HD - 1.2, 0.7);

@@ -87,17 +87,18 @@ const MiniMap = (() => {
   }
   // The Hold and the Rim: the camp, the road, the field and its zones (red where beasts are roused), beasts and the hero
   function drawRim(W, half, p) {
-    const camp = World.camp(), f = World.field();
+    const camp = World.camp(), F = World.fields(), f = World.fieldAt(p.pos) || World.field();
     ctx.clearRect(0, 0, W, W); ctx.save();
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
     let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
-    if (big) { const x0 = f.rect.x0, x1 = f.rect.x1, z0 = camp.rect.z0, z1 = f.rect.z1; scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
+    if (big) { const R = F.map(q => q.rect).concat(camp.rect), x0 = Math.min(...R.map(q => q.x0)), x1 = Math.max(...R.map(q => q.x1)), z0 = Math.min(...R.map(q => q.z0)), z1 = Math.max(...R.map(q => q.z1)); scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
     else { scale = W / 60; if (View.mode === 'behind') rot = View.yaw; }
     ctx.translate(half, half); ctx.rotate(rot); ctx.scale(scale, scale); ctx.translate(-cx, -cz);
     const rect = (q, fill) => { ctx.fillStyle = fill; ctx.fillRect(q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0); };
-    rect(f.rect, 'rgba(70,96,56,0.5)'); rect(f.corr, C.floor); rect(camp.rect, 'rgba(150,120,80,0.55)');
+    for (const q of F) { rect(q.rect, q.side === 'east' ? 'rgba(52,80,64,0.5)' : 'rgba(70,96,56,0.5)'); rect(q.corr, C.floor); }
+    rect(camp.rect, 'rgba(150,120,80,0.55)');
     ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / scale; ctx.strokeRect(camp.rect.x0, camp.rect.z0, camp.rect.x1 - camp.rect.x0, camp.rect.z1 - camp.rect.z0);
-    for (const z of f.zones) {
+    for (const z of F.flatMap(q => q.zones)) {
       const roused = G.enemies.some(e => e.zone === z && e.aggro && e.state !== 'dead');
       ctx.fillStyle = roused ? 'rgba(200,60,40,0.4)' : 'rgba(160,120,60,0.28)'; ctx.beginPath(); ctx.arc(z.x, z.z, z.r, 0, Math.PI * 2); ctx.fill();
     }
@@ -109,7 +110,7 @@ const MiniMap = (() => {
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
     ctx.restore(); ctx.restore();
     const z = G.mode === 'field' ? Field.zoneAt(f, p.pos) : null;
-    info.textContent = G.mode === 'field' ? (z ? z.name : 'The Rim') : 'Deepward Hold';
+    info.textContent = G.mode === 'field' ? (z ? z.name : f.name) : 'Deepward Hold';
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
   }
   return { draw, toggle, get big() { return big; } };

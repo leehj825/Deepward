@@ -20,6 +20,7 @@ const Field = (() => {
     const group = new THREE.Group(); scene.add(group);
     const room = {
       i: -2, kind: 'field', group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
+      side: 'south', def: F, name: F.name,
       rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 2, z1: z0 + 2 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
       zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
     };
@@ -90,22 +91,102 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
-    // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back)
+    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4);
+    return room;
+  }
+
+  // ---------------- The Fen, through the east gate ----------------
+  // Laid out east of the Hold: x runs out from the palisade, z along it. A boardwalk from the gate, black pools with
+  // reeds, dead trees and drooping willows, a drowned chapel in the Hollow and the cut stone walls of the Old Quarry.
+  function buildFen(scene) {
+    const D = CFG.fen, HW = Camp.HW, [za, zb, depth] = D.size, x0 = HW + D.gap, x1 = x0 + depth, z0 = za, z1 = zb, gz = D.gateZ;
+    const group = new THREE.Group(); scene.add(group);
+    const room = {
+      i: -3, kind: 'field', side: 'east', def: D, name: D.name, group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
+      rect: { x0, x1, z0, z1 }, corr: { x0: HW - 2, x1: x0 + 2, z0: gz - 2.6, z1: gz + 2.6 }, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, hw: (z1 - z0) / 2,
+      zones: D.zones.map(z => Object.assign({}, z, { x: x0 + z.out, z: gz + z.side, next: 0, filled: false })),
+    };
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const block = (x, z, r) => room.pillars.push([x, z, r]);
+    const torch = (x, y, z, color) => { const fm = new THREE.MeshBasicMaterial({ color }); room.mats.push(fm); room.keep.push(fm); const fl = add(new THREE.ConeGeometry(0.12, 0.4, 6), fm, x, y, z, false); room.torches.push({ pos: new THREE.Vector3(x, y + 0.4, z), fl, seed: Math.random() * 10, color }); };
+    const R = (a, b) => a + Math.random() * (b - a);
+    const zone = id => room.zones.find(z => z.id === id);
+    const nearZone = (x, z, pad) => room.zones.some(q => Math.hypot(x - q.x, z - q.z) < q.r * pad);
+    const onRoad = (x, z) => Math.abs(z - gz) < 3.5 && x < x0 + 34;
+
+    // Ground: a dark, wet green from the palisade out (it stops where the Rim's ground begins, south of the Hold)
+    const gt = grass().clone(); gt.needsUpdate = true; gt.repeat.set(24, 24); room.texs.push(gt);
+    const gs = HW + 0.9, ge = x1 + 30, gzs = z0 - 30, gze = Camp.HD + 0.9;
+    add(new THREE.PlaneGeometry(ge - gs, gze - gzs).rotateX(-Math.PI / 2), M(0x8a9a78, { map: gt, flatShading: false }), (gs + ge) / 2, 0.025, (gzs + gze) / 2, false);
+    // The boardwalk from the gate, on posts over the wet ground
+    const plank = M(0x5a4430), post = M(0x3a2a1c);
+    for (let x = HW + 0.5; x < x0 + 34; x += 0.55) add(new THREE.BoxGeometry(0.45, 0.08, 3.2), plank, x, 0.12, gz + Math.sin(x * 0.7) * 0.03, false);
+    for (let x = HW + 3; x < x0 + 34; x += 4) for (const sd of [-1, 1]) add(new THREE.CylinderGeometry(0.08, 0.1, 0.5, 5), post, x, 0.15, gz + sd * 1.7, false);
+    // Black pools with reeds
+    const water = M(0x1a2a24, { roughness: 0.15, metalness: 0.4 }), reed = M(0x8a8a4a), reed2 = M(0x5a6a3a);
+    for (let i = 0; i < 28; i++) {
+      const x = R(x0 + 4, x1 - 4), z = R(z0 + 4, z1 - 4), r = R(1.5, 4.5); if (onRoad(x, z)) continue;
+      add(new THREE.CircleGeometry(r, 9).rotateX(-Math.PI / 2), water, x, 0.04, z, false);
+      for (let k = 0; k < 10; k++) { const a = Math.random() * Math.PI * 2, d = r + R(-0.3, 0.6); add(new THREE.ConeGeometry(0.05, R(0.8, 1.6), 3), k % 2 ? reed : reed2, x + Math.sin(a) * d, 0.5, z + Math.cos(a) * d, false); }
+    }
+    // Trees: a dark wall round the edges; dead trees and willows across the fen
+    const dark = M(0x1c2620), dead = M(0x4a4038), willow = M(0x3a5230), trunk = M(0x2a1e14);
+    const deadTree = (x, z, s = 1) => { const h = R(3, 5.5) * s; add(new THREE.CylinderGeometry(0.12 * s, 0.25 * s, h, 5), dead, x, h / 2, z); for (let k = 0; k < 3; k++) { const b = add(new THREE.CylinderGeometry(0.04, 0.08, R(1.2, 2) * s, 4), dead, x + Math.sin(k * 2.1) * 0.5, h * R(0.55, 0.9), z + Math.cos(k * 2.1) * 0.5); b.rotation.set(Math.cos(k * 2.1) * 0.9, 0, -Math.sin(k * 2.1) * 0.9); } block(x, z, 0.4 * s); };
+    const willowTree = (x, z, s = 1) => { const h = R(3.5, 5) * s; add(new THREE.CylinderGeometry(0.22 * s, 0.32 * s, h, 6), trunk, x, h / 2, z); for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(new THREE.ConeGeometry(0.9 * s, 2.6 * s, 5), willow, x + Math.sin(a) * 0.9 * s, h - 0.6 * s, z + Math.cos(a) * 0.9 * s); } add(new THREE.DodecahedronGeometry(1.5 * s, 0), willow, x, h + 0.3, z); block(x, z, 0.6 * s); };
+    const edgeTree = (x, z) => { const h = R(5, 9); add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z); add(new THREE.ConeGeometry(R(1.4, 2.2), h, 6), dark, x, 1 + h / 2, z); block(x, z, 0.7); };
+    for (let i = 0; i < 80; i++) {
+      const t = Math.random(), side = Math.floor(Math.random() * 3);
+      if (side === 0) edgeTree(x0 + t * depth, z0 - R(1, 10)); else if (side === 1) edgeTree(x0 + t * depth, z1 + R(1, 8)); else edgeTree(x1 + R(1, 10), z0 + t * (z1 - z0));
+    }
+    for (let i = 0; i < 55; i++) {
+      const x = R(x0 + 4, x1 - 3), z = R(z0 + 3, z1 - 3);
+      if (onRoad(x, z) || nearZone(x, z, 0.7)) continue;
+      if (Math.random() < 0.55) deadTree(x, z, R(0.8, 1.2)); else willowTree(x, z, R(0.8, 1.15));
+    }
+    // The Drowned Hollow: a sunken chapel, broken columns standing in the water
+    const hol = zone('hollow'), grey = M(0x6a706c), mossy = M(0x4a5a48);
+    add(new THREE.CircleGeometry(hol.r * 0.7, 12).rotateX(-Math.PI / 2), water, hol.x, 0.05, hol.z, false);
+    add(new THREE.BoxGeometry(5, 3.2, 0.6), mossy, hol.x + hol.r * 0.55, 1.2, hol.z - 2.6).rotation.z = 0.12; add(new THREE.BoxGeometry(0.6, 2.4, 4.6), mossy, hol.x + hol.r * 0.55 + 2.4, 1.0, hol.z).rotation.x = -0.1;
+    add(new THREE.ConeGeometry(2.6, 2, 4), M(0x3a3a40), hol.x + hol.r * 0.55 + 0.4, 3.1, hol.z - 0.8).rotation.set(0.15, Math.PI / 4, 0.12);
+    block(hol.x + hol.r * 0.55, hol.z - 2.6, 2.4); block(hol.x + hol.r * 0.55 + 2.4, hol.z, 2.2);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, x = hol.x + Math.sin(a) * hol.r * 0.6, z = hol.z + Math.cos(a) * hol.r * 0.6, h = R(0.8, 3.2); add(new THREE.CylinderGeometry(0.35, 0.4, h, 7), grey, x, h / 2, z).rotation.z = R(-0.25, 0.25); block(x, z, 0.5); }
+    // The Old Quarry: cut stone walls behind, blocks and a wooden crane
+    const qy = zone('quarry'), stone = M(0x7a7266), rock = M(0x4e483e);
+    for (let k = 0; k < 7; k++) { const a = -1.2 + k * 0.4, x = qy.x + Math.cos(a) * (qy.r + 3), z = qy.z + Math.sin(a) * (qy.r + 3), h = R(5, 8); add(new THREE.BoxGeometry(5, h, 3), rock, x, h / 2, z).rotation.y = -a; block(x, z, 2.8); }
+    for (let i = 0; i < 14; i++) { const a = Math.random() * Math.PI * 2, r = R(3, qy.r - 2), x = qy.x + Math.sin(a) * r, z = qy.z + Math.cos(a) * r, s = R(0.6, 1.3); add(new THREE.BoxGeometry(s * 1.4, s, s), stone, x, s / 2, z).rotation.y = a; block(x, z, s * 0.8); }
+    const crane = M(0x5a4028); add(new THREE.BoxGeometry(0.3, 6, 0.3), crane, qy.x - 4, 3, qy.z + 5); add(new THREE.BoxGeometry(0.25, 0.25, 5), crane, qy.x - 4, 5.8, qy.z + 3).rotation.x = 0.2; block(qy.x - 4, qy.z + 5, 0.5);
+    // Lanterns along the boardwalk (a sickly green light out here) and zone signs
+    for (const x of [HW + 3, x0 + 6, x0 + 18, x0 + 30]) for (const sd of [-1, 1]) { add(new THREE.CylinderGeometry(0.07, 0.08, 2, 6), trunk, x, 1, gz + sd * 2.2); torch(x, 2, gz + sd * 2.2, 0xb8e070); block(x, gz + sd * 2.2, 0.25); }
+    const sign = M(0x6a4a2c);
+    for (const q of room.zones) { const a = Math.atan2(x0 - q.x, gz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.4, z).rotation.y = a; }
+    Rig.bake(group, false, room.keep);
+    placeNodes(room, () => [R(x0 + 6, x1 - 4), R(z0 + 4, z1 - 4)], onRoad);
+    return room;
+  }
+
+  // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back).
+  // spot() gives a random place, onRoad(x, z) keeps them off the road.
+  function placeNodes(room, spot, onRoad) {
     room.nodes = [];
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
     const herbM = M(0x6aa83a), flowerM = new THREE.MeshBasicMaterial({ color: 0xd8f070 }), oreM = M(0x5a5a5e), veinM = new THREE.MeshBasicMaterial({ color: 0xd88a4a });
     room.mats.push(flowerM, veinM);
-    const N = F.nodes;
+    const N = room.def.nodes;
     for (const [kind, n] of [['herb', N.herb], ['ore', N.ore]]) for (let k = 0, tries = 0; k < n && tries < 400; tries++) {
-      const x = R(-hw + 4, hw - 4), z = R(z0 + 6, z1 - 4);
-      if (Math.abs(x) < 4 || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
-      const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+      const [x, z] = spot();
+      if (onRoad(x, z) || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
+      const g = new THREE.Group(); g.position.set(x, 0, z); room.group.add(g);
       if (kind === 'herb') for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; const st = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 4), herbM); st.position.set(Math.sin(a) * 0.2, 0.25, Math.cos(a) * 0.2); g.add(st); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), flowerM); fl.position.set(Math.sin(a) * 0.2, 0.52, Math.cos(a) * 0.2); g.add(fl); room.geos.push(st.geometry, fl.geometry); }
       else { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), oreM); r.position.y = 0.3; r.castShadow = true; g.add(r); room.geos.push(r.geometry); for (let j = 0; j < 4; j++) { const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), veinM); v.position.set(Math.sin(j * 1.6) * 0.45, 0.35 + (j % 2) * 0.2, Math.cos(j * 1.6) * 0.45); g.add(v); room.geos.push(v.geometry); } room.pillars.push([x, z, 0.6]); }
       Rig.bake(g);                                                        // a patch or vein draws as one or two meshes
-      room.nodes.push({ kind, x, z, g, ready: true, t: 0 }); k++;
+      room.nodes.push({ kind, x, z, g, room, ready: true, t: 0 }); k++;
     }
-    return room;
   }
+  // How far out from the Hold a point is (metres past the field's near edge: south for the Rim, east for the Fen)
+  const inward = (room, pos) => room.side === 'east' ? pos.x - room.rect.x0 : pos.z - room.rect.z0;
+  // Is the warden out in this field (past the road from the gate)?
+  function at(room, pos) { return inward(room, pos) > -1 && (room.side !== 'east' || (pos.z > room.rect.z0 - 2 && pos.z < room.rect.z1 + 2)); }
 
   // How tough the Rim is: zone by zone, and growing with the warden's progress below
   function multOf(z) { const S = Items.S, k = Math.min(S ? S.stage : 0, CFG.stages.length - 1); return { mult: z.mult * (1 + CFG.stageScale * k * 0.6), hpMult: 1 + CFG.stageHp * k * 0.6 }; }
@@ -124,7 +205,7 @@ const Field = (() => {
   function update(room, dt, p) {
     for (const n of room.nodes) if (!n.ready && (n.t -= dt) <= 0) { n.ready = true; n.g.visible = true; }
     if (!p || G.state !== 'play' || G.training) return;
-    const here = p.pos.z > room.rect.z0 - 3;
+    const here = inward(room, p.pos) > -3 && (room.side !== 'east' || Math.abs(p.pos.z - room.cz) < (room.rect.z1 - room.rect.z0) / 2 + 3);
     const night = G.isNight ? G.isNight() : false;
     for (const z of room.zones) {
       // The dead keep to the night: at dawn they crumble back into their graves
@@ -137,24 +218,27 @@ const Field = (() => {
       if (G.time < z.next) continue;
       const at = spotIn(room, z, p.pos); if (!at) continue;
       const type = mobs[Math.floor(Math.random() * mobs.length)], m = multOf(z);
-      G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, t: G.time });
+      G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, home: room, t: G.time });
       z.next = G.time + (z.filled ? z.respawn : 0.25);
     }
     // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
     const S = Items.S; S.fieldBoss = S.fieldBoss || {};
-    for (const B of F.bosses) {
+    for (const B of room.def.bosses) {
       const z = room.zones.find(q => q.id === B.zone), up = B.when === 'any' || (B.when === 'night' ? night : !night);
       const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
       if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
       if (alive || queued || !up || Date.now() < (S.fieldBoss[B.id] || 0)) continue;
       if (Math.hypot(p.pos.x - z.x, p.pos.z - z.z) > z.r + 25 || !here) continue;
       const at = spotIn(room, z, p.pos); if (!at) continue;
-      const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, fieldBoss: B, t: G.time });
+      const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, home: room, fieldBoss: B, t: G.time });
     }
     // Beasts left far behind (or the warden back in the Hold) are let go
-    for (const e of G.enemies) if (e.zone && !e.raid && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
+    for (const e of G.enemies) if (e.zone && e.home === room && !e.raid && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
     // ...and no beast follows the warden through the gate
-    for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
+    for (const e of G.enemies) if (e.zone && (e.home === room || (e.raid && room.side === 'south')) && inward(room, e.pos) < 0.5) {
+      if (room.side === 'east') e.pos.x = room.rect.x0 + 0.5; else e.pos.z = room.rect.z0 + 0.5;
+      if (e.aggro && inward(room, p.pos) < -1) { e.aggro = false; e.wanderT = 0; }
+    }
   }
   // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
   function nearest(room, pos) {
@@ -166,10 +250,10 @@ const Field = (() => {
   function gather(node) {
     if (!node.ready) return 0;
     const n = 1 + Math.floor(Math.random() * (node.kind === 'herb' ? 3 : 2));
-    Items.addMat(node.kind, n); node.ready = false; node.t = F.nodes.regrow; node.g.visible = false;
+    Items.addMat(node.kind, n); node.ready = false; node.t = (node.room ? node.room.def : F).nodes.regrow; node.g.visible = false;
     return n;
   }
   // The zone the hero stands in (for the label and the map)
   function zoneAt(room, pos) { return room.zones.find(z => Math.hypot(pos.x - z.x, pos.z - z.z) < z.r + 2) || null; }
-  return { build, update, zoneAt, multOf, nearest, gather };
+  return { build, buildFen, update, zoneAt, multOf, nearest, gather, at, inward };
 })();

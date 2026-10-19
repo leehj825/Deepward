@@ -479,6 +479,7 @@ const CFG = {
   // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
   // after one falls); mult is how tough they are. The far ridge is the dangerous end.
   field: {
+    name: 'The Rim', side: 'south',
     size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
     zones: [
       { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], nightMobs: ['wolf', 'wolf', 'wolf', 'boar'], cap: 5, nightCap: 6, respawn: 25, mult: 1 },
@@ -498,6 +499,25 @@ const CFG = {
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // The Fen: a second field through the east gate, opened when the first five guardians have fallen (the end of Act I).
+  // Black water, reeds, a drowned chapel and an old quarry; tougher than the Rim. Zones are placed by out (metres out
+  // from the field's near edge) and side (metres along the wall from the gate, north negative).
+  fen: {
+    name: 'The Fen', side: 'east', unlock: 5, gateZ: -7, size: [-63, 20, 80], gap: 5,    // size: lateral from, to (z), depth (x); the Rim starts past z 23
+    zones: [
+      { id: 'reeds', name: 'The Reedbank', out: 20, side: 8, r: 14, mobs: ['goblin', 'goblin', 'scout', 'spider'], cap: 6, respawn: 25, mult: 1.7 },
+      { id: 'mire', name: 'The Black Mire', out: 42, side: -26, r: 16, mobs: ['spider', 'spider', 'goblin', 'scout'], nightMobs: ['spider', 'spider', 'spider', 'wolf'], cap: 5, nightCap: 6, respawn: 30, mult: 2.0 },
+      { id: 'hollow', name: 'The Drowned Hollow', out: 50, side: 12, r: 14, mobs: ['skeleton', 'archer', 'skeleton', 'necro'], cap: 6, respawn: 30, mult: 2.1, night: true },
+      { id: 'quarry', name: 'The Old Quarry', out: 66, side: -12, r: 16, mobs: ['brute', 'goblin', 'scout', 'bearer'], cap: 6, respawn: 40, mult: 2.4 },
+    ],
+    nodes: { herb: 10, ore: 10, regrow: 150 },
+    bosses: [
+      { id: 'mirequeen', name: 'The Mire Queen', type: 'spider', zone: 'mire', when: 'day', mods: ['swift', 'vampiric'], hp: 7, scale: 2.0, respawn: 360, drops: { silk: 6, herb: 3 } },
+      { id: 'mirelord', name: 'The Mirelord', type: 'troll', boss: 'mirelord', zone: 'mire', when: 'night', respawn: 420, drops: { silk: 4, pelt: 4, ore: 3 } },
+      { id: 'bishop', name: 'The Drowned Bishop', type: 'necro', zone: 'hollow', when: 'night', mods: ['warded'], hp: 6, scale: 1.4, respawn: 300, drops: { bone: 6, silk: 2 } },
+      { id: 'foreman', name: 'The Quarry Foreman', type: 'brute', zone: 'quarry', when: 'any', mods: ['armored'], hp: 6, scale: 1.4, respawn: 360, drops: { ore: 6, tusk: 2 } },
+    ],
+  },
   // The day in the Hold and on the Rim: length seconds from dawn to dawn (the dungeon below keeps no time). Day and
   // night colours for the sky and fog, the light, the sun or moon, and how far the fog lets you see.
   day: {
@@ -509,10 +529,10 @@ const CFG = {
   // Ysolde brews tonics from herbs
   materials: {
     pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
-    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' }, silk: { name: 'Silk', icon: '🕸' },
   },
   matDrops: {                      // chance per kill on the Rim; below, a third of it
-    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['silk', 0.45], ['herb', 0.2]],
     skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
   },
   // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
@@ -522,6 +542,8 @@ const CFG = {
     { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
     { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
     { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'fenjerkin', name: 'Fensilk Jerkin', slot: 'armor', wc: 0, rarity: 2, aff: ['hp', 'regen'], need: { silk: 5, herb: 2 }, gold: 110 },
+    { id: 'mireboots', name: 'Mirewalker Boots', slot: 'boots', wc: 0, rarity: 2, aff: ['stamina', 'parry'], need: { silk: 3, pelt: 2 }, gold: 90 },
     { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
   ],
   temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
@@ -542,6 +564,11 @@ const CFG = {
         { at: 0.7, shout: 'IT CALLS ITS KIN', summon: ['troll'], faster: 0.9 },
         { at: 0.45, shout: 'THE ARENA SHAKES', summon: ['wolf', 'wolf', 'scout'], def: { speed: 3.9, cooldown: [0.6, 1.2] } },
         { at: 0.2, shout: 'IT WILL NOT DIE', enrage: true, faster: 0.75, def: { regen: 0.015 } },
+      ] },
+    mirelord: { name: 'The Mirelord', scale: 1.25, hp: 4.5, posture: 1.8, reach: 1.15,
+      phases: [
+        { at: 0.65, shout: 'THE MIRE STIRS', summon: ['spider', 'spider'], def: { regen: 0.03 } },
+        { at: 0.3, shout: 'IT RISES FROM THE BOG', enrage: true, faster: 0.8, summon: ['spider', 'goblin'], def: { speed: 3.6, cooldown: [0.7, 1.3] } },
       ] },
     golem: { name: 'The Forge Colossus', scale: 1.15, hp: 3.5, posture: 1.5, reach: 1.15,
       phases: [
@@ -567,7 +594,8 @@ const CFG = {
     gold: 70, first: 3.5,
     monsters: [
       { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
-      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
+      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'mirelord', kind: 'troll', unlock: 'mirelord', theme: 'temple', fen: true },
+      { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
     ],
   },
   // A raid on the south gate: now and then, a while after the warden comes home, a band marches up the Rim road and
@@ -748,6 +776,7 @@ const CFG = {
       'Wolves come in threes. Do not let them circle you.',
       'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
       'Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.',
+      'The east gate opens on the Fen. Black water, spiders as big as dogs, and the drowned dead at night. Mind your footing.',
     ]],
     gemcutter: ['Nell the gem cutter', [
       'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',

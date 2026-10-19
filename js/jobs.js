@@ -29,7 +29,10 @@ const Jobs = (() => {
     } else {                                                               // a boss: of the Rim, or a guardian already beaten
       const beaten = CFG.stages.slice(0, s.stage).map(st => st.guardian);
       if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(150 * depth()), gem: true, title: `Slay ${target} again` }; }
-      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
+      else {
+        const fen = World.fenOpen() && Math.random() < 0.5, B = pick(fen ? CFG.fen.bosses : CFG.field.bosses);
+        j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth() * (fen ? 1.3 : 1)), gem: true, title: `Fell ${B.name} ${fen ? 'in the Fen' : 'on the Rim'}` };
+      }
     }
     j.id = (s.nextJob = (s.nextJob || 0) + 1); j.base = j.kind === 'gather' ? 0 : count(j);
     return j;

@@ -283,6 +283,38 @@ const path = require('path');
   await pg.evaluate(() => __dw.G.wakeInCamp());
   await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
   out.movesOn = await pg.evaluate(() => !__dw.Items.S.wander && !__dw.World.camp().spots.some(s => s.id === 'wanderer'));
+  // ---- N6: the Fen, through the east gate (after Act I) ----
+  out.fenBarred = await pg.evaluate(() => !__dw.World.fenOpen() && __dw.World.fields().length === 1 && __dw.World.camp().spots.some(s => s.id === 'eastgate'));
+  await pg.evaluate(() => { const I = __dw.Items; I.S.stage = 5; I.S.fenSeen = false; __dw.G.wakeInCamp(); });
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player;
+    __dw.sim(1.5); o.rookOpens = !!__dw.UI.open && /east gate/i.test(document.querySelector('.pcard').textContent); while (__dw.UI.open) __dw.UI.close();
+    const fen = W.fields().find(f => f.side === 'east');
+    o.fenBuilt = !!fen && !W.camp().spots.some(s => s.id === 'eastgate') && fen.rect.z1 < W.field().rect.z0;
+    // Walk (no dash) out through the east gate along the boardwalk
+    for (const e of G.enemies) e.remove = true; G.raid = null; __dw.sim(0.1);
+    __dw.setView('top'); p.maxHp = p.hp = 1e7; p.pos.set(20, 0, CFG.fen.gateZ + 0.4); Input.stick.x = 1; Input.stick.z = 0;
+    __dw.sim(14, () => p.pos.x > fen.rect.x0 + 6); Input.stick.x = 0; __dw.setView('behind');
+    o.walkFen = p.pos.x > fen.rect.x0 + 6 && G.mode === 'field' && /^The Fen/.test(W.label());
+    // The Reedbank fills; the Mirelord comes out in the Black Mire at night
+    const reeds = fen.zones.find(z => z.id === 'reeds'); I.S.clock = 0.25 * CFG.day.length; p.pos.set(reeds.x - reeds.r - 6, 0, reeds.z); __dw.sim(2);
+    o.fenSpawns = G.enemies.filter(e => e.zone === reeds && e.home === fen).length >= 3;
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    const mire = fen.zones.find(z => z.id === 'mire'); I.S.fieldBoss = {}; I.S.clock = 0.75 * CFG.day.length; p.pos.set(mire.x - mire.r - 8, 0, mire.z); __dw.sim(1.5);
+    const lord = G.enemies.find(e => e.fieldBoss && e.fieldBoss.id === 'mirelord');
+    o.mirelord = !!lord && lord.type === 'troll' && !!lord.boss && /Fen/.test(W.label());
+    // Spiders give silk; Bram makes a Fensilk Jerkin from it
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    const s0 = I.S.mats.silk || 0; for (let k = 0; k < 12; k++) { const sp = __dw.spawn('spider', p.pos.x, p.pos.z - 4); sp.zone = mire; sp.home = fen; sp.state = 'broken'; Enemy.receive(sp, { dmg: 1e6, posture: 0 }, p); } __dw.sim(0.3);
+    o.silk = (I.S.mats.silk || 0) > s0;
+    I.S.mats.silk = 9; I.S.mats.herb = 9; I.S.gold = 9999;
+    const made = I.craft(CFG.crafts.find(c => c.id === 'fenjerkin')); o.craftFen = !!made && I.S.mats.silk === 4 && made.slot === 'armor';
+    // ...and the Mirelord joins the Ring once felled in the Fen
+    I.S.bossKills = { mirelord: 1 }; o.ringMirelord = !G.arenaList().find(a => a.id === 'mirelord').locked;
+    for (const e of G.enemies) e.remove = true; p.pos.set(0, 0, 6); __dw.sim(0.3);
+    return o;
+  }));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

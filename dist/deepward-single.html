@@ -902,6 +902,7 @@ const CFG = {
   // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
   // after one falls); mult is how tough they are. The far ridge is the dangerous end.
   field: {
+    name: 'The Rim', side: 'south',
     size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
     zones: [
       { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], nightMobs: ['wolf', 'wolf', 'wolf', 'boar'], cap: 5, nightCap: 6, respawn: 25, mult: 1 },
@@ -921,6 +922,25 @@ const CFG = {
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // The Fen: a second field through the east gate, opened when the first five guardians have fallen (the end of Act I).
+  // Black water, reeds, a drowned chapel and an old quarry; tougher than the Rim. Zones are placed by out (metres out
+  // from the field's near edge) and side (metres along the wall from the gate, north negative).
+  fen: {
+    name: 'The Fen', side: 'east', unlock: 5, gateZ: -7, size: [-63, 20, 80], gap: 5,    // size: lateral from, to (z), depth (x); the Rim starts past z 23
+    zones: [
+      { id: 'reeds', name: 'The Reedbank', out: 20, side: 8, r: 14, mobs: ['goblin', 'goblin', 'scout', 'spider'], cap: 6, respawn: 25, mult: 1.7 },
+      { id: 'mire', name: 'The Black Mire', out: 42, side: -26, r: 16, mobs: ['spider', 'spider', 'goblin', 'scout'], nightMobs: ['spider', 'spider', 'spider', 'wolf'], cap: 5, nightCap: 6, respawn: 30, mult: 2.0 },
+      { id: 'hollow', name: 'The Drowned Hollow', out: 50, side: 12, r: 14, mobs: ['skeleton', 'archer', 'skeleton', 'necro'], cap: 6, respawn: 30, mult: 2.1, night: true },
+      { id: 'quarry', name: 'The Old Quarry', out: 66, side: -12, r: 16, mobs: ['brute', 'goblin', 'scout', 'bearer'], cap: 6, respawn: 40, mult: 2.4 },
+    ],
+    nodes: { herb: 10, ore: 10, regrow: 150 },
+    bosses: [
+      { id: 'mirequeen', name: 'The Mire Queen', type: 'spider', zone: 'mire', when: 'day', mods: ['swift', 'vampiric'], hp: 7, scale: 2.0, respawn: 360, drops: { silk: 6, herb: 3 } },
+      { id: 'mirelord', name: 'The Mirelord', type: 'troll', boss: 'mirelord', zone: 'mire', when: 'night', respawn: 420, drops: { silk: 4, pelt: 4, ore: 3 } },
+      { id: 'bishop', name: 'The Drowned Bishop', type: 'necro', zone: 'hollow', when: 'night', mods: ['warded'], hp: 6, scale: 1.4, respawn: 300, drops: { bone: 6, silk: 2 } },
+      { id: 'foreman', name: 'The Quarry Foreman', type: 'brute', zone: 'quarry', when: 'any', mods: ['armored'], hp: 6, scale: 1.4, respawn: 360, drops: { ore: 6, tusk: 2 } },
+    ],
+  },
   // The day in the Hold and on the Rim: length seconds from dawn to dawn (the dungeon below keeps no time). Day and
   // night colours for the sky and fog, the light, the sun or moon, and how far the fog lets you see.
   day: {
@@ -932,10 +952,10 @@ const CFG = {
   // Ysolde brews tonics from herbs
   materials: {
     pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
-    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' }, silk: { name: 'Silk', icon: '🕸' },
   },
   matDrops: {                      // chance per kill on the Rim; below, a third of it
-    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['silk', 0.45], ['herb', 0.2]],
     skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
   },
   // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
@@ -945,6 +965,8 @@ const CFG = {
     { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
     { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
     { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'fenjerkin', name: 'Fensilk Jerkin', slot: 'armor', wc: 0, rarity: 2, aff: ['hp', 'regen'], need: { silk: 5, herb: 2 }, gold: 110 },
+    { id: 'mireboots', name: 'Mirewalker Boots', slot: 'boots', wc: 0, rarity: 2, aff: ['stamina', 'parry'], need: { silk: 3, pelt: 2 }, gold: 90 },
     { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
   ],
   temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
@@ -965,6 +987,11 @@ const CFG = {
         { at: 0.7, shout: 'IT CALLS ITS KIN', summon: ['troll'], faster: 0.9 },
         { at: 0.45, shout: 'THE ARENA SHAKES', summon: ['wolf', 'wolf', 'scout'], def: { speed: 3.9, cooldown: [0.6, 1.2] } },
         { at: 0.2, shout: 'IT WILL NOT DIE', enrage: true, faster: 0.75, def: { regen: 0.015 } },
+      ] },
+    mirelord: { name: 'The Mirelord', scale: 1.25, hp: 4.5, posture: 1.8, reach: 1.15,
+      phases: [
+        { at: 0.65, shout: 'THE MIRE STIRS', summon: ['spider', 'spider'], def: { regen: 0.03 } },
+        { at: 0.3, shout: 'IT RISES FROM THE BOG', enrage: true, faster: 0.8, summon: ['spider', 'goblin'], def: { speed: 3.6, cooldown: [0.7, 1.3] } },
       ] },
     golem: { name: 'The Forge Colossus', scale: 1.15, hp: 3.5, posture: 1.5, reach: 1.15,
       phases: [
@@ -990,7 +1017,8 @@ const CFG = {
     gold: 70, first: 3.5,
     monsters: [
       { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
-      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
+      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'mirelord', kind: 'troll', unlock: 'mirelord', theme: 'temple', fen: true },
+      { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
     ],
   },
   // A raid on the south gate: now and then, a while after the warden comes home, a band marches up the Rim road and
@@ -1171,6 +1199,7 @@ const CFG = {
       'Wolves come in threes. Do not let them circle you.',
       'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
       'Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.',
+      'The east gate opens on the Fen. Black water, spiders as big as dogs, and the drowned dead at night. Mind your footing.',
     ]],
     gemcutter: ['Nell the gem cutter', [
       'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',
@@ -4467,7 +4496,8 @@ const Camp = (() => {
     const stakeG = new THREE.CylinderGeometry(0.16, 0.18, 2.6, 6), tipG = new THREE.ConeGeometry(0.16, 0.4, 6); room.geos.push(stakeG, tipG);
     const stake = (x, z) => { const h = 0.9 + Math.random() * 0.25; const s = new THREE.Mesh(stakeG, wood); s.position.set(x, 1.3 * h, z); s.scale.y = h; s.castShadow = true; group.add(s); const t = new THREE.Mesh(tipG, wood); t.position.set(x, 2.6 * h + 0.2, z); group.add(t); };
     for (let x = -HW - 0.5; x <= HW + 0.5; x += 0.4) { if (Math.abs(x) > 3.4) stake(x, HD + 0.6); if (Math.abs(x) > 3.2) stake(x, -HD - 0.6); }
-    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); stake(HW + 0.6, z); }
+    const egz = CFG.fen.gateZ;                                                  // the east gate onto the Fen
+    for (let z = -HD - 0.5; z <= HD + 0.5; z += 0.4) { stake(-HW - 0.6, z); if (Math.abs(z - egz) > 3.4) stake(HW + 0.6, z); }
     // Watchtowers at the corners
     for (const [x, z] of [[-HW + 1, -HD + 1], [HW - 1, -HD + 1], [-HW + 1, HD - 1], [HW - 1, HD - 1]]) {
       for (const [dx, dz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) add(new THREE.CylinderGeometry(0.12, 0.14, 5, 6), darkWood, x + dx, 2.5, z + dz);
@@ -4478,7 +4508,7 @@ const Camp = (() => {
     const pine = M(0x1e2a22), trunk = M(0x2a1e14);
     for (let i = 0; i < 70; i++) {
       const a = Math.random() * Math.PI * 2, r = 32 + Math.random() * 16, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
-      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2) continue;              // the south side is the Rim's
+      if ((z < -HD && Math.abs(x) < 7) || z > HD - 2 || (lv.fen && x > HW)) continue;   // the south side is the Rim's, the east the Fen's
       const h = 4 + Math.random() * 5;
       add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z);
       add(new THREE.ConeGeometry(1.4 + Math.random(), h, 6), pine, x, 1 + h / 2, z);
@@ -4647,6 +4677,17 @@ const Camp = (() => {
     }
     // The gate doors stand open once the Rim is opened (World adds the road beyond); until then they are shut
     room.southGate = { z: sgz };
+    // The east gate: posts, a lintel and torches; barred with doors until the Fen is opened
+    for (const s of [-1, 1]) {
+      for (const [dx, dz] of [[-0.5, -0.6], [0.5, -0.6], [-0.5, 0.6], [0.5, 0.6]]) add(new THREE.CylinderGeometry(0.13, 0.15, 4.4, 6), darkWood, HW + 0.6 + dx, 2.2, egz + s * 3.6 + dz);
+      add(new THREE.BoxGeometry(1.6, 0.15, 1.7), wood, HW + 0.6, 3.4, egz + s * 3.6); torch(HW + 0.6, 3.6, egz + s * 3.6, lv.fen ? 0xb8e070 : 0xff9a40); block(HW + 0.6, egz + s * 3.6, 1.1);
+    }
+    if (!lv.fen) {
+      for (const s of [-1, 1]) { add(new THREE.BoxGeometry(0.25, 2.8, 2.9), darkWood, HW + 0.6, 1.4, egz + s * 1.45); add(new THREE.BoxGeometry(0.3, 0.2, 2.6), iron, HW + 0.45, 1.6, egz + s * 1.45); }
+      add(new THREE.BoxGeometry(0.2, 0.25, 5.6), iron, HW + 0.4, 1.4, egz);                              // the bar
+      room.spots.push({ id: 'eastgate', name: 'The east gate', verb: 'Look', x: HW - 1.4, z: egz, r: 1.8 });
+    }
+    path(15, -2, HW, egz, 1.7);
     // The alarm bell beside the gate, rung when raiders come up the road (a group of its own, so it can swing)
     for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.14, 2.6, 0.14), darkWood, 6.2 + s * 0.55, 1.3, HD - 1.2);
     add(new THREE.BoxGeometry(1.3, 0.14, 0.18), darkWood, 6.2, 2.6, HD - 1.2); block(6.2, HD - 1.2, 0.7);
@@ -4808,6 +4849,7 @@ const Field = (() => {
     const group = new THREE.Group(); scene.add(group);
     const room = {
       i: -2, kind: 'field', group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
+      side: 'south', def: F, name: F.name,
       rect: { x0: -hw, x1: hw, z0, z1 }, corr: { x0: -2.6, x1: 2.6, z0: HD - 2, z1: z0 + 2 }, cx: 0, cz: (z0 + z1) / 2, hw, southZ: z1, northZ: z0,
       zones: F.zones.map(z => Object.assign({}, z, { x: z.x, z: z0 + z.z, next: 0, filled: false })),
     };
@@ -4878,22 +4920,102 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
-    // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back)
+    placeNodes(room, () => [R(-hw + 4, hw - 4), R(z0 + 6, z1 - 4)], (x, z) => Math.abs(x) < 4);
+    return room;
+  }
+
+  // ---------------- The Fen, through the east gate ----------------
+  // Laid out east of the Hold: x runs out from the palisade, z along it. A boardwalk from the gate, black pools with
+  // reeds, dead trees and drooping willows, a drowned chapel in the Hollow and the cut stone walls of the Old Quarry.
+  function buildFen(scene) {
+    const D = CFG.fen, HW = Camp.HW, [za, zb, depth] = D.size, x0 = HW + D.gap, x1 = x0 + depth, z0 = za, z1 = zb, gz = D.gateZ;
+    const group = new THREE.Group(); scene.add(group);
+    const room = {
+      i: -3, kind: 'field', side: 'east', def: D, name: D.name, group, mats: [], geos: [], texs: [], torches: [], pillars: [], keep: [], fade: 1, occl: 1, occluders: [], state: 'field',
+      rect: { x0, x1, z0, z1 }, corr: { x0: HW - 2, x1: x0 + 2, z0: gz - 2.6, z1: gz + 2.6 }, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, hw: (z1 - z0) / 2,
+      zones: D.zones.map(z => Object.assign({}, z, { x: x0 + z.out, z: gz + z.side, next: 0, filled: false })),
+    };
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
+    const add = (geo, m, x, y, z, shadow = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; group.add(o); room.geos.push(geo); return o; };
+    const block = (x, z, r) => room.pillars.push([x, z, r]);
+    const torch = (x, y, z, color) => { const fm = new THREE.MeshBasicMaterial({ color }); room.mats.push(fm); room.keep.push(fm); const fl = add(new THREE.ConeGeometry(0.12, 0.4, 6), fm, x, y, z, false); room.torches.push({ pos: new THREE.Vector3(x, y + 0.4, z), fl, seed: Math.random() * 10, color }); };
+    const R = (a, b) => a + Math.random() * (b - a);
+    const zone = id => room.zones.find(z => z.id === id);
+    const nearZone = (x, z, pad) => room.zones.some(q => Math.hypot(x - q.x, z - q.z) < q.r * pad);
+    const onRoad = (x, z) => Math.abs(z - gz) < 3.5 && x < x0 + 34;
+
+    // Ground: a dark, wet green from the palisade out (it stops where the Rim's ground begins, south of the Hold)
+    const gt = grass().clone(); gt.needsUpdate = true; gt.repeat.set(24, 24); room.texs.push(gt);
+    const gs = HW + 0.9, ge = x1 + 30, gzs = z0 - 30, gze = Camp.HD + 0.9;
+    add(new THREE.PlaneGeometry(ge - gs, gze - gzs).rotateX(-Math.PI / 2), M(0x8a9a78, { map: gt, flatShading: false }), (gs + ge) / 2, 0.025, (gzs + gze) / 2, false);
+    // The boardwalk from the gate, on posts over the wet ground
+    const plank = M(0x5a4430), post = M(0x3a2a1c);
+    for (let x = HW + 0.5; x < x0 + 34; x += 0.55) add(new THREE.BoxGeometry(0.45, 0.08, 3.2), plank, x, 0.12, gz + Math.sin(x * 0.7) * 0.03, false);
+    for (let x = HW + 3; x < x0 + 34; x += 4) for (const sd of [-1, 1]) add(new THREE.CylinderGeometry(0.08, 0.1, 0.5, 5), post, x, 0.15, gz + sd * 1.7, false);
+    // Black pools with reeds
+    const water = M(0x1a2a24, { roughness: 0.15, metalness: 0.4 }), reed = M(0x8a8a4a), reed2 = M(0x5a6a3a);
+    for (let i = 0; i < 28; i++) {
+      const x = R(x0 + 4, x1 - 4), z = R(z0 + 4, z1 - 4), r = R(1.5, 4.5); if (onRoad(x, z)) continue;
+      add(new THREE.CircleGeometry(r, 9).rotateX(-Math.PI / 2), water, x, 0.04, z, false);
+      for (let k = 0; k < 10; k++) { const a = Math.random() * Math.PI * 2, d = r + R(-0.3, 0.6); add(new THREE.ConeGeometry(0.05, R(0.8, 1.6), 3), k % 2 ? reed : reed2, x + Math.sin(a) * d, 0.5, z + Math.cos(a) * d, false); }
+    }
+    // Trees: a dark wall round the edges; dead trees and willows across the fen
+    const dark = M(0x1c2620), dead = M(0x4a4038), willow = M(0x3a5230), trunk = M(0x2a1e14);
+    const deadTree = (x, z, s = 1) => { const h = R(3, 5.5) * s; add(new THREE.CylinderGeometry(0.12 * s, 0.25 * s, h, 5), dead, x, h / 2, z); for (let k = 0; k < 3; k++) { const b = add(new THREE.CylinderGeometry(0.04, 0.08, R(1.2, 2) * s, 4), dead, x + Math.sin(k * 2.1) * 0.5, h * R(0.55, 0.9), z + Math.cos(k * 2.1) * 0.5); b.rotation.set(Math.cos(k * 2.1) * 0.9, 0, -Math.sin(k * 2.1) * 0.9); } block(x, z, 0.4 * s); };
+    const willowTree = (x, z, s = 1) => { const h = R(3.5, 5) * s; add(new THREE.CylinderGeometry(0.22 * s, 0.32 * s, h, 6), trunk, x, h / 2, z); for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(new THREE.ConeGeometry(0.9 * s, 2.6 * s, 5), willow, x + Math.sin(a) * 0.9 * s, h - 0.6 * s, z + Math.cos(a) * 0.9 * s); } add(new THREE.DodecahedronGeometry(1.5 * s, 0), willow, x, h + 0.3, z); block(x, z, 0.6 * s); };
+    const edgeTree = (x, z) => { const h = R(5, 9); add(new THREE.CylinderGeometry(0.2, 0.3, 1.2, 5), trunk, x, 0.6, z); add(new THREE.ConeGeometry(R(1.4, 2.2), h, 6), dark, x, 1 + h / 2, z); block(x, z, 0.7); };
+    for (let i = 0; i < 80; i++) {
+      const t = Math.random(), side = Math.floor(Math.random() * 3);
+      if (side === 0) edgeTree(x0 + t * depth, z0 - R(1, 10)); else if (side === 1) edgeTree(x0 + t * depth, z1 + R(1, 8)); else edgeTree(x1 + R(1, 10), z0 + t * (z1 - z0));
+    }
+    for (let i = 0; i < 55; i++) {
+      const x = R(x0 + 4, x1 - 3), z = R(z0 + 3, z1 - 3);
+      if (onRoad(x, z) || nearZone(x, z, 0.7)) continue;
+      if (Math.random() < 0.55) deadTree(x, z, R(0.8, 1.2)); else willowTree(x, z, R(0.8, 1.15));
+    }
+    // The Drowned Hollow: a sunken chapel, broken columns standing in the water
+    const hol = zone('hollow'), grey = M(0x6a706c), mossy = M(0x4a5a48);
+    add(new THREE.CircleGeometry(hol.r * 0.7, 12).rotateX(-Math.PI / 2), water, hol.x, 0.05, hol.z, false);
+    add(new THREE.BoxGeometry(5, 3.2, 0.6), mossy, hol.x + hol.r * 0.55, 1.2, hol.z - 2.6).rotation.z = 0.12; add(new THREE.BoxGeometry(0.6, 2.4, 4.6), mossy, hol.x + hol.r * 0.55 + 2.4, 1.0, hol.z).rotation.x = -0.1;
+    add(new THREE.ConeGeometry(2.6, 2, 4), M(0x3a3a40), hol.x + hol.r * 0.55 + 0.4, 3.1, hol.z - 0.8).rotation.set(0.15, Math.PI / 4, 0.12);
+    block(hol.x + hol.r * 0.55, hol.z - 2.6, 2.4); block(hol.x + hol.r * 0.55 + 2.4, hol.z, 2.2);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, x = hol.x + Math.sin(a) * hol.r * 0.6, z = hol.z + Math.cos(a) * hol.r * 0.6, h = R(0.8, 3.2); add(new THREE.CylinderGeometry(0.35, 0.4, h, 7), grey, x, h / 2, z).rotation.z = R(-0.25, 0.25); block(x, z, 0.5); }
+    // The Old Quarry: cut stone walls behind, blocks and a wooden crane
+    const qy = zone('quarry'), stone = M(0x7a7266), rock = M(0x4e483e);
+    for (let k = 0; k < 7; k++) { const a = -1.2 + k * 0.4, x = qy.x + Math.cos(a) * (qy.r + 3), z = qy.z + Math.sin(a) * (qy.r + 3), h = R(5, 8); add(new THREE.BoxGeometry(5, h, 3), rock, x, h / 2, z).rotation.y = -a; block(x, z, 2.8); }
+    for (let i = 0; i < 14; i++) { const a = Math.random() * Math.PI * 2, r = R(3, qy.r - 2), x = qy.x + Math.sin(a) * r, z = qy.z + Math.cos(a) * r, s = R(0.6, 1.3); add(new THREE.BoxGeometry(s * 1.4, s, s), stone, x, s / 2, z).rotation.y = a; block(x, z, s * 0.8); }
+    const crane = M(0x5a4028); add(new THREE.BoxGeometry(0.3, 6, 0.3), crane, qy.x - 4, 3, qy.z + 5); add(new THREE.BoxGeometry(0.25, 0.25, 5), crane, qy.x - 4, 5.8, qy.z + 3).rotation.x = 0.2; block(qy.x - 4, qy.z + 5, 0.5);
+    // Lanterns along the boardwalk (a sickly green light out here) and zone signs
+    for (const x of [HW + 3, x0 + 6, x0 + 18, x0 + 30]) for (const sd of [-1, 1]) { add(new THREE.CylinderGeometry(0.07, 0.08, 2, 6), trunk, x, 1, gz + sd * 2.2); torch(x, 2, gz + sd * 2.2, 0xb8e070); block(x, gz + sd * 2.2, 0.25); }
+    const sign = M(0x6a4a2c);
+    for (const q of room.zones) { const a = Math.atan2(x0 - q.x, gz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.4, z).rotation.y = a; }
+    Rig.bake(group, false, room.keep);
+    placeNodes(room, () => [R(x0 + 6, x1 - 4), R(z0 + 4, z1 - 4)], onRoad);
+    return room;
+  }
+
+  // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back).
+  // spot() gives a random place, onRoad(x, z) keeps them off the road.
+  function placeNodes(room, spot, onRoad) {
     room.nodes = [];
+    const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.95, flatShading: true }, o)); room.mats.push(m); return m; };
     const herbM = M(0x6aa83a), flowerM = new THREE.MeshBasicMaterial({ color: 0xd8f070 }), oreM = M(0x5a5a5e), veinM = new THREE.MeshBasicMaterial({ color: 0xd88a4a });
     room.mats.push(flowerM, veinM);
-    const N = F.nodes;
+    const N = room.def.nodes;
     for (const [kind, n] of [['herb', N.herb], ['ore', N.ore]]) for (let k = 0, tries = 0; k < n && tries < 400; tries++) {
-      const x = R(-hw + 4, hw - 4), z = R(z0 + 6, z1 - 4);
-      if (Math.abs(x) < 4 || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
-      const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+      const [x, z] = spot();
+      if (onRoad(x, z) || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
+      const g = new THREE.Group(); g.position.set(x, 0, z); room.group.add(g);
       if (kind === 'herb') for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; const st = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 4), herbM); st.position.set(Math.sin(a) * 0.2, 0.25, Math.cos(a) * 0.2); g.add(st); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), flowerM); fl.position.set(Math.sin(a) * 0.2, 0.52, Math.cos(a) * 0.2); g.add(fl); room.geos.push(st.geometry, fl.geometry); }
       else { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), oreM); r.position.y = 0.3; r.castShadow = true; g.add(r); room.geos.push(r.geometry); for (let j = 0; j < 4; j++) { const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), veinM); v.position.set(Math.sin(j * 1.6) * 0.45, 0.35 + (j % 2) * 0.2, Math.cos(j * 1.6) * 0.45); g.add(v); room.geos.push(v.geometry); } room.pillars.push([x, z, 0.6]); }
       Rig.bake(g);                                                        // a patch or vein draws as one or two meshes
-      room.nodes.push({ kind, x, z, g, ready: true, t: 0 }); k++;
+      room.nodes.push({ kind, x, z, g, room, ready: true, t: 0 }); k++;
     }
-    return room;
   }
+  // How far out from the Hold a point is (metres past the field's near edge: south for the Rim, east for the Fen)
+  const inward = (room, pos) => room.side === 'east' ? pos.x - room.rect.x0 : pos.z - room.rect.z0;
+  // Is the warden out in this field (past the road from the gate)?
+  function at(room, pos) { return inward(room, pos) > -1 && (room.side !== 'east' || (pos.z > room.rect.z0 - 2 && pos.z < room.rect.z1 + 2)); }
 
   // How tough the Rim is: zone by zone, and growing with the warden's progress below
   function multOf(z) { const S = Items.S, k = Math.min(S ? S.stage : 0, CFG.stages.length - 1); return { mult: z.mult * (1 + CFG.stageScale * k * 0.6), hpMult: 1 + CFG.stageHp * k * 0.6 }; }
@@ -4912,7 +5034,7 @@ const Field = (() => {
   function update(room, dt, p) {
     for (const n of room.nodes) if (!n.ready && (n.t -= dt) <= 0) { n.ready = true; n.g.visible = true; }
     if (!p || G.state !== 'play' || G.training) return;
-    const here = p.pos.z > room.rect.z0 - 3;
+    const here = inward(room, p.pos) > -3 && (room.side !== 'east' || Math.abs(p.pos.z - room.cz) < (room.rect.z1 - room.rect.z0) / 2 + 3);
     const night = G.isNight ? G.isNight() : false;
     for (const z of room.zones) {
       // The dead keep to the night: at dawn they crumble back into their graves
@@ -4925,24 +5047,27 @@ const Field = (() => {
       if (G.time < z.next) continue;
       const at = spotIn(room, z, p.pos); if (!at) continue;
       const type = mobs[Math.floor(Math.random() * mobs.length)], m = multOf(z);
-      G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, t: G.time });
+      G.queue.push({ type, at, mult: m.mult, hpMult: m.hpMult, zone: z, home: room, t: G.time });
       z.next = G.time + (z.filled ? z.respawn : 0.25);
     }
     // Field bosses: each in its zone at its time of day, back a while (real time) after it falls
     const S = Items.S; S.fieldBoss = S.fieldBoss || {};
-    for (const B of F.bosses) {
+    for (const B of room.def.bosses) {
       const z = room.zones.find(q => q.id === B.zone), up = B.when === 'any' || (B.when === 'night' ? night : !night);
       const alive = G.enemies.find(e => e.fieldBoss === B && e.state !== 'dead'), queued = G.queue.some(q => q.fieldBoss === B);
       if (alive && !up && !alive.aggro) { alive.remove = true; continue; }           // gone with the dawn (or the dusk)
       if (alive || queued || !up || Date.now() < (S.fieldBoss[B.id] || 0)) continue;
       if (Math.hypot(p.pos.x - z.x, p.pos.z - z.z) > z.r + 25 || !here) continue;
       const at = spotIn(room, z, p.pos); if (!at) continue;
-      const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, fieldBoss: B, t: G.time });
+      const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, home: room, fieldBoss: B, t: G.time });
     }
     // Beasts left far behind (or the warden back in the Hold) are let go
-    for (const e of G.enemies) if (e.zone && !e.raid && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
+    for (const e of G.enemies) if (e.zone && e.home === room && !e.raid && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
     // ...and no beast follows the warden through the gate
-    for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
+    for (const e of G.enemies) if (e.zone && (e.home === room || (e.raid && room.side === 'south')) && inward(room, e.pos) < 0.5) {
+      if (room.side === 'east') e.pos.x = room.rect.x0 + 0.5; else e.pos.z = room.rect.z0 + 0.5;
+      if (e.aggro && inward(room, p.pos) < -1) { e.aggro = false; e.wanderT = 0; }
+    }
   }
   // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
   function nearest(room, pos) {
@@ -4954,12 +5079,12 @@ const Field = (() => {
   function gather(node) {
     if (!node.ready) return 0;
     const n = 1 + Math.floor(Math.random() * (node.kind === 'herb' ? 3 : 2));
-    Items.addMat(node.kind, n); node.ready = false; node.t = F.nodes.regrow; node.g.visible = false;
+    Items.addMat(node.kind, n); node.ready = false; node.t = (node.room ? node.room.def : F).nodes.regrow; node.g.visible = false;
     return n;
   }
   // The zone the hero stands in (for the label and the map)
   function zoneAt(room, pos) { return room.zones.find(z => Math.hypot(pos.x - z.x, pos.z - z.z) < z.r + 2) || null; }
-  return { build, update, zoneAt, multOf, nearest, gather };
+  return { build, buildFen, update, zoneAt, multOf, nearest, gather, at, inward };
 })();
 
 </script>
@@ -5506,8 +5631,10 @@ const World = (() => {
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
     clearAll();
-    rooms.push(Camp.build(scene, Object.assign({}, levels || (Items.S && Items.S.camp), { rescued: (Items.S && Items.S.rescued) || [], wanderer: !!(Items.S && Items.S.wander) })));
+    const fen = fenOpen();
+    rooms.push(Camp.build(scene, Object.assign({}, levels || (Items.S && Items.S.camp), { rescued: (Items.S && Items.S.rescued) || [], wanderer: !!(Items.S && Items.S.wander), fen })));
     rooms.push(Field.build(scene));                                         // the Rim, through the south gate
+    if (fen) rooms.push(Field.buildFen(scene));                             // the Fen, through the east gate (after Act I)
     applyTheme(CFG.themes.camp);
     return Camp.spawn;
   }
@@ -5534,16 +5661,19 @@ const World = (() => {
   }
   const inCamp = () => rooms.some(r => r.kind === 'camp');
   const camp = () => rooms.find(r => r.kind === 'camp');
-  const field = () => rooms.find(r => r.kind === 'field');
+  const field = () => rooms.find(r => r.kind === 'field' && r.side === 'south');           // the Rim
+  const fields = () => rooms.filter(r => r.kind === 'field');
+  const fieldAt = pos => fields().find(f => Field.at(f, pos)) || null;                    // the field the warden is out in
+  const fenOpen = () => !!(Items.S && Items.S.stage >= CFG.fen.unlock);
 
   function label() {
-    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
+    if (inCamp()) { const p = G.player, f = p && fieldAt(p.pos); if (f) { const z = Field.zoneAt(f, p.pos); return f.name + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field,
+    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field, fields, fieldAt, fenOpen,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();
@@ -6337,17 +6467,18 @@ const MiniMap = (() => {
   }
   // The Hold and the Rim: the camp, the road, the field and its zones (red where beasts are roused), beasts and the hero
   function drawRim(W, half, p) {
-    const camp = World.camp(), f = World.field();
+    const camp = World.camp(), F = World.fields(), f = World.fieldAt(p.pos) || World.field();
     ctx.clearRect(0, 0, W, W); ctx.save();
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
     let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
-    if (big) { const x0 = f.rect.x0, x1 = f.rect.x1, z0 = camp.rect.z0, z1 = f.rect.z1; scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
+    if (big) { const R = F.map(q => q.rect).concat(camp.rect), x0 = Math.min(...R.map(q => q.x0)), x1 = Math.max(...R.map(q => q.x1)), z0 = Math.min(...R.map(q => q.z0)), z1 = Math.max(...R.map(q => q.z1)); scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
     else { scale = W / 60; if (View.mode === 'behind') rot = View.yaw; }
     ctx.translate(half, half); ctx.rotate(rot); ctx.scale(scale, scale); ctx.translate(-cx, -cz);
     const rect = (q, fill) => { ctx.fillStyle = fill; ctx.fillRect(q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0); };
-    rect(f.rect, 'rgba(70,96,56,0.5)'); rect(f.corr, C.floor); rect(camp.rect, 'rgba(150,120,80,0.55)');
+    for (const q of F) { rect(q.rect, q.side === 'east' ? 'rgba(52,80,64,0.5)' : 'rgba(70,96,56,0.5)'); rect(q.corr, C.floor); }
+    rect(camp.rect, 'rgba(150,120,80,0.55)');
     ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / scale; ctx.strokeRect(camp.rect.x0, camp.rect.z0, camp.rect.x1 - camp.rect.x0, camp.rect.z1 - camp.rect.z0);
-    for (const z of f.zones) {
+    for (const z of F.flatMap(q => q.zones)) {
       const roused = G.enemies.some(e => e.zone === z && e.aggro && e.state !== 'dead');
       ctx.fillStyle = roused ? 'rgba(200,60,40,0.4)' : 'rgba(160,120,60,0.28)'; ctx.beginPath(); ctx.arc(z.x, z.z, z.r, 0, Math.PI * 2); ctx.fill();
     }
@@ -6359,7 +6490,7 @@ const MiniMap = (() => {
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
     ctx.restore(); ctx.restore();
     const z = G.mode === 'field' ? Field.zoneAt(f, p.pos) : null;
-    info.textContent = G.mode === 'field' ? (z ? z.name : 'The Rim') : 'Deepward Hold';
+    info.textContent = G.mode === 'field' ? (z ? z.name : f.name) : 'Deepward Hold';
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
   }
   return { draw, toggle, get big() { return big; } };
@@ -6659,7 +6790,10 @@ const Jobs = (() => {
     } else {                                                               // a boss: of the Rim, or a guardian already beaten
       const beaten = CFG.stages.slice(0, s.stage).map(st => st.guardian);
       if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(150 * depth()), gem: true, title: `Slay ${target} again` }; }
-      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
+      else {
+        const fen = World.fenOpen() && Math.random() < 0.5, B = pick(fen ? CFG.fen.bosses : CFG.field.bosses);
+        j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth() * (fen ? 1.3 : 1)), gem: true, title: `Fell ${B.name} ${fen ? 'in the Fen' : 'on the Rim'}` };
+      }
     }
     j.id = (s.nextJob = (s.nextJob || 0) + 1); j.base = j.kind === 'gather' ? 0 : count(j);
     return j;
@@ -7039,7 +7173,7 @@ function updateSpawns() {
       else { Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp; e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; }
       e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
     }
-    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
+    if (q.zone) { e.zone = q.zone; e.home = q.home; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.raid) e.raid = true;                                             // a raider on the Rim road
     if (q.champion) {
@@ -7086,7 +7220,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.fieldAt(p.pos) || World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -7203,6 +7337,7 @@ function enterCamp(atSpawn = true) {
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
   if (atSpawn) rollRaid();
+  if (World.fenOpen() && !S.fenSeen) { S.fenSeen = true; Items.save(); G.after(1.2, () => say([['Captain Rook', 'Five guardians down. I have unbarred the east gate: the Fen is yours to walk now.'], ['Captain Rook', 'Spiders the size of dogs in the Black Mire, the drowned dead in the Hollow at night, goblins working the old quarry. Bring silk back for Bram.']])); }
   const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
   if (atSpawn) {
     S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
@@ -7270,10 +7405,10 @@ G.onFieldBoss = (e, roused) => { if (roused) { G.boss = e; banner(e.fieldBoss.na
 // Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
 // the Hold the gold is banked and the tonics wear off
 function checkRim() {
-  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  const f = World.fieldAt(G.player.pos), out = !!f, want = out ? 'field' : 'camp';
   if (want === G.mode || Tutorial.active) return;
   G.mode = want;
-  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner(f.name.toUpperCase()); }
   else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
   Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
 }
@@ -7424,7 +7559,7 @@ G.arenaList = () => {
   CFG.stages.slice(0, top).forEach((st, si) => out.push({ id: 'g' + si, name: st.guardian, si, lvl: si, theme: st.theme, won: won['g' + si] || 0 }));
   for (const M of CFG.arena.monsters) {
     const B = CFG.monsterBosses[M.id], beaten = CFG.arena.monsters.filter(m => !m.final).every(m => won[m.id]);
-    const open = M.final ? beaten : (kills[M.unlock] || 0) > 0, hint = M.final ? 'Beat the other three in the Ring' : 'Fell ' + ((CFG.field.bosses.find(b => b.id === M.unlock) || {}).name || '').replace(/^The /, 'the ') + ' on the Rim';
+    const open = M.final ? beaten : (kills[M.unlock] || 0) > 0, hint = M.final ? 'Beat the others in the Ring' : 'Fell ' + ((CFG.field.bosses.concat(CFG.fen.bosses).find(b => b.id === M.unlock) || {}).name || '').replace(/^The /, 'the ') + (M.fen ? ' in the Fen' : ' on the Rim');
     out.push({ id: M.id, name: B.name, monster: M.id, kind: M.kind, lvl: Math.max(0, top - 1) + (M.final ? 2 : 0), theme: M.theme, won: won[M.id] || 0, locked: !open && hint, final: !!M.final });
   }
   return out;
@@ -7527,6 +7662,7 @@ function interact() {
     return say([[who, lines[i]]]);
   }
   if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
 // The training yard: Hobb's six lessons, in camp

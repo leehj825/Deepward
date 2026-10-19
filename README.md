@@ -44,6 +44,7 @@ Every model is built in code from primitives, and there are no model, texture or
 - **The Ring:** Varga's arena past the dummies. Fight any guardian you have beaten again, alone in its lair, for gold and a gem (more the first time). The Ridge Horror, Mossback and the Forge Colossus join once you have felled them on the Rim, and **the Abomination**, the biggest of the great beasts, which calls trolls, wolves and goblins into the Ring, waits for whoever has beaten all three there.
 - **Raids:** now and then, a while after you come home, the horn sounds and the gate bell rings: a goblin band (wolves, boars and scouts with it, a troll chief from the Act I end) marches up the Rim road to batter the south gate. The HUD shows the band and the gate's strength, and the minimap pulses red at the gate. Captain Rook and the sentry go out past the gate and spear raiders in reach, but they cannot hold it alone. Beat them all for gold, pelts and ore; if the gate breaks, they run off with 8% of your gold (at most 400).
 - **Sefa's caravan:** some homecomings a painted wagon stands in the north-west of the Hold for two visits. Sefa sells two rare-or-better pieces a tier above your depth, bundles of materials and a loose gem, and buys spare materials.
+- **The Fen** (after the first five guardians): Captain Rook unbars the east gate onto a second, tougher field: a boardwalk over black pools, reeds, dead trees and willows. **The Reedbank** (goblins, scouts, spiders), **the Black Mire** (spiders; wolves at night), **the Drowned Hollow** around a sunken chapel (the dead, at night only) and **the Old Quarry** (brutes, goblins, shield-bearers). Field bosses: **the Mire Queen** (a huge spider, by day), **the Mirelord** (a troll boss, at night, who then joins the Ring), **the Drowned Bishop** (a warded bone caller, at night) and **the Quarry Foreman** (an armoured brute). Spiders drop **silk** 🕸, for Bram's **Fensilk Jerkin** and **Mirewalker Boots**.
 - Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
 
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
@@ -401,7 +402,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
 | `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
 | `js/jobs.js` | The notice board's jobs: making them, counting progress, turning them in |
-| `js/field.js` | The Rim: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
+| `js/field.js` | The Rim and the Fen: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |

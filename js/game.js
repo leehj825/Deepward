@@ -302,7 +302,7 @@ function updateSpawns() {
       else { Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp; e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; }
       e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
     }
-    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
+    if (q.zone) { e.zone = q.zone; e.home = q.home; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.raid) e.raid = true;                                             // a raider on the Rim road
     if (q.champion) {
@@ -349,7 +349,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.fieldAt(p.pos) || World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -466,6 +466,7 @@ function enterCamp(atSpawn = true) {
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
   if (atSpawn) rollRaid();
+  if (World.fenOpen() && !S.fenSeen) { S.fenSeen = true; Items.save(); G.after(1.2, () => say([['Captain Rook', 'Five guardians down. I have unbarred the east gate: the Fen is yours to walk now.'], ['Captain Rook', 'Spiders the size of dogs in the Black Mire, the drowned dead in the Hollow at night, goblins working the old quarry. Bring silk back for Bram.']])); }
   const tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
   if (atSpawn) {
     S.stock = [0, 1, 2].map(() => Items.generate(tier, { boost: 0.4 }));
@@ -533,10 +534,10 @@ G.onFieldBoss = (e, roused) => { if (roused) { G.boss = e; banner(e.fieldBoss.na
 // Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
 // the Hold the gold is banked and the tonics wear off
 function checkRim() {
-  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  const f = World.fieldAt(G.player.pos), out = !!f, want = out ? 'field' : 'camp';
   if (want === G.mode || Tutorial.active) return;
   G.mode = want;
-  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner(f.name.toUpperCase()); }
   else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
   Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
 }
@@ -687,7 +688,7 @@ G.arenaList = () => {
   CFG.stages.slice(0, top).forEach((st, si) => out.push({ id: 'g' + si, name: st.guardian, si, lvl: si, theme: st.theme, won: won['g' + si] || 0 }));
   for (const M of CFG.arena.monsters) {
     const B = CFG.monsterBosses[M.id], beaten = CFG.arena.monsters.filter(m => !m.final).every(m => won[m.id]);
-    const open = M.final ? beaten : (kills[M.unlock] || 0) > 0, hint = M.final ? 'Beat the other three in the Ring' : 'Fell ' + ((CFG.field.bosses.find(b => b.id === M.unlock) || {}).name || '').replace(/^The /, 'the ') + ' on the Rim';
+    const open = M.final ? beaten : (kills[M.unlock] || 0) > 0, hint = M.final ? 'Beat the others in the Ring' : 'Fell ' + ((CFG.field.bosses.concat(CFG.fen.bosses).find(b => b.id === M.unlock) || {}).name || '').replace(/^The /, 'the ') + (M.fen ? ' in the Fen' : ' on the Rim');
     out.push({ id: M.id, name: B.name, monster: M.id, kind: M.kind, lvl: Math.max(0, top - 1) + (M.final ? 2 : 0), theme: M.theme, won: won[M.id] || 0, locked: !open && hint, final: !!M.final });
   }
   return out;
@@ -790,6 +791,7 @@ function interact() {
     return say([[who, lines[i]]]);
   }
   if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
 // The training yard: Hobb's six lessons, in camp
