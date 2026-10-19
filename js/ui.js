@@ -7,9 +7,12 @@ const UI = (() => {
   const R = CFG.gear.rarities;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
+  // An item's picture (rendered by GearView), or a plain glyph when there is no WebGL
+  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', gloves: '🧤', boots: '👢', trinket: '📿', ring: '💍' };
+  const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow${it.uniq ? ' uniq' : ''}"><div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -47,6 +50,83 @@ const UI = (() => {
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
   const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
 
+  // ---------------- Gear screen helpers ----------------
+  // The selected piece: { it, equipped, slot } from tab.gsel ('e:<slot>' or 'i:<id>')
+  function gearSel() {
+    const S = Items.S, [k, v] = String(tab.gsel || '').split(':');
+    if (k === 'e') return { it: S.equip[v] || null, equipped: true, slot: v };
+    const it = S.inv.find(x => x.id === +v); return it ? { it, equipped: false, slot: it.slot } : null;
+  }
+  const gemDots = it => it.gems && it.gems.length ? `<span class="gems">${it.gems.map(g => `<i class="${g || 'none'}"></i>`).join('')}</span>` : '';
+  // The one number each slot is mostly about, to mark bag pieces that beat what is worn
+  function power(it) {
+    if (!it) return 0;
+    const m = Items.main(it);
+    return it.slot === 'weapon' ? m.dmg * CFG.gear.weapons[it.type].dmg : it.slot === 'shield' ? m.block : it.slot === 'armor' ? m.hp * (1 + m.dr * 4) : it.slot === 'helm' ? m.hp + m.stamina : it.aff.length + it.rarity;
+  }
+  // The bag as shown: only one slot's pieces if filtered, in the chosen order
+  function bagView(inv, sort, filt) {
+    const list = inv.filter(it => filt === 'all' || it.slot === filt), order = CFG.gear.slots;
+    if (sort === 'rarity') list.sort((a, b) => (b.uniq ? 4 : b.rarity) - (a.uniq ? 4 : a.rarity) || b.tier - a.tier);
+    else if (sort === 'slot') list.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot) || power(b) - power(a));
+    else if (sort === 'power') list.sort((a, b) => (better(b) - better(a)) || power(b) / (power(Items.S.equip[b.slot]) || 1) - power(a) / (power(Items.S.equip[a.slot]) || 1));
+    else list.reverse();                                                     // newest first
+    return list;
+  }
+  const better = it => { const cur = Items.S.equip[it.slot]; return !cur || power(it) > power(cur) * 1.02; };
+  // What wearing a piece would change, as green and red differences in the hero's numbers (all are better higher)
+  // Each row: stat key, name, and the unit its difference is shown in: n a number, x a multiplier, p percentage
+  // points, s seconds, m metres
+  const CMP = [['maxHp', 'Health', 'n'], ['maxSt', 'Stamina', 'n'], ['dmg', 'Damage', 'x'], ['posture', 'Posture damage', 'x'], ['speed', 'Swing speed', 'p'],
+    ['range', 'Reach', 'm'], ['block', 'Block', 'p'], ['dr', 'Armour', 'p'], ['crit', 'Critical chance', 'p'], ['parry', 'Parry window', 's'],
+    ['regen', 'Stamina regen', 'p'], ['lifesteal', 'Life on hit', 'p'], ['goldFind', 'Gold found', 'p'], ['flasks', 'Flasks', 'n'], ['burn', 'Fire', 'p'], ['chill', 'Frost', 'p'], ['shock', 'Shock', 'p'],
+    ['move', 'Walk speed', 'p'], ['dashDist', 'Dash reach', 'p'], ['dashCost', 'Dash stamina', 'p', true], ['load', 'Load', 'w', true]];
+  const UNIT = { w: d => d.toFixed(1), n: d => Math.round(d), x: d => d.toFixed(2), p: d => Math.round(d * 100) + '%', s: d => d.toFixed(3) + ' s', m: d => d.toFixed(2) + ' m' };
+  function compare(a, b) {
+    const rows = [];
+    for (const [k, name, u, lowGood] of CMP) {
+      const d = (b[k] || 0) - (a[k] || 0), shown = UNIT[u](Math.abs(d)), good = lowGood ? d < 0 : d > 0;
+      if (!parseFloat(shown)) continue;                                    // too small to show
+      rows.push(`<span class="${good ? 'cup' : 'cdown'}">${good ? '▲' : '▼'} ${name} ${d > 0 ? '+' : '−'}${shown}</span>`);
+    }
+    if (!a.twoHanded && !a.dual && (b.twoHanded || b.dual)) rows.push('<span class="cdown">✋ Both hands full: the shield goes unused</span>');
+    if ((a.twoHanded || a.dual) && !b.twoHanded && !b.dual) rows.push('<span class="cup">🛡 The shield is used again</span>');
+    return rows.length ? `<div class="cmp">${rows.join('')}</div>` : '<div class="cmp dim">No change to your numbers</div>';
+  }
+  function gearDetail(st) {
+    const g = gearSel(), C = CFG.gear;
+    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
+    const it = g.it, cur = g.equipped ? null : Items.S.equip[it.slot];
+    let h = `<div class="gdetail${it.uniq ? ' uq' : ''}" style="--rc:${Items.colorOf(it)}">${pic(it, 'ipic big')}<div class="gdtext"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b>`;
+    h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
+    h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
+    if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
+    if (!g.equipped) h += `<div class="gcmp">${cur ? `Instead of <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b>:` : 'Wearing it:'}${compare(st, Items.statsWith(it.slot, it))}</div>`;
+    else h += `<div class="gcmp">Taking it off:${compare(st, Items.statsWith(it.slot, null))}</div>`;
+    h += `<div class="tact">${g.equipped ? btn('Take off', 'unequip', it.slot, Items.S.inv.length >= C.invSize) : btn(cur ? 'Equip (swap)' : 'Equip', 'equip', it.id, false, 'hot')
+      + (World.inCamp() ? ' ' + btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'bagsalvage', it.id, !!it.uniq) : '')}</div>${!g.equipped && it.uniq && World.inCamp() ? '<small class="dim">Uniques are not salvaged here; Bram will take one at the forge.</small>' : ''}</div></div>`;
+    return h;
+  }
+
+  // The materials carried, as a short line
+  const matLine = () => { const M = Items.S.mats || {}; const have = Object.keys(CFG.materials).filter(k => M[k] > 0); return have.length ? 'Materials: ' + have.map(k => `${CFG.materials[k].icon} ${CFG.materials[k].name} ×${M[k]}`).join(' · ') : '<span class="dim">No materials yet: hunt on the Rim, gather herbs and ore.</span>'; };
+  const brewNeed = t => Object.assign({ herb: t.herbs }, t.ore ? { ore: t.ore } : {});
+  // Setting, prying and socketing gems in worn gear (Bram's Gems tab and Nell's bench)
+  function gemsBody(say) {
+    const S = Items.S, GM = CFG.gear.gems, SC = CFG.gear.sockets;
+    let h = `<p>${say} · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
+    h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
+    for (const slot of SC.slots) {
+      const it = S.equip[slot]; if (!it) continue;
+      const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
+      let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
+      if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
+      if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
+      h += itemRow(it, b || '<small class="dim">No gems</small>');
+    }
+    return h;
+  }
+
   // ---------------- Panels ----------------
   const PANELS = {
     dialogue(o) {
@@ -56,11 +136,12 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['craft', 'Craft'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
-          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok)); }).join('') : '<p class="dim">Nothing equipped.</p>';
+          const T = CFG.temper, tOk = !max && Items.hasMats({ ore: T.ore }) && S.scrap >= T.scrap;
+          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok) + btn(`Temper · ${CFG.materials.ore.icon}${T.ore} ⚙${T.scrap}`, 'temper', it.id, !tOk)); }).join('') : '<p class="dim">Nothing equipped.</p>';
       } else if (t === 'forge') {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
@@ -69,18 +150,23 @@ const UI = (() => {
           if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
         }
-      } else if (t === 'gems') {
-        const GM = CFG.gear.gems, SC = CFG.gear.sockets;
-        h += `<p>"A stone in the steel. I'll set it, pry it, or cut you a new socket." · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
-        h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
-        for (const slot of SC.slots) {
-          const it = S.equip[slot]; if (!it) continue;
-          const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
-          let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
-          if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
-          if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
-          h += itemRow(it, b || '<small class="dim">No gems</small>');
+      } else if (t === 'reroll') {
+        h += '<p>"Don\'t like a bonus? I\'ll rework it." Bram swaps one bonus of a worn piece for a different kind, rolled fresh for its tier. Each rework of the same piece costs more.</p>';
+        const eq = CFG.gear.slots.map(s => S.equip[s]).filter(it => it && it.aff.length);
+        if (!eq.length) h += '<p class="dim">Nothing you wear has a bonus to rework.</p>';
+        for (const it of eq) {
+          const c = Items.rerollCost(it), ok = S.gold >= c.gold && S.scrap >= c.scrap;
+          h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
         }
+      } else if (t === 'craft') {
+        h += `<p>"Bring me what the Rim gives up, and I'll make something of it." · ${matLine()}</p>`;
+        for (const r of CFG.crafts) {
+          const ok = Items.hasMats(r.need) && S.gold >= r.gold && S.inv.length < CFG.gear.invSize, Rr = CFG.gear.rarities[r.rarity];
+          const need = Object.entries(r.need).map(([k, n]) => `${CFG.materials[k].icon}${n}`).join(' ');
+          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${CFG.gear.slotNames[r.slot]}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
+        }
+      } else if (t === 'gems') {
+        h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
       }
@@ -112,8 +198,9 @@ const UI = (() => {
       // The Endless Deep, once the fifth guardian has fallen
       const E = S.endless || { best: 0, daily: {} }, daily = E.daily && E.daily.date === Endless.today() ? E.daily.best : 0;
       if (Endless.unlocked()) {
-        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
-        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
+        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Choose curses…', 'open', 'curses', false, 'hot')}</div></div>`;
+        const dc = CFG.curses.find(c => c.id === Endless.dailyCurse());
+        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today, under today's curse: ${dc.icon} ${dc.name} (${esc(dc.desc.toLowerCase())}), +${Math.round(dc.gold * 100)}% gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
       } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
@@ -152,16 +239,32 @@ const UI = (() => {
     deeper(o) {
       const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
       return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
-        <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
+        ${G.run && G.run.curses.length ? `<p class="dim">Carrying: ${G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ')} · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold</p>` : ''}<p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
         ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
+    // The gear screen: the hero in their gear between the five slots, the numbers, the selected item's details, and the
+    // bag as a grid of pictures. Selecting a piece shows it; selecting it again (or the button) equips or takes it off.
     bag() {
-      const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
-      let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      const GM = CFG.gear.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
-      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ${GM[k].name} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${CFG.gear.uniques.length}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
-      h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
+      const S = Items.S, st = Items.stats(), inCamp = World.inCamp(), C = CFG.gear;
+      if (!tab.gsel || !gearSel()) tab.gsel = S.inv.length ? 'i:' + S.inv[0].id : 'e:weapon';
+      const sel = tab.gsel;
+      const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
+        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
+          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
+      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('gloves')}${slot('boots')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}${slot('trinket')}${slot('ring')}`;
+      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div><div class="gload l${st.loadClass}">⚖ ${CFG.gear.weightNames[st.loadClass]} load ${st.load} · dash ${Math.round(st.dashDist * 100)}% reach, ${Math.round(st.dashCost * 100)}% stamina · walk ${Math.round(st.move * 100)}%</div></div><div class="gright">`;
+      const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
+      h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="bagbar">`
+        + ['all', ...C.slots].map(k => btn(k === 'all' ? 'All' : GLYPH[k], 'bagfilter', k, false, 'chip' + (filt === k ? ' on' : ''))).join('')
+        + btn('⇅ ' + SORTS[sort], 'bagsort', '', false, 'chip sort') + '</div><div class="igrid">';
+      for (const it of bagView(S.inv, sort, filt)) h += `<button class="pb icell r${it.rarity}${it.uniq ? ' uq' : ''}${sel === 'i:' + it.id ? ' sel' : ''}" data-act="gsel" data-arg="i:${it.id}" title="${esc(Items.fullName(it))}">${pic(it)}${it.plus ? `<span class="plus">+${it.plus}</span>` : ''}${better(it) ? '<span class="up">▲</span>' : ''}${gemDots(it)}</button>`;
+      if (filt === 'all') for (let i = S.inv.length; i < Math.min(C.invSize, S.inv.length + 4); i++) h += '<i class="icell none"></i>';      // a few open places, not the whole bag
+      h += '</div>';
+      if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
+      h += gearDetail(st) + '</div></div>';
+      const GM = C.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">${matLine()}</div>`;
+      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
       return h + btn('Close', 'close', '', false, 'leave');
@@ -187,10 +290,38 @@ const UI = (() => {
         const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
         const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
         return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
-      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage. Land hits with a weapon to train it.</p>';
+      }).join('') + '</div><p class="dim">Rank 1: +4% damage · rank 2: a fourth, finishing blow · rank 3: +8% posture damage and the weapon\'s art (hold block and press heavy). Land hits with a weapon to train it.</p>'
+        + '<div class="arts">' + Object.entries(CFG.player.arts).map(([k, a]) => `<div class="${Items.masteryRank(k) >= 3 ? 'got' : 'dim'}"><b>${esc(CFG.gear.weapons[k].name)}: ${esc(a.name)}</b> <small>${esc(a.desc)} · ${a.cd} s</small></div>`).join('') + '</div>';
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Before an Endless climb: pick any curses (each harder, each more gold), then descend
+    curses() {
+      const S = Items.S, E = S.endless || {}, on = tab.curses || (tab.curses = (E.lastCurses || []).slice()), gold = Endless.curseGold(on);
+      let h = '<h2>Curses of the Deep</h2><p class="sub">Carry curses into the Endless Deep for more gold. They last the whole climb, and they add up.</p>';
+      for (const c of CFG.curses) {
+        const sel = on.includes(c.id);
+        h += `<div class="irow curse${sel ? ' got' : ''}"><div class="iinfo"><b>${c.icon} ${esc(c.name)}</b> <small class="goldc">+${Math.round(c.gold * 100)}% gold</small><div class="istats">${esc(c.desc)}</div></div><div class="ibtns">${btn(sel ? 'Carried' : 'Carry', 'curse', c.id, false, sel ? 'on' : '')}</div></div>`;
+      }
+      const heat = E.heat || {}, rec = Object.keys(heat).sort((a, b) => a - b).map(n => `${n} curse${n > 1 ? 's' : ''}: floor ${heat[n]}`).join(' · ');
+      h += `<p>${on.length ? `<b>${on.length} curse${on.length > 1 ? 's' : ''}</b> · <b class="goldc">+${Math.round(gold * 100)}% gold</b>` : 'No curses: the plain climb.'}${rec ? `<br><span class="dim">Deepest with curses — ${rec}</span>` : ''}</p>`;
+      return h + `<div class="tact">${btn('Descend', 'endlessgo', '', false, 'hot')}${btn('Back', 'open', 'gate')}</div>`;
+    },
+    // The three save slots: play or start one, export it as a code, import a code into it, delete it (asked twice)
+    saves() {
+      const ago = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+      let h = '<h2>Saves</h2><p class="sub">Three wardens, kept on this device. Export a save as a code to keep it safe or move it to another device.</p>';
+      for (let n = 1; n <= Items.SLOTS; n++) {
+        const s = Items.slotInfo(n), st = s && CFG.stages[Math.min(s.stage, CFG.stages.length - 1)];
+        h += `<div class="irow save${n === Items.slot ? ' cur' : ''}"><div class="iinfo"><b>Slot ${n}</b>${n === Items.slot ? ' <small class="goldc">last played</small>' : ''}`
+          + (s ? `<div class="istats">Level ${s.level} · ${esc(st ? st.name : '')} · ◆ ${s.gold}${s.best ? ' · deepest floor ' + s.best : ''} · saved ${ago(s.savedAt)}</div>` : '<div class="istats dim">Empty</div>')
+          + `</div><div class="ibtns">${s ? btn('Play', 'saveplay', n, false, 'hot') + btn('Export', 'saveexport', n) + btn('Import', 'saveimport', n) + btn(tab.saveDel === n ? 'Sure? Delete' : 'Delete', 'savedel', n, false, tab.saveDel === n ? 'warn' : '')
+            : btn('New game', 'savenew', n, false, 'hot') + btn('Import', 'saveimport', n)}</div></div>`;
+        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${navigator.share ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
+        if (tab.saveImport === n) h += `<div class="savecode"><textarea rows="3" placeholder="Paste a DEEPWARD1: code here"></textarea><div class="tact">${btn(s ? 'Load (replaces this slot)' : 'Load', 'saveimportgo', n, false, 'hot')}${tab.importBad ? '<small class="warnc">That code does not work.</small>' : ''}</div></div>`;
+      }
+      return h + btn('Back', 'close', '', false, 'leave');
     },
     shrine(o) {
       let h = `<h2>Shrine of the Deep</h2><p class="sub">The stone hums. Choose one blessing; it holds until you leave this stage.</p>`;
@@ -211,8 +342,56 @@ const UI = (() => {
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
+        + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
+        + `<h3>Controls</h3><div class="irow srow"><div class="iinfo"><b>Keyboard and controller</b><div class="istats">Change the key or button for any action.</div></div><div class="ibtns">${btn('Change…', 'open', 'controls', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
+    },
+    // Nell the gem cutter: the same setting and prying as Bram, and three stones of a kind cut into one of another kind
+    gemcutter() {
+      const S = Items.S, GM = CFG.gear.gems, t = tab.gem || (tab.gem = 'cut');
+      let h = `<h2>Nell's Bench</h2><p class="sub">"Every stone wants to be something. I just help it decide."</p>${money()}` + tabs('gem', [['cut', 'Cut'], ['set', 'Set and pry']]);
+      if (t === 'set') return h + gemsBody('"Hold still, warden. Steel first, stone second."') + btn('Close', 'close', '', false, 'leave');
+      h += '<p>Three stones of one kind become one stone of another kind you choose.</p>';
+      for (const k of Object.keys(GM)) {
+        const n = S.gems[k] || 0, ok = n >= 3;
+        h += `<div class="irow"><div class="iinfo"><b>${GM[k].icon} ${GM[k].name}</b> <small>×${n}</small><div class="istats">${esc(GM[k].desc)}</div></div><div class="ibtns">${Object.keys(GM).filter(j => j !== k).map(j => btn('→ ' + GM[j].icon, 'gemcut', k + ':' + j, !ok)).join('')}</div></div>`;
+      }
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Ysolde the herbalist: tonics bought now are drunk at the start of the next trip
+    herbalist() {
+      const S = Items.S, have = S.tonics || [];
+      let h = `<h2>Ysolde's Stall</h2><p class="sub">"Drink it on the stair, not before. It keeps for one trip and no longer."</p>${money()}`;
+      h += `<p>${have.length ? 'Packed for your next trip: ' + have.map(id => { const t = CFG.camp.tonics.find(x => x.id === id); return t.icon + ' ' + t.name; }).join(', ') : 'Nothing packed yet.'}</p>`;
+      h += `<p class="dim">Bring herbs and she brews it for a fraction of the price. ${matLine()}</p>`;
+      for (const t of CFG.camp.tonics) {
+        const got = have.includes(t.id), need = brewNeed(t), canBrew = Items.hasMats(need) && S.gold >= Math.round(t.cost * 0.2);
+        const brew = btn(`Brew · ${Object.entries(need).map(([k, n]) => CFG.materials[k].icon + n).join(' ')} ◆${Math.round(t.cost * 0.2)}`, 'brew', t.id, !canBrew);
+        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost) + brew}</div></div>`;
+      }
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Odo the curio dealer: one rare-or-better piece a day
+    curio() {
+      const S = Items.S, c = curioOfDay(), price = c.item ? Items.value(c.item) * CFG.camp.curioMult : 0;
+      let h = `<h2>Odo's Wagon</h2><p class="sub">"One treasure a day, warden. Today's is a fine one. They always are."</p>${money()}`;
+      h += c.item ? itemRow(c.item, btn('◆ ' + price, 'curiobuy', '', S.gold < price || S.inv.length >= CFG.gear.invSize, 'hot')) : '<p class="dim">Sold out until tomorrow. Odo is polishing an empty shelf.</p>';
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Settings → Controls: each action's key and controller button. Pick one, then press the new key or button.
+    controls() {
+      const L = Bindings.listening;
+      let h = '<h2>Controls</h2><p class="sub">Pick a key or button, then press the new one. Esc or Menu cancels. Menus, Esc and Menu always work as they are.</p>';
+      if (L) h += `<div class="listen">Press a ${L.dev === 'pad' ? 'controller button' : 'key'} for <b>${esc(Bindings.ACTIONS.find(a => a[0] === L.act)[1])}</b>…</div>`;
+      h += '<div class="ctlgrid"><b></b><b>Keyboard</b><b>Controller</b>';
+      for (const [a, name] of Bindings.ACTIONS) {
+        const move = ['up', 'down', 'left', 'right'].includes(a);
+        h += `<span>${esc(name)}</span>${btn(esc(Bindings.label(a, 'key')), 'bindkey', a, false, L && L.act === a && L.dev === 'key' ? 'hot' : '')}`
+          + (move ? '<small class="dim">left stick</small>' : btn(esc(Bindings.label(a, 'pad')), 'bindpad', a, false, L && L.act === a && L.dev === 'pad' ? 'hot' : ''));
+      }
+      h += `</div><p class="dim">The mouse stays as it is: left-click attacks, right-click blocks, middle-click is a heavy attack.</p><div class="tact">${btn('Restore default controls', 'bindreset')}</div>`;
+      return h + btn('Back', 'open', 'settings', false, 'leave');
     },
     cleared(o) {
       const next = CFG.stages[(o.k + 1) % CFG.stages.length];
@@ -238,6 +417,11 @@ const UI = (() => {
       S.gold -= cost; const it = Items.generate(tier, two ? { slot: 'weapon', type: arg, boost: S.camp.forge * 0.6 } : { slot: arg, boost: S.camp.forge * 0.6 }); Items.add(it);
       Snd.play('parry'); toast('Forged: ' + Items.fullName(it), R[it.rarity].color); changed(); return render();
     }
+    if (a === 'reroll') {
+      const [id, i] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
+      if (it && Items.reroll(it, +i)) { Snd.play('parry'); toast('Reworked: ' + Items.describe(it).slice(-it.aff.length)[+i], R[it.rarity].color); changed(); }
+      return render();
+    }
     if (a === 'gem' || a === 'pry' || a === 'socket') {
       const [id, kind] = String(arg).split(':'), it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +id);
       if (!it) return render();
@@ -249,7 +433,35 @@ const UI = (() => {
     if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); if (it.uniq && !S.uniques.includes(it.uniq)) S.uniques.push(it.uniq); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
-    if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'equip') { const it = Items.S.inv.find(x => x.id === +arg); Items.equip(+arg); if (it) tab.gsel = 'e:' + it.slot; Snd.play('block'); changed(); return render(); }
+    if (a === 'bagfilter') { tab.bagFilter = arg; const v = bagView(S.inv, tab.bagSort || 'new', arg); tab.gsel = v.length ? 'i:' + v[0].id : arg !== 'all' ? 'e:' + arg : tab.gsel; Snd.play('glint'); return render(); }
+    if (a === 'bagsort') { const o = ['new', 'rarity', 'slot', 'power']; tab.bagSort = o[(o.indexOf(tab.bagSort || 'new') + 1) % o.length]; Snd.play('glint'); return render(); }
+    if (a === 'bagsalvage') {
+      const v = bagView(S.inv, tab.bagSort || 'new', tab.bagFilter || 'all'), i = v.findIndex(x => x.id === +arg), it = Items.remove(+arg);
+      if (it) { S.scrap += CFG.camp.salvage[it.rarity]; Snd.play('guardBreak'); toast(`Salvaged for ⚙${CFG.camp.salvage[it.rarity]}`); const nx = v[i + 1] || v[i - 1]; tab.gsel = nx ? 'i:' + nx.id : 'e:' + it.slot; changed(); }
+      return render();
+    }
+    if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
+    if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
+    if (a === 'craft') { const r = CFG.crafts.find(x => x.id === arg), it = r && Items.craft(r); if (it) { Snd.play('parry'); toast('Crafted: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'temper') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), T = CFG.temper; if (it && it.plus < Items.maxPlus() && S.scrap >= T.scrap && Items.spendMats({ ore: T.ore })) { S.scrap -= T.scrap; it.plus++; Snd.play('block'); toast('Tempered: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'brew') { const t = CFG.camp.tonics.find(x => x.id === arg), g = t && Math.round(t.cost * 0.2); S.tonics = S.tonics || []; if (t && !S.tonics.includes(t.id) && S.gold >= g && Items.spendMats(brewNeed(t))) { S.gold -= g; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
+    if (a === 'gemcut') { const [from, to] = arg.split(':'); if ((S.gems[from] || 0) >= 3) { S.gems[from] -= 3; Items.addGem(to); Snd.play('parry'); toast(`Cut: ${CFG.gear.gems[to].icon} ${CFG.gear.gems[to].name}`, '#9ad8ff'); changed(); } return render(); }
+    if (a === 'tonic') { const t = CFG.camp.tonics.find(x => x.id === arg); S.tonics = S.tonics || []; if (t && S.gold >= t.cost && !S.tonics.includes(t.id)) { S.gold -= t.cost; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
+    if (a === 'curiobuy') { const c = curioOfDay(), price = c.item && Items.value(c.item) * CFG.camp.curioMult; if (c.item && S.gold >= price && Items.add(c.item)) { S.gold -= price; if (c.item.uniq && !S.uniques.includes(c.item.uniq)) S.uniques.push(c.item.uniq); toast('Bought: ' + Items.fullName(c.item), R[c.item.rarity].color); S.curio.item = null; Snd.play('wave'); changed(); } return render(); }
+    if (a === 'saveplay') return G.playSlot(+arg, false);
+    if (a === 'savenew') return G.playSlot(+arg, true);
+    if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }
+    if (a === 'saveexport') { tab.saveExport = tab.saveExport === +arg ? 0 : +arg; tab.saveImport = 0; return render(); }
+    if (a === 'saveimport') { tab.saveImport = tab.saveImport === +arg ? 0 : +arg; tab.saveExport = 0; tab.importBad = false; return render(); }
+    if (a === 'savecopy') { const t = el('pcard').querySelector('.savecode textarea'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand && document.execCommand('copy'); } toast('Save code copied'); return; }
+    if (a === 'saveshare') { try { navigator.share({ title: 'Deepward save', text: Items.exportSlot(+arg) }); } catch (e) {} return; }
+    if (a === 'saveimportgo') {
+      const t = el('pcard').querySelector('.savecode textarea'), ok = Items.importSlot(+arg, t ? t.value : '');
+      tab.importBad = !ok; if (ok) { tab.saveImport = 0; Snd.play('parry'); toast('Save imported into slot ' + arg); }
+      return render();
+    }
+    if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
     if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
@@ -263,14 +475,22 @@ const UI = (() => {
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
     if (a === 'open') { open.opt = open.id === 'trainer' ? { trainer: true } : {}; open.id = arg; focus = -1; return render(); }
-    if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
+    if (a === 'unequip') { const it = Items.S.equip[arg]; Items.unequip(arg); if (it && !Items.S.equip[arg]) tab.gsel = 'i:' + it.id; changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
+    if (a === 'curse') { const on = tab.curses || (tab.curses = []), i = on.indexOf(arg); if (i >= 0) on.splice(i, 1); else on.push(arg); Snd.play(i >= 0 ? 'glint' : 'warn'); return render(); }
+    if (a === 'endlessgo') { const S = Items.S; S.endless = S.endless || { best: 0, daily: {} }; S.endless.lastCurses = (tab.curses || []).slice(); close(); return G.enterEndless(false, S.endless.lastCurses); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }
     if (a === 'wake') { close(); return G.wakeInCamp(); }
+  }
+  // Odo's piece of the day: rolled once per day at the warden's depth, rare or better
+  function curioOfDay() {
+    const S = Items.S, today = Endless.today();
+    if (!S.curio || S.curio.date !== today) S.curio = { date: today, item: Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { rarity: Math.random() < 0.3 ? 3 : 2 }) };
+    return S.curio;
   }
   // Gear or camp changed: save, refresh the hero's numbers and looks (and the camp's buildings)
   function changed(camp) { Items.save(); G.onGearChanged(camp); }
@@ -280,6 +500,7 @@ const UI = (() => {
     const card = el('pcard');
     card.className = 'pcard ' + open.id;
     card.innerHTML = PANELS[open.id](open.opt || {});
+    const doll = card.querySelector('.gdoll'); if (doll && typeof GearView !== 'undefined') GearView.mount(doll);
     const bs = buttons();
     if (focus < 0) focus = Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
     focus = Math.max(0, Math.min(focus, bs.length - 1));
@@ -314,6 +535,8 @@ const UI = (() => {
     const b = buttons()[focus]; if (!open || !b || b.disabled) return;
     // On a controller or keyboard, confirming the node that is already selected learns it
     if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
+    // ...and confirming the selected piece of gear equips it (or takes it off)
+    if (b.dataset.act === 'gsel' && tab.gsel === b.dataset.arg) { const [k, v] = b.dataset.arg.split(':'); return act(k === 'e' ? 'unequip' : 'equip', v); }
     act(b.dataset.act, b.dataset.arg);
   }
   function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper') return; if (open.id === 'dialogue') return act('next'); close(); }

@@ -1,6 +1,6 @@
 # Deepward: Game Design
 
-A quarter-view action dungeon crawler. You enter a dungeon, fight through its rooms and a boss, take the loot, then level up and refit. There's no town building and no army, only the fight.
+A 3D action dungeon crawler, played over the shoulder or from a fixed high view. You enter a dungeon, fight through its rooms and a boss, take the loot, then level up and refit. There's no town building and no army, only the fight.
 
 ## Pillars
 
@@ -12,20 +12,20 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 
 | Action | What it does |
 | --- | --- |
-| Light attack | Fast 3-hit combo (slash, backhand, overhead) with low posture damage |
+| Light attack | Fast combo (three hits with a sword; each weapon type has its own) with low posture damage |
 | Heavy attack | Slow; breaks shield guards; staggers even brutes when they aren't swinging |
 | Block | Absorbs 85% of damage and drains stamina; a guard break stuns |
 | Parry | A block raised within 0.2 s of impact: no damage, big posture damage, enemy staggered. Mashing block doesn't parry. |
-| Dodge roll | Invulnerable for most of the roll; rolls pass through enemies |
+| Dash | A short, low dash (2.6 m in 0.3 s) in any direction, invulnerable for most of it; dashes pass through enemies |
 | Riposte | Any hit on a posture-broken enemy is a 3× critical |
 
-- **Stamina** pays for attacks, rolls and blocked hits. It regenerates after a short pause, and more slowly while you block.
+- **Stamina** pays for attacks, dashes and blocked hits. It regenerates after a short pause, and more slowly while you block.
 - **Posture:** enemies fill a posture bar from hits, blocks and parries. It drains when they're left alone, and when it's full they're broken.
 - **Telegraphs:**
   - A white glint means blockable.
   - Red means unblockable, so dodge.
   - Area attacks draw a filling red ring on the floor.
-  - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to roll sideways.
+  - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to dash sideways.
 - **Attack tokens:** at most two enemies wind up or swing at once, so crowds stay readable.
 - **Feel:** hit-stop on impact, slow motion on a parry, screen shake, swing trails, sparks and floating numbers.
 
@@ -59,18 +59,23 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 | 3 | The Ogre Den | Goblin swarms, brutes | Dash; crowd reading | The Den Mother |
 | 4 | The Spider Depths | Spiders whose pounce can only be parried | Parry timing | The Brood Queen |
 | 5 | The Shadow Court | Feinting duelists | Patience | The Pale Duelist |
+| 6 | The Sunken Temple | Acolytes (reflectable orbs), skeletons, spiders, duelists | Parrying orbs back | The Drowned Prophet |
+| 7 | The Frost Halls | Shield-bearers, knights, archers, acolytes, duelists | Pulling foes out of a ward | The Frost Marshal |
+| 8 | The Ashen Forge | Goblins, shield-bearers, brutes, acolytes | Dashing under pressure | The Furnace Lord |
+| 9 | The Bone Orchard | Bone callers, skeletons, archers, knights, spiders | Killing the caller first | The Bone Gardener |
+| 10 | The Throne of the Deep | Most kinds, with bearers and callers | Everything at once | The Hollow King |
 
 - **Archers** keep 5.5 to 10 m away, back off when you close in, and loose an arrow after a long draw. Arrows can be blocked, parried or dashed through. Archers don't take one of the two attack tokens, so they add pressure on top of the melee foes.
 - **Goblins** are small and fast, with quick thrusts and two-hit slashes; they come in packs.
 - **Spiders** are code-built eight-legged rigs. Their bite is ordinary, but the pounce glows **amber**: a block alone is smashed aside and the hit lands anyway. Only a parry (or a dash) answers it.
 - **Duelists** open with a raised overhead that is a **feint**: the wind-up stops short and the real slash follows quickly. Raising the guard on the feint wastes the parry window.
-- After the fifth stage the stages repeat with tougher enemies.
+- After the tenth stage the stages repeat with tougher enemies (`loopScale`), alongside the Endless Deep.
 
 ## Guardians (built)
 
 - The first enemy of each stage's last room is grown into a boss from `CFG.bosses`: bigger, with more health, posture and reach, sometimes extra moves, and a boss bar with a tick at each phase mark.
 - **Phases:** when health drops past a mark, the guardian roars for 1.4 s. It can't be hurt, and halfway through a shockwave throws the hero back. Then the phase's changes apply: summoned adds (60% strength, crumbling when the guardian dies), stat overrides, new or replacement attacks, faster wind-ups, a stance change, or a rage tint.
-- **The five:**
+- **Act I's five** (Act II's five are in `CFG.bosses` and the README):
   - **Bone Warden:** a ground slam, then adds twice.
   - **Sir Aldric:** drops the shield at half health (it stays on the floor) and switches to the great-sword motion capture with an unblockable spin.
   - **Den Mother:** goblins, then rage with an unblockable charge.
@@ -83,35 +88,83 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Camp:** a hub between stages. You talk to Maren, Bram (forge, upgrade, salvage) and Tilda (buy and sell), use the ledger to build up the forge, apothecary and training yard, and take the gate down to any unlocked stage. Each building's level shows in the camp.
 - **Loop:** clearing a stage's guardian offers a choice: return to camp, banking gold, or press on. Falling wakes you in camp with half the trip's gold lost. Progress saves in the browser.
 - **Gear as built:**
-  - Five slots: weapon, shield, armour, helm and trinket.
+  - Eight slots: weapon, shield, armour, helm, gloves, boots, trinket and ring.
   - Weapon types: sword, axe, mace, longsword and the two-handed greatsword.
   - Tiers by depth, four rarities, eight bonus types, and smith upgrades up to +8 with the best forge.
   - Gear changes the hero's look: blade, weapon model, tunic colour, plate, helm style, shield face and amulet.
 
-## Gear (original plan, partly built)
+## Gear: the original plan against what's built
 
-- **Slots:** weapon, off-hand, helm, chest, gloves, boots, ring, amulet.
-- **Weapon types:** sword (balanced), greataxe (posture), daggers (long combos), spear (reach), mace (stuns armour). Each has its own combo poses.
-- **Rarity:** Common, Rare, Epic and Legendary, with random bonuses (crit, stamina regen, parry window, lifesteal, elemental damage). Legendaries carry unique effects.
-- **Weight** slows the roll, so you trade nimbleness against tankiness.
-- **Forge** (a single menu screen between dungeons): upgrade, salvage, or reroll one bonus.
-- Every equipped piece is built as a mesh on the rig.
+| Planned | Status |
+| --- | --- |
+| Eight slots (weapon, off-hand, helm, chest, gloves, boots, ring, amulet) | Built: weapon, shield, armour, helm, gloves, boots, trinket and ring |
+| Weapon types with their own moves | Built: sword, axe, mace, longsword, greatsword, spear and twin daggers; spear and daggers have their own combos and heavies |
+| Four rarities with random bonuses; legendaries with unique effects | Built, plus nine named uniques, gem sockets and weapon elements (fire, frost, shock) |
+| Weight slows the dash | Built: weight classes and load (below) |
+| Forge: upgrade, salvage, reroll one bonus | Built, plus gems and sockets |
+| Every equipped piece shown on the rig | Built |
 
-## Progression (planned)
+## Gear depth (built)
+
+- **Weight classes:** `it.wc` (0 light, 1 medium, 2 heavy) on armour, helms, gloves and boots; older saves derive it (helms from their style, armour from its tier band). `main()` multiplies the piece's numbers by `CFG.gear.weightMult`.
+- **Load:** the sum of `CFG.gear.weight[slot][wc]` over worn pieces. Over `load.light`, `stats()` raises `dashCost` and lowers `dashDist` and `move`, each capped. The player's dash multiplies its distance by `dashDist`.
+- **Elements:** affixes with `only: ['weapon']`. They ride on the attack (`atk.burn`, `chill`, `shock`), and `Enemy.receive` calls `elements()` on a landed hit: burning damage is spread over 2 s in half-second ticks, frost scales every enemy step, a shock jolt is a 0.45 s stagger except on guardians and champions.
+- **Reroll:** `Items.reroll(it, i)` picks a kind that fits the slot and is not on the piece; cost grows with `it.rerolls`.
+- **Looks:** gloves tint the hands and add cuffs (steel when heavy), boots recolour the lower legs (heavy adds greaves and sabaton plates), medium armour shows a mail shirt and heavy armour plate.
+
+## Saves (built)
+
+- **Slots:** `Items.useSlot(n)` picks one of three keys (slot 1 keeps the original `dw_save_v1`, so existing saves land there); `dw_slot` remembers the last played.
+- **Versions:** each save stores `v`. `parse` runs `MIGRATE[v]` for every version up to the current one (v1 to v2 fixes weight classes on old pieces), then `withDefaults` fills in fields added since, one level into objects.
+- **Backup:** a save that loads cleanly is copied to `<key>_bak`; if the main save is ever unreadable, `load` uses the backup.
+- **Export:** `DEEPWARD1:` plus the save as base64 (UTF-8 safe). Import checks the prefix, decodes, parses and migrates before writing anything.
+- Key presses inside the code box are ignored by the game's key handling.
+
+## Controls (built)
+
+- **Bindings:** `Bindings` maps each action to up to two key codes and a list of controller buttons (`Settings.keys` / `padKeys` hold only the player's changes over the defaults). The keyboard handler asks `actionsOf(code)`; movement and block read `held`; the controller asks `padButtons(act)`.
+- **Rebinding:** `startListen(act, dev)`; the next key or button is captured before anything else sees it. A new key replaces the action's first key and is taken from any other action; a button becomes the action's only button (A stays shared by talk and dash). Esc, Enter and the Menu button can't be bound, and menu navigation is fixed, so nobody gets locked out.
+- **Hints:** `Bindings.fmt` turns `@heavy` and the like into the player's key or button (with the mouse for attack, block and heavy), for tips, the talk prompt, the training yard and the hint line.
+
+## Weapon arts (built)
+
+- `CFG.player.arts[type]`: a name, stamina cost, cooldown and a list of hits in the usual attack format (plus `ring` for a shockwave). `Items.stats` sets `art` when the weapon's mastery is rank 3.
+- `Player.press` turns heavy into `art` while block is held (an execution still wins). `tryAct` starts the first hit and queues the rest; each queued hit starts as the last one enters its recovery, so multi-hit arts flow without gaps. `artCd` ticks down with the other timers.
+
+## Deepward Hold (built)
+
+- `Camp.build` lays out a 48 × 36 m camp (`Camp.HW`, `HD`) in quarters joined by dirt paths. Static meshes are baked per material at the end (`Rig.bake`), keeping the flickering flames apart.
+- **People:** fixed NPCs (with spots for their services) turn to watch the hero; walkers (`n.path`) loop between points, pause, wait if the hero stands in the way, and greet once per visit. NPC rigs take a `tool` (hammer, spear, lute, basket).
+- **Services:** bard and captain lines come from `CFG.townsfolk` in turn (`S.talk`). Nell's bench reuses Bram's gem setting and adds cutting (3 of a kind → 1 of another). Ysolde's tonics (`CFG.camp.tonics`) are packed into `S.tonics`, drunk into `G.tonics` when a trip starts (`drinkTonics`), read by `Player.gearStats`, and cleared in camp. Odo's piece (`S.curio`) is rolled once per date.
+
+## The Rim (built)
+
+- `Field.build` makes a room-like object that `World.enterCamp` adds beside the camp: one big rectangle (`CFG.field.size`) and a road (`corr`) through the palisade gap, so `constrain` and `inSpace` work unchanged. Trees, rocks, gravestones and the watchtower are obstacles (`pillars`); everything static is baked per material.
+- **Mode:** `checkRim()` switches `G.mode` between `camp` and `field` as the hero crosses the gate: out, tonics are drunk and `tripGold` starts at zero; in, it is banked. Kills, XP and mastery count anywhere but the camp. A fall on the Rim loses `CFG.field.deathGoldLoss`.
+- **Zones:** `Field.update` tops each zone up to its `cap` while the hero is within 25 m of it (quickly at first, then every `respawn` seconds), never within 10 m of the hero; beasts more than 70 m away are let go, and none passes the gate.
+- **Beasts:** an enemy with a `zone` wanders until the hero is within `def.aggro` (or it is hit) and then hunts; `pack` beasts rouse their packmates. Past `zone.r + leash` it gives up, heals and walks home. Wolves and boars are hand-posed quadrupeds (`Rig.buildBeast` / `animateBeast`); the boar's `charge: [min, max, attack]` starts its unblockable charge from range. Goblin scouts are goblins with spears that throw.
+- **Materials:** `S.mats`; `CFG.matDrops` gives each kind's drops (full chance from a beast with a zone, a third below). `room.nodes` are herb patches and ore veins kept out of the bake so they can vanish when gathered (`Field.gather`) and grow back after `nodes.regrow` seconds. `CFG.crafts` are Bram's recipes (`Items.craft` rolls the piece at the warden's depth with the recipe's rarity, weight class and fixed affix kinds); tempering costs `CFG.temper`; Ysolde brews tonics from `herbs` (+ ore) and a fifth of the gold.
+- **Day and night:** `S.clock` (seconds, `CFG.day.length` per day) runs in play while the camp scene is up. `updateDay` blends sky and fog colour (with a warm band at dawn and dusk), hemisphere light, the sun's colour and strength, fog distance and torch strength (`G.torchK`, read by `World.updateLights`); leaving for the dungeon restores the base light and `curseWorld()` sets the fog. `G.isNight()` / `G.timeName()` drive the label and the Rim.
+- **Night zones and bosses:** a `night` zone (the graveyard) spawns only at night and crumbles at dawn; `nightMobs` / `nightCap` change a zone after dark. `CFG.field.bosses` each keep to a zone and a time of day; they spawn as named elites (`fieldBoss`, `champion`), get the boss bar when roused (`G.onFieldBoss`), and come back `respawn` seconds of real time after they fall (`S.fieldBoss`).
+- **Map:** in the Hold and on the Rim the minimap shows the camp, the road, the field and its zones (red where beasts are roused), the camp's services, beasts and the hero.
+
+## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
-- **Weapon mastery:** each weapon type levels with use and unlocks new combo moves.
-- **Expertise trees:** Guardian (block/parry), Duelist (dodge/counter/crit), Berserker (low-health damage, posture) and Arcanist (infusions, ranged skill). Each tree has an ultimate.
-- **Death** loses half the run's unbanked loot.
+- **Weapon mastery:** each weapon type ranks up with landed hits; rank 2 adds a fourth, finishing blow to the light combo.
+- **Expertise trees:** Guardian (block/parry), Duelist (dash/counter/crit), Berserker (low-health damage, posture) and Arcanist (infusions). Up to two trees; each has an ultimate (Bulwark, Blade Dance, Bloodrage, Nova). Shown as a node tree with a details pane.
+- **Falling** loses half the trip's unbanked gold.
 
-## Milestones
+## Milestones (all done)
 
-1. **Combat feel (done):** an arena with hero, skeleton, shield knight and brute; light/heavy attacks, block, parry, dodge, stamina, posture, telegraphs, waves, touch controls, headless combat tests.
-2. **Enemy roster:** archers, swarms, pouncers, feints, more telegraph types.
-3. **Dungeon generation:** room templates, tiers 1 to 3, the first boss.
-4. **Gear and loot:** slots, rarity, bonuses, gear meshes, inventory.
-5. **Progression:** levels, weapon mastery, expertise trees and ultimates.
-6. **Tiers 4 to 7:** bosses, saving, polish, single-file and mobile builds.
+1. **Combat feel:** hero, skeleton, shield knight and brute; light and heavy attacks, block, parry, dash, stamina, posture, telegraphs, touch controls, headless combat tests.
+2. **Camp and gear:** the camp hub, Bram, Tilda, the ledger, five gear slots, rarities, saving.
+3. **Growth:** levels, weapon mastery, four expertise trees with ultimates.
+4. **Enemy roster:** archers, goblin swarms, parry-only spiders, feinting duelists.
+5. **Guardians in phases**, then release polish (icon, splash, generative music, settings) and the debug APK.
+6. **The open dungeon:** each stage one winding run of sections without gates.
+7. **S1–S7:** performance, minimap and compass, side rooms/traps/shrines/pots, elites and champions, lock-on/spear/daggers/executions, uniques and gems, the Endless Deep and Daily Descent.
+8. **T1–T7:** balance bot, difficulty and accessibility, training yard, codex and achievements, Act II, feel and atmosphere, touch-control customization.
 
 ## Release polish (built)
 
@@ -127,6 +180,9 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Characters:** parts that share a joint are baked together, and their plain colours become vertex colours. Glowing weapon materials stay apart.
 - **Culling:** sections more than 40 m away (past the fog) aren't drawn.
 - **Graphics quality:** sets resolution and shadow-map size, and turns enemy shadows into blobs on Medium or shadows off entirely on Low.
+- **Automatic resolution:** `perfTick` averages frame time over one-second windows while in play. Two windows over 22 ms drop `resScale` by 0.15 (down to 0.5), six under 17.5 ms raise it by 0.1; `applyQuality` multiplies the quality's pixel ratio by it. Frames over 0.25 s (the app was away) are ignored.
+- **Performance readout:** Settings → Show performance writes FPS, frame time, `renderer.info` draw calls and triangles, quality and resolution step once a second.
+- **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
 ## Minimap (built)
@@ -178,6 +234,8 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Toughness:** enemies get `1 + 0.18 × floor`. The loot tier and elite odds use the virtual stage index (4 + floor).
 - **Between floors:** a floor is done when its guardian's chest opens, or when every section is cleared. The "deeper" panel can't be dismissed: go deeper (heal 30%, at least one flask) or return to camp.
 - **Records:** `S.endless.best` and `S.endless.daily` (date and best) are updated at the start of each floor.
+
+- **Curses:** `G.run.curses` (ids from `CFG.curses`). `Player.gearStats` applies Dry Flasks, Glass Warden and Brittle Guard and multiplies gold found by `1 + Endless.curseGold`; spawns roll a sure elite under Hunted and get faster steps and 30% shorter cooldowns under Frenzy; `curseWorld()` pulls the fog in and hides the map under Lightless, and restores both anywhere else. The Daily Descent's curse comes from a hash of the date. `S.endless.heat[n]` keeps the deepest floor for n curses; the last chosen set is remembered.
 
 ## Balance (tuned with tools/balance.js)
 
@@ -247,3 +305,42 @@ Real players are slower to react than the bot, so expect more deaths.
 - `TouchLayout` measures where the stylesheet puts each button, then positions them itself (`#pad.free`) so they can move one by one.
 - Size is a `scale()` on each button and opacity is set on the pad. The left-handed layout mirrors each button's distance from the right edge onto the left, and the touch input swaps the stick and look halves of the screen.
 - Arrange mode (Settings → Arrange buttons) shows the pad over everything and drags buttons with a capture-phase pointer listener, so a drag never triggers the action. Positions are saved in `Settings.padLayout` as fractions of the screen; a button with no entry keeps its default spot.
+
+## Gear screen (built)
+
+- **Pictures:** `Rig.item(Items.itemLook(it))` builds a piece of gear on its own from the same parts the hero wears (the same weapon builders, `roundShield`, the cuirass, `helmet`, and trinket models). `GearView.icon` renders it once into a 112 px PNG, keyed by its look, so a bag of 24 costs at most a few dozen renders the first time and nothing after.
+- **The hero:** `GearView.mount` puts a turning copy of the hero (rebuilt only when `Items.look()` changes) into the panel. It runs its own animation frame loop that stops when the panel closes. The pictures and the hero share one small WebGL renderer and scene apart from the game's; the hero is hidden while a picture renders (it once showed up behind items), which `gear_test` checks.
+- **Comparison:** `Items.statsWith(slot, it)` swaps the piece in, computes the hero's full numbers and swaps back, so every effect (two hands leaving the shield unused, gems, uniques, affixes) is counted. The detail pane lists each number that changes.
+- **Bag order:** `bagView` filters by slot and sorts (newest, rarity, slot, or best first, meaning pieces that beat what is worn, by how much).
+- **Selection:** `tab.gsel` is `e:<slot>` or `i:<id>`. Confirming the selected piece equips it or takes it off, so a controller needs only the d-pad and A.
+- **Helms:** the hero's head is a box whose top corners reach 0.19 m from its middle, so the old round helms (0.15–0.16 m) let them poke through. `helmet()` now builds three squared helms to match the blocky heads: a fitted leather cap, an open steel helm (box shell, brim above the eyes, nasal guard, cheek plates and neck guard), and a closed great helm whose front clears the nose. Under a helm only a short tuft of hair is built. Domes are double-sided so their insides show from below. `gear_test` casts rays at the head's corners to check each helm covers them.
+
+## Roadmap
+
+The next steps, in the order I'd take them. Each is sized like one of the S or T steps: one commit, its own test, and a debug APK.
+
+**V1. Play on a real phone.** Everything so far was measured headless. Install the debug APK on a mid-range Android phone and fix what shows up.
+- An FPS and draw-call overlay (Settings → Show performance), and dynamic resolution that drops a step when the frame time stays above 20 ms.
+- Check touch reach, text size, safe areas (notches) and the pause on app switch (Capacitor `appStateChange`).
+- Exit criterion: 50+ FPS on Medium through a full Act II stage.
+
+**V2. Gear depth (done).** Finish the original gear plan.
+- Gloves, boots and a ring slot (eight slots total), with their own looks on the rig.
+- Weight: heavy armour slows the dash and costs more stamina; light gear the reverse.
+- Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.
+- Bram rerolls one bonus for gold and scrap.
+
+**V3. Save safety (done).** The save was one `localStorage` key.
+- Versioned saves with a migration step, so future changes never wipe progress.
+- Export and import the save as text (and Android share) for moving between devices.
+- Three save slots.
+
+**V4. Controls everywhere (done).** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
+
+**V5. Endless Deep with modifiers (done).** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
+
+**V6. Weapon arts (done).** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
+
+**V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
+
+Smaller ideas kept for later: hero appearance options, a photo mode, more Act II side-room types (a gauntlet room, a trap puzzle), and translations.

@@ -55,6 +55,27 @@ const path = require('path');
     __dw.sim(3, t => { if (p().state === 'attack' && p().atk !== last) { last = p().atk; hits++; } if (Math.floor(t * 7) !== Math.floor((t - 1/60) * 7)) __dw.press('light'); });
     out.comboHits = hits;
     out.finisherSeen = last && last.pose === CFG.progress.finisher.pose;
+    // Weapon arts: not before rank 3 (block + heavy stays a heavy); at rank 3 it is the art, with a cooldown
+    const clear = () => { for (const e of G.enemies) { e.state = 'dead'; e.hp = 0; } __dw.sim(0.5); p().state = 'free'; p().st = p().maxSt; p().pos.set(0, 0, 4); p().facing = Math.PI; __dw.View.yaw = 0; };
+    const artPress = () => { Input.mouseBlock = true; __dw.sim(0.05); __dw.press('heavy'); __dw.sim(0.03); Input.mouseBlock = false; return p().atkKind; };
+    const wield = type => { S.equip.weapon = I.generate(2, { slot: 'weapon', type, rarity: 0 }); __dw.G.onGearChanged(); };
+    clear(); wield('sword'); S.mastery.sword = 200; __dw.G.onGearChanged(); fresh('knight', 0, 2.2);
+    out.noArtBeforeRank3 = artPress() === 'heavy' && !p().S.art;
+    clear(); S.mastery.sword = 300; __dw.G.onGearChanged(); p().artCd = 0;
+    const a1 = fresh('brute', 0, 1.6), ha = a1.hp; a1.def = Object.assign({}, a1.def, { flinch: false });
+    out.artUnlocked = p().S.art === 'sword' && artPress() === 'art';
+    __dw.sim(1.2); out.artHits = a1.hp < ha - 30 && p().artCd > 0;
+    p().state = 'free'; p().st = p().maxSt; artPress(); out.artCooldown = p().state !== 'attack';
+    // Whirlwind spins all the way round: a foe behind is cut twice
+    clear(); wield('greatsword'); S.mastery.greatsword = 300; __dw.G.onGearChanged(); p().artCd = 0;
+    const bk = fresh('brute', 0, 5.6), hb = bk.hp; bk.def = Object.assign({}, bk.def, { flinch: false });
+    let swings = 0, lastA = null; artPress(); __dw.sim(1.4, () => { if (p().atkKind === 'art' && p().atk !== lastA) { lastA = p().atk; swings++; } });
+    out.whirlwind = swings === 2 && bk.hp < hb - 40;
+    // Flurry: six cuts
+    clear(); wield('daggers'); S.mastery.daggers = 300; __dw.G.onGearChanged(); p().artCd = 0; fresh('brute', 0, 2.0);
+    swings = 0; lastA = null; artPress(); __dw.sim(1.6, () => { if (p().atkKind === 'art' && p().atk !== lastA) { lastA = p().atk; swings++; } });
+    out.flurry = swings === 6;
+    clear(); wield('sword');
     // Respec at the yard costs gold and returns every point
     S.gold = 5000; const spent = Object.values(S.talents).reduce((a, b) => a + b, 0), pts = S.points;
     __dw.openPanel('talents', { trainer: true }); document.querySelector('[data-act="respec"]').click(); __dw.UI.close();
@@ -63,7 +84,7 @@ const path = require('path');
     return out;
   });
   const ok = r.level >= 2 && r.points >= 1 && r.maxHpUp && r.ultBlocked && r.ultLearned && r.secondTree && r.thirdTreeBlocked && r.parryUp > 0.2 && r.bulwark
-    && r.nova && r.novaCooldownRefuses && r.dance && r.rageFaster && r.comboHits >= 4 && r.finisherSeen && r.respec && r.saved && !errs.length;
+    && r.nova && r.novaCooldownRefuses && r.dance && r.rageFaster && r.comboHits >= 4 && r.finisherSeen && r.respec && r.saved && r.noArtBeforeRank3 && r.artUnlocked && r.artHits && r.artCooldown && r.whirlwind && r.flurry && !errs.length;
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(r) + (errs.length ? ' errors: ' + errs.join(' | ') : ''));
   await b.close(); process.exit(ok ? 0 : 1);
 })();

@@ -15,9 +15,10 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
 (function setupInput() {
-  const KEYMAP = { KeyJ: 'light', KeyK: 'heavy', KeyQ: 'heavy', Space: 'dodge' };
   addEventListener('keydown', ev => {
     Snd.init();
+    if (ev.target && /^(TEXTAREA|INPUT)$/.test(ev.target.tagName)) return;   // typing a save code
+    if (!ev.repeat && Bindings.captureKey(ev.code)) { ev.preventDefault(); return; }   // Settings → Controls is waiting for a key
     if (UI.open) {                                                        // menus: arrows / W S move, Enter / Space / E pick, Esc back
       const c = ev.code;
       if (c === 'ArrowUp' || c === 'KeyW' || c === 'ArrowLeft' || c === 'KeyA') UI.nav(-1);
@@ -29,21 +30,23 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.repeat) return;
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
-    if (ev.code === 'KeyM') toggleMute();
-    if (ev.code === 'KeyB') toggleView();
-    if (ev.code === 'KeyN') MiniMap.toggle();
-    if (ev.code === 'KeyO' && G.state === 'play') openPanel('codex');
-    if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
-    // (an Esc that just released the captured mouse has already paused)
-    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
+    const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
+    if (has('mute')) toggleMute();
+    if (has('camera')) toggleView();
+    if (has('map')) MiniMap.toggle();
+    if (has('codex') && G.state === 'play') openPanel('codex');
+    if (has('lock') && G.state === 'play') toggleLock();
+    // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
+    if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
     if (ev.code === 'Enter' && G.state === 'title') titleGo();
     if (G.state !== 'play') return;
-    if (ev.code === 'KeyE') interact();
-    if (ev.code === 'KeyR') Player.drink(G.player);
-    if (ev.code === 'KeyF') Player.ultimate(G.player);
-    if (ev.code === 'KeyT') openPanel('talents');
-    if (ev.code === 'KeyI' || ev.code === 'Tab') { openPanel('bag'); ev.preventDefault(); }
-    if (KEYMAP[ev.code]) { Player.press(G.player, KEYMAP[ev.code]); ev.preventDefault(); }
+    if (has('interact')) interact();
+    if (has('flask')) Player.drink(G.player);
+    if (has('ult')) Player.ultimate(G.player);
+    if (has('talents')) openPanel('talents');
+    if (has('gear')) { openPanel('bag'); ev.preventDefault(); }
+    for (const a of ['light', 'heavy', 'dodge']) if (has(a)) { Player.press(G.player, a); ev.preventDefault(); }
+    if (A.length) ev.preventDefault();
   });
   addEventListener('keyup', ev => { Input.keys[ev.code] = false; });
   addEventListener('blur', () => { Input.keys = {}; Input.mouseBlock = false; });
@@ -124,13 +127,16 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, RB attack, RT heavy, LB block, A dash.'); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip(Bindings.fmt('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.', 'pad')); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
+  // Settings → Controls is waiting for a button
+  if (Bindings.listening && Bindings.listening.dev === 'pad') { const i = now.findIndex((v, j) => v && !prev[j]); if (i >= 0) Bindings.captureButton(i); Pad.move.x = Pad.move.z = 0; return; }
+  const pressed = act => Bindings.padButtons(act).some(down), holding = act => Bindings.padButtons(act).some(btn);
   const [mx, my] = dead(gp.axes[0] || 0, gp.axes[1] || 0), [cx, cy] = dead(gp.axes[2] || 0, gp.axes[3] || 0, 0.15);
   Pad.move.x = mx; Pad.move.z = my;
-  Pad.block = btn(PAD_BTN.LB) || btn(PAD_BTN.LT);
+  Pad.block = holding('block');
   if (now.some(Boolean)) Snd.init();
   // Panels: d-pad / left stick to move (with repeat), A picks, B goes back
   if (UI.open) {
@@ -145,16 +151,20 @@ function pollPad(real) {
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
   if (down(PAD_BTN.MENU)) { togglePause(); return; }
-  if (down(PAD_BTN.VIEW)) toggleView();
-  if (down(PAD_BTN.RB) || down(PAD_BTN.X)) Player.press(G.player, 'light');
-  if (down(PAD_BTN.RT)) Player.press(G.player, 'heavy');
-  if (down(PAD_BTN.Y)) Player.ultimate(G.player);
-  if (down(PAD_BTN.A) && G.spot) interact();
-  else if (down(PAD_BTN.A) || down(PAD_BTN.B)) Player.press(G.player, 'dodge');
-  if (down(12)) Player.drink(G.player);                                  // d-pad up: healing flask
-  if (down(13)) openPanel('bag');                                         // d-pad down: gear
+  // Actions on the player's buttons (Settings → Controls); talking takes the button when something is near
+  if (pressed('camera')) toggleView();
+  if (pressed('light')) Player.press(G.player, 'light');
+  if (pressed('heavy')) Player.press(G.player, 'heavy');
+  if (pressed('ult')) Player.ultimate(G.player);
+  if (pressed('interact') && G.spot) interact();
+  else if (pressed('dodge')) Player.press(G.player, 'dodge');
+  if (pressed('flask')) Player.drink(G.player);
+  if (pressed('gear')) openPanel('bag');
+  if (pressed('talents')) openPanel('talents');
+  if (pressed('codex')) openPanel('codex');
+  if (pressed('map')) MiniMap.toggle();
   if (View.mode === 'behind') {
-    if (down(PAD_BTN.RS)) toggleLock();                                  // lock on (or recentre when nothing is near)
+    if (pressed('lock')) toggleLock();                                   // lock on (or recentre when nothing is near)
     turnView(cx * 3.2 * real, cy * 1.8 * real);          // radians per second at full tilt
   }
 }
@@ -170,8 +180,9 @@ G.rumble = (strong, weak, ms) => {
 
 function readInput() {
   const k = Input.keys;
-  let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
-  let z = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
+  const H = a => Bindings.held(k, a);
+  let x = (H('right') ? 1 : 0) - (H('left') ? 1 : 0);
+  let z = (H('down') ? 1 : 0) - (H('up') ? 1 : 0);
   if (Math.abs(Input.stick.x) + Math.abs(Input.stick.z) > 0.1) { x = Input.stick.x; z = Input.stick.z; }
   if (Pad.move.x || Pad.move.z) { x = Pad.move.x; z = Pad.move.z; }
   if (View.mode === 'behind') {
@@ -180,7 +191,7 @@ function readInput() {
     const wx = rx * x - fx * z, wz = rz * x - fz * z; x = wx; z = wz;
   }
   Input.move.x = x; Input.move.z = z;
-  Input.block = !!(k.KeyL || k.ShiftLeft || k.ShiftRight || Input.mouseBlock || Input.touchBlock || Pad.block);
+  Input.block = !!(H('block') || Input.mouseBlock || Input.touchBlock || Pad.block);
 }
 
 // ---------------- Scene ----------------
@@ -206,9 +217,12 @@ scene.add(moon, moon.target);
 // 'auto' picks medium on touch devices (phones and tablets) and high elsewhere.
 const QUALITY = { high: { pr: 2, shadow: 2048, soft: true }, medium: { pr: 1.5, shadow: 1024, soft: false }, low: { pr: 1, shadow: 0 } };
 function quality() { const q = Settings.get('quality'); return q === 'auto' ? (('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'medium' : 'high') : q; }
+// Automatic resolution: when frames run long the game draws fewer pixels (down to half), and creeps back up when
+// there is room again. resScale multiplies the quality's pixel ratio.
+let resScale = 1;
 function applyQuality() {
   const Q = QUALITY[quality()] || QUALITY.high, on = Q.shadow > 0;
-  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false);
+  renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio) * resScale); renderer.setSize(innerWidth, innerHeight, false);
   if (on && moon.shadow.mapSize.x !== Q.shadow) { moon.shadow.mapSize.set(Q.shadow, Q.shadow); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } }
   const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   if (renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type) {
@@ -217,7 +231,7 @@ function applyQuality() {
   }
 }
 applyQuality();
-Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
+Settings.on(k => { if (k === 'quality') applyQuality(); if (k === 'autoRes' && !Settings.get('autoRes')) { resScale = 1; applyQuality(); } if (k === 'perf') $('perf').classList.toggle('show', !!Settings.get('perf')); if (k === 'difficulty' && G.player) Player.refit(G.player, scene, false); });
 G.quality = quality;
 function aimMoon(at) { moon.position.set(at.x - 6, 16, at.z + 8); moon.target.position.set(at.x, 0, at.z); }
 
@@ -282,6 +296,11 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
+      const B = q.fieldBoss; Enemy.makeElite(e, B.mods, B.name); e.hp *= B.hp; e.maxHp *= B.hp;
+      e.def.scale *= B.scale; e.def.radius *= B.scale; e.rig.root.scale.multiplyScalar(B.scale); e.def.flinch = false; e.champion = true; e.guardian = B.name; e.fieldBoss = B; e.bar.style.display = 'none';
+    }
+    if (q.zone) { e.zone = q.zone; e.state = 'hunt'; e.rig.root.position.y = 0; e.aggro = false; e.facing = Math.random() * Math.PI * 2; }   // a beast of the Rim, already about its business
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
@@ -289,11 +308,12 @@ function updateSpawns() {
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
-    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, G.cursed('hunted')); if (m) Enemy.makeElite(e, m); }
+    if (G.cursed('frenzy')) { e.def.speed *= 1.25; e.frenzy = true; }                 // a curse of the Endless Deep
     G.enemies.push(e);
     return false;
   });
-  const alive = G.enemies.filter(e => e.state !== 'dead').length;
+  const alive = G.enemies.filter(e => e.state !== 'dead' && (!e.zone || e.aggro)).length;            // beasts of the Rim count once roused
   document.getElementById('waveN').textContent = World.label();
   document.getElementById('foesN').textContent = alive ? alive + (alive === 1 ? ' foe' : ' foes') : '';
 }
@@ -304,7 +324,8 @@ let bannerT = null, tipT = null;
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 1800); }
 function showTip(txt) {
   if (!txt) return;
-  if (document.body.classList.contains('touch')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
+  txt = Bindings.fmt(txt);                                                // @heavy and the like become the player's own keys
+  if (document.body.classList.contains('touch') && !document.body.classList.contains('pad')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
@@ -325,7 +346,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -334,7 +355,7 @@ function updateHud() {
   if (spot !== G.spot) {
     G.spot = spot;
     const pad = document.body.classList.contains('pad'), touch = document.body.classList.contains('touch');
-    UI.prompt(spot ? `<b>${pad ? 'Ⓐ' : touch ? 'TALK' : 'E'}</b> ${spot.verb} · ${spot.name}` : '');
+    UI.prompt(spot ? `<b>${touch && !pad ? 'TALK' : Bindings.label('interact', pad ? 'pad' : 'key')}</b> ${spot.verb} · ${spot.name}` : '');
     document.querySelector('.b-light').textContent = spot ? 'TALK' : 'ATTACK';
   }
 }
@@ -363,7 +384,7 @@ $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); }
 function musicMood() {
   if (G.state === 'title' || G.mode === 'camp') return 'camp';
   if (G.boss && G.boss.state !== 'dead') return 'boss';
-  if (G.enemies.some(e => e.state !== 'dead') || G.queue.length) G.calmAt = G.time;
+  if (G.enemies.some(e => e.state !== 'dead' && (!e.zone || e.aggro)) || G.queue.some(q => !q.zone)) G.calmAt = G.time;
   return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
 }
 $('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
@@ -436,7 +457,7 @@ function placeHero(at) {
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
   if (Tutorial.active) Tutorial.stop();
-  clearEnemies(); G.blessings = []; G.run = null;
+  clearEnemies(); G.blessings = []; G.run = null; G.tonics = []; curseWorld();
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -452,7 +473,7 @@ function enterCamp(atSpawn = true) {
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
-function titleGo() { startGame(Items.hasSave() && Items.load() ? 'continue' : 'new'); }
+function titleGo() { if (Items.hasSave() && Items.load()) startGame('continue'); else if (anySave()) openSaves(); else startGame('new'); }
 function startGame(how = 'new') {
   Snd.init();
   if (how === 'new' || !Items.load()) Items.newGame();
@@ -470,9 +491,55 @@ function startGame(how = 'new') {
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+// ---------------- Day and night (the Hold and the Rim) ----------------
+// S.clock runs while the warden is in the Hold or on the Rim; 0 is dawn, 0.25 noon, 0.5 dusk, 0.75 midnight. The sky,
+// fog, light and sun follow it; below, the dungeon keeps its own light.
+const DAY = CFG.day, BASE_LIGHT = { hemi: 0.55, moon: 0.5, moonC: 0xaab8e0 };
+const dayT = () => { const S = Items.S; return S && S.clock !== undefined ? (S.clock / DAY.length) % 1 : DAY.start; };
+const sunUp = () => Math.sin(dayT() * Math.PI * 2);                       // > 0 by day
+G.isNight = () => sunUp() < -0.12;
+G.timeName = () => { const s = sunUp(), t = dayT(); return s > 0.35 ? 'Day' : s < -0.12 ? 'Night' : t < 0.25 || t > 0.75 ? 'Dawn' : 'Dusk'; };
+let dayOn = false, wasNight = null;
+const cA = new THREE.Color(), cB = new THREE.Color();
+function updateDay(dt) {
+  const inWorld = World.inCamp() && G.state !== 'title';
+  if (!inWorld) {
+    if (dayOn) { dayOn = false; hemi.intensity = BASE_LIGHT.hemi; moon.intensity = BASE_LIGHT.moon; moon.color.setHex(BASE_LIGHT.moonC); G.torchK = 1; curseWorld(); }
+    return;
+  }
+  dayOn = true;
+  const S = Items.S; if (S.clock === undefined) S.clock = DAY.start * DAY.length;
+  if (G.state === 'play') S.clock = (S.clock + dt) % DAY.length;
+  const s = sunUp(), L = Math.max(0, Math.min(1, (s + 0.12) / 0.47)), warm = Math.max(0, 1 - Math.abs(s) / 0.3) * (s > -0.2 ? 1 : 0);
+  // Sky and fog: night to day, with a warm band at dawn and dusk
+  cA.setHex(DAY.sky.night).lerp(cB.setHex(DAY.sky.day), L).lerp(cB.setHex(DAY.sky.dusk), warm * 0.55);
+  scene.fog.color.copy(cA); scene.background.copy(cA);
+  hemi.color.setHex(DAY.hemi.night[0]).lerp(cB.setHex(DAY.hemi.day[0]), L); hemi.intensity = DAY.hemi.night[1] + (DAY.hemi.day[1] - DAY.hemi.night[1]) * L;
+  moon.color.setHex(DAY.sun.night[0]).lerp(cB.setHex(DAY.sun.day[0]), L).lerp(cB.setHex(DAY.sun.dusk[0]), warm * 0.6);
+  moon.intensity = DAY.sun.night[1] + (DAY.sun.day[1] - DAY.sun.night[1]) * L;
+  scene.fog.near = DAY.fog.night[0] + (DAY.fog.day[0] - DAY.fog.night[0]) * L; scene.fog.far = DAY.fog.night[1] + (DAY.fog.day[1] - DAY.fog.night[1]) * L;
+  G.torchK = 1 - L * 0.65;
+  // Tell the warden when night falls and when the sun comes back
+  const night = G.isNight();
+  if (wasNight !== null && night !== wasNight && G.state === 'play') UI.toast(night ? '☾ Night falls. The dead stir in the Old Graveyard, and the wolves grow bold.' : '☀ Dawn. The dead go back to their graves.', night ? '#9aa8ff' : '#ffd890');
+  wasNight = night;
+}
+G.onFieldBoss = (e, roused) => { if (roused) { G.boss = e; banner(e.fieldBoss.name.toUpperCase()); Snd.play('slam'); } else if (G.boss === e) G.boss = null; };
+// Through the south gate and back: out on the Rim is a trip of its own (tonics drunk, gold at a little risk); back in
+// the Hold the gold is banked and the tonics wear off
+function checkRim() {
+  const f = World.field(), out = !!f && G.player.pos.z > f.rect.z0 - 1, want = out ? 'field' : 'camp';
+  if (want === G.mode || Tutorial.active) return;
+  G.mode = want;
+  if (out) { Items.S.tripGold = 0; drinkTonics(); banner('THE RIM'); }
+  else { const g = Items.S.tripGold; Items.S.tripGold = 0; G.tonics = []; if (g) UI.toast(`Back in the Hold: ◆ ${g} banked`, '#ffd040'); }
+  Player.refit(G.player, scene, false); Items.save(); $('waveN').textContent = World.label();
+}
+// Ysolde's tonics are drunk at the start of a trip and last until the warden is back in camp
+function drinkTonics() { const S = Items.S; G.tonics = (S.tonics || []).slice(); S.tonics = []; if (G.tonics.length) UI.toast('Tonics: ' + G.tonics.map(id => CFG.camp.tonics.find(t => t.id === id).name).join(', '), '#9aff8a'); }
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies(); G.blessings = []; G.run = null;
-  const at = World.startStage(k);
+  clearEnemies(); G.blessings = []; G.run = null; if (!onward) drinkTonics();
+  const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
@@ -490,13 +557,24 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
   if (G.boss === e) G.boss = null;
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  // A field boss: its spoils, and when it comes back
+  if (e.fieldBoss) {
+    const B = e.fieldBoss, S = Items.S; S.fieldBoss = S.fieldBoss || {}; S.fieldBoss[B.id] = Date.now() + B.respawn * 1000;
+    S.bossKills = S.bossKills || {}; S.bossKills[B.id] = (S.bossKills[B.id] || 0) + 1;
+    for (const [k, n] of Object.entries(B.drops)) Items.addMat(k, n);
+    const it = Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { minRarity: 2, boost: 1 });
+    if (Items.add(it)) UI.toast(`${B.name} falls: ${Items.fullName(it)}`, Items.colorOf(it));
+    gemFound(1); banner(B.name.toUpperCase() + ' FALLS'); Items.save();
+  }
+  // Materials: beasts of the Rim drop them; the dead below now and then
+  for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
   if (e.type === 'mimic') {                                                // what a mimic swallowed
     gemFound(1);
     if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
@@ -513,10 +591,11 @@ function levelUp(n) {
 }
 // Landed hits train the weapon type in hand
 G.onHits = (n, crit) => {
-  if (!Items.S || G.mode !== 'dungeon') return;
+  if (!Items.S || G.mode === 'camp') return;
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
-    const w = CFG.gear.weapons[p.S.weaponType].name, perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', '+8% posture damage'][r];
+    const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
+    const perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
     UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
   }
 };
@@ -544,15 +623,24 @@ G.onChest = room => {
 };
 // ---------------- The Endless Deep ----------------
 // A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
-G.enterEndless = daily => { G.run = Endless.newRun(daily); Items.S.tripGold = 0; G.goFloor(); };
+G.enterEndless = (daily, curses) => { drinkTonics(); G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
+// Is this curse on the current Endless climb?
+G.cursed = id => !!(G.run && G.run.curses && G.run.curses.includes(id));
+// Lightless closes the fog in and hides the map; anywhere else the air is as usual
+function curseWorld() {
+  const dark = G.cursed('dark');
+  scene.fog.near = dark ? 5 : 18; scene.fog.far = dark ? 15 : 38;
+  document.body.classList.toggle('lightless', dark);
+}
 G.goFloor = () => fadeTo(() => {
   clearEnemies(); G.blessings = [];
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
   Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
-  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); p.flasks = Math.max(p.flasks, 1); }
-  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label();
+  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
+  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
+  if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');
   if (at.lair) UI.toast('A guardian waits at the end of this floor', '#ff7a2a');
 });
 G.onFloorCleared = () => { if (G.run && !UI.open) openPanel('deeper', { floor: G.run.floor, daily: G.run.daily }); };
@@ -574,7 +662,7 @@ G.pressOn = () => G.descend(G.stageK + 1, true);
 G.onPlayerDeath = () => {
   Snd.play('lose'); Items.S.deaths++;
   G.after(1.6, () => {
-    const S = Items.S, lost = Math.floor(S.tripGold * CFG.camp.deathGoldLoss);
+    const S = Items.S, lost = Math.floor(S.tripGold * (G.mode === 'field' ? CFG.field.deathGoldLoss : CFG.camp.deathGoldLoss));   // the Rim costs less
     S.gold = Math.max(0, S.gold - lost); S.tripGold = 0; Items.save();
     openPanel('fallen', { lost, where: 'Fell in ' + World.label() });
   });
@@ -597,6 +685,15 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'gather') {                                                // a herb patch or an ore vein on the Rim
+    const n = Field.gather(s.node), M = CFG.materials[s.node.kind];
+    if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
+    return;
+  }
+  if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
+    const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
+    return say([[who, lines[i]]]);
+  }
   if (s.id === 'trainer') return openPanel('trainer');
   openPanel(s.id);
 }
@@ -610,9 +707,29 @@ G.bless = (id, shrine) => {
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
 };
-$('startBtn').addEventListener('click', () => startGame('new'));
+// The title: Continue plays the last-used slot; Saves (or Begin, with no saves at all) opens the three slots
+function anySave() { for (let n = 1; n <= Items.SLOTS; n++) if (Items.slotInfo(n)) return true; return false; }
+function titleButtons() {
+  const cont = Items.hasSave() && !!Items.slotInfo(Items.slot);
+  $('contBtn').style.display = cont ? '' : 'none';
+  $('startBtn').textContent = anySave() ? 'Saves' : 'Begin'; $('startBtn').classList.toggle('quiet', cont);
+}
+function openSaves() {
+  if (UI.open) return;
+  $('title').classList.remove('show'); G.state = 'menu';
+  UI.show('saves', {}, () => { if (G.state === 'menu') { G.state = 'title'; $('title').classList.add('show'); titleButtons(); } });
+}
+// From the saves screen: play a slot, or start a new game in it
+G.playSlot = (n, fresh) => { Items.useSlot(n); while (UI.open) UI.close(); startGame(fresh ? 'new' : 'continue'); };
+$('startBtn').addEventListener('click', () => { Snd.init(); if (anySave()) openSaves(); else startGame('new'); });
 $('contBtn').addEventListener('click', () => startGame('continue'));
-if (Items.hasSave() && Items.load()) { $('contBtn').style.display = ''; $('startBtn').textContent = 'New game'; $('startBtn').classList.add('quiet'); }
+titleButtons();
+// The keyboard hint line along the bottom follows the player's keys
+function keysBar() {
+  const k = a => `<b>${Bindings.label(a, 'key')}</b>`;
+  $('keys').innerHTML = `<span class="vb">Mouse look · </span>${['up', 'left', 'down', 'right'].map(a => Bindings.label(a, 'key')).join('')} move · ${k('light')}/click attack · ${k('heavy')} heavy · ${k('block')}/right-click block · ${k('dodge')} dash · ${k('flask')} flask · ${k('ult')} ultimate · ${k('interact')} talk · ${k('gear')} gear · ${k('talents')} talents · ${k('camera')} camera · ${k('lock')} lock on`;
+}
+keysBar(); Settings.on(key => { if (key === 'keys') keysBar(); });
 
 // ---------------- Camera ----------------
 const camTarget = new THREE.Vector3(0, 0, 2);
@@ -646,7 +763,7 @@ function updateCamera(dt) {
   // Stay framed on the section the hero is in (in a passage, just follow)
   const r = p && World.roomOf(p.pos);
   let tx = camTarget.x, tz = camTarget.z;
-  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
+  if (r && r.kind !== 'field') { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);
@@ -681,12 +798,40 @@ addEventListener('resize', resize); resize();
 // ---------------- Main loop ----------------
 let last = performance.now();
 const idleRig = (() => { const r = Rig.build('hero', { look: Items.S ? Items.look() : {} }); r.root.position.set(1.7, 0, 3.3); r.root.rotation.y = -2.5; scene.add(r.root); return r; })();
+// Frame timing: an average frame time for the performance readout and the automatic resolution. Each second is one
+// window; two slow windows in a row (over 22 ms, under ~45 FPS) drop the resolution a step, six quick ones (under
+// 17.5 ms) raise it. Only frames in play count, and a frame over 0.25 s (the app was away) is ignored.
+const Perf = { ms: 16.7, win: 0, n: 0, sum: 0, slow: 0, quick: 0, shown: 0 };
+function perfTick(ms) {
+  if (ms > 250) return;
+  Perf.ms += (ms - Perf.ms) * 0.05;
+  if (G.state === 'play') { Perf.sum += ms; Perf.n++; }
+  if ((Perf.win += ms) < 1000) return;
+  const avg = Perf.n ? Perf.sum / Perf.n : 0;
+  Perf.win = Perf.sum = Perf.n = 0;
+  if (avg && Settings.get('autoRes')) {
+    if (avg > 22) { Perf.quick = 0; if (++Perf.slow >= 2 && resScale > 0.5) { resScale = Math.max(0.5, +(resScale - 0.15).toFixed(2)); Perf.slow = 0; applyQuality(); } }
+    else if (avg < 17.5) { Perf.slow = 0; if (++Perf.quick >= 6 && resScale < 1) { resScale = Math.min(1, +(resScale + 0.1).toFixed(2)); Perf.quick = 0; applyQuality(); } }
+    else Perf.slow = Perf.quick = 0;
+  }
+  if (Settings.get('perf')) {
+    const info = renderer.info.render;
+    $('perf').textContent = `${Math.round(1000 / Perf.ms)} FPS · ${Perf.ms.toFixed(1)} ms · ${info.calls} draws · ${Math.round(info.triangles / 1000)}k tris · ${quality()} ×${resScale.toFixed(2)} res`;
+  }
+}
 function frame(now) {
   requestAnimationFrame(frame);
-  const real = Math.min(0.05, (now - last) / 1000); last = now;
+  const ms = Math.max(0, now - last), real = Math.min(0.05, ms / 1000); last = now;
   step(real);
   renderer.render(scene, camera);
+  perfTick(ms);
 }
+// Switching away from the app (or the tab) pauses the fight and holds the sound until you come back
+$('perf').classList.toggle('show', !!Settings.get('perf'));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (G.state === 'play') togglePause(); Snd.hold(true); }
+  else Snd.hold(false);
+});
 function step(real) {
   pollPad(real);
   Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
@@ -702,6 +847,8 @@ function step(real) {
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
     World.update(dt, camera.position);
+    if (World.inCamp()) checkRim();
+    updateDay(dt);
     updateSpawns();
     Enemy.updateArrows(dt);
     runTimers();
@@ -742,6 +889,8 @@ window.__dw = {
   // Tests: a fresh hero standing in the first room of stage k, no story, no fade
   arena(k = 0) { Items.wipe(); startGame('new'); while (UI.open) UI.close(); clearEnemies(); const at = World.startStage(k); G.mode = 'dungeon'; G.stageK = k; placeHero(at); G.state = 'play'; },
   sceneSize: () => scene.children.length,
+  openSaves, titleButtons,
+  perf: () => ({ resScale, pr: renderer.getPixelRatio(), text: $('perf').textContent }), perfTick, togglePause,
   setView(m) { if (View.mode !== m) toggleView(); },
   spawn(type, x = 0, z = -3) { const e = Enemy.spawn(scene, type, new THREE.Vector3(x, 0, z), 1); G.enemies.push(e); return e; },
   press(act) { Player.press(G.player, act); },

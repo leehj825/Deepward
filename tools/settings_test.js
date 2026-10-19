@@ -65,6 +65,21 @@ const path = require('path');
     Settings.set('hitstop', true); e.state = 'dead'; e.hp = 0;
     return o;
   }));
+  // Automatic resolution: slow frames in play drop the pixel ratio a step, quick ones bring it back; the performance
+  // readout shows; switching away from the app pauses the fight
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, feed = (ms, secs) => { for (let t = 0; t < secs * 1000; t += ms) __dw.perfTick(ms); };
+    G.state = 'play'; Settings.set('autoRes', true); const pr0 = __dw.perf().pr;
+    feed(30, 5); o.resDrops = __dw.perf().resScale < 1 && __dw.perf().pr < pr0;
+    feed(16, 30); o.resBack = __dw.perf().resScale === 1;
+    Settings.set('perf', true); feed(16, 1.1); o.perfText = /FPS/.test(__dw.perf().text) && document.getElementById('perf').classList.contains('show');
+    Settings.set('perf', false);
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
+    o.pausedAway = G.state === 'pause';
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
+    __dw.togglePause();
+    return o;
+  }));
   // The pad's right stick turns the camera by the sensitivity, inverted vertically
   await pg.evaluate(() => {
     const pad = { connected: true, mapping: 'standard', index: 0, id: 'Xbox', axes: [0, 0, 0.9, 0.9], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
@@ -76,7 +91,7 @@ const path = require('path');
   await pg.waitForTimeout(2500);
   out.scoreMood = await pg.evaluate(() => Snd.mood);
   await b.close();
-  const ok = !errs.length && out.storyHalf && out.storyParry && out.cueWords && out.noHitstop && out.lowQuality && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
+  const ok = !errs.length && out.resDrops && out.resBack && out.perfText && out.pausedAway && out.storyHalf && out.storyParry && out.cueWords && out.noHitstop && out.lowQuality && out.fromTitle && out.backToTitle && out.kept.music === 0.4 && out.kept.sens === 1.2 && out.kept.invertY === true && out.kept.shake === false
     && out.noShake && out.fromPause && out.backToPause && out.camp === 'camp' && out.dungeon === 'dungeon' && out.combat === 'combat' && out.lingers === 'combat'
     && out.calm === 'dungeon' && out.boss === 'boss' && out.turned && out.inverted && out.scoreMood === 'boss';
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

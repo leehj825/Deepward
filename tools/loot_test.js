@@ -63,6 +63,40 @@ const path = require('path');
     G.mode = 'dungeon'; G.onChest({ chest: { big: true, rich: false, x: at.x, z: at.z }, inf: { k: 0, stage: CFG.stages[0] } });
     __dw.sim(1.6); __dw.UI.close();
     out.chestGems = Object.values(S.gems).reduce((a, b) => a + b, 0) >= g0 + 2;
+    // Gloves, boots and rings; weight classes; elements only on weapons
+    const many = Array.from({ length: 300 }, () => I.generate(3));
+    out.newSlots = ['gloves', 'boots', 'ring'].every(sl => many.some(x => x.slot === sl));
+    out.weightClasses = many.filter(x => CFG.gear.weightSlots.includes(x.slot)).every(x => x.wc >= 0 && x.wc <= 2 && x.name.includes([CFG.gear.armors, CFG.gear.helms, CFG.gear.gloves, CFG.gear.boots][CFG.gear.weightSlots.indexOf(x.slot)][x.wc]));
+    out.elementsOnWeapons = many.every(x => x.slot === 'weapon' || !x.aff.some(a => ['fire', 'frost', 'shock'].includes(a.k)));
+    // Heavy pieces give more, and a heavy load makes the dash dearer and shorter
+    out.heavyGivesMore = I.main(I.generate(3, { slot: 'armor', wc: 2, rarity: 0 })).hp > I.main(I.generate(3, { slot: 'armor', wc: 0, rarity: 0 })).hp;
+    for (const sl of CFG.gear.weightSlots) S.equip[sl] = I.generate(3, { slot: sl, wc: 2, rarity: 0 });
+    const heavy = I.stats();
+    for (const sl of CFG.gear.weightSlots) S.equip[sl] = I.generate(3, { slot: sl, wc: 0, rarity: 0 });
+    const light = I.stats();
+    out.load = heavy.loadClass === 2 && light.loadClass === 0 && heavy.dashCost > light.dashCost && heavy.dashDist < light.dashDist && heavy.move < light.move && heavy.maxHp > light.maxHp;
+    // The dash really is shorter in heavy gear
+    const dashLen = () => { reset(); p().st = p().maxSt; Input.move.x = 0; Input.move.z = -1; const z0 = p().pos.z; __dw.press('dodge'); __dw.sim(0.5); Input.move.z = 0; return Math.abs(p().pos.z - z0); };
+    G.onGearChanged(); const lightDash = dashLen();
+    for (const sl of CFG.gear.weightSlots) S.equip[sl] = I.generate(3, { slot: sl, wc: 2, rarity: 0 });
+    G.onGearChanged(); const heavyDash = dashLen();
+    out.heavyDash = heavyDash < lightDash - 0.1;
+    for (const sl of CFG.gear.weightSlots) delete S.equip[sl];
+    // Fire burns over time, frost slows, shock jolts
+    const elem = (k, v, type) => { const w = I.generate(3, { slot: 'weapon', type: 'sword', rarity: 0 }); w.aff = [{ k, v }]; wear(w); reset(); const e = foe(-1.6, 0, type); e.cooldown = 99; return e; };
+    let fe = elem('fire', 50); __dw.press('light'); __dw.sim(0.5); const hb = fe.hp, burning = fe.burnLeft > 0; __dw.sim(2.2);
+    out.fire = burning && fe.burnLeft === 0 && fe.hp < hb - 1;
+    fe = elem('frost', 30); __dw.press('light'); __dw.sim(0.5); out.frost = fe.chillT > 0 && fe.chill === 0.3;
+    fe = elem('shock', 0, 'spider'); __dw.press('light'); __dw.sim(0.45); const noJolt = fe.state !== 'stagger';            // spiders do not flinch...
+    fe = elem('shock', 100, 'spider'); __dw.press('light'); __dw.sim(0.45); out.shock = noJolt && fe.state === 'stagger';   // ...but a jolt staggers them
+    // Bram's reroll swaps a bonus for a different kind, for gold and scrap, dearer each time
+    const ring = I.generate(3, { slot: 'ring', rarity: 2 }); S.equip.ring = ring; S.gold = 5000; S.scrap = 100;
+    const k0 = ring.aff.map(a => a.k), c0 = I.rerollCost(ring), g1 = S.gold;
+    const did = I.reroll(ring, 0);
+    out.reroll = did && !k0.includes(ring.aff[0].k) && ring.aff.length === k0.length && S.gold === g1 - c0.gold && I.rerollCost(ring).gold > c0.gold;
+    __dw.openPanel('smith'); document.querySelector('[data-arg="smith:reroll"]').click();
+    const rb = document.querySelector(`[data-act="reroll"][data-arg="${ring.id}:1"]`), k1 = ring.aff[1].k; if (rb) rb.click();
+    out.rerollTab = !!rb && ring.aff[1].k !== k1; __dw.UI.close();
     return out;
   });
   await b.close();

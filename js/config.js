@@ -41,6 +41,25 @@ const CFG = {
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
     },
+    // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
+    // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
+    arts: {
+      sword: { name: 'Falling Star', cost: 30, cd: 8, desc: 'A leaping overhead that breaks guards', hits: [
+        { pose: 'overhead', wind: 0.34, active: 0.12, recover: 0.5, dmg: 46, posture: 62, range: 2.7, arc: 100, lunge: 3.2, breaksGuard: true }] },
+      axe: { name: 'Cleaving Leap', cost: 32, cd: 9, desc: 'Leap in and split the ground around you', hits: [
+        { pose: 'heavy', wind: 0.44, active: 0.14, recover: 0.55, dmg: 40, posture: 52, range: 2.8, arc: 360, lunge: 4.2, breaksGuard: true, ring: 2.8 }] },
+      mace: { name: 'Earthshaker', cost: 32, cd: 9, desc: 'A ground shock that shatters posture all around', hits: [
+        { pose: 'heavy', wind: 0.5, active: 0.14, recover: 0.6, dmg: 30, posture: 95, range: 3.6, arc: 360, lunge: 0.4, breaksGuard: true, ring: 3.6 }] },
+      longsword: { name: 'Piercing Lunge', cost: 28, cd: 7, desc: 'A long dashing thrust that strikes from afar', hits: [
+        { pose: 'thrust', wind: 0.24, active: 0.1, recover: 0.45, dmg: 40, posture: 40, range: 4.4, arc: 30, lunge: 4.6 }] },
+      greatsword: { name: 'Whirlwind', cost: 34, cd: 9, desc: 'Two full spins that cut everything near', hits: [
+        { pose: 'slashR', wind: 0.3, active: 0.14, recover: 0.04, dmg: 30, posture: 34, range: 3.1, arc: 360, lunge: 0.6 },
+        { pose: 'slashR', wind: 0.12, active: 0.14, recover: 0.55, dmg: 34, posture: 40, range: 3.1, arc: 360, lunge: 0.6, breaksGuard: true }] },
+      spear: { name: 'Skewer', cost: 28, cd: 7, desc: 'A thrust that reaches five metres and breaks guards', hits: [
+        { pose: 'thrust', wind: 0.3, active: 0.12, recover: 0.5, dmg: 38, posture: 46, range: 5.0, arc: 22, lunge: 2.0, breaksGuard: true }] },
+      daggers: { name: 'Flurry', cost: 26, cd: 7, desc: 'Six cuts faster than the eye', hits: [0, 1, 2, 3, 4, 5].map(i => (
+        { pose: i % 2 ? 'slashL' : 'slashR', wind: i ? 0.05 : 0.12, active: 0.05, recover: i < 5 ? 0.03 : 0.4, dmg: 9, posture: 8, range: 2.1, arc: 120, lunge: 0.6 })) },
+    },
     // A heavy attack on a posture-broken enemy close by is an execution: an untouchable finishing blow that kills
     // outright (guardians and champions take execMult times a critical instead)
     execute: { range: 2.6, wind: 0.32, active: 0.12, recover: 0.5, execMult: 0.8 },
@@ -82,6 +101,31 @@ const CFG = {
         { weight: 3, hits: [{ pose: 'slashR', wind: 0.85, active: 0.14, recover: 0.8, dmg: 22, posture: 30, blockMult: 1.6, range: 2.9, arc: 140, lunge: 1.0 }] },
         { weight: 2, hits: [{ pose: 'heavy', wind: 1.15, active: 0.14, recover: 1.0, dmg: 34, posture: 0, range: 2.6, arc: 360, aoe: { fwd: 1.9, r: 2.3 }, unblockable: true, lunge: 0.6 }] },
       ],
+    },
+    // ---- The Rim (the field outside the south gate) ----
+    // Wolves run in packs and circle; the pounce leaps in from range
+    wolf: {
+      name: 'Grey Wolf', rig: 'wolf', hp: 38, posture: 40, postureRegen: 16, speed: 4.4, radius: 0.5, scale: 1,
+      flinch: true, approach: 1.9, cooldown: [0.9, 1.8], xp: 12, gold: 5, aggro: 10, pack: true,
+      attacks: [
+        { weight: 3, hits: [{ pose: 'bite', wind: 0.42, active: 0.1, recover: 0.5, dmg: 9, posture: 10, range: 1.9, arc: 80, lunge: 1.4 }] },
+        { weight: 2, hits: [{ pose: 'pounce', wind: 0.75, active: 0.16, recover: 0.7, dmg: 14, posture: 16, range: 2.3, arc: 60, lunge: 3.2, leap: true }] },
+      ],
+    },
+    // Boars gore up close; from 5-10 m they lower the head and CHARGE in a straight line (unblockable: dash aside)
+    boar: {
+      name: 'Tusked Boar', rig: 'boar', hp: 85, posture: 80, postureRegen: 12, speed: 3.0, radius: 0.7, scale: 1,
+      flinch: false, hyperArmor: true, approach: 2.0, cooldown: [1.2, 2.2], xp: 22, gold: 10, aggro: 8, charge: [4.5, 10, 1],
+      attacks: [
+        { weight: 3, hits: [{ pose: 'gore', wind: 0.6, active: 0.12, recover: 0.6, dmg: 15, posture: 18, range: 2.0, arc: 90, lunge: 1.2 }] },
+        { weight: 0, hits: [{ pose: 'charge', wind: 0.95, active: 0.45, recover: 0.9, dmg: 24, posture: 0, range: 2.2, arc: 70, lunge: 8.5, unblockable: true }] },
+      ],
+    },
+    // Goblin scouts keep their distance and throw spears (block, parry or dash them)
+    scout: {
+      name: 'Goblin Scout', rig: 'scout', hp: 30, posture: 30, postureRegen: 14, speed: 3.6, radius: 0.42, scale: 0.9,
+      flinch: true, ranged: [6, 11], solo: true, approach: 8, cooldown: [1.6, 2.6], xp: 12, gold: 8, aggro: 12,
+      attacks: [{ weight: 1, hits: [{ pose: 'shoot', wind: 0.8, active: 0.1, recover: 0.7, dmg: 11, posture: 10, range: 13, arc: 30, lunge: 0, projectile: { speed: 12 } }] }],
     },
     // ---- Act II ----
     // Throws slow orbs from afar; a parry sends an orb back at the caster
@@ -394,6 +438,62 @@ const CFG = {
   championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  // The Rim: the open field outside the south gate. Zones hold their own beasts (cap alive at once, respawn seconds
+  // after one falls); mult is how tough they are. The far ridge is the dangerous end.
+  field: {
+    size: [60, 100], gap: 5,       // half width and depth of the field; the road from the camp's south gate is gap long
+    zones: [
+      { id: 'meadow', name: 'The Meadow', x: 0, z: 30, r: 16, mobs: ['wolf', 'wolf', 'boar'], nightMobs: ['wolf', 'wolf', 'wolf', 'boar'], cap: 5, nightCap: 6, respawn: 25, mult: 1 },
+      { id: 'wood', name: 'Thornwood', x: 36, z: 52, r: 18, mobs: ['scout', 'scout', 'wolf', 'spider'], cap: 5, respawn: 30, mult: 1.3 },
+      { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4, night: true },   // the dead rise only at night
+      { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
+    ],
+    nodes: { herb: 12, ore: 8, regrow: 150 },   // herb patches and ore veins to gather; each grows back after regrow seconds
+    // Field bosses: each keeps to its zone at its time of day, comes back respawn seconds (real time) after it falls
+    bosses: [
+      { id: 'oldtusk', name: 'Old Tusk', type: 'boar', zone: 'meadow', when: 'day', mods: ['armored'], hp: 6, scale: 1.7, respawn: 300, drops: { tusk: 4, pelt: 3 } },
+      { id: 'graveknight', name: 'The Grave Knight', type: 'knight', zone: 'graves', when: 'night', mods: ['vampiric'], hp: 6, scale: 1.35, respawn: 300, drops: { bone: 5, ore: 2 } },
+    ],
+    leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
+    deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
+  },
+  // The day in the Hold and on the Rim: length seconds from dawn to dawn (the dungeon below keeps no time). Day and
+  // night colours for the sky and fog, the light, the sun or moon, and how far the fog lets you see.
+  day: {
+    length: 600, start: 0.08,
+    sky: { day: 0x8aa2bc, dusk: 0xb07858, night: 0x0b1224 }, hemi: { day: [0xd8e4ff, 1.0], night: [0x8098c8, 0.55] },
+    sun: { day: [0xfff0d8, 1.05], dusk: [0xffa060, 0.7], night: [0xaab8e0, 0.5] }, fog: { day: [30, 85], night: [18, 38] },
+  },
+  // Materials: dropped by beasts (and the dead below, less often) and gathered on the Rim; Bram crafts with them and
+  // Ysolde brews tonics from herbs
+  materials: {
+    pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+  },
+  matDrops: {                      // chance per kill on the Rim; below, a third of it
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
+  },
+  // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
+  crafts: [
+    { id: 'wolfwraps', name: 'Wolfhide Wraps', slot: 'gloves', wc: 0, rarity: 1, aff: ['crit'], need: { pelt: 4 }, gold: 40 },
+    { id: 'tuskfists', name: 'Tuskbreaker Gauntlets', slot: 'gloves', wc: 2, rarity: 2, aff: ['posture', 'hp'], need: { tusk: 3, ore: 2 }, gold: 80 },
+    { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
+    { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
+    { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
+  ],
+  temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
+  // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
+  // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
+  curses: [
+    { id: 'dry', name: 'Dry Flasks', icon: '⚗', desc: 'No healing flasks', gold: 0.35 },
+    { id: 'hunted', name: 'Hunted', icon: '☠', desc: 'Every foe is an elite', gold: 0.4 },
+    { id: 'frenzy', name: 'Frenzy', icon: '⚡', desc: 'Foes move 25% faster and attack more often', gold: 0.3 },
+    { id: 'glass', name: 'Glass Warden', icon: '◇', desc: 'Half your health', gold: 0.35 },
+    { id: 'brittle', name: 'Brittle Guard', icon: '🛡', desc: 'Blocks stop 40% less damage', gold: 0.25 },
+    { id: 'dark', name: 'Lightless', icon: '☾', desc: 'The dark closes in, and no map', gold: 0.2 },
+  ],
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
   blessings: [
     { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },
@@ -406,22 +506,28 @@ const CFG = {
     { id: 'steady', name: 'Steady Hand', icon: '◎', desc: 'Parry window +0.05 s' },
   ],
   tips: {
-    execute: 'BROKEN! Hit HEAVY (K / RT) close by to EXECUTE it: an untouchable finishing blow.',
-    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.',
-    knight: 'Shields stop light attacks. A HEAVY attack (K) breaks the guard - or dash behind them.',
+    execute: 'BROKEN! Hit HEAVY (@heavy) close by to EXECUTE it: an untouchable finishing blow.',
+    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.',
+    knight: 'Shields stop light attacks. A HEAVY attack (@heavy) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
     goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
     spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
     duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
-    brute: 'A RED glow is UNBLOCKABLE. DASH (Space) through it - you are invulnerable mid-dash.',
+    brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 
   // ---------------- Gear ----------------
   // Item power grows with tier (the stage depth it was found at); rarity adds a multiplier and random bonuses.
   gear: {
-    slots: ['weapon', 'shield', 'armor', 'helm', 'trinket'],
-    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', trinket: 'Trinket' },
+    slots: ['weapon', 'shield', 'armor', 'helm', 'gloves', 'boots', 'trinket', 'ring'],
+    slotNames: { weapon: 'Weapon', shield: 'Shield', armor: 'Armour', helm: 'Helm', gloves: 'Gloves', boots: 'Boots', trinket: 'Trinket', ring: 'Ring' },
+    // Armour, helms, gloves and boots come light, medium or heavy (it.wc). Heavier pieces give more (mult), but the
+    // load they add up to makes the dash cost more and reach less, and slows the walk a little (see Items.stats).
+    weightSlots: ['armor', 'helm', 'gloves', 'boots'],
+    weight: { armor: [1, 2, 3.2], helm: [0.4, 0.8, 1.2], gloves: [0.2, 0.4, 0.7], boots: [0.3, 0.6, 1.0] },
+    weightMult: [0.8, 1, 1.25], weightNames: ['Light', 'Medium', 'Heavy'],
+    load: { light: 2.5, heavy: 4.5, dashCost: 0.08, dashDist: 0.03, move: 0.02 },   // per point of load over 'light'
     rarities: [
       { id: 'common', name: 'Common', color: '#cfc8b8', mult: 1, affixes: 0, weight: 62 },
       { id: 'rare', name: 'Rare', color: '#5aa8ff', mult: 1.12, affixes: 1, weight: 27 },
@@ -446,7 +552,10 @@ const CFG = {
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],
     helms: ['Cap', 'Helm', 'Great Helm'],
-    trinkets: ['Ring', 'Amulet', 'Charm'],
+    gloves: ['Wraps', 'Gloves', 'Gauntlets'],
+    boots: ['Shoes', 'Boots', 'Sabatons'],
+    trinkets: ['Amulet', 'Charm'],
+    rings: ['Band', 'Signet', 'Loop'],
     // Random bonuses: [min, max] per tier step added on top
     // Named legendaries, each with an effect of its own (the fight reads S.u). They drop from guardians' chests (uniqueChance)
     // and rich chests (uniqueRich), and Tilda now and then has one (uniqueStock). Each is found once before any repeats.
@@ -481,7 +590,13 @@ const CFG = {
       parry: { name: 'Parry window', unit: 's', min: 0.02, max: 0.04, step: 0.004 },
       lifesteal: { name: 'Life on hit', unit: '%', min: 2, max: 4, step: 0.3 },
       gold: { name: 'Gold found', unit: '%', min: 10, max: 22, step: 2 },
+      // Weapons only: elements carried by every hit that lands
+      fire: { name: 'Fire (burns over 2 s)', unit: '%', min: 15, max: 25, step: 1.5, only: ['weapon'] },
+      frost: { name: 'Frost (slows for 2 s)', unit: '%', min: 20, max: 30, step: 1, only: ['weapon'] },
+      shock: { name: 'Shock (chance to jolt)', unit: '%', min: 8, max: 14, step: 0.8, only: ['weapon'] },
     },
+    // Bram rerolls one bonus of a worn piece: base cost times (tier + 1), more each time that piece is rerolled
+    reroll: { gold: 45, scrap: 3, growth: 0.5 },
     maxUpgrade: [2, 4, 6, 8],   // highest +level the smith can reach at each forge level (0-3)
     upgradeStep: 0.08,          // each +level adds 8% to the item's main stats
     invSize: 24,
@@ -499,6 +614,38 @@ const CFG = {
     forgeCost: [60, 110, 180, 260, 360, 480, 620],   // Bram forging a new item, by tier
     salvage: [2, 4, 8, 15],     // scrap from salvaging an item, by rarity
     deathGoldLoss: 0.5,         // share of the gold gathered on a trip that is lost if you fall
+    // Ysolde the herbalist's tonics: drunk in camp, they last for the next trip below (or out on the Rim)
+    tonics: [
+      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60, herbs: 2 },
+      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80, herbs: 3 },
+      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70, herbs: 3 },
+      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90, herbs: 2, ore: 1 },
+    ],
+    curioMult: 4,               // Odo the curio dealer: one rare-or-better piece a day, at this many times its value
+  },
+  // The people of Deepward Hold: what they say when spoken to (one line at a time, in turn)
+  townsfolk: {
+    bard: ['Wenna the bard', [
+      'They say the Bone Warden was the first warden of this camp. He went down to hold the stair, and never came up.',
+      'Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.',
+      'The Den Mother was a woodwife once, before the Deep took her children. She keeps the goblins now.',
+      'Spiders spin in the dark, and the Brood Queen spins the spiders. Parry the pounce, warden, never just block it.',
+      'The Pale Duelist fenced for a crown he never wore. Watch his first swing; it is always a lie.',
+      'Below the court the stair goes on, past drowned temples and frozen halls, to a throne no one has seen.',
+      'Sing with me? No? Then go and give me something to sing about.',
+    ]],
+    guard: ['Captain Rook', [
+      'The south gate opens on the Rim: grass, wood and the old graveyard. Beasts, mostly. Good hunting for a warden.',
+      'Wolves come in threes. Do not let them circle you.',
+      'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
+    ]],
+    gemcutter: ['Nell the gem cutter', [
+      'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',
+    ]],
+    villager: ['Villager', [
+      'Welcome back, warden!', 'Mind the fire, it spits.', 'My brother went down the stair. Find him, if you can.', 'The Hold grows every season. Thanks to you.',
+      'Nell cut me a ring once. I lost it in the Rim.', 'Rook says the wolves are bold this year.',
+    ]],
   },
   chest: { gold: [24, 40], itemChance: 0.35 },
 

@@ -5,7 +5,7 @@ const Player = (() => {
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
-    critMult: P.critMult, dashCost: 1, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
+    critMult: P.critMult, dashCost: 1, dashDist: 1, load: 0, loadClass: 0, burn: 0, chill: 0, shock: 0, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
   // Gear, levels and talents, then any shrine blessings for this stage
   function gearStats() {
     const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
@@ -14,6 +14,18 @@ const Player = (() => {
       if (b === 'wrath') S.dmg *= 1.2; else if (b === 'iron') S.dr = 1 - (1 - S.dr) * 0.85; else if (b === 'swift') S.move *= 1.12;
       else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
       else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
+    }
+    // Ysolde's tonics, drunk for this trip
+    for (const t of (G.tonics || [])) {
+      if (t === 'stamina') S.regen *= 1.3; else if (t === 'iron') S.dr = 1 - (1 - S.dr) * 0.9; else if (t === 'flask') S.flasks += 1; else if (t === 'edge') S.dmg *= 1.1;
+    }
+    // Curses of an Endless climb, and the gold they pay
+    if (G.run && G.run.curses && G.run.curses.length) {
+      const c = id => G.run.curses.includes(id);
+      if (c('dry')) S.flasks = 0;
+      if (c('glass')) S.maxHp = Math.round(S.maxHp * 0.5);
+      if (c('brittle')) S.block *= 0.6;
+      S.goldFind *= 1 + Endless.curseGold(G.run.curses);
     }
     return S;
   }
@@ -34,7 +46,8 @@ const Player = (() => {
 
   function setState(p, s) { p.state = s; p.t = 0; }
   function spend(p, n) { p.st = Math.max(0, p.st - n); p.stDelay = P.staminaDelay; }
-  function press(p, act) { p.buffer = { act, t: 0 }; }
+  // Heavy while holding block is the weapon art, once the weapon has earned it (an execution still comes first)
+  function press(p, act) { if (act === 'heavy' && Input.block && p.S.art && !executable(p)) act = 'art'; p.buffer = { act, t: 0 }; }
 
   // The enemy that an attack should snap toward: nearest one roughly in the direction the player is pushing
   function pickTarget(p, maxD = 5) {
@@ -58,6 +71,16 @@ const Player = (() => {
   function tryAct(p) {
     const b = p.buffer; if (!b) return false;
     if (b.act === 'dodge') { if (p.st <= 0) return false; startRoll(p); p.buffer = null; return true; }
+    if (b.act === 'art') {
+      p.buffer = null;
+      if (p.artCd > 0) { FX.text(Combat.chestPos(p.pos, 2.1), Math.ceil(p.artCd) + 's', 'warn'); return false; }
+      if (p.st <= 0) return false;
+      const art = P.arts[p.S.art], seq = art.hits.map((h, i) => Object.assign({}, h, { cost: i ? 0 : art.cost }));
+      p.artQueue = seq.slice(1); p.artCd = art.cd; p.combo = 0; p.blocking = false;
+      FX.text(Combat.chestPos(p.pos, 2.5), art.name.toUpperCase(), 'crit'); G.rumble(0.5, 0.5, 160); Snd.play('warn');
+      if (G.onArt) G.onArt(p.S.art);
+      startAttack(p, 'art', seq[0]); return true;
+    }
     if (b.act === 'light' || b.act === 'heavy') {
       if (p.st <= 0) return false;
       let data;
@@ -102,7 +125,7 @@ const Player = (() => {
     const rage = p.rageT > 0, mult = (1 + S.fury * (low ? 2 : 1)) * (1 + counter) * (rage ? 1.4 : 1), spd = S.speed * (rage ? 1.3 : 1);
     if (kind === 'heavy' && S.u && S.u.sky && !data.exec) data = Object.assign({}, data, { range: data.range + 2, arc: 26 });    // Skypiercer
     p.atk = Object.assign({}, data, {
-      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire,
+      dmg: data.dmg * S.dmg * mult * (crit ? 1.6 : 1), posture: data.posture * S.posture, crit, critMult: S.critMult, fire: S.fire, burn: S.burn, chill: S.chill, shock: S.shock,
       wind: data.wind / spd, active: data.active / spd, recover: data.recover / spd, range: data.range + S.range,
     });
     if (counter) FX.text(Combat.chestPos(p.pos, 2.2), 'COUNTER', 'parry');
@@ -141,7 +164,7 @@ const Player = (() => {
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
     updateFires(p, dt);
-    for (const k of ['ultCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    for (const k of ['ultCd', 'artCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
@@ -188,10 +211,14 @@ const Player = (() => {
       }
       if (p.phase === 'wind' && p.phaseT >= a.wind) {
         p.phase = 'active'; p.phaseT = 0;
-        Snd.play(p.atkKind === 'heavy' ? 'heavySwing' : 'swing');
+        Snd.play(p.atkKind === 'light' ? 'swing' : 'heavySwing');
       }
-      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) { p.struck = true; Combat.playerStrike(p, a); }
+      if (p.phase === 'active' && !p.struck && p.phaseT >= a.active * 0.5) {
+        p.struck = true; Combat.playerStrike(p, a);
+        if (a.ring) { FX.ring(p.pos, a.ring, 0xffc870, 0.45, { r0: 0.4 }); FX.shake(0.35); Snd.play('slam'); }   // an art's shockwave
+      }
       if (p.phase === 'active' && p.phaseT >= a.active) { p.phase = 'recover'; p.phaseT = 0; }
+      if (p.phase === 'recover' && p.atkKind === 'art' && p.artQueue && p.artQueue.length) { startAttack(p, 'art', p.artQueue.shift()); }   // the art's next hit (now winding up again)
       if (p.phase === 'recover') {
         const prog = p.phaseT / a.recover;
         // Cancels: dodge at any point of the recovery, next combo hit after a moment, block late in the recovery
@@ -199,12 +226,13 @@ const Player = (() => {
         else if (p.buffer && p.buffer.act === 'light' && p.atkKind === 'light' && prog > 0.25 && p.combo < comboLen(p)) { p.comboT = 0; tryAct(p); }
         else if (p.buffer && prog > 0.6) { p.comboT = 0; tryAct(p); }
         else if (Input.block && prog > 0.5) { p.comboT = 0; p.combo = 0; setState(p, 'free'); }
-        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind === 'heavy') p.combo = 0; setState(p, 'free'); }
+        else if (p.phaseT >= a.recover) { p.comboT = 0; if (p.combo >= comboLen(p) || p.atkKind !== 'light') p.combo = 0; setState(p, 'free'); }
       }
     } else if (p.state === 'roll') {
       const D = P.dodge, k = Math.min(1, p.t / D.time), ease = 1 - Math.pow(1 - k, 2.2);
-      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * D.dist * ease;
-      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * D.dist * ease;
+      const reach = D.dist * (p.S.dashDist || 1);                          // a heavy load shortens the dash
+      p.pos.x = p.rollFrom.x + Math.sin(p.rollDir) * reach * ease;
+      p.pos.z = p.rollFrom.z + Math.cos(p.rollDir) * reach * ease;
       moveSpeed = P.speed;
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       // Emberwake: the dash leaves burning ground
@@ -388,5 +416,5 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable, gearStats };
 })();

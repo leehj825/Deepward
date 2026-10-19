@@ -87,6 +87,20 @@ const Rig = (() => {
     box(g, 0.1, 0.1, 0.22, iron, 0, 0, 0.42).rotation.y = Math.PI / 2;
     return { group: g, glowMats: [iron], tip: joint(g, 0, 0, 0.5), base: joint(g, 0, 0, 0.3) };
   }
+  // A bard's lute and a villager's basket, held in the left hand
+  function lute(hand) {
+    const g = joint(hand, 0, -0.03, 0), wood = std(0x8a5a2a), dark = std(0x3a2416);
+    const body = ball(g, 0.16, wood, 0, 0, 0.12, 9, 7); body.scale.set(1, 0.45, 1.25);
+    box(g, 0.05, 0.03, 0.42, dark, 0, 0.02, 0.42); box(g, 0.08, 0.04, 0.1, dark, 0, 0.02, 0.66).rotation.x = 0.5;
+    return { group: g, glowMats: [wood], tip: joint(g, 0, 0, 0.6), base: joint(g, 0, 0, 0.2) };
+  }
+  function basket(hand) {
+    const g = joint(hand, 0, -0.1, 0), wicker = std(0xa07a3a);
+    mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.18, 8, 1, true), wicker, g, 0, -0.08, 0).material.side = THREE.DoubleSide;
+    mesh(new THREE.TorusGeometry(0.15, 0.015, 4, 10, Math.PI), wicker, g, 0, 0.02, 0);
+    for (let k = 0; k < 3; k++) ball(g, 0.05, std([0xc04a2a, 0x7aa03a, 0xd8b04a][k]), -0.06 + k * 0.06, 0.0, 0.02, 6, 5);
+    return { group: g, glowMats: [wicker], tip: joint(g, 0, 0, 0.1), base: joint(g, 0, 0, 0) };
+  }
   // A bow held at its middle; when the arm points forward the limbs stand upright (hand +Z) and the string is near the body
   function bow(hand) {
     const g = joint(hand, 0, -0.03, 0), wood = std(0x4a3420), R = 0.5;
@@ -115,16 +129,107 @@ const Rig = (() => {
     return g;
   }
 
+  // ---------------- Helms ----------------
+  // The hero's head is a 0.23 x 0.26 x 0.24 box centred on the head joint. Each helm fully covers its top half:
+  // 0 a leather cap, 1 a squared steel helm with a nasal guard, 2 a closed great helm with a visor slit.
+  function helmet(head, style, m) {
+    const shell = mat => { const c = mat.clone(); c.side = THREE.DoubleSide; return c; };          // seen from below, the inside shows
+    // The rims sit at 0.065, above the eyes (0.02), and the domes clear the head's top corners
+    if (style === 0) {                                                     // a padded leather cap, fitted to the square head
+      box(head, 0.27, 0.11, 0.28, m.leather, 0, 0.11, 0);
+      const top = mesh(new THREE.SphereGeometry(0.15, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), shell(m.leather), head, 0, 0.165, 0); top.scale.set(0.95, 0.35, 0.98);
+      box(head, 0.285, 0.025, 0.295, m.dark, 0, 0.065, 0);                   // stitched band
+    } else if (style === 1) {                                              // a squared steel helm, open-faced
+      box(head, 0.28, 0.15, 0.29, m.steel, 0, 0.13, 0);                      // the shell over the crown, rim above the eyes
+      box(head, 0.31, 0.022, 0.32, m.steel, 0, 0.06, 0.005);                 // brim
+      box(head, 0.035, 0.11, 0.03, m.steel, 0, 0.01, 0.16);                  // nasal guard, down between the eyes
+      for (const s of [1, -1]) box(head, 0.025, 0.15, 0.17, m.steel, 0.145 * s, -0.01, -0.04);   // cheek plates
+      box(head, 0.28, 0.14, 0.025, m.steel, 0, 0.0, -0.148);                  // neck guard
+      box(head, 0.03, 0.03, 0.3, m.dark, 0, 0.215, 0);                       // a dark ridge along the top
+    } else {
+      box(head, 0.29, 0.34, 0.33, m.steel, 0, 0.015, 0.01);                   // front at 0.175, clear of the nose
+      box(head, 0.22, 0.03, 0.02, m.dark, 0, 0.03, 0.175);                   // visor slit
+      for (let i = -2; i <= 2; i++) box(head, 0.012, 0.012, 0.02, m.dark, i * 0.035, -0.05, 0.176);   // breaths
+      box(head, 0.03, 0.04, 0.3, m.steel, 0, 0.2, 0);                        // crest
+      box(head, 0.31, 0.03, 0.32, m.dark, 0, -0.14, 0);                      // rim
+    }
+  }
+
+  // ---------------- Single items (the gear screen's pictures) ----------------
+  // One piece of gear on its own, from Items.itemLook: the same parts the hero wears, posed to be seen from the front
+  // (+Z toward the viewer, up is +Y). Weapons stand diagonally, blade up.
+  function item(L) {
+    const root = new THREE.Group(), hold = new THREE.Group(); root.add(hold);
+    const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18), gold = std(0xd9a92a, 0.3, 0.6);
+    if (L.slot === 'weapon') {
+      hold.rotation.set(-Math.PI / 2, 0, 0); root.rotation.z = -Math.PI / 4;        // the weapon's +Z points up, then leans right
+      const o = { blade: L.blade | 0x404040, len: L.len, twoHanded: L.twoHanded };
+      let w;
+      if (L.type === 'axe') { w = axe(hold, { blade: L.blade }); w.group.rotation.z = Math.PI / 2; }      // the head's flat side to the viewer
+      else if (L.type === 'mace') w = mace(hold, { blade: L.blade });
+      else if (L.type === 'spear') w = spear(hold, o);
+      else if (L.type === 'daggers') {
+        w = sword(hold, Object.assign(o, { len: 0.42, thin: true })); w.group.position.x = -0.09; w.group.rotation.y = 0.35;
+        const off = sword(hold, o); off.group.position.x = 0.09; off.group.rotation.y = -0.35;
+        if (L.glow) for (const m of off.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.35; }
+      } else w = sword(hold, o);
+      if (L.glow) for (const m of w.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.35; }
+    } else if (L.slot === 'shield') {
+      roundShield(hold, L.face);
+    } else if (L.slot === 'armor') {
+      const cloth = std(L.armor);
+      const torso = mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.36, 9), cloth, hold, 0, 0, 0); torso.scale.z = 0.72;
+      mesh(new THREE.CylinderGeometry(0.175, 0.24, 0.3, 9, 1, true), cloth, hold, 0, -0.32, 0).material.side = THREE.DoubleSide;   // skirt
+      mesh(new THREE.TorusGeometry(0.168, 0.025, 5, 14).rotateX(Math.PI / 2), leather, hold, 0, -0.18, 0);
+      if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, hold, 0, 0.01, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(hold, 0.12, steel, 0.21 * s, 0.14, 0, 8, 6).scale.set(1, 0.65, 1); }
+      else { const strap = box(hold, 0.06, 0.48, 0.03, leather, 0, 0, 0.13); strap.rotation.z = 0.7; ball(hold, 0.12, steel, 0.19, 0.14, 0, 8, 6).scale.set(1, 0.65, 1); }
+      hold.rotation.y = 0.35;
+    } else if (L.slot === 'helm') {
+      const wood = std(0x3a2c24, 0.9);                                       // a dark wooden stand's head, so the helm reads as worn
+      box(hold, 0.23, 0.26, 0.24, wood, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.12, 8), wood, hold, 0, -0.18, 0);
+      helmet(hold, L.helm, { steel, leather, dark }); hold.rotation.y = 0.5;
+    } else if (L.slot === 'gloves') {                                     // a pair: wraps, leather gloves or steel gauntlets
+      const m = [leather, std(0x3a2a1e), steel][L.wc];
+      for (const sd of [-1, 1]) {
+        const h = new THREE.Group(); hold.add(h); h.position.x = sd * 0.11; h.rotation.z = sd * 0.15;
+        box(h, 0.12, 0.13, 0.05, m, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.1, 8), m, h, 0, -0.11, 0);
+        for (let f = 0; f < 4; f++) box(h, 0.024, 0.07, 0.04, m, -0.045 + f * 0.03, 0.095, 0);
+        box(h, 0.03, 0.06, 0.04, m, sd * -0.075, 0.02, 0.01).rotation.z = sd * 0.6;                        // thumb
+        if (L.wc === 2) box(h, 0.13, 0.04, 0.06, dark, 0, -0.03, 0.005);
+      }
+      hold.rotation.x = -0.2;
+    } else if (L.slot === 'boots') {                                      // a pair: shoes, boots or sabatons
+      const m = [leather, std(0x3a2618), steel][L.wc], tall = [0.1, 0.24, 0.26][L.wc];
+      for (const sd of [-1, 1]) {
+        const b = new THREE.Group(); hold.add(b); b.position.x = sd * 0.09;
+        mesh(new THREE.CylinderGeometry(0.065, 0.06, tall, 8), m, b, 0, tall / 2, 0);
+        box(b, 0.11, 0.07, 0.24, m, 0, 0.035, 0.06);
+        if (L.wc === 2) { box(b, 0.12, 0.2, 0.03, steel, 0, 0.15, 0.065); box(b, 0.12, 0.03, 0.2, dark, 0, 0.075, 0.08); }
+      }
+      hold.rotation.y = 0.6;
+    } else {
+      const gem = glowMat(L.uniq === 'heart' ? 0xff4a4a : 0x7fe8ff);
+      if (L.trinket === 'Ring') { mesh(new THREE.TorusGeometry(0.1, 0.026, 8, 18), gold, hold); ball(hold, 0.035, gem, 0, 0.12, 0, 8, 6); hold.rotation.x = 0.5; }
+      else if (L.trinket === 'Coin') { mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.025, 16).rotateX(Math.PI / 2), gold, hold); box(hold, 0.05, 0.05, 0.03, std(0x8a6a14), 0, 0, 0.012).rotation.z = Math.PI / 4; hold.rotation.y = 0.4; }
+      else if (L.trinket === 'Charm') { const t = mesh(new THREE.ConeGeometry(0.05, 0.2, 6), std(0xe8e0c8), hold, 0, -0.06, 0); t.rotation.z = Math.PI; mesh(new THREE.TorusGeometry(0.03, 0.01, 5, 10), gold, hold, 0, 0.06, 0); ball(hold, 0.02, gem, 0, -0.02, 0.04, 6, 5); }
+      else { mesh(new THREE.TorusGeometry(0.15, 0.008, 4, 24, Math.PI).rotateZ(Math.PI), gold, hold, 0, 0.12, 0); ball(hold, 0.055, gold, 0, -0.03, 0, 8, 6); ball(hold, 0.032, gem, 0, -0.03, 0.04, 8, 6); }
+    }
+    root.updateMatrixWorld(true);
+    return root;
+  }
+
   // ---------------- Bodies ----------------
   // One humanoid skeleton of joints; "kind" picks proportions, materials and armour.
   // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
   function build(kind, o = {}) {
     if (kind === 'spider') return buildSpider();
     if (kind === 'mimic') return buildMimic();
+    if (kind === 'wolf' || kind === 'boar') return buildBeast(kind);
+    const scout = kind === 'scout'; if (scout) kind = 'goblin';                // a goblin with throwing spears
     const L = o.look || {}, N = o.npc || {};
     const S = {
       npc: { skin: N.skin || 0xd9a47a, cloth: N.cloth || 0x6a5a40, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
-      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: 0x2b1d14, w: 1, limbR: 1 },
+      hero: { skin: 0xe2a982, cloth: L.armor || 0x2f4a6b, pants: 0x3a3028, boot: [0x2b1d14, 0x6a4a2c, 0x3a2618, 0x8a909a][(L.boots === undefined ? -1 : L.boots) + 1], w: 1, limbR: 1 },
       skeleton: { skin: 0xd8cfb4, cloth: 0x3a2f2a, pants: 0x3a2f2a, boot: 0xd8cfb4, w: 0.85, limbR: 0.55 },
       archer: { skin: 0xcfc6aa, cloth: 0x2e3a2a, pants: 0x2e3a2a, boot: 0xcfc6aa, w: 0.85, limbR: 0.55 },
       goblin: { skin: 0x6a8a3a, cloth: 0x4a3a2a, pants: 0x3a2e22, boot: 0x2a2018, w: 0.92, limbR: 0.85 },
@@ -158,8 +263,10 @@ const Rig = (() => {
       ball(knee, 0.07 * R, bony ? skin : (kind === 'knight' ? steel : pants), 0, 0, 0.01);
       limb(knee, 0.4, 0.07 * R, 0.058 * R, bony ? skin : boot);
       if (!bony) mesh(new THREE.CylinderGeometry(0.078 * R, 0.07 * R, 0.16, 8), boot, knee, 0, -0.08, 0);
+      if (kind === 'hero' && L.boots === 2) box(knee, 0.11, 0.3, 0.05, steel, 0, -0.2, 0.06);           // greaves
       const ankle = joint(knee, 0, -0.42, 0);
       box(ankle, 0.11 * R, 0.08, 0.25, boot, 0, 0.0, 0.05);
+      if (kind === 'hero' && L.boots === 2) box(ankle, 0.13, 0.04, 0.2, steel, 0, 0.05, 0.08);         // sabaton plate
       rig.j['hip' + n] = hip; rig.j['kn' + n] = knee;
     }
 
@@ -183,6 +290,7 @@ const Rig = (() => {
       if (kind === 'hero') {
         if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, chest, 0, 0.09, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(chest, 0.12, steel, 0.21 * s, 0.22, 0, 8, 6).scale.set(1, 0.65, 1); }
         else { const strap = box(chest, 0.06, 0.48, 0.03, leather, 0, 0.08, 0.13); strap.rotation.z = 0.7; ball(chest, 0.12, steel, 0.19, 0.22, 0, 8, 6, 0).scale.set(1, 0.65, 1); }
+        if (L.mail) { const ml = mesh(new THREE.CylinderGeometry(0.205, 0.17, 0.3, 9), std(0x7a7e86, 0.6, 0.45), chest, 0, 0.04, 0); ml.scale.z = 0.75; }   // a mail shirt under the strap
         box(chest, 0.34, 0.06, 0.24, std(0x7a2a22), 0, 0.27, 0);             // scarf
         if (L.trinket) { ball(chest, 0.035, std(0xd9a92a, 0.3, 0.6), 0, 0.12, 0.15, 6, 5); ball(chest, 0.018, glowMat(0x7fe8ff), 0, 0.12, 0.18, 5, 4); }
       }
@@ -254,19 +362,17 @@ const Rig = (() => {
         for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
         box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
         if (kind === 'hero' || kind === 'npc') {
-          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8);
-          box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
-          for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          // Under a helm only a short tuft shows at the back; the helm encloses the rest (the head is a box, so its
+          // corners reach 0.19 m from the middle and a round helm must be wider than that)
+          if (helmed) box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115);
+          else {
+            box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
+            for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+          }
           if (N.beard) { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, 0.08, 0.05, hair, 0, -0.18, 0.1); }
-          if (kind === 'hero' && L.helm === 0) { const cap = mesh(new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), leather, head, 0, 0.06, 0); cap.scale.set(1, 0.9, 1.05); }
-          else if (kind === 'hero' && L.helm === 1) {
-            const hm = mesh(new THREE.SphereGeometry(0.16, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.6), steel, head, 0, 0.04, 0); hm.scale.set(1, 1.05, 1.08);
-            box(head, 0.03, 0.14, 0.03, steel, 0, 0.0, 0.15);                  // nasal guard
-          } else if (kind === 'hero' && L.helm === 2) {
-            mesh(new THREE.CylinderGeometry(0.155, 0.15, 0.33, 10), steel, head, 0, 0.01, 0);
-            box(head, 0.2, 0.025, 0.04, dark, 0, 0.03, 0.145);
-            mesh(new THREE.ConeGeometry(0.16, 0.1, 10), steel, head, 0, 0.22, 0);
-          } else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
+          if (helmed) helmet(head, L.helm, { steel, leather, dark });
+          else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
         }
         if (kind === 'brute') {
           box(head, 0.24, 0.05, 0.06, dark, 0, 0.06, 0.1);                       // heavy brow
@@ -289,7 +395,9 @@ const Rig = (() => {
       limb(el, 0.27, 0.056 * R, 0.048 * R, skin);
       if (kind === 'hero' || kind === 'brute' || kind === 'npc') mesh(new THREE.CylinderGeometry(0.064 * R, 0.058 * R, 0.13, 8), leather, el, 0, -0.17, 0);
       const hd = joint(el, 0, -0.29, 0);
-      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : skin, 0, 0, 0.0, 8, 6);
+      const glove = kind === 'hero' && L.gloves >= 0 ? [leather, std(0x3a2a1e), steel][L.gloves] : null;
+      ball(hd, 0.058 * R, kind === 'knight' ? std(0x3a3e48, 0.5, 0.5) : glove || skin, 0, 0, 0.0, 8, 6);
+      if (glove) mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.09, 8), glove, el, 0, -0.25, 0);         // cuff
       rig.j['sh' + n] = sh; rig.j['el' + n] = el; rig.j['hd' + n] = hd;
     }
 
@@ -305,10 +413,16 @@ const Rig = (() => {
     // Weapons and shields
     let wpn = null;
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
-    else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
+    else if (kind === 'npc') {
+      if (N.tool === 'hammer') wpn = hammer(rig.j.hdR);
+      else if (N.tool === 'spear') wpn = spear(rig.j.hdR, {});
+      else if (N.tool === 'lute') wpn = lute(rig.j.hdL);
+      else if (N.tool === 'basket') wpn = basket(rig.j.hdL);
+    }
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
     else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
     else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);
+    else if (scout) wpn = spear(rig.j.hdR, { blade: 0x7a6a58 });
     else if (kind === 'goblin') wpn = sword(rig.j.hdR, { blade: 0x6a5a48, guard: 0x3a2a1a, len: 0.42 });
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
@@ -372,6 +486,83 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     return rig;
   }
+  // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
+  // A body, a head on a neck joint (the weapon: bites and tusks), four two-part legs and a tail. Posed by hand.
+  function buildBeast(kind) {
+    const wolf = kind === 'wolf';
+    const rig = { kind, j: {}, mats: [], glowMats: [], beast: true, legs: [], time: Math.random() * 10, loco: 0 };
+    const root = new THREE.Group(), H = wolf ? 0.62 : 0.6, body = joint(root, 0, H, 0); rig.root = root; rig.body = body;
+    const fur = std(wolf ? 0x6a6a70 : 0x4a3426, 0.95), dark = std(wolf ? 0x3a3a40 : 0x2a1c14, 0.95), pale = std(wolf ? 0xa8a8ae : 0x6a5040, 0.95);
+    const bone = std(0xe8e0c8, 0.4), eye = glowMat(wolf ? 0xffd040 : 0xff5a2a);
+    if (wolf) {
+      const torso = ball(body, 0.3, fur, 0, 0, 0, 10, 8); torso.scale.set(0.85, 0.85, 1.9);
+      ball(body, 0.24, pale, 0, -0.08, 0.32, 8, 6).scale.set(0.8, 0.7, 1.0);              // chest ruff
+    } else {
+      const torso = ball(body, 0.42, fur, 0, 0.05, 0, 10, 8); torso.scale.set(0.95, 0.95, 1.45);
+      for (let k = 0; k < 5; k++) mesh(new THREE.ConeGeometry(0.05, 0.22, 4), dark, body, 0, 0.42 - Math.abs(k - 2) * 0.03, 0.35 - k * 0.18).rotation.x = -0.4;   // bristles
+    }
+    const neck = joint(body, 0, wolf ? 0.12 : 0.02, wolf ? 0.5 : 0.55, 'YXZ'); rig.j.neck = neck;
+    const head = joint(neck, 0, 0, wolf ? 0.12 : 0.05); rig.j.head = head;
+    if (wolf) {
+      box(head, 0.26, 0.24, 0.26, fur, 0, 0.02, 0.06);
+      box(head, 0.14, 0.12, 0.26, pale, 0, -0.04, 0.28);                                  // muzzle
+      box(head, 0.07, 0.05, 0.05, dark, 0, -0.0, 0.42);                                    // nose
+      for (const sd of [1, -1]) { mesh(new THREE.ConeGeometry(0.06, 0.16, 4), fur, head, 0.08 * sd, 0.2, 0.0); ball(head, 0.025, eye, 0.07 * sd, 0.07, 0.19, 5, 4); }
+    } else {
+      box(head, 0.36, 0.34, 0.36, fur, 0, 0, 0.1);
+      box(head, 0.22, 0.2, 0.22, pale, 0, -0.06, 0.35);                                   // snout
+      box(head, 0.18, 0.14, 0.04, dark, 0, -0.06, 0.47);
+      for (const sd of [1, -1]) {
+        const t = mesh(new THREE.ConeGeometry(0.035, 0.26, 5), bone, head, 0.13 * sd, -0.08, 0.38); t.rotation.set(-0.9, 0, -0.5 * sd);   // tusks
+        mesh(new THREE.ConeGeometry(0.07, 0.14, 4), fur, head, 0.14 * sd, 0.2, 0.0).rotation.z = -0.5 * sd;
+        ball(head, 0.025, eye, 0.12 * sd, 0.06, 0.26, 5, 4);
+      }
+    }
+    const tip = joint(head, 0, -0.05, wolf ? 0.45 : 0.5), base = joint(head, 0, 0, 0.1);
+    rig.weapon = { group: head, tip, base, glowMats: [wolf ? pale : bone] }; rig.glowMats.push(wolf ? pale : bone);
+    const tail = joint(body, 0, wolf ? 0.08 : 0.15, wolf ? -0.55 : -0.6, 'YXZ'); rig.j.tail = tail;
+    if (wolf) { const tl = mesh(new THREE.CylinderGeometry(0.07, 0.03, 0.5, 6), fur, tail, 0, -0.18, -0.12); tl.rotation.x = 0.8; }
+    else mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.2, 4), dark, tail, 0, -0.08, -0.03);
+    const legLen = wolf ? [0.3, 0.32] : [0.26, 0.3], legR = wolf ? 0.055 : 0.08;
+    for (const [z, front] of [[wolf ? 0.36 : 0.36, true], [wolf ? -0.38 : -0.36, false]]) for (const side of [1, -1]) {
+      const hip = joint(body, (wolf ? 0.14 : 0.22) * side, -0.05, z, 'XYZ');
+      limb(hip, legLen[0], legR, legR * 0.8, fur);
+      const knee = joint(hip, 0, -legLen[0], 0); limb(knee, legLen[1], legR * 0.8, legR * 0.6, dark);
+      box(knee, legR * 2, 0.05, legR * 2.6, dark, 0, -legLen[1], 0.03);
+      rig.legs.push({ hip, knee, front, phase: (front ? 0 : Math.PI) + (side > 0 ? 0 : Math.PI * (wolf ? 0.5 : 1)) });
+    }
+    rig.H = H;
+    bake(root, true, rig.glowMats);
+    root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
+    rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    return rig;
+  }
+  // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
+  function animateBeast(rig, st, dt) {
+    rig.time += dt; const T = rig.time, m = st.mode, sp = Math.min(1, st.speed || 0), wolf = rig.kind === 'wolf';
+    rig.loco += dt * (3 + 11 * sp);
+    let y = rig.H, pitch = 0, roll = 0, neckX = 0.1, headZ = wolf ? 0.12 : 0.05, legFold = 0, tailX = wolf ? -0.3 : 0.2;
+    if (m === 'attack') {
+      const charge = st.atk === 'charge', pounce = st.atk === 'pounce';
+      if (st.phase === 'wind') { y = rig.H * (pounce ? 0.75 : 0.85); pitch = pounce ? -0.15 : charge ? 0.25 : 0.1; neckX = charge ? 0.6 : 0.3; legFold = 0.35; tailX = wolf ? 0.4 : 0.6; }
+      else if (st.phase === 'active') { y = rig.H * (pounce ? 1.05 : 1); pitch = pounce ? -0.25 : 0.15; neckX = charge ? 0.55 : -0.2; headZ += 0.12; legFold = pounce ? 0.6 : 0; }
+      else { pitch = 0.05; neckX = 0.15; }
+    } else if (m === 'stagger' || m === 'hurt') { roll = Math.sin(T * 40) * 0.15; y = rig.H * 0.9; neckX = 0.4; }
+    else if (m === 'broken') { y = rig.H * 0.55; legFold = 0.9; neckX = 0.6; }
+    else if (m === 'dead') { y = rig.H * 0.45; roll = Math.PI / 2 * Math.min(1, st.t * 3); legFold = 0.3; }
+    const k = 1 - Math.exp(-14 * dt), b = rig.body, walk = m === 'move' ? sp : 0;
+    b.position.y += (y + (walk ? Math.abs(Math.sin(rig.loco)) * 0.05 * walk : Math.sin(T * 2) * 0.008) - b.position.y) * k;
+    b.rotation.x += (pitch - b.rotation.x) * k; b.rotation.z += (roll - b.rotation.z) * k;
+    rig.j.neck.rotation.x += (neckX + (walk ? Math.sin(rig.loco * 2) * 0.05 : 0) - rig.j.neck.rotation.x) * k;
+    rig.j.head.position.z += (headZ - rig.j.head.position.z) * Math.min(1, dt * 18);
+    rig.j.tail.rotation.x += (tailX - rig.j.tail.rotation.x) * k; rig.j.tail.rotation.y = Math.sin(T * (walk ? 9 : 2.5)) * (wolf ? 0.35 : 0.2);
+    for (const L of rig.legs) {
+      const ph = rig.loco + L.phase, swing = Math.sin(ph) * 0.65 * walk, lift = Math.max(0, Math.cos(ph)) * 0.7 * walk;
+      L.hip.rotation.x += (swing + (L.front ? -legFold : legFold) * 0.6 - L.hip.rotation.x) * k;
+      L.knee.rotation.x += ((L.front ? -lift : lift) + (L.front ? 1 : -1) * legFold * 0.9 - L.knee.rotation.x) * k;
+    }
+  }
+
   // ---------------- The mimic: a chest with teeth (lid as jaw), hopping on stubby feet ----------------
   function buildMimic() {
     const rig = { kind: 'mimic', j: {}, mats: [], glowMats: [], mimic: true, time: Math.random() * 10, loco: 0 };
@@ -633,6 +824,7 @@ const Rig = (() => {
   const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), tmpE = new THREE.Euler(), ID = new THREE.Quaternion();
   function animate(rig, st, dt) {
     if (rig.spider) return animateSpider(rig, st, dt);
+    if (rig.beast) return animateBeast(rig, st, dt);
     if (rig.mimic) return animateMimic(rig, st, dt);
     rig.time += dt;
     let rate = rig.mocap ? mocapPose(rig, st, dt) : 0, pose = null;
@@ -787,5 +979,5 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
+  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
 })();

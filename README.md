@@ -4,6 +4,38 @@ A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128
 
 Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
+**Gear screen.** Open it with I (or Tab, d-pad down on a controller, GEAR on touch):
+
+- **The hero in 3D,** wearing exactly what you have on. It turns slowly; drag it to turn it yourself. The eight slots sit around it (helm, armour, gloves and boots on the left; weapon, shield, trinket and ring on the right), each showing a rendered picture of the piece, its upgrade level and its sockets. Your numbers (health, stamina, damage, posture, block, armour, critical chance, flasks) sit beside it, and a line below shows your load (Light, Medium or Heavy) and what it does to the dash and the walk.
+- **The bag** is a grid of pictures, framed in the rarity's colour (orange for uniques). A green ▲ marks a piece that beats what you wear in that slot.
+- **Details:** select a piece to see everything about it, with Equip or Take off. Selecting it again (A on a controller, Enter on the keyboard) does the same.
+- **Comparison:** under the details, green ▲ and red ▼ show exactly how your numbers would change if you wore it instead (health, stamina, damage, posture, swing speed, reach, block, armour, critical chance, parry window, stamina regen, life on hit, gold found, flasks), and whether a two-handed weapon would leave your shield unused. For a worn piece it shows what taking it off would cost.
+- **Sort and filter:** chips above the bag show one slot at a time; the sort button cycles Newest, Rarity, Slot and Best first.
+- **Salvage:** in camp, the details offer Salvage for scrap right there (uniques only at Bram's).
+- Bram's and Tilda's lists show the same pictures.
+
+**The Rim.** Through the Hold's south gate a road leads out onto the Rim, an open field of about 120 × 100 m: grass with a stream and a bridge, birches and pines, and four zones marked on the minimap:
+
+| Zone | Where | Beasts | Toughness |
+| --- | --- | --- | --- |
+| The Meadow | straight down the road | wolves (packs that circle and pounce) and boars | as the camp's stage |
+| Thornwood | east, in the close-set trees | goblin scouts (throw spears), wolves, spiders | ×1.3 |
+| Old Graveyard | west, inside a broken wall | skeletons and skeleton archers | ×1.4 |
+| The Broken Ridge | the far end, by a ruined watchtower | boars, wolves, scouts and brutes | ×1.9 |
+
+- Beasts wander their zone until you come close, then attack; hit one, or come near a wolf, and its pack comes too. Lead one too far from home and it gives up, mending as it goes back. They come back a while after they fall, and nothing follows you through the gate.
+- **Boars** gore up close, and from 5 to 10 m lower their heads and **charge** in a straight line (red, unblockable): dash out of the line. **Goblin scouts** keep their distance and throw spears you can block, parry or dash.
+- The Rim grows tougher as you go deeper below. Kills give XP, gold and weapon mastery as in the dungeon.
+- **Day and night:** the Hold and the Rim keep a ten-minute day (dawn, day, dusk, night) that runs while you are up there and is kept with the save. The sky, fog, light and sun or moon follow it; by day you see much further, at night the torches matter. The dungeon below keeps its own light.
+  - **At night** the dead rise in the Old Graveyard (by day it lies quiet) and the Meadow fills with more wolves. At dawn the dead crumble back into their graves.
+- **Field bosses** (boss bar once roused; back five minutes after they fall):
+  - **Old Tusk**, a huge armoured boar, walks the Meadow by day. Spoils: 4 tusks, 3 pelts, an epic-or-better piece and a gem.
+  - **The Grave Knight**, a life-draining knight, rises in the Old Graveyard at night. Spoils: 5 bones, 2 ore, an epic-or-better piece and a gem.
+- **Materials:** beasts drop pelts 🐾, tusks 🦷 and ore ⛏ (the dead below drop bones 🦴, less often), and the Rim has herb patches 🌿 and ore veins to gather (E / A / TALK); they grow back after a while.
+  - **Bram's Craft tab** makes hunter gear: Wolfhide Wraps, Tuskbreaker Gauntlets, Hunter's Boots, a Bone Charm, the Ring of the Pack and a Tusk-plated Hauberk (at your depth, rare or epic, with fixed bonuses). **Temper** raises a worn piece one + level for ore and scrap instead of gold.
+  - **Ysolde brews** any tonic from herbs for a fifth of its price.
+- Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
+
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
 
 - **Bestiary:** an enemy's entry opens at your first kill. It lists how each of its attacks is telegraphed and how to answer it, along with the guardians' phases and the champions' traits.
@@ -24,15 +56,22 @@ A box at the top says what to press in your own controls (keyboard, controller o
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
-- **The people of the camp:**
-  - **Maren**, the elder, tells the story before each stage and after its guardian falls.
-  - **Bram the smith** forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap.
-  - **Tilda the quartermaster** sells three fresh pieces each time you return and buys what you don't need.
+- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass.
+- **The people of the Hold:**
+  - **Maren**, the elder, tells the story before each stage and after its guardian falls. **Wenna the bard** sits with her by the fire and sings guardian lore.
+  - **Bram the smith** (smiths' row, west) forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap. **Nell the gem cutter** next door sets and pries gems, and cuts three stones of one kind into one of another.
+  - **Tilda the quartermaster** (market, east) sells three fresh pieces each time you return and buys what you don't need. **Ysolde the herbalist** sells tonics for the next trip: Wind Tonic (stamina back 30% faster), Iron Draught (10% less damage), Spare Flask (+1 flask) and Whetstone Oil (+10% damage). **Odo the curio dealer** has one rare-or-better piece a day.
+  - **Captain Rook** keeps the south gate and knows the beasts of the Rim.
+  - **Sergeant Hobb** runs the training yard (south-east).
 - **The camp ledger** turns gold into buildings, each with three levels that show in the camp:
   - **Forge:** better upgrades and better odds of rare work.
   - **Apothecary:** more and stronger healing flasks.
   - **Training yard:** more health and stamina.
-- **Gear:** five slots (weapon, shield, armour, helm and trinket).
+- **Gear:** eight slots (weapon, shield, armour, helm, gloves, boots, trinket and ring).
+  - **Gloves** add damage and posture damage; **boots** add health and stamina; a **ring** carries two bonuses (an amulet or charm in the trinket slot does too).
+  - **Weight:** armour, helms, gloves and boots come Light, Medium or Heavy (Jerkin / Hauberk / Brigandine, Cap / Helm / Great Helm, Wraps / Gloves / Gauntlets, Shoes / Boots / Sabatons). Heavy pieces give 25% more and light ones 20% less, but they add up to a load: past a light load (2.5) each point makes the dash cost 8% more stamina and reach 3% less, and the walk 2% slower (capped). A full heavy set is a tank that dashes short; a light set dances.
+  - **Elements** roll only on weapons: **Fire** burns the foe for a share of each hit over 2 s, **Frost** slows it for 2 s, **Shock** has a chance to jolt it into a stagger (guardians and champions only shudder).
+  - **Bram's Reroll tab** swaps one bonus of a worn piece for a different kind, rolled fresh for its tier (gold and scrap, dearer each time for the same piece).
   - Seven weapon types play differently:
     - **Sword:** the all-rounder.
     - **Axe:** more posture damage.
@@ -67,7 +106,10 @@ A box at the top says what to press in your own controls (keyboard, controller o
 - **Loot:** enemies drop gold, every cleared room leaves a chest, and guardians (the Bone Warden, Sir Aldric the Hollow, the Den Mother, the Brood Queen, the Pale Duelist) drop guaranteed rare-or-better gear and have a boss health bar.
 - **Returning to camp:** after a stage's guardian, choose to **return to camp** (banks your gold; Maren has words) or **press on** into the next stage. The gate in camp descends to any stage you've unlocked.
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
-- **Saving:** progress saves in the browser, and the title screen offers Continue.
+- **Saving:** progress saves on the device as you play. The title's **Continue** picks up the last-played slot; **Saves** shows all three slots.
+  - **Three slots:** each with its level, stage, gold and when it was saved. Play one, start a new game in an empty one, or delete one (it asks twice).
+  - **Export / Import:** Export shows a `DEEPWARD1:` code you can copy (or share on a phone); Import pastes one into any slot. Use it to back up a warden or move it to another device. A bad code is refused.
+  - **Safety:** every save carries a version, and older saves are upgraded when loaded, so updates don't wipe progress. A copy of the last save that loaded cleanly is kept and used if the main one is ever damaged.
 
 **The Endless Deep.** Once the last guardian (the Hollow King) falls, the camp gate offers two more ways down:
 
@@ -75,12 +117,34 @@ A box at the top says what to press in your own controls (keyboard, controller o
   - Every third floor ends in that stage's guardian (with its phases); the other floors bring its champion mid-floor.
   - Between floors, choose to go deeper (you heal 30%) or go home and keep your gold. Fall, and you lose half of the trip's gold as usual.
   - Loot and elite odds keep rising with depth, and your deepest floor is kept.
-- **Daily Descent:** the same climb seeded by the date, so every warden gets the same floors that day. Today's best is kept separately.
+- **Daily Descent:** the same climb seeded by the date, so every warden gets the same floors that day, under the same curse. Today's best is kept separately.
+- **Curses:** before an Endless climb, carry any of six curses. Each makes it harder and pays more gold, and they add up (all six: +185%). The deepest floor is kept for each number of curses carried.
+
+  | Curse | Effect | Gold |
+  | --- | --- | --- |
+  | ⚗ Dry Flasks | No healing flasks | +35% |
+  | ☠ Hunted | Every foe is an elite | +40% |
+  | ⚡ Frenzy | Foes move 25% faster and attack more often | +30% |
+  | ◇ Glass Warden | Half your health | +35% |
+  | 🛡 Brittle Guard | Blocks stop 40% less damage | +25% |
+  | ☾ Lightless | The dark closes in, and no map | +20% |
 
 **Growth.**
 
 - **Levels:** kills give XP (guardians six times as much). Each level adds health, stamina and 2.5% power, and grants a talent point.
-- **Weapon mastery:** each weapon type ranks up with the hits it lands. Rank 1 gives +4% damage, rank 2 adds a fourth finishing blow to the light combo, and rank 3 gives +8% posture damage.
+- **Weapon mastery:** each weapon type ranks up with the hits it lands. Rank 1 gives +4% damage, rank 2 adds a fourth finishing blow to the light combo, and rank 3 gives +8% posture damage and the weapon's **art**.
+- **Weapon arts:** hold block and press heavy (keyboard, controller or touch). Each costs stamina and has a cooldown; the expertise screen lists them.
+
+  | Weapon | Art | What it does | Cooldown |
+  | --- | --- | --- | --- |
+  | Sword | Falling Star | A leaping overhead that breaks guards | 8 s |
+  | Axe | Cleaving Leap | Leap in and split the ground around you | 9 s |
+  | Mace | Earthshaker | A ground shock that shatters posture all around | 9 s |
+  | Longsword | Piercing Lunge | A long dashing thrust that strikes from afar | 7 s |
+  | Greatsword | Whirlwind | Two full spins that cut everything near | 9 s |
+  | Spear | Skewer | A thrust that reaches five metres and breaks guards | 7 s |
+  | Twin daggers | Flurry | Six cuts faster than the eye | 7 s |
+
 - **Expertise:** talent points go into four trees, and you can mix at most two. Each tree has three talents of three ranks, then an ultimate once four points are spent in it:
 
   | Tree | Talents | Ultimate (F or Y) |
@@ -167,6 +231,12 @@ Each Act II stage has its own champion: the Tidecaller, the Ice Bulwark, the Sla
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
+## Status and roadmap
+
+Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, camp, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, and automatic resolution for phones. Only a debug APK is built for now.
+
+Done from the last plan: V1 (phone pass), V2 (gear depth), V3 (save safety), V4 (remapping), V5 (Endless curses), V6 (weapon arts). Still open, on purpose: **V7**, a signed release build, when you want one. Details in `docs/DESIGN.md` → Roadmap.
+
 ## Run
 
 Open `index.html` in a browser. Three.js is vendored in `vendor/`, so it works offline and from `file://`.
@@ -236,10 +306,15 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
   - **High:** sharp, with soft shadows.
   - **Medium:** 1.5× resolution and smaller shadows; enemies get a soft blob shadow instead of a real one.
   - **Low:** 1× resolution and no shadows.
+- **Controls** (Settings → Controls → Change…): every action's keyboard key and controller button. Pick one and press the new key or button (Esc or Menu cancels); a key taken from another action leaves it. The hint line, the talk prompt, tips and the training yard all show your own keys. Menus, Esc and the Menu button always work as they are, and the mouse stays as it is. Restore default controls puts them back.
+- **Automatic resolution** (on by default): when frames run slow during a fight, the game draws fewer pixels (down to half) and creeps back up when there is room again.
+- **Show performance:** a small readout at the bottom with FPS, frame time, draw calls, triangles, quality and the current resolution step. Handy for telling me how it runs on your phone.
 - Touch controls (phones and tablets only):
   - Button size (0.7× to 1.5×) and opacity.
   - **Left-handed:** mirrors the buttons to the left side, with the move stick and camera drag swapped.
   - **Arrange buttons:** drag each button where your thumb wants it, then tap Done. Reset puts them all back. Positions are kept as a share of the screen, so they survive turning the phone.
+
+Switching to another app (or tab) pauses the fight and holds the sound until you come back.
 
 They are kept on the device, apart from the saved game. M still mutes everything.
 
@@ -293,7 +368,8 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | --- | --- |
 | `index.html` | Page markup (HUD, touch pad, screens) and script tags |
 | `css/style.css` | All styles, including the touch and portrait layouts |
-| `js/settings.js` | Player settings (volumes, look sensitivity, invert, screen shake), kept in the browser |
+| `js/bindings.js` | The player's keys and controller buttons per action, labels for hints, and rebinding |
+| `js/settings.js` | Player settings (volumes, look, screen shake, quality, difficulty, accessibility, vibration, touch layout), kept in the browser |
 | `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks), the stages (rooms, sizes, waves, themes, guardians), gear tables, camp buildings and the story script |
 | `js/items.js` | Gear generation (tiers, types, rarities, bonuses), what equipped gear does to the hero, inventory, gold and scrap, the saved game |
 | `js/camp.js` | The code-built camp: palisade, campfire, forge, stall, ledger, tents, the stairway gate, NPCs, building upgrades |
@@ -301,29 +377,35 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/audio.js` | Synthesized sound effects and the generative score (WebAudio) |
 | `js/anims.js` | Motion-capture clips (generated by `tools/extract_anims.js` from Nightfall Settlement; do not edit) |
 | `js/mocap.js` | Turns the clips into quaternions and samples them, mapping Nightfall's bone names onto this rig |
-| `js/rig.js` | Code-built characters (hero, skeleton, knight, brute, archer, goblin, duelist, and an eight-legged spider), weapons, bows, shields; picks a clip per state, time-warps attacks so the impact frame lands on the game's hit, blends joints; hand-made poses for roll and stagger; swing trails |
+| `js/rig.js` | Code-built characters (hero, skeleton, knight, brute, archer, goblin, duelist, acolyte, shield-bearer, bone caller, an eight-legged spider and the mimic chest), spears, daggers, staffs, weapons, bows, shields; picks a clip per state, time-warps attacks so the impact frame lands on the game's hit, blends joints; hand-made poses for roll and stagger; swing trails |
 | `js/fx.js` | Sparks, glints, floor rings, floating text, hit-stop, slow motion, screen shake |
 | `js/combat.js` | Attack cones and hit resolution between player and enemies |
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
-| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings |
+| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings, mimics |
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
+| `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
+| `js/field.js` | The Rim: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
 | `tools/growth_test.js` | Headless check of levels, talent rules, every ultimate, mastery's fourth blow and respec |
-| `tools/boss_test.js` | Headless check of all five guardians: phases, roars, summons, Aldric's stance change, the Den Mother's rage, the Pale Duelist's blink |
+| `tools/boss_test.js` | Headless check of all ten guardians: phases, roars, summons, stance changes, rages, blinks, and adds crumbling when the guardian falls |
 | `tools/settings_test.js` | Headless check of the settings menu, that each setting applies and is kept, and the music moods |
 | `tools/loot_test.js` | Headless check of uniques (each drops once, and each effect), gems in sockets, Bram's Gems tab and gem drops |
 | `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
 | `tools/tutorial_test.js` | Headless check of the training yard: the offer, all six lessons done for real, the reward, leaving early |
 | `tools/codex_test.js` | Headless check of records, the bestiary, achievements paying once, and opening the codex from the gear and pause screens |
 | `tools/touch_test.js` | Headless check of the touch controls on a phone screen: size, opacity, left-handed, dragging a button, keeping it, Reset |
+| `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
+| `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
+| `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
+| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -344,6 +426,10 @@ node tools/endless_test.js
 node tools/tutorial_test.js
 node tools/codex_test.js
 node tools/touch_test.js
+node tools/gear_test.js
+node tools/save_test.js
+node tools/controls_test.js
+node tools/world_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

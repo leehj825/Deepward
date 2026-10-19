@@ -465,6 +465,7 @@ const World = (() => {
     const p = G.player;
     for (const r of rooms.slice()) {
       if (r.kind === 'camp') { Camp.update(r, dt, p && p.pos); continue; }
+      if (r.kind === 'field') { Field.update(r, dt, p); continue; }
       if (r.chest) {
         const c = r.chest;
         if (!c.opened && p && p.state !== 'dead' && Math.hypot(p.pos.x - c.x, p.pos.z - c.z) < 1.7) { c.opened = true; Snd.play('gate'); G.onChest(r); }
@@ -524,7 +525,7 @@ const World = (() => {
       const e = all[k];
       if (!e) { L.intensity = 0; return; }
       const [t, r] = e, f = 0.85 + Math.sin(now / 90 + t.seed) * 0.08 + Math.sin(now / 37 + t.seed * 3) * 0.06;
-      L.position.copy(t.pos); L.color.setHex(t.color); L.intensity = 1.5 * f * r.fade;
+      L.position.copy(t.pos); L.color.setHex(t.color); L.intensity = 1.5 * f * r.fade * (G.torchK === undefined ? 1 : G.torchK);   // torches matter less by day
     });
   }
 
@@ -539,6 +540,7 @@ const World = (() => {
   function enterCamp(levels) {
     clearAll();
     rooms.push(Camp.build(scene, levels || Items.S.camp));
+    rooms.push(Field.build(scene));                                         // the Rim, through the south gate
     applyTheme(CFG.themes.camp);
     return Camp.spawn;
   }
@@ -564,15 +566,16 @@ const World = (() => {
   }
   const inCamp = () => rooms.some(r => r.kind === 'camp');
   const camp = () => rooms.find(r => r.kind === 'camp');
+  const field = () => rooms.find(r => r.kind === 'field');
 
   function label() {
-    if (inCamp()) return 'Deepward Camp';
+    if (inCamp()) { const p = G.player, f = field(); if (p && f && p.pos.z > f.rect.z0 - 1) { const z = Field.zoneAt(f, p.pos); return 'The Rim' + (z ? ' · ' + z.name : '') + (G.timeName ? ' · ' + G.timeName() : ''); } return 'Deepward Hold' + (G.timeName ? ' · ' + G.timeName() : ''); }
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }
 
   return {
-    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp,
+    init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp, field,
     get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();

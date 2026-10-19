@@ -18,13 +18,15 @@ const MiniMap = (() => {
   }
 
   function draw(dt) {
-    const p = G.player, S = World.sections, show = G.mode === 'dungeon' && p && S.length && G.state !== 'title';
+    const p = G.player, S = World.sections, rim = (G.mode === 'camp' || G.mode === 'field') && !!World.field(), show = p && G.state !== 'title' && (rim || (G.mode === 'dungeon' && S.length));
     cv.style.display = info.style.display = show ? '' : 'none';
     if (!show) return;
     if ((tick += dt) < 1 / 20) return; tick = 0;                         // 20 times a second is plenty
     const px = Math.round(cv.clientWidth * Math.min(2, devicePixelRatio || 1));
+    if (px < 4) return;                                                     // hidden (the Lightless curse) or not laid out yet
     if (px !== size) { size = cv.width = cv.height = px; }
     const W = size, half = W / 2;
+    if (rim) return drawRim(W, half, p);
     ctx.clearRect(0, 0, W, W);
     ctx.save();
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
@@ -81,6 +83,31 @@ const MiniMap = (() => {
       }
     } else txt = 'Stage cleared';
     info.textContent = txt;
+    ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // The Hold and the Rim: the camp, the road, the field and its zones (red where beasts are roused), beasts and the hero
+  function drawRim(W, half, p) {
+    const camp = World.camp(), f = World.field();
+    ctx.clearRect(0, 0, W, W); ctx.save();
+    ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(8,6,10,0.72)'; ctx.fill(); ctx.clip();
+    let scale, cx = p.pos.x, cz = p.pos.z, rot = 0;
+    if (big) { const x0 = f.rect.x0, x1 = f.rect.x1, z0 = camp.rect.z0, z1 = f.rect.z1; scale = (W * 0.9) / Math.max(x1 - x0, z1 - z0); cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
+    else { scale = W / 60; if (View.mode === 'behind') rot = View.yaw; }
+    ctx.translate(half, half); ctx.rotate(rot); ctx.scale(scale, scale); ctx.translate(-cx, -cz);
+    const rect = (q, fill) => { ctx.fillStyle = fill; ctx.fillRect(q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0); };
+    rect(f.rect, 'rgba(70,96,56,0.5)'); rect(f.corr, C.floor); rect(camp.rect, 'rgba(150,120,80,0.55)');
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / scale; ctx.strokeRect(camp.rect.x0, camp.rect.z0, camp.rect.x1 - camp.rect.x0, camp.rect.z1 - camp.rect.z0);
+    for (const z of f.zones) {
+      const roused = G.enemies.some(e => e.zone === z && e.aggro && e.state !== 'dead');
+      ctx.fillStyle = roused ? 'rgba(200,60,40,0.4)' : 'rgba(160,120,60,0.28)'; ctx.beginPath(); ctx.arc(z.x, z.z, z.r, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const s of camp.spots) { ctx.fillStyle = s.id === 'gate' ? '#8fd8ff' : '#f2d27a'; ctx.beginPath(); ctx.arc(s.x, s.z, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, 0.7, 0, Math.PI * 2); ctx.fill(); }
+    ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
+    ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
+    ctx.restore(); ctx.restore();
+    const z = G.mode === 'field' ? Field.zoneAt(f, p.pos) : null;
+    info.textContent = G.mode === 'field' ? (z ? z.name : 'The Rim') : 'Deepward Hold';
     ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(242,210,122,0.45)'; ctx.lineWidth = 2; ctx.stroke();
   }
   return { draw, toggle, get big() { return big; } };
