@@ -39,6 +39,11 @@ Every model is built in code from primitives, and there are no model, texture or
 - **Materials:** beasts drop pelts 🐾, tusks 🦷 and ore ⛏ (the dead below drop bones 🦴, less often), and the Rim has herb patches 🌿 and ore veins to gather (E / A / TALK); they grow back after a while.
   - **Bram's Craft tab** makes hunter gear: Wolfhide Wraps, Tuskbreaker Gauntlets, Hunter's Boots, a Bone Charm, the Ring of the Pack and a Tusk-plated Hauberk (at your depth, rare or epic, with fixed bonuses). **Temper** raises a worn piece one + level for ore and scrap instead of gold.
   - **Ysolde brews** any tonic from herbs for a fifth of its price.
+- **The notice board** by the fire always holds three jobs: slay so many of a kind, bring materials, fell a field boss or beat a guardian again. A finished job is turned in at the board for gold (and sometimes a gem); a job you don't want can be torn down for a fresh one.
+- **Captives:** a vault below sometimes holds someone chained by the chest. Free them (E / A / TALK) and they come home to the Hold and walk its paths. The first four bring a lasting perk: **Pell the cartographer** maps every stage from the start, **Ilsa the cook** makes flasks heal 10% more, **Brother Aldo** gives +5% health, and **Mira the scout** makes the beasts of the Rim notice you later. Every rescue adds 2% gold found (up to 10%).
+- **The Ring:** Varga's arena past the dummies. Fight any guardian you have beaten again, alone in its lair, for gold and a gem (more the first time). The Ridge Horror, Mossback and the Forge Colossus join once you have felled them on the Rim, and **the Abomination**, the biggest of the great beasts, which calls trolls, wolves and goblins into the Ring, waits for whoever has beaten all three there.
+- **Raids:** now and then, a while after you come home, a horn sounds: a goblin band (wolves, boars and scouts with it, a troll chief from the Act I end) marches up the Rim road to batter the south gate. The HUD shows the band and the gate's strength. Beat them all for gold, pelts and ore; if the gate breaks, they run off with 8% of your gold (at most 400).
+- **Sefa's caravan:** some homecomings a painted wagon stands in the north-west of the Hold for two visits. Sefa sells two rare-or-better pieces a tier above your depth, bundles of materials and a loose gem, and buys spare materials.
 - Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
 
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
@@ -67,7 +72,7 @@ A box at the top says what to press in your own controls (keyboard, controller o
   - **Bram the smith** (smiths' row, west) forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap. **Nell the gem cutter** next door sets and pries gems, and cuts three stones of one kind into one of another.
   - **Tilda the quartermaster** (market, east) sells three fresh pieces each time you return and buys what you don't need. **Ysolde the herbalist** sells tonics for the next trip: Wind Tonic (stamina back 30% faster), Iron Draught (10% less damage), Spare Flask (+1 flask) and Whetstone Oil (+10% damage). **Odo the curio dealer** has one rare-or-better piece a day.
   - **Captain Rook** keeps the south gate and knows the beasts of the Rim.
-  - **Sergeant Hobb** runs the training yard (south-east).
+  - **Sergeant Hobb** runs the training yard (south-east), and **Varga** keeps the Ring beside it.
 - **The camp ledger** turns gold into buildings, each with three levels that show in the camp:
   - **Forge:** better upgrades and better odds of rare work.
   - **Apothecary:** more and stronger healing flasks.
@@ -389,12 +394,13 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/player.js` | The hero's state machine: move, attack combo, block/parry, roll, stagger |
 | `js/enemies.js` | Enemy AI: approach/circle, ranged kiting, attack tokens, telegraphs (white, red, amber), feints, leaps, arrows, guard, posture, death |
 | `js/world.js` | The dungeon: lays out each stage as winding sections joined by open passages, builds them in the stage's theme, walkable space, routing enemies through the passages, encounters and the guardian's lair, pooled torch lights |
-| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings, mimics |
+| `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings, mimics, captives |
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
 | `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
+| `js/jobs.js` | The notice board's jobs: making them, counting progress, turning them in |
 | `js/field.js` | The Rim: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
@@ -411,7 +417,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
-| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall |
+| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |

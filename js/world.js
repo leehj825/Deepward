@@ -311,6 +311,7 @@ const World = (() => {
       const t1 = Props.trap(room, 'spikes', cz, sx - dir * 1.7, 1.6, shd * 2 - 0.2), t2 = Props.trap(room, 'spikes', cz, sx + dir * 0.3, 1.6, shd * 2 - 0.2);
       t2.t = t1.t + (FE.spikes.idle + FE.spikes.warn + FE.spikes.up) / 2;
       addChest(room, false, { x: dir * (shw - 1.3), z: cz }, true);
+      if (!G.arena && Math.random() < CFG.rescues.chance) Props.captive(room, dir * (shw - 1.2), cz + (shd - 1.0));   // someone chained by the chest
     }
     setFade(room, 1);
     rooms.push(room); sides.push(room);
@@ -539,7 +540,7 @@ const World = (() => {
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
     clearAll();
-    rooms.push(Camp.build(scene, levels || Items.S.camp));
+    rooms.push(Camp.build(scene, Object.assign({}, levels || (Items.S && Items.S.camp), { rescued: (Items.S && Items.S.rescued) || [], wanderer: !!(Items.S && Items.S.wander) })));
     rooms.push(Field.build(scene));                                         // the Rim, through the south gate
     applyTheme(CFG.themes.camp);
     return Camp.spawn;
@@ -559,6 +560,7 @@ const World = (() => {
   }
   function begin(infos) {
     sections = plan(infos).map(build);
+    if (Items.rescued('pell')) for (const q of sections) q.seen = true;      // Pell the cartographer maps every stage ahead
     const r = sections[0]; applyTheme(r.th);
     active = r; r.state = 'start'; r.t = 0;
     banner(r.inf.stage.name.toUpperCase() + (r.inf.loop ? '  ·  DEPTH ' + (r.inf.loop + 1) : ''));

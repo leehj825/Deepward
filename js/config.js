@@ -537,11 +537,56 @@ const CFG = {
         { at: 0.6, shout: 'MOSSBACK BELLOWS', def: { regen: 0.04 }, summon: ['scout', 'scout'] },
         { at: 0.3, shout: 'HE WILL NOT FALL', enrage: true, faster: 0.8, def: { speed: 3.6 } },
       ] },
+    abomination: { name: 'The Abomination', scale: 1.45, hp: 6, posture: 2, reach: 1.3,
+      phases: [
+        { at: 0.7, shout: 'IT CALLS ITS KIN', summon: ['troll'], faster: 0.9 },
+        { at: 0.45, shout: 'THE ARENA SHAKES', summon: ['wolf', 'wolf', 'scout'], def: { speed: 3.9, cooldown: [0.6, 1.2] } },
+        { at: 0.2, shout: 'IT WILL NOT DIE', enrage: true, faster: 0.75, def: { regen: 0.015 } },
+      ] },
     golem: { name: 'The Forge Colossus', scale: 1.15, hp: 3.5, posture: 1.5, reach: 1.15,
       phases: [
         { at: 0.6, shout: 'THE CORE FLARES', faster: 0.85, def: { dr: 0.35 } },
         { at: 0.3, shout: 'IT BREAKS OPEN', enrage: true, faster: 0.75, def: { dr: 0.1, speed: 3.0, cooldown: [0.8, 1.4] } },
       ] },
+  },
+  // Captives in the dungeon's vaults: freed, they come to live in the Hold. The named ones bring a lasting perk; every
+  // rescue adds a little to the gold found (up to goldMax).
+  rescues: {
+    chance: 0.4, gold: 0.02, goldMax: 0.1,
+    people: [
+      { id: 'pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
+      { id: 'ilsa', name: 'Ilsa the cook', perk: 'Flasks heal 10% more', look: { cloth: 0x8a5a4a, hair: 0x3a2a1a, apron: true } },
+      { id: 'aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
+      { id: 'mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
+    ],
+    names: ['Tomas', 'Edda', 'Rolf', 'Greta', 'Hal', 'Wynn', 'Oswin', 'Bera'],
+  },
+  // The Ring, Varga's arena: fight again any guardian already beaten, and the big monsters once their field kin have fallen. The
+  // Abomination waits for whoever has beaten all three. Rewards: gold by depth, more the first time, and a gem.
+  arena: {
+    gold: 120, first: 2.5,
+    monsters: [
+      { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
+      { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
+    ],
+  },
+  // A raid on the south gate: now and then, a while after the warden comes home, a band marches up the Rim road and
+  // batters the gate. Beat them all for a reward; if the gate breaks, they carry off a share of the gold and run.
+  raid: {
+    chance: 0.22, from: 1, delay: [25, 50], gate: 100, batter: 0.7, steal: 0.08, stealMax: 400,
+    bands: [                                                      // by stage reached: the band, and its chief (an elite)
+      { upTo: 2, band: ['goblin', 'goblin', 'goblin', 'scout', 'wolf'], chief: 'goblin' },
+      { upTo: 5, band: ['goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'scout' },
+      { upTo: 99, band: ['goblin', 'goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'troll' },
+    ],
+    gold: 90, mats: { pelt: 2, ore: 2 },
+  },
+  // Sefa's caravan: now and then she is camped in the Hold when the warden comes home, and stays for two homecomings.
+  // Gear a tier above the warden's depth, bundles of materials and a gem; she buys spare materials too.
+  wanderer: {
+    chance: 0.3, stays: 2, from: 1, itemMult: 1.6,
+    bundles: [{ id: 'herb', n: 4, gold: 60 }, { id: 'ore', n: 3, gold: 75 }, { id: 'pelt', n: 3, gold: 70 }, { id: 'tusk', n: 2, gold: 80 }, { id: 'bone', n: 4, gold: 60 }],
+    gem: 180, buys: 6,
   },
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
@@ -684,6 +729,11 @@ const CFG = {
   },
   // The people of Deepward Hold: what they say when spoken to (one line at a time, in turn)
   townsfolk: {
+    wanderer: ['Sefa the wanderer', [
+      'Roads, warden. All the roads lead past a hole in the ground eventually.',
+      'Steel from the cities south, forged by people who have never seen a ghoul. Better, somehow.',
+      'I buy what the Rim gives up. Pelts sell well where it snows.',
+    ]],
     bard: ['Wenna the bard', [
       'They say the Bone Warden was the first warden of this camp. He went down to hold the stair, and never came up.',
       'Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.',
@@ -697,6 +747,7 @@ const CFG = {
       'The south gate opens on the Rim: grass, wood and the old graveyard. Beasts, mostly. Good hunting for a warden.',
       'Wolves come in threes. Do not let them circle you.',
       'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
+      'Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.',
     ]],
     gemcutter: ['Nell the gem cutter', [
       'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',

@@ -187,6 +187,87 @@ const path = require('path');
   await pg.evaluate(() => { __dw.Items.S.clock = 0.25 * CFG.day.length; __dw.G.descend(0); });
   await pg.waitForFunction(() => __dw.G.mode === 'dungeon' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
   Object.assign(out, await pg.evaluate(() => { __dw.sim(0.2); const s = __dw.scene; return { dungeonLight: s.fog.far === 38 && s.fog.near === 18 && __dw.G.torchK === 1 }; }));
+  // ---- W5: captives, the notice board, the Ring ----
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player;
+    // A captive chained in a vault (placed by hand here: vaults roll for one)
+    const side = W.sides[0] || W.sections[1]; Props.captive(side, 0, side.cz); const c = Props.captives[Props.captives.length - 1];
+    p.pos.set(c.x + 1.2, 0, c.z); __dw.sim(0.3); o.captiveSpot = !!G.spot && G.spot.id === 'captive';
+    __dw.interact(); o.freed = c.freed && I.rescued('pell') && /cartographer|mapped/i.test(document.querySelector('.pcard.dialogue').textContent);
+    while (__dw.UI.open) __dw.UI.close();
+    const heal0 = Player.gearStats().flaskHeal, gf0 = Player.gearStats().goldFind;
+    I.rescue(); o.ilsa = I.rescued('ilsa') && Math.abs(Player.gearStats().flaskHeal / heal0 - 1.1) < 0.01 && Player.gearStats().goldFind > gf0;
+    G.returnToCamp(); return o;
+  }));
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player; while (__dw.UI.open) __dw.UI.close();
+    o.homeWalkers = W.camp().npcs.filter(n => n.path).length >= 7;
+    // The notice board: three jobs; a finished one pays and is replaced
+    const sp = id => W.camp().spots.find(s => s.id === id);
+    p.pos.set(sp('board').x, 0, sp('board').z); __dw.sim(0.3); o.boardSpot = G.spot && G.spot.id === 'board';
+    I.S.jobs = [{ kind: 'gather', target: 'herb', need: 2, gold: 50, id: 999, base: 0, title: 'Bring 2 herbs' }]; I.S.mats.herb = 3;
+    __dw.interact(); o.jobs = document.querySelectorAll('.pcard [data-act="jobin"]').length === 3;
+    const g0 = I.S.gold; document.querySelector('[data-act="jobin"][data-arg="999"]').click();
+    o.turnIn = I.S.gold === g0 + 50 && I.S.mats.herb === 1 && I.S.jobsDone === 1 && !I.S.jobs.some(j => j.id === 999) && I.S.jobs.length === 3;
+    const hunt = { kind: 'hunt', target: 'wolf', need: 2, gold: 10, id: 998, base: Codex.life().kinds.wolf || 0, title: 'x' }; I.S.jobs[0] = hunt;
+    o.huntCounts = !Jobs.done(hunt) && (Codex.life().kinds.wolf = hunt.base + 2) && Jobs.done(hunt);
+    __dw.UI.close();
+    // The Ring: guardians already beaten, monsters once their kin fell on the Rim, the Abomination last
+    I.S.stage = 1; I.S.bossKills = { ridgehorror: 1 }; I.S.arena = {};
+    const L = G.arenaList(), by = id => L.find(a => a.id === id);
+    o.ringList = !!by('g0') && !by('g1') && !by('horror').locked && !!by('troll').locked && !!by('abomination').locked;
+    p.pos.set(sp('arena').x, 0, sp('arena').z); __dw.sim(0.3); __dw.interact(); o.ringPanel = document.querySelectorAll('.pcard [data-act="ring"]:not([disabled])').length === 2;
+    p.maxHp = p.hp = 1e6; document.querySelector('[data-act="ring"][data-arg="horror"]').click();
+    return o;
+  }));
+  await pg.waitForFunction(() => __dw.G.mode === 'dungeon' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player; while (__dw.UI.open) __dw.UI.close();
+    const r = W.sections[0]; p.pos.set(r.cx, 0, r.cz + 2); p.maxHp = p.hp = 1e6;
+    for (let i = 0; i < 40 && !G.boss; i++) __dw.sim(0.25);
+    const e = G.boss; o.ringBoss = !!e && e.type === 'mutant' && e.guardian === 'The Ridge Horror' && /The Ring/.test(W.label()) && W.sections.length === 1;
+    const g0 = I.S.gold;
+    for (let i = 0; i < 30; i++) { for (const x of G.enemies) if (x.state !== 'dead') { x.state = 'broken'; Enemy.receive(x, { dmg: 1e7, posture: 0 }, p); } __dw.sim(0.25); if (r.chest) break; }
+    if (r.chest) { p.pos.set(r.chest.x, 0, r.chest.z + 1.2); __dw.sim(2); }
+    o.ringWon = I.S.arena.horror === 1 && I.S.gold > g0 + 200 && !!__dw.UI.open && __dw.UI.open.id === 'arenaWon' && I.S.stage === 1;
+    return o;
+  }));
+  // ---- W6: a raid on the gate, Sefa's caravan ----
+  await pg.evaluate(() => { CFG.wanderer.chance = 1; CFG.raid.chance = 0; document.querySelector('[data-act="ringhome"]').click(); });
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, W = __dw.World, p = G.player; while (__dw.UI.open) __dw.UI.close();
+    // Sefa's caravan: gear a tier up, bundles, a gem; she buys materials
+    const sp = W.camp().spots.find(s => s.id === 'wanderer'); o.caravan = !!sp && !!I.S.wander && W.camp().npcs.some(n => n.id === 'wanderer');
+    I.S.gold = 99999; I.S.inv = []; p.pos.set(sp.x, 0, sp.z); __dw.sim(0.3); __dw.interact();
+    const it = I.S.wander.items[0]; document.querySelector('[data-act="wbuy"][data-arg="0"]').click();
+    o.wbuy = I.S.inv.includes(it) && it.rarity >= 2 && !I.S.wander.items[0];
+    const b = I.S.wander.bundles[0], m0 = I.S.mats[b.id] || 0; document.querySelector('[data-act="wbundle"][data-arg="0"]').click();
+    o.wbundle = I.S.mats[b.id] === m0 + b.n && b.sold;
+    const g0 = I.S.gold; document.querySelector(`[data-act="wsell"][data-arg="${b.id}"]`).click(); o.wsell = I.S.gold === g0 + CFG.wanderer.buys && I.S.mats[b.id] === m0 + b.n - 1;
+    __dw.UI.close();
+    // A raid: the band marches up the road and batters the gate while the warden is inside
+    for (const e of G.enemies) e.remove = true; G.queue = []; __dw.sim(0.1);
+    I.S.stage = 3; p.pos.set(0, 0, 6); p.maxHp = p.hp = 1e6; G.startRaid(); __dw.sim(2);
+    const raiders = () => G.enemies.filter(e => e.raid && e.state !== 'dead');
+    o.raiders = raiders().length === G.raid.n && raiders().some(e => e.elite);
+    for (let i = 0; i < 40 && G.raid.gate === CFG.raid.gate; i++) __dw.sim(0.5);
+    o.battered = !!G.raid && G.raid.gate < CFG.raid.gate && /Raid/.test(document.getElementById('foesN').textContent) && raiders().length === G.raid.n;
+    // ...and is beaten for gold and materials
+    const gold0 = I.S.gold, pelt0 = I.S.mats.pelt || 0; p.pos.set(0, 0, W.field().rect.z0 + 1);
+    for (const e of raiders()) { e.state = 'broken'; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);
+    o.raidWon = !G.raid && I.S.raids === 1 && I.S.gold > gold0 && I.S.mats.pelt >= pelt0 + 2;
+    // If the gate breaks, they run off with some of the gold
+    G.startRaid(); __dw.sim(0.5); G.raid.gate = 0; const g1 = I.S.gold; __dw.sim(0.2);
+    o.raidLost = !G.raid && I.S.gold === g1 - Math.min(CFG.raid.stealMax, Math.floor(g1 * CFG.raid.steal)) && !G.enemies.some(e => e.raid && !e.remove && e.state !== 'dead');
+    CFG.wanderer.chance = 0; G.wakeInCamp(); return o;
+  }));
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  out.stays = await pg.evaluate(() => !!__dw.Items.S.wander && __dw.World.camp().spots.some(s => s.id === 'wanderer'));
+  await pg.evaluate(() => __dw.G.wakeInCamp());
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  out.movesOn = await pg.evaluate(() => !__dw.Items.S.wander && !__dw.World.camp().spots.some(s => s.id === 'wanderer'));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

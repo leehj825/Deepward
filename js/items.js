@@ -20,7 +20,7 @@ const Items = (() => {
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
-      gems: {}, uniques: [], mats: {},                        // loose gems by kind; uniques found so far
+      gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
     };
   }
 
@@ -307,8 +307,17 @@ const Items = (() => {
   }
   function wipe() { try { localStorage.removeItem(SAVE_KEY_OF()); } catch (e) {} }
 
+  // Has the warden freed this person from the Deep? (their perk applies for good)
+  const rescued = id => !!(S && (S.rescued || []).some(r => r.id === id));
+  // Free a captive: the next of the named people not yet home, or a townsperson by name. Returns who.
+  function rescue() {
+    const R = S.rescued = S.rescued || [], C = CFG.rescues;
+    let who = C.people.find(p => !rescued(p.id));
+    if (!who) { const n = C.names[R.length % C.names.length]; who = { id: 'f' + R.length, name: n, look: { cloth: [0x6a5a4a, 0x4a5a6a, 0x5a4a3a, 0x6a3a3a][R.length % 4], hair: [0x3a2a1a, 0x8a6a3a, 0x5a3a1a][R.length % 3] } }; }
+    R.push({ id: who.id, name: who.name, look: who.look }); return who;
+  }
   return {
-    get S() { return S; }, addMat, hasMats, spendMats, craft, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
+    get S() { return S; }, rescued, rescue, addMat, hasMats, spendMats, craft, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };

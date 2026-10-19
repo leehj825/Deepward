@@ -78,6 +78,12 @@ const Camp = (() => {
     room.spots.push({ id: 'ledger', name: 'Camp ledger', verb: 'Upgrade camp', x: -3.4, z: 5.5, r: 1.8 });
     room.spots.push({ id: 'elder', name: 'Maren', verb: 'Talk', x: 2.4, z: 2.6, r: 2.0 });
     room.spots.push({ id: 'bard', name: 'Wenna the bard', verb: 'Listen', x: -3.2, z: 2.6, r: 1.8 });
+    // The notice board: jobs for the warden
+    for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 2.0, 0.12), darkWood, 3.6 + sd * 0.7, 1.0, 5.4);
+    add(new THREE.BoxGeometry(1.7, 1.1, 0.08), wood, 3.6, 1.45, 5.45); add(new THREE.BoxGeometry(1.9, 0.12, 0.3), roofM, 3.6, 2.05, 5.45);
+    for (let k = 0; k < 4; k++) add(new THREE.BoxGeometry(0.32, 0.38, 0.01), M(0xe8dcc0), 3.0 + k * 0.4, 1.45 + (k % 2) * 0.12, 5.5, group, false).rotation.z = (Math.random() - 0.5) * 0.3;
+    block(3.6, 5.4, 0.8);
+    room.spots.push({ id: 'board', name: 'Notice board', verb: 'Jobs', x: 3.6, z: 6.4, r: 1.8 });
 
     // ---- The stair down (north) ----
     const gz = -HD + 0.4;
@@ -156,6 +162,23 @@ const Camp = (() => {
     for (let k = 0; k < 2; k++) add(new THREE.BoxGeometry(0.05, 1.1, 0.05), steel, 17.5 + k * 0.25, 0.55, 10.5).rotation.z = 0.25;
     block(18, 10, 0.4);
     room.spots.push({ id: 'trainer', name: 'Training yard', verb: 'Expertise', x: 17, z: 11.2, r: 1.9 });
+    // The Ring, Varga's arena: a ring of stakes on the open ground north-east of the fire, where old foes are fought again
+    const rx = 13, rz = -12;
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; if (k === 12) continue; add(new THREE.CylinderGeometry(0.1, 0.12, 1.4, 5), darkWood, rx + Math.sin(a) * 3.4, 0.7, rz + Math.cos(a) * 3.4); block(rx + Math.sin(a) * 3.4, rz + Math.cos(a) * 3.4, 0.2); }
+    const sand = add(new THREE.CircleGeometry(3.3, 20), M(0x8a7a5a), rx, 0.02, rz); sand.rotation.x = -Math.PI / 2; sand.castShadow = false;
+    torch(rx - 3.9, 1.8, rz + 1.6, 0xff9a40); torch(rx + 3.9, 1.8, rz - 1.6, 0xff9a40);
+    room.spots.push({ id: 'arena', name: 'The Ring', verb: 'Fight', x: rx - 4.6, z: rz + 1.2, r: 1.9 });
+    // Sefa's caravan (some homecomings): a painted wagon on the open ground north-west, crates and a rug
+    if (lv.wanderer) {
+      const cx = -11, cz = -12;
+      add(new THREE.BoxGeometry(2.8, 0.8, 1.5), M(0x6a3a2a), cx, 0.9, cz); block(cx, cz, 1.7);
+      const roof = add(new THREE.CylinderGeometry(0.8, 0.8, 2.8, 10, 1, true, 0, Math.PI), M(0xffffff, { map: stripes('#2a8a8a', '#d8a040') }), cx, 1.3, cz); roof.rotation.z = Math.PI / 2; roof.material.side = THREE.DoubleSide;
+      for (const [dx, dz] of [[-1, -0.8], [1, -0.8], [-1, 0.8], [1, 0.8]]) { const w = add(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 10), darkWood, cx + dx, 0.45, cz + dz); w.rotation.x = Math.PI / 2; }
+      add(new THREE.BoxGeometry(2.4, 0.02, 1.6), M(0x8a2a3a), cx + 0.4, 0.02, cz + 2.4, group, false);
+      for (const [dx, dz, sz] of [[1.9, 1.4, 0.6], [2.4, 2.2, 0.5], [-1.6, 1.6, 0.55]]) { add(new THREE.BoxGeometry(sz, sz, sz), wood, cx + dx, sz / 2, cz + dz).rotation.y = dx; block(cx + dx, cz + dz, sz * 0.7); }
+      torch(cx - 1.5, 1.7, cz + 0.9, 0x5ad8c8, false);
+      room.spots.push({ id: 'wanderer', name: 'Sefa the wanderer', verb: 'Trade', x: cx + 0.4, z: cz + 3.2, r: 2.0 });
+    }
     // A rail fence around the yard and a straw dummy per level (one always stands)
     for (let x = 8; x <= 21; x += 1.6) { add(new THREE.BoxGeometry(0.1, 0.9, 0.1), darkWood, x, 0.45, 15.5); }
     add(new THREE.BoxGeometry(13, 0.08, 0.08), wood, 14.5, 0.75, 15.5);
@@ -217,6 +240,8 @@ const Camp = (() => {
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
     npc('curio', wx - 1.4, wz + 0.9, -2.0, { cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
     npc('guard', -3.2, HD - 1.4, Math.PI, { cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
+    npc('arenamaster', 13 - 4.4, -12 - 0.2, -1.2, { cloth: 0x5a3a2a, hair: 0x6a6a6a, beard: true, scarf: 0xa03a2a, skin: 0xc89060, tool: 'spear' });
+    if (lv.wanderer) npc('wanderer', -11 + 1.2, -12 + 2.1, 0.4, { cloth: 0x2a6a6a, hair: 0x1a1a1a, scarf: 0xd8a040, skin: 0xa86a40 });
     npc('sentry', 3.2, HD - 1.4, Math.PI, { cloth: 0x4a4a5a, hair: 0x6a4a2a, scarf: 0x7a2a22, skin: 0xe2b088, tool: 'spear' });
     for (const n of room.npcs) block(n.x, n.z, 0.45);
     // Villagers on their rounds: walk a loop of points, pause at each, greet the warden when close
@@ -226,6 +251,9 @@ const Camp = (() => {
     walker({ cloth: 0x8a3a2a, hair: 0x2a1a10, beard: true, skin: 0xb88050 }, [[-12, -2], [-6, -1], [-6, 4], [-12, 6]]);
     walker({ cloth: 0x3a6a5a, hair: 0xc8a050, skin: 0xf0d0b0 }, [[8, 2], [11, -1], [16, 3.5], [11, 8], [6, 9]]);
     walker({ cloth: 0x6a5a3a, hair: 0x5a3a1a, skin: 0xc89060 }, [[-2, 10], [4, 12], [2, 15], [-4, 14]]);
+    // The people the warden freed from the Deep live here now
+    const R = (lv.rescued || []).slice(0, 8);
+    R.forEach((r, k) => { const a = k / Math.max(1, R.length) * Math.PI * 2, cx = -12 + Math.cos(a) * 2, cz = 10 + Math.sin(a) * 2; walker(Object.assign({ skin: 0xe0b088 }, r.look || {}), [[cx, cz], [-6 + (k % 3) * 2, 6 + (k % 2)], [-14 + k, 13], [cx + 1, cz - 3]]); });
 
     // Embers rising from the fire
     const N = 40, pos = new Float32Array(N * 3), eg = new THREE.BufferGeometry();

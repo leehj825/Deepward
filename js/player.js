@@ -19,6 +19,12 @@ const Player = (() => {
     for (const t of (G.tonics || [])) {
       if (t === 'stamina') S.regen *= 1.3; else if (t === 'iron') S.dr = 1 - (1 - S.dr) * 0.9; else if (t === 'flask') S.flasks += 1; else if (t === 'edge') S.dmg *= 1.1;
     }
+    // The people freed from the Deep: Ilsa's cooking, Brother Aldo's blessing, and a share of gold for every one
+    if (typeof Items !== 'undefined' && Items.S && Items.S.rescued) {
+      if (Items.rescued('ilsa')) S.flaskHeal *= 1.1;
+      if (Items.rescued('aldo')) S.maxHp = Math.round(S.maxHp * 1.05);
+      S.goldFind *= 1 + Math.min(CFG.rescues.goldMax, Items.S.rescued.length * CFG.rescues.gold);
+    }
     // Curses of an Endless climb, and the gold they pay
     if (G.run && G.run.curses && G.run.curses.length) {
       const c = id => G.run.curses.includes(id);

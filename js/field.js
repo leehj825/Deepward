@@ -151,7 +151,7 @@ const Field = (() => {
       const m = multOf(z); G.queue.push({ type: B.type, at, mult: m.mult, hpMult: m.hpMult, zone: z, fieldBoss: B, t: G.time });
     }
     // Beasts left far behind (or the warden back in the Hold) are let go
-    for (const e of G.enemies) if (e.zone && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
+    for (const e of G.enemies) if (e.zone && !e.raid && e.state !== 'dead' && (!here || Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) > 70)) { e.remove = true; if (G.lock === e) G.lock = null; }
     // ...and no beast follows the warden through the gate
     for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
   }

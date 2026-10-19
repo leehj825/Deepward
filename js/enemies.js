@@ -109,8 +109,8 @@ const Enemy = (() => {
       e.wanderT = (e.wanderT || 0) - dt;
       if (e.wanderT <= 0) { const a = Math.random() * Math.PI * 2, r = Math.random() * e.zone.r * 0.8; e.wanderTo = { x: e.zone.x + Math.sin(a) * r, z: e.zone.z + Math.cos(a) * r }; e.wanderT = 3 + Math.random() * 5; }
       const w = e.wanderTo, wd = w ? Math.hypot(w.x - e.pos.x, w.z - e.pos.z) : 0;
-      if (w && wd > 0.5 && e.wanderT < 6) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * 0.3); }
-      if (p.state !== 'dead' && d < (def.aggro || 9)) rouse(e);
+      if (w && wd > 0.5 && (e.wanderT < 6 || e.raid)) { const a = Math.atan2(w.x - e.pos.x, w.z - e.pos.z); turn(a, 4); step(a, def.speed * (e.raid ? 0.7 : 0.3)); }   // raiders march
+      if (p.state !== 'dead' && d < (def.aggro || 9) * (Items.rescued && Items.rescued('mira') ? 0.75 : 1)) rouse(e);   // Mira taught the warden to move quietly
     } else if (e.state === 'hunt') {
       e.cooldown -= dt; e.strafeT -= dt;
       // Led too far from home, a beast of the Rim gives up and goes back, mending as it goes
@@ -556,5 +556,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, rouse, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
