@@ -193,6 +193,12 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Backgrounding:** `visibilitychange` pauses play and suspends the audio context (`Snd.hold`), which also covers the Android app going to the background.
 - **Measured:** a fight with four enemies at the dungeon entrance went from about 400 draw calls to about 290 on High, 190 on Medium and 155 on Low.
 
+## Skinned bodies (built)
+
+- `Rig.skin` merges every plain mesh of a character into one `SkinnedMesh` whose bones are the rig's own joints (each vertex bound wholly to its joint, colours per vertex). The joints animate exactly as before; the body draws in one call. Glowing, textured and see-through parts (weapons, shields, eyes) stay apart, and `rig.mats` holds the one body material, so hit flashes still work.
+- Every NPC, enemy, beast, spider and mimic is skinned; the hero is not (gear swaps rebuild parts, and dash after-images clone the parts).
+- Measured headless (draw calls / triangles): the Hold 624 → 125, the Rim 577 → 147, a raid at the gate 780 → 174, a dungeon section about 100. Herb patches and ore veins on the Rim are baked per node too. `tools/world_test.js` keeps the Hold under 200 calls.
+
 ## Minimap (built)
 
 - **Canvas:** a round canvas in the corner, redrawn 20 times a second. A section is "seen" once the hero comes within 14 m of it.

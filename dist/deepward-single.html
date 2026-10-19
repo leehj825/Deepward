@@ -2422,7 +2422,7 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     rig.time = Math.random() * 10; rig.pace = 0.85 + Math.random() * 0.3;            // no two idle quite in step
     if (N.pose) rig.posture = N.pose;
-    if (kind === 'npc') skinRig(rig);                                            // one draw call per person
+    if (kind !== 'hero') skinRig(rig);                                          // one draw call per body (the hero keeps parts: gear swaps, after-images)
     rig.shieldYaw = 0;
     if (CFG.enemies[kind] && CFG.enemies[kind].scale) root.scale.setScalar(CFG.enemies[kind].scale);
     return rig;
@@ -2455,6 +2455,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
@@ -2506,6 +2507,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
@@ -2555,6 +2557,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   function animateMimic(rig, st, dt) {
@@ -2979,7 +2982,7 @@ const Rig = (() => {
   function skinRig(rig) {
     const root = rig.root; root.updateMatrixWorld(true); skInv.copy(root.matrixWorld).invert();
     const meshes = [];
-    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !rig.glowMats.includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
+    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !(rig.glowMats || []).includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
     if (meshes.length < 2) return;
     const bones = [], boneOf = new Map();
     let n = 0; const parts = [];
@@ -4844,6 +4847,7 @@ const Field = (() => {
       const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
       if (kind === 'herb') for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; const st = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 4), herbM); st.position.set(Math.sin(a) * 0.2, 0.25, Math.cos(a) * 0.2); g.add(st); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), flowerM); fl.position.set(Math.sin(a) * 0.2, 0.52, Math.cos(a) * 0.2); g.add(fl); room.geos.push(st.geometry, fl.geometry); }
       else { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), oreM); r.position.y = 0.3; r.castShadow = true; g.add(r); room.geos.push(r.geometry); for (let j = 0; j < 4; j++) { const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), veinM); v.position.set(Math.sin(j * 1.6) * 0.45, 0.35 + (j % 2) * 0.2, Math.cos(j * 1.6) * 0.45); g.add(v); room.geos.push(v.geometry); } room.pillars.push([x, z, 0.6]); }
+      Rig.bake(g);                                                        // a patch or vein draws as one or two meshes
       room.nodes.push({ kind, x, z, g, ready: true, t: 0 }); k++;
     }
     return room;

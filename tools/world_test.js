@@ -13,6 +13,9 @@ const path = require('path');
     __dw.start('new'); while (__dw.UI.open) __dw.UI.close(); G.state = 'play';
     const camp = W.camp(), p = G.player, at = (x, z) => { p.pos.set(x, 0, z); __dw.sim(0.25); return G.spot && G.spot.id; };
     o.bigger = camp.rect.x1 - camp.rect.x0 >= 48 && camp.rect.z1 - camp.rect.z0 >= 36;
+    // Phone budget: each person and beast draws as one skinned mesh, so the whole Hold stays under 200 draw calls
+    const R = __dw.renderer; R.info.autoReset = false; R.info.reset(); R.render(__dw.scene, __dw.camera); o.drawCalls = R.info.render.calls < 200; R.info.autoReset = true;
+    o.skinned = camp.npcs.every(n => n.rig.body3 && n.rig.body3.isSkinnedMesh);
     o.people = camp.npcs.length >= 12 && camp.npcs.filter(n => n.path).length >= 5;
     // Villagers walk their rounds
     const v = camp.npcs.find(n => n.path), v0 = [v.x, v.z]; p.pos.set(20, 0, -15); __dw.sim(6);

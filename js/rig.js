@@ -498,7 +498,7 @@ const Rig = (() => {
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
     rig.time = Math.random() * 10; rig.pace = 0.85 + Math.random() * 0.3;            // no two idle quite in step
     if (N.pose) rig.posture = N.pose;
-    if (kind === 'npc') skinRig(rig);                                            // one draw call per person
+    if (kind !== 'hero') skinRig(rig);                                          // one draw call per body (the hero keeps parts: gear swaps, after-images)
     rig.shieldYaw = 0;
     if (CFG.enemies[kind] && CFG.enemies[kind].scale) root.scale.setScalar(CFG.enemies[kind].scale);
     return rig;
@@ -531,6 +531,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // ---------------- Four-legged beasts of the Rim: the wolf and the boar ----------------
@@ -582,6 +583,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   // Trot and gallop with the speed, crouch to wind up, spring or lower the head to strike, sprawl when stunned or dead
@@ -631,6 +633,7 @@ const Rig = (() => {
     bake(root, true, rig.glowMats);
     root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !rig.mats.includes(m.material)) rig.mats.push(m.material); });
     rig.baseEmissive = rig.mats.map(m => m.emissive.getHex());
+    skinRig(rig);
     return rig;
   }
   function animateMimic(rig, st, dt) {
@@ -1055,7 +1058,7 @@ const Rig = (() => {
   function skinRig(rig) {
     const root = rig.root; root.updateMatrixWorld(true); skInv.copy(root.matrixWorld).invert();
     const meshes = [];
-    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !rig.glowMats.includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
+    root.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && o.geometry.attributes.normal && !o.material.map && !o.material.transparent && !(rig.glowMats || []).includes(o.material) && o.material.isMeshStandardMaterial) meshes.push(o); });
     if (meshes.length < 2) return;
     const bones = [], boneOf = new Map();
     let n = 0; const parts = [];
