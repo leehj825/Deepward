@@ -4,6 +4,13 @@ A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128
 
 Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
+**Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
+
+- **Bestiary:** an enemy's entry opens at your first kill. It lists how each of its attacks is telegraphed and how to answer it, along with the guardians' phases and the champions' traits.
+- **Uniques:** the ones you've found.
+- **Achievements:** 32 of them, such as First Blood, Unbroken Guard, Untouched (a guardian without taking a hit), The Collector and No Bottom. Each pays gold the moment you earn it, and that gold is never at risk.
+- **Records:** lifetime numbers such as foes felled, parries, executions, falls and the deepest Endless floor.
+
 **Training yard.** Sergeant Hobb spars with you in camp through six lessons:
 
 1. Light attacks
@@ -214,6 +221,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | Lock on (again to let go) | C | Right-stick click | 🎯 |
 | Switch camera | B | View | 🎥 |
 | Full map | N | | Tap the minimap |
+| Codex | O | from the gear menu | from GEAR |
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
 | Heavy attack (breaks guards) | K / Q / middle-click | RT | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
@@ -264,6 +272,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/props.js` | Breakable pots and crates, spike plates and swinging blades, shrines and their blessings |
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
+| `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -274,6 +283,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/loot_test.js` | Headless check of uniques (each drops once, and each effect), gems in sockets, Bram's Gems tab and gem drops |
 | `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
 | `tools/tutorial_test.js` | Headless check of the training yard: the offer, all six lessons done for real, the reward, leaving early |
+| `tools/codex_test.js` | Headless check of records, the bestiary, achievements paying once, and opening the codex from the gear and pause screens |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -292,6 +302,7 @@ node tools/settings_test.js
 node tools/loot_test.js
 node tools/endless_test.js
 node tools/tutorial_test.js
+node tools/codex_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

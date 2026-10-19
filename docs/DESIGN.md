@@ -218,3 +218,9 @@ Real players are slower to react than the bot, so expect more deaths.
 - **Hobb:** `Tutorial` spawns him (the `sparring` enemy: a knight rig, huge health and slow steps) beside the camp fire. Each lesson gives him one move: none for the striking lessons, a slow blockable overhead for block and parry, and an unblockable slam for the dash.
 - **Counting progress:** the lessons count real events (`G.stats.blocks`, `parries`, `dodges`, `executions`, and Hobb's health falling during light or heavy attacks), so the only way through is to do each move.
 - **While training:** camp prompts are off, and Hobb pulls his blows, so you can't fall.
+
+## Codex and achievements (built)
+
+- **Lifetime records:** `S.life` is fed every frame from the per-trip `G.stats`. Kill hooks add counts by kind, elites, champions and guardians, flawless guardians (no hits taken since the guardian appeared) and guardians beaten on Hard.
+- **Bestiary:** the attack lines are generated from the enemy definitions, so new enemies document themselves.
+- **Achievements:** `Codex.list` holds 32 tests, checked twice a second. Each pays its gold once and keeps it out of the trip's at-risk gold.

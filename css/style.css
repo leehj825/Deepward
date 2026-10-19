@@ -247,3 +247,9 @@ body:not(.playing) #padKeys { display: none !important; }
 #lesson .lb { display: flex; gap: 8px; justify-content: center; }
 #lesson button { font-size: 11px; padding: 4px 10px; color: #eee6d6; background: rgba(242, 210, 122, 0.1); border: 1px solid rgba(242, 210, 122, 0.35); border-radius: 4px; cursor: pointer; }
 @media (max-width: 640px) { #lesson { top: calc(150px + env(safe-area-inset-top)); width: calc(100vw - 140px); left: 12px; transform: none; } #lesson .lx { font-size: 13px; } }
+
+/* Codex */
+.irow.got { border-left: 3px solid #ffd040; }
+.recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; margin: 8px 0; }
+.recs div { display: flex; justify-content: space-between; padding: 4px 8px; background: rgba(255, 255, 255, 0.04); border-radius: 4px; font-size: 13px; }
+.recs b { color: #f2d27a; }

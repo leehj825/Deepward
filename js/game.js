@@ -31,6 +31,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
     if (ev.code === 'KeyN') MiniMap.toggle();
+    if (ev.code === 'KeyO' && G.state === 'play') openPanel('codex');
     if (ev.code === 'KeyC' && G.state === 'play') toggleLock();
     // (an Esc that just released the captured mouse has already paused)
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || ev.code === 'KeyP') togglePause();
@@ -253,7 +254,7 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
-    if (q.guardian) { e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.guardian) { G.bossHits = G.stats.hitsTaken; e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.champion) {
       // The mid-stage champion: a named elite with its own boss bar
@@ -329,6 +330,7 @@ function openSettings() {
   UI.show('settings', {}, () => { G.state = from === 'menu' ? 'play' : from; if (scr) scr.classList.add('show'); });
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
+$('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
 function musicMood() {
@@ -449,7 +451,7 @@ G.descend = (k, onward) => fadeTo(() => {
 G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
-  G.stats.kills++;
+  G.stats.kills++; Codex.onKill(e);
   if (G.boss === e) G.boss = null;
   if (!Items.S || G.mode !== 'dungeon') return;
   const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
@@ -562,7 +564,7 @@ G.startTraining = () => { if (G.mode !== 'camp') return; G.state = 'play'; Tutor
 G.onTrained = () => showTip('Ready. The gate north of the fire leads down into the Deep. Bram, Tilda and Maren can help before you go.');
 // A blessing chosen at a shrine: it lasts until the hero leaves the stage
 G.bless = (id, shrine) => {
-  (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true;
+  (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true; Codex.add('shrines');
   Player.refit(G.player, scene, false); Snd.play('wave');
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
@@ -664,6 +666,7 @@ function step(real) {
     FX.update(dt);
     updateHud();
     Tutorial.update();
+    Codex.check(real);
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);

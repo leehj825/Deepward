@@ -117,6 +117,29 @@ const UI = (() => {
       } else h += `<p class="dim">Below the fifth stage lies the Endless Deep. Defeat The Pale Duelist to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
+    codex() {
+      const S = Items.S, l = Codex.life(), t = tab.codex || (tab.codex = 'beasts'), ach = S.ach || {};
+      let h = `<h2>Codex</h2><p class="sub">What the Deep has taught you.</p>` + tabs('codex', [['beasts', 'Bestiary'], ['uniques', 'Uniques'], ['ach', `Achievements ${Object.keys(ach).length}/${Codex.list.length}`], ['records', 'Records']]);
+      if (t === 'beasts') {
+        for (const [k, d] of Object.entries(CFG.enemies)) {
+          if (k === 'sparring') continue;
+          const kills = l.kinds[k] || 0;
+          h += kills ? `<div class="irow"><div class="iinfo"><b>${esc(d.name)}</b> <small>slain ${kills}</small><div class="istats">${Codex.attacks(d).map(esc).join(' · ')}</div>${CFG.tips[k] ? `<div class="istats dim">${esc(CFG.tips[k])}</div>` : ''}</div></div>`
+            : `<div class="irow empty"><div class="iinfo"><b>???</b> <small>not yet met</small></div></div>`;
+        }
+        h += '<h3>Guardians and champions</h3>';
+        for (const B of CFG.bosses) { const k = l.guardians[B.name] || 0; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(B.name) : '???'}</b> <small>${k ? 'defeated ' + k + '×' : 'a guardian of the Deep'}</small>${k ? `<div class="istats">${B.phases.map(ph => Math.round(ph.at * 100) + '%: ' + esc(ph.shout.toLowerCase())).join(' · ')}</div>` : ''}</div></div>`; }
+        for (const st of CFG.stages) { const c = st.champion, k = l.champs[c.name]; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(c.name) : '???'}</b> <small>champion of ${esc(st.name)}</small>${k ? `<div class="istats">${c.mods.map(m => CFG.elites.mods[m].name + ': ' + CFG.elites.mods[m].desc).map(esc).join(' · ')}</div>` : ''}</div></div>`; }
+      } else if (t === 'uniques') {
+        for (const u of CFG.gear.uniques) { const got = S.uniques.includes(u.id); h += `<div class="irow${got ? ' uniq' : ' empty'}"><div class="iinfo"><b style="color:${got ? CFG.gear.uniqueColor : ''}">${got ? esc(u.name) : '???'}</b> <small>${CFG.gear.slotNames[u.slot]}${u.type ? ' · ' + CFG.gear.weapons[u.type].name : ''}</small>${got ? `<div class="istats">★ ${esc(u.desc)}</div>` : ''}</div></div>`; }
+      } else if (t === 'ach') {
+        for (const a of Codex.list) h += `<div class="irow${ach[a.id] ? ' got' : ' empty'}"><div class="iinfo"><b>${ach[a.id] ? '🏆 ' : ''}${esc(a.name)}</b> <small>${ach[a.id] ? 'earned' : '+' + a.gold + ' ◆'}</small><div class="istats">${esc(a.desc)}</div></div></div>`;
+      } else {
+        const E = S.endless || {}, rows = [['Foes felled', l.kills], ['Elites slain', l.elites], ['Guardians defeated', Object.values(l.guardians).reduce((a, b) => a + b, 0)], ['Champions slain', Object.keys(l.champs).length], ['Parries', l.parries], ['Blocks', l.blocks], ['Dashes through blows', l.dodges], ['Executions', l.executions], ['Criticals', l.crits], ['Blows taken', l.hitsTaken], ['Falls', S.deaths], ['Flawless guardians', l.flawless], ['Shrine blessings', l.shrines], ['Deepest Endless floor', E.best], ['Level', S.level]];
+        h += '<div class="recs">' + rows.map(([k, v]) => `<div><span>${k}</span><b>${v || 0}</b></div>`).join('') + '</div>';
+      }
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
     trainer() {
       const S = Items.S;
       return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
@@ -140,7 +163,7 @@ const UI = (() => {
       h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
       h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
-      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents');
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
       return h + btn('Close', 'close', '', false, 'leave');
     },
     // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
