@@ -34,10 +34,13 @@ A box at the top says what to press in your own controls (keyboard, controller o
 
 **Story and camp.** Forty winters ago the ground beneath Varrow Hill split open. You are the new warden of Deepward, the last camp on the rim of the Deep:
 
-- **The people of the camp:**
-  - **Maren**, the elder, tells the story before each stage and after its guardian falls.
-  - **Bram the smith** forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap.
-  - **Tilda the quartermaster** sells three fresh pieces each time you return and buys what you don't need.
+- **Deepward Hold:** a palisaded camp about three times the old one, laid out in quarters, with watchtowers at the corners, the stair down to the north and a guarded gate onto the Rim to the south. Villagers walk their rounds between the tents, cabins and the well, and greet you as you pass.
+- **The people of the Hold:**
+  - **Maren**, the elder, tells the story before each stage and after its guardian falls. **Wenna the bard** sits with her by the fire and sings guardian lore.
+  - **Bram the smith** (smiths' row, west) forges new gear, upgrades what you wear (+levels, capped by the forge) and salvages spares into scrap. **Nell the gem cutter** next door sets and pries gems, and cuts three stones of one kind into one of another.
+  - **Tilda the quartermaster** (market, east) sells three fresh pieces each time you return and buys what you don't need. **Ysolde the herbalist** sells tonics for the next trip: Wind Tonic (stamina back 30% faster), Iron Draught (10% less damage), Spare Flask (+1 flask) and Whetstone Oil (+10% damage). **Odo the curio dealer** has one rare-or-better piece a day.
+  - **Captain Rook** keeps the south gate and knows the beasts of the Rim.
+  - **Sergeant Hobb** runs the training yard (south-east).
 - **The camp ledger** turns gold into buildings, each with three levels that show in the camp:
   - **Forge:** better upgrades and better odds of rare work.
   - **Apothecary:** more and stronger healing flasks.
@@ -379,6 +382,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/save_test.js` | Headless check of saves: the title, three slots kept apart, export and import (bad codes refused), delete asked twice, migrating an old save, the backup |
 | `tools/controls_test.js` | Headless check of rebinding: keys and a controller button changed from the Controls screen, the game and hints following, keys taken from other actions, Esc cancelling, defaults |
+| `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics for a trip, the curio of the day |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -402,6 +406,7 @@ node tools/touch_test.js
 node tools/gear_test.js
 node tools/save_test.js
 node tools/controls_test.js
+node tools/world_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

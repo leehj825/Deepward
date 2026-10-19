@@ -15,6 +15,10 @@ const Player = (() => {
       else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
       else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
     }
+    // Ysolde's tonics, drunk for this trip
+    for (const t of (G.tonics || [])) {
+      if (t === 'stamina') S.regen *= 1.3; else if (t === 'iron') S.dr = 1 - (1 - S.dr) * 0.9; else if (t === 'flask') S.flasks += 1; else if (t === 'edge') S.dmg *= 1.1;
+    }
     // Curses of an Endless climb, and the gold they pay
     if (G.run && G.run.curses && G.run.curses.length) {
       const c = id => G.run.curses.includes(id);

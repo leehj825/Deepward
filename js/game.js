@@ -452,7 +452,7 @@ function placeHero(at) {
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
   if (Tutorial.active) Tutorial.stop();
-  clearEnemies(); G.blessings = []; G.run = null; curseWorld();
+  clearEnemies(); G.blessings = []; G.run = null; G.tonics = []; curseWorld();
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -486,8 +486,10 @@ function startGame(how = 'new') {
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
 function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers = G.timers.filter(t => G.time < t.t); for (const t of due) t.fn(); }
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
+// Ysolde's tonics are drunk at the start of a trip and last until the warden is back in camp
+function drinkTonics() { const S = Items.S; G.tonics = (S.tonics || []).slice(); S.tonics = []; if (G.tonics.length) UI.toast('Tonics: ' + G.tonics.map(id => CFG.camp.tonics.find(t => t.id === id).name).join(', '), '#9aff8a'); }
 G.descend = (k, onward) => fadeTo(() => {
-  clearEnemies(); G.blessings = []; G.run = null;
+  clearEnemies(); G.blessings = []; G.run = null; if (!onward) drinkTonics();
   const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
@@ -561,7 +563,7 @@ G.onChest = room => {
 };
 // ---------------- The Endless Deep ----------------
 // A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
-G.enterEndless = (daily, curses) => { G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
+G.enterEndless = (daily, curses) => { drinkTonics(); G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
 // Is this curse on the current Endless climb?
 G.cursed = id => !!(G.run && G.run.curses && G.run.curses.includes(id));
 // Lightless closes the fog in and hides the map; anywhere else the air is as usual
@@ -623,6 +625,10 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
+    const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
+    return say([[who, lines[i]]]);
+  }
   if (s.id === 'trainer') return openPanel('trainer');
   openPanel(s.id);
 }

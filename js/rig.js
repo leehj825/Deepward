@@ -87,6 +87,20 @@ const Rig = (() => {
     box(g, 0.1, 0.1, 0.22, iron, 0, 0, 0.42).rotation.y = Math.PI / 2;
     return { group: g, glowMats: [iron], tip: joint(g, 0, 0, 0.5), base: joint(g, 0, 0, 0.3) };
   }
+  // A bard's lute and a villager's basket, held in the left hand
+  function lute(hand) {
+    const g = joint(hand, 0, -0.03, 0), wood = std(0x8a5a2a), dark = std(0x3a2416);
+    const body = ball(g, 0.16, wood, 0, 0, 0.12, 9, 7); body.scale.set(1, 0.45, 1.25);
+    box(g, 0.05, 0.03, 0.42, dark, 0, 0.02, 0.42); box(g, 0.08, 0.04, 0.1, dark, 0, 0.02, 0.66).rotation.x = 0.5;
+    return { group: g, glowMats: [wood], tip: joint(g, 0, 0, 0.6), base: joint(g, 0, 0, 0.2) };
+  }
+  function basket(hand) {
+    const g = joint(hand, 0, -0.1, 0), wicker = std(0xa07a3a);
+    mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.18, 8, 1, true), wicker, g, 0, -0.08, 0).material.side = THREE.DoubleSide;
+    mesh(new THREE.TorusGeometry(0.15, 0.015, 4, 10, Math.PI), wicker, g, 0, 0.02, 0);
+    for (let k = 0; k < 3; k++) ball(g, 0.05, std([0xc04a2a, 0x7aa03a, 0xd8b04a][k]), -0.06 + k * 0.06, 0.0, 0.02, 6, 5);
+    return { group: g, glowMats: [wicker], tip: joint(g, 0, 0, 0.1), base: joint(g, 0, 0, 0) };
+  }
   // A bow held at its middle; when the arm points forward the limbs stand upright (hand +Z) and the string is near the body
   function bow(hand) {
     const g = joint(hand, 0, -0.03, 0), wood = std(0x4a3420), R = 0.5;
@@ -397,7 +411,12 @@ const Rig = (() => {
     // Weapons and shields
     let wpn = null;
     if (kind === 'brute') wpn = club(rig.j.hdR, {});
-    else if (kind === 'npc') { if (N.tool === 'hammer') wpn = hammer(rig.j.hdR); }
+    else if (kind === 'npc') {
+      if (N.tool === 'hammer') wpn = hammer(rig.j.hdR);
+      else if (N.tool === 'spear') wpn = spear(rig.j.hdR, {});
+      else if (N.tool === 'lute') wpn = lute(rig.j.hdL);
+      else if (N.tool === 'basket') wpn = basket(rig.j.hdL);
+    }
     else if (kind === 'archer') wpn = bow(rig.j.hdL);
     else if (kind === 'caster') wpn = staff(rig.j.hdR, 0x4ae8d0);
     else if (kind === 'necro') wpn = staff(rig.j.hdR, 0xb06aff, true);

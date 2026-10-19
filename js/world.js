@@ -566,7 +566,7 @@ const World = (() => {
   const camp = () => rooms.find(r => r.kind === 'camp');
 
   function label() {
-    if (inCamp()) return 'Deepward Camp';
+    if (inCamp()) return 'Deepward Hold';
     const r = active || sections[0]; if (!r) return '';
     return r.inf.stage.name + ' · ' + (r.inf.ri + 1) + '/' + r.inf.count + (r.inf.loop ? ' · depth ' + (r.inf.loop + 1) : '');
   }

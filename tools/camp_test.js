@@ -18,7 +18,7 @@ const path = require('path');
   await ev('introDone', `(() => { while (document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click(); const offer = !!document.querySelector('.pcard.trainOffer'); document.querySelector('.pcard.trainOffer [data-act="close"]').click(); __dw.sim(0.2); return offer && __dw.G.state === 'play' && __dw.G.mode === 'camp'; })()`);
   await shot('2_camp');
   // Walk to Bram and open the smithy
-  await ev('smithPrompt', `(() => { const p = __dw.G.player; p.pos.set(-5.2, 0, 0.6); __dw.sim(0.3); return !!__dw.G.spot && __dw.G.spot.id; })()`);
+  await ev('smithPrompt', `(() => { const p = __dw.G.player; p.pos.set(-12.6, 0, -1.8); __dw.sim(0.3); return !!__dw.G.spot && __dw.G.spot.id; })()`);
   await shot('3_smith_near');
   await ev('smithOpen', `(() => { __dw.Items.S.gold = 900; __dw.Items.S.scrap = 20; __dw.interact(); __dw.sim(0.1); return document.querySelector('.pcard.smith') !== null; })()`);
   await ev('forged', `(() => { document.querySelector('[data-arg="smith:forge"]').click(); document.querySelector('[data-act="forge"][data-arg="weapon"]').click(); return __dw.Items.S.inv.length === 1 && __dw.Items.S.gold < 900; })()`);
@@ -29,7 +29,7 @@ const path = require('path');
   await ev('built', `(() => { __dw.UI.close(); __dw.openPanel('ledger'); document.querySelector('[data-act="build"][data-arg="yard"]').click(); __dw.UI.close(); __dw.sim(0.2); return __dw.Items.S.camp.yard === 1 && __dw.G.player.maxHp === 112 + (__dw.Items.stats().maxHp - 112); })()`);
   await shot('6_camp_built');
   // The gate down
-  await ev('gate', `(() => { const p = __dw.G.player; p.pos.set(0, 0, -7.4); __dw.sim(0.3); const id = __dw.G.spot && __dw.G.spot.id; __dw.interact(); return id === 'gate' && document.querySelector('.pcard.gate') !== null; })()`);
+  await ev('gate', `(() => { const p = __dw.G.player; p.pos.set(0, 0, -15.4); __dw.sim(0.3); const id = __dw.G.spot && __dw.G.spot.id; __dw.interact(); return id === 'gate' && document.querySelector('.pcard.gate') !== null; })()`);
   await shot('7_gate');
   await pg.evaluate(`document.querySelector('[data-act="descend"]').click()`);
   await pg.waitForTimeout(700);

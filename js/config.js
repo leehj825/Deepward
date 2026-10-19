@@ -543,6 +543,38 @@ const CFG = {
     forgeCost: [60, 110, 180, 260, 360, 480, 620],   // Bram forging a new item, by tier
     salvage: [2, 4, 8, 15],     // scrap from salvaging an item, by rarity
     deathGoldLoss: 0.5,         // share of the gold gathered on a trip that is lost if you fall
+    // Ysolde the herbalist's tonics: drunk in camp, they last for the next trip below (or out on the Rim)
+    tonics: [
+      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60 },
+      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80 },
+      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70 },
+      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90 },
+    ],
+    curioMult: 4,               // Odo the curio dealer: one rare-or-better piece a day, at this many times its value
+  },
+  // The people of Deepward Hold: what they say when spoken to (one line at a time, in turn)
+  townsfolk: {
+    bard: ['Wenna the bard', [
+      'They say the Bone Warden was the first warden of this camp. He went down to hold the stair, and never came up.',
+      'Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.',
+      'The Den Mother was a woodwife once, before the Deep took her children. She keeps the goblins now.',
+      'Spiders spin in the dark, and the Brood Queen spins the spiders. Parry the pounce, warden, never just block it.',
+      'The Pale Duelist fenced for a crown he never wore. Watch his first swing; it is always a lie.',
+      'Below the court the stair goes on, past drowned temples and frozen halls, to a throne no one has seen.',
+      'Sing with me? No? Then go and give me something to sing about.',
+    ]],
+    guard: ['Captain Rook', [
+      'The south gate opens on the Rim: grass, wood and the old graveyard. Beasts, mostly. Good hunting for a warden.',
+      'Wolves come in threes. Do not let them circle you.',
+      'A boar that lowers its head is about to charge. Get out of its line, not in front of it.',
+    ]],
+    gemcutter: ['Nell the gem cutter', [
+      'Bring me stones. I set them, pry them, and cut three alike into one of another kind.',
+    ]],
+    villager: ['Villager', [
+      'Welcome back, warden!', 'Mind the fire, it spits.', 'My brother went down the stair. Find him, if you can.', 'The Hold grows every season. Thanks to you.',
+      'Nell cut me a ring once. I lost it in the Rim.', 'Rook says the wolves are bold this year.',
+    ]],
   },
   chest: { gold: [24, 40], itemChance: 0.35 },
 

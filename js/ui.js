@@ -108,6 +108,22 @@ const UI = (() => {
     return h;
   }
 
+  // Setting, prying and socketing gems in worn gear (Bram's Gems tab and Nell's bench)
+  function gemsBody(say) {
+    const S = Items.S, GM = CFG.gear.gems, SC = CFG.gear.sockets;
+    let h = `<p>${say} · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
+    h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
+    for (const slot of SC.slots) {
+      const it = S.equip[slot]; if (!it) continue;
+      const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
+      let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
+      if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
+      if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
+      h += itemRow(it, b || '<small class="dim">No gems</small>');
+    }
+    return h;
+  }
+
   // ---------------- Panels ----------------
   const PANELS = {
     dialogue(o) {
@@ -139,17 +155,7 @@ const UI = (() => {
           h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
         }
       } else if (t === 'gems') {
-        const GM = CFG.gear.gems, SC = CFG.gear.sockets;
-        h += `<p>"A stone in the steel. I'll set it, pry it, or cut you a new socket." · Your gems: ${Object.keys(GM).map(k => `${GM[k].icon} ${S.gems[k] || 0}`).join(' · ')}</p>`;
-        h += `<p class="dim">${Object.values(GM).map(g => g.icon + ' ' + g.desc).join(' · ')}</p>`;
-        for (const slot of SC.slots) {
-          const it = S.equip[slot]; if (!it) continue;
-          const holes = it.gems || [], empty = holes.indexOf(null) >= 0, c = SC.addCost;
-          let b = Object.keys(GM).filter(k => S.gems[k] > 0).map(k => btn(GM[k].icon, 'gem', it.id + ':' + k, !empty)).join('');
-          if (holes.some(Boolean)) b += btn('Pry out', 'pry', it.id);
-          if (holes.length < SC.max) b += btn(`+ Socket · ◆${c.gold} ⚙${c.scrap}`, 'socket', it.id, S.gold < c.gold || S.scrap < c.scrap);
-          h += itemRow(it, b || '<small class="dim">No gems</small>');
-        }
+        h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
       } else {
         h += S.inv.length ? S.inv.map(it => itemRow(it, btn(`Salvage ⚙${CFG.camp.salvage[it.rarity]}`, 'salvage', it.id))).join('') : '<p class="dim">Your bag is empty. Equipped gear cannot be salvaged.</p>';
       }
@@ -329,6 +335,36 @@ const UI = (() => {
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
     },
+    // Nell the gem cutter: the same setting and prying as Bram, and three stones of a kind cut into one of another kind
+    gemcutter() {
+      const S = Items.S, GM = CFG.gear.gems, t = tab.gem || (tab.gem = 'cut');
+      let h = `<h2>Nell's Bench</h2><p class="sub">"Every stone wants to be something. I just help it decide."</p>${money()}` + tabs('gem', [['cut', 'Cut'], ['set', 'Set and pry']]);
+      if (t === 'set') return h + gemsBody('"Hold still, warden. Steel first, stone second."') + btn('Close', 'close', '', false, 'leave');
+      h += '<p>Three stones of one kind become one stone of another kind you choose.</p>';
+      for (const k of Object.keys(GM)) {
+        const n = S.gems[k] || 0, ok = n >= 3;
+        h += `<div class="irow"><div class="iinfo"><b>${GM[k].icon} ${GM[k].name}</b> <small>×${n}</small><div class="istats">${esc(GM[k].desc)}</div></div><div class="ibtns">${Object.keys(GM).filter(j => j !== k).map(j => btn('→ ' + GM[j].icon, 'gemcut', k + ':' + j, !ok)).join('')}</div></div>`;
+      }
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Ysolde the herbalist: tonics bought now are drunk at the start of the next trip
+    herbalist() {
+      const S = Items.S, have = S.tonics || [];
+      let h = `<h2>Ysolde's Stall</h2><p class="sub">"Drink it on the stair, not before. It keeps for one trip and no longer."</p>${money()}`;
+      h += `<p>${have.length ? 'Packed for your next trip: ' + have.map(id => { const t = CFG.camp.tonics.find(x => x.id === id); return t.icon + ' ' + t.name; }).join(', ') : 'Nothing packed yet.'}</p>`;
+      for (const t of CFG.camp.tonics) {
+        const got = have.includes(t.id);
+        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost)}</div></div>`;
+      }
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Odo the curio dealer: one rare-or-better piece a day
+    curio() {
+      const S = Items.S, c = curioOfDay(), price = c.item ? Items.value(c.item) * CFG.camp.curioMult : 0;
+      let h = `<h2>Odo's Wagon</h2><p class="sub">"One treasure a day, warden. Today's is a fine one. They always are."</p>${money()}`;
+      h += c.item ? itemRow(c.item, btn('◆ ' + price, 'curiobuy', '', S.gold < price || S.inv.length >= CFG.gear.invSize, 'hot')) : '<p class="dim">Sold out until tomorrow. Odo is polishing an empty shelf.</p>';
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
     // Settings → Controls: each action's key and controller button. Pick one, then press the new key or button.
     controls() {
       const L = Bindings.listening;
@@ -393,6 +429,9 @@ const UI = (() => {
     }
     if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
     if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
+    if (a === 'gemcut') { const [from, to] = arg.split(':'); if ((S.gems[from] || 0) >= 3) { S.gems[from] -= 3; Items.addGem(to); Snd.play('parry'); toast(`Cut: ${CFG.gear.gems[to].icon} ${CFG.gear.gems[to].name}`, '#9ad8ff'); changed(); } return render(); }
+    if (a === 'tonic') { const t = CFG.camp.tonics.find(x => x.id === arg); S.tonics = S.tonics || []; if (t && S.gold >= t.cost && !S.tonics.includes(t.id)) { S.gold -= t.cost; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
+    if (a === 'curiobuy') { const c = curioOfDay(), price = c.item && Items.value(c.item) * CFG.camp.curioMult; if (c.item && S.gold >= price && Items.add(c.item)) { S.gold -= price; if (c.item.uniq && !S.uniques.includes(c.item.uniq)) S.uniques.push(c.item.uniq); toast('Bought: ' + Items.fullName(c.item), R[c.item.rarity].color); S.curio.item = null; Snd.play('wave'); changed(); } return render(); }
     if (a === 'saveplay') return G.playSlot(+arg, false);
     if (a === 'savenew') return G.playSlot(+arg, true);
     if (a === 'savedel') { if (tab.saveDel === +arg) { Items.deleteSlot(+arg); tab.saveDel = 0; Snd.play('guardBreak'); toast('Slot ' + arg + ' deleted'); } else tab.saveDel = +arg; return render(); }
@@ -429,6 +468,12 @@ const UI = (() => {
     if (a === 'camp') { close(); return G.returnToCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }
     if (a === 'wake') { close(); return G.wakeInCamp(); }
+  }
+  // Odo's piece of the day: rolled once per day at the warden's depth, rare or better
+  function curioOfDay() {
+    const S = Items.S, today = Endless.today();
+    if (!S.curio || S.curio.date !== today) S.curio = { date: today, item: Items.generate(Math.min(S.stage + 1, CFG.gear.tierNames.length - 1), { rarity: Math.random() < 0.3 ? 3 : 2 }) };
+    return S.curio;
   }
   // Gear or camp changed: save, refresh the hero's numbers and looks (and the camp's buildings)
   function changed(camp) { Items.save(); G.onGearChanged(camp); }

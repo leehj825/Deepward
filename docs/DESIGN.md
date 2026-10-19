@@ -131,6 +131,12 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - `CFG.player.arts[type]`: a name, stamina cost, cooldown and a list of hits in the usual attack format (plus `ring` for a shockwave). `Items.stats` sets `art` when the weapon's mastery is rank 3.
 - `Player.press` turns heavy into `art` while block is held (an execution still wins). `tryAct` starts the first hit and queues the rest; each queued hit starts as the last one enters its recovery, so multi-hit arts flow without gaps. `artCd` ticks down with the other timers.
 
+## Deepward Hold (built)
+
+- `Camp.build` lays out a 48 × 36 m camp (`Camp.HW`, `HD`) in quarters joined by dirt paths. Static meshes are baked per material at the end (`Rig.bake`), keeping the flickering flames apart.
+- **People:** fixed NPCs (with spots for their services) turn to watch the hero; walkers (`n.path`) loop between points, pause, wait if the hero stands in the way, and greet once per visit. NPC rigs take a `tool` (hammer, spear, lute, basket).
+- **Services:** bard and captain lines come from `CFG.townsfolk` in turn (`S.talk`). Nell's bench reuses Bram's gem setting and adds cutting (3 of a kind → 1 of another). Ysolde's tonics (`CFG.camp.tonics`) are packed into `S.tonics`, drunk into `G.tonics` when a trip starts (`drinkTonics`), read by `Player.gearStats`, and cleared in camp. Odo's piece (`S.curio`) is rolled once per date.
+
 ## Progression (built)
 
 - **Character level:** raises health, stamina and power, and gives a talent point.
