@@ -654,7 +654,7 @@ function updateRaid(dt) {
   }
   const S = Items.S;
   if (!band.length && !coming) {                                         // the band is beaten: the Hold pays its warden
-    const g = Items.addGold(CFG.raid.gold * (1 + S.stage * 0.4) * G.player.S.goldFind);
+    const g = Items.addGold(CFG.raid.gold * (1 + S.stage * CFG.raid.perStage) * G.player.S.goldFind);
     for (const [k, n] of Object.entries(CFG.raid.mats)) Items.addMat(k, n);
     S.raids = (S.raids || 0) + 1; G.raid = null; Items.save();
     banner('THE GATE HOLDS'); Snd.play('achieve'); UI.toast(`The raiders are beaten: ◆ ${g}, ${Object.entries(CFG.raid.mats).map(([k, n]) => CFG.materials[k].icon + n).join(' ')}`, '#ffd040');

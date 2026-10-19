@@ -279,6 +279,21 @@ Result on Normal:
 
 Real players are slower to react than the bot, so expect more deaths.
 
+### The world above (tuned against stage gold)
+
+A full stage pays about 490 gold at the Crypt and 3200 at the Throne (enemies, chests, a vault, the guardian). Against that:
+
+| | Crypt | Spider Depths | Throne |
+|---|---|---|---|
+| The Ring, rematch (`arena.gold` 70 × depth) | 70 | 196 | 448 |
+| The Ring, first win (× `first` 3.5) | 245 | 686 | 1568 |
+| A hunt job of 7 (`(15 + 9n) × (1 + 0.6·stage)`) | 78 | 218 | 499 |
+| A boss job | 120 | 336 | 768 |
+| A raid beaten (`90 × (1 + 0.5·stage)`, plus kills) | 90 | 225 | 495 |
+| Sefa's piece, a tier up (`itemMult` 3) | 108 | 422 | 739 |
+
+A Ring rematch pays about a seventh of a stage for a one-minute fight (and a gem), so it never beats going down; a first win about half. Jobs keep the same share of a stage at every depth. Sefa's gear costs about Bram's forge price for the next tier.
+
 ## Difficulty and accessibility (built)
 
 - **Difficulty:** `CFG.difficulty` scales damage taken (`Player.damage`), enemy health at spawn, enemy cooldowns and the number allowed to attack at once, and shifts the parry window. It can change at any time from Settings and applies to new spawns.

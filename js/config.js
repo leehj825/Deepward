@@ -564,7 +564,7 @@ const CFG = {
   // The Ring, Varga's arena: fight again any guardian already beaten, and the big monsters once their field kin have fallen. The
   // Abomination waits for whoever has beaten all three. Rewards: gold by depth, more the first time, and a gem.
   arena: {
-    gold: 120, first: 2.5,
+    gold: 70, first: 3.5,
     monsters: [
       { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
       { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
@@ -579,12 +579,12 @@ const CFG = {
       { upTo: 5, band: ['goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'scout' },
       { upTo: 99, band: ['goblin', 'goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'troll' },
     ],
-    gold: 90, mats: { pelt: 2, ore: 2 },
+    gold: 90, perStage: 0.5, mats: { pelt: 2, ore: 2 },
   },
   // Sefa's caravan: now and then she is camped in the Hold when the warden comes home, and stays for two homecomings.
   // Gear a tier above the warden's depth, bundles of materials and a gem; she buys spare materials too.
   wanderer: {
-    chance: 0.3, stays: 2, from: 1, itemMult: 1.6,
+    chance: 0.3, stays: 2, from: 1, itemMult: 3,
     bundles: [{ id: 'herb', n: 4, gold: 60 }, { id: 'ore', n: 3, gold: 75 }, { id: 'pelt', n: 3, gold: 70 }, { id: 'tusk', n: 2, gold: 80 }, { id: 'bone', n: 4, gold: 60 }],
     gem: 180, buys: 6,
   },

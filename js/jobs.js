@@ -14,21 +14,22 @@ const Jobs = (() => {
     if (j.kind === 'guardian') return life().guardians[j.target] || 0;
     return (S().mats || {})[j.target] || 0;
   }
-  const depth = () => 1 + Math.min(S().stage, CFG.stages.length) * 0.3;
+  // Pay grows with depth about as fast as a stage's gold does
+  const depth = () => 1 + Math.min(S().stage, CFG.stages.length) * 0.6;
   function make() {
     const r = Math.random(), s = S(), seen = Object.keys(life().kinds || {}).filter(k => CFG.enemies[k]);
     let j;
     if (r < 0.5) {                                                         // hunt
       const pool = RIM.concat(seen.filter(k => !['mimic', 'sparring', 'mutant', 'troll', 'golem'].includes(k)));
       const target = pick(pool), need = 4 + Math.floor(Math.random() * 7);
-      j = { kind: 'hunt', target, need, gold: Math.round((30 + need * 14) * depth()), title: `Slay ${need} ${CFG.enemies[target].name}${need > 1 ? 's' : ''}` };
+      j = { kind: 'hunt', target, need, gold: Math.round((15 + need * 9) * depth()), title: `Slay ${need} ${CFG.enemies[target].name}${need > 1 ? 's' : ''}` };
     } else if (r < 0.8) {                                                  // gather
       const target = pick(Object.keys(CFG.materials)), need = 3 + Math.floor(Math.random() * 4);
-      j = { kind: 'gather', target, need, gold: Math.round((40 + need * 18) * depth()), title: `Bring ${need} ${CFG.materials[target].name.toLowerCase()}` };
+      j = { kind: 'gather', target, need, gold: Math.round((20 + need * 11) * depth()), title: `Bring ${need} ${CFG.materials[target].name.toLowerCase()}` };
     } else {                                                               // a boss: of the Rim, or a guardian already beaten
       const beaten = CFG.stages.slice(0, s.stage).map(st => st.guardian);
-      if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(220 * depth()), gem: true, title: `Slay ${target} again` }; }
-      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(180 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
+      if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(150 * depth()), gem: true, title: `Slay ${target} again` }; }
+      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
     }
     j.id = (s.nextJob = (s.nextJob || 0) + 1); j.base = j.kind === 'gather' ? 0 : count(j);
     return j;

@@ -987,7 +987,7 @@ const CFG = {
   // The Ring, Varga's arena: fight again any guardian already beaten, and the big monsters once their field kin have fallen. The
   // Abomination waits for whoever has beaten all three. Rewards: gold by depth, more the first time, and a gem.
   arena: {
-    gold: 120, first: 2.5,
+    gold: 70, first: 3.5,
     monsters: [
       { id: 'horror', kind: 'mutant', unlock: 'ridgehorror', theme: 'den' }, { id: 'troll', kind: 'troll', unlock: 'mossback', theme: 'orchard' },
       { id: 'golem', kind: 'golem', unlock: 'colossus', theme: 'forge' }, { id: 'abomination', kind: 'mutant', final: true, theme: 'throne' },
@@ -1002,12 +1002,12 @@ const CFG = {
       { upTo: 5, band: ['goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'scout' },
       { upTo: 99, band: ['goblin', 'goblin', 'goblin', 'scout', 'scout', 'wolf', 'wolf', 'boar'], chief: 'troll' },
     ],
-    gold: 90, mats: { pelt: 2, ore: 2 },
+    gold: 90, perStage: 0.5, mats: { pelt: 2, ore: 2 },
   },
   // Sefa's caravan: now and then she is camped in the Hold when the warden comes home, and stays for two homecomings.
   // Gear a tier above the warden's depth, bundles of materials and a gem; she buys spare materials too.
   wanderer: {
-    chance: 0.3, stays: 2, from: 1, itemMult: 1.6,
+    chance: 0.3, stays: 2, from: 1, itemMult: 3,
     bundles: [{ id: 'herb', n: 4, gold: 60 }, { id: 'ore', n: 3, gold: 75 }, { id: 'pelt', n: 3, gold: 70 }, { id: 'tusk', n: 2, gold: 80 }, { id: 'bone', n: 4, gold: 60 }],
     gem: 180, buys: 6,
   },
@@ -6600,21 +6600,22 @@ const Jobs = (() => {
     if (j.kind === 'guardian') return life().guardians[j.target] || 0;
     return (S().mats || {})[j.target] || 0;
   }
-  const depth = () => 1 + Math.min(S().stage, CFG.stages.length) * 0.3;
+  // Pay grows with depth about as fast as a stage's gold does
+  const depth = () => 1 + Math.min(S().stage, CFG.stages.length) * 0.6;
   function make() {
     const r = Math.random(), s = S(), seen = Object.keys(life().kinds || {}).filter(k => CFG.enemies[k]);
     let j;
     if (r < 0.5) {                                                         // hunt
       const pool = RIM.concat(seen.filter(k => !['mimic', 'sparring', 'mutant', 'troll', 'golem'].includes(k)));
       const target = pick(pool), need = 4 + Math.floor(Math.random() * 7);
-      j = { kind: 'hunt', target, need, gold: Math.round((30 + need * 14) * depth()), title: `Slay ${need} ${CFG.enemies[target].name}${need > 1 ? 's' : ''}` };
+      j = { kind: 'hunt', target, need, gold: Math.round((15 + need * 9) * depth()), title: `Slay ${need} ${CFG.enemies[target].name}${need > 1 ? 's' : ''}` };
     } else if (r < 0.8) {                                                  // gather
       const target = pick(Object.keys(CFG.materials)), need = 3 + Math.floor(Math.random() * 4);
-      j = { kind: 'gather', target, need, gold: Math.round((40 + need * 18) * depth()), title: `Bring ${need} ${CFG.materials[target].name.toLowerCase()}` };
+      j = { kind: 'gather', target, need, gold: Math.round((20 + need * 11) * depth()), title: `Bring ${need} ${CFG.materials[target].name.toLowerCase()}` };
     } else {                                                               // a boss: of the Rim, or a guardian already beaten
       const beaten = CFG.stages.slice(0, s.stage).map(st => st.guardian);
-      if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(220 * depth()), gem: true, title: `Slay ${target} again` }; }
-      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(180 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
+      if (beaten.length && Math.random() < 0.5) { const target = pick(beaten); j = { kind: 'guardian', target, need: 1, gold: Math.round(150 * depth()), gem: true, title: `Slay ${target} again` }; }
+      else { const B = pick(CFG.field.bosses); j = { kind: 'fieldboss', target: B.id, need: 1, gold: Math.round(120 * depth()), gem: true, title: `Fell ${B.name} on the Rim` }; }
     }
     j.id = (s.nextJob = (s.nextJob || 0) + 1); j.base = j.kind === 'gather' ? 0 : count(j);
     return j;
@@ -7346,7 +7347,7 @@ function updateRaid(dt) {
   }
   const S = Items.S;
   if (!band.length && !coming) {                                         // the band is beaten: the Hold pays its warden
-    const g = Items.addGold(CFG.raid.gold * (1 + S.stage * 0.4) * G.player.S.goldFind);
+    const g = Items.addGold(CFG.raid.gold * (1 + S.stage * CFG.raid.perStage) * G.player.S.goldFind);
     for (const [k, n] of Object.entries(CFG.raid.mats)) Items.addMat(k, n);
     S.raids = (S.raids || 0) + 1; G.raid = null; Items.save();
     banner('THE GATE HOLDS'); Snd.play('achieve'); UI.toast(`The raiders are beaten: ◆ ${g}, ${Object.entries(CFG.raid.mats).map(([k, n]) => CFG.materials[k].icon + n).join(' ')}`, '#ffd040');
