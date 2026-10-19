@@ -228,6 +228,14 @@ const Camp = (() => {
     }
     // The gate doors stand open once the Rim is opened (World adds the road beyond); until then they are shut
     room.southGate = { z: sgz };
+    // The alarm bell beside the gate, rung when raiders come up the road (a group of its own, so it can swing)
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.14, 2.6, 0.14), darkWood, 6.2 + s * 0.55, 1.3, HD - 1.2);
+    add(new THREE.BoxGeometry(1.3, 0.14, 0.18), darkWood, 6.2, 2.6, HD - 1.2); block(6.2, HD - 1.2, 0.7);
+    const bell = new THREE.Group(); bell.position.set(6.2, 2.52, HD - 1.2); group.add(bell);
+    const bellM = M(0xb08a3a, { metalness: 0.6, roughness: 0.4 });
+    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.3, 0.42, 10, 1, true), bellM); bm.position.y = -0.24; bm.material.side = THREE.DoubleSide; bm.castShadow = true; bell.add(bm); room.geos.push(bm.geometry);
+    const clap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), iron); clap.position.y = -0.42; bell.add(clap); room.geos.push(clap.geometry);
+    room.bell = { g: bell, t: 0 };
     room.spots.push({ id: 'guard', name: 'Captain Rook', verb: 'Talk', x: -3.2, z: HD - 2.2, r: 1.8 });
 
     // ---- The people of the Hold ----
@@ -248,11 +256,13 @@ const Camp = (() => {
     npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
     npc('curio', wx - 1.4, wz + 0.9, -2.0, { pose: { clip: 'idleExamine', phase: 2.5 }, cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
-    npc('guard', -3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleAlert' }, cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
+    const guardN = npc('guard', -3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleAlert' }, cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
     npc('arenamaster', 13 - 4.4, -12 - 0.2, -1.2, { pose: { clip: 'idleEase', rate: 0.9, phase: 3 }, cloth: 0x5a3a2a, hair: 0x6a6a6a, beard: true, scarf: 0xa03a2a, skin: 0xc89060, tool: 'spear' });
     if (lv.wanderer) npc('wanderer', -11 + 1.2, -12 + 2.1, 0.4, { pose: { clip: 'idleLook', phase: 1 }, cloth: 0x2a6a6a, hair: 0x1a1a1a, scarf: 0xd8a040, skin: 0xa86a40 });
-    npc('sentry', 3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleShift' }, cloth: 0x4a4a5a, hair: 0x6a4a2a, scarf: 0x7a2a22, skin: 0xe2b088, tool: 'spear' });
+    const sentryN = npc('sentry', 3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleShift' }, cloth: 0x4a4a5a, hair: 0x6a4a2a, scarf: 0x7a2a22, skin: 0xe2b088, tool: 'spear' });
     for (const n of room.npcs) block(n.x, n.z, 0.45);
+    // Rook and the sentry hold the gate in a raid: their post outside it, and their home inside
+    for (const [n, s] of [[guardN, -1], [sentryN, 1]]) Object.assign(n, { guard: true, home: [n.x, n.z], post: [s * 1.6, HD + 3.9], cd: 1 + Math.random() });
     // Villagers on their rounds: walk a loop of points, pause at each, greet the warden when close
     // By the fire: two villagers sit on the logs; in the living quarter one kneels at the vegetable patch
     npc('sitter', 2.6, 0.2, facing(2.6, 0.2, 0, 1), { pose: Object.assign({}, SEAT, { phase: 1.3 }), cloth: 0x6a4a3a, hair: 0x2a1a10, skin: 0xd8a07a, beard: true });
@@ -269,7 +279,7 @@ const Camp = (() => {
     walker({ cloth: 0x6a5a3a, hair: 0x5a3a1a, skin: 0xc89060 }, [[-2, 10], [4, 12], [2, 15], [-4, 14]]);
     // The people the warden freed from the Deep live here now
     const R = (lv.rescued || []).slice(0, 8);
-    R.forEach((r, k) => { const a = k / Math.max(1, R.length) * Math.PI * 2, cx = -12 + Math.cos(a) * 2, cz = 10 + Math.sin(a) * 2; walker(Object.assign({ skin: 0xe0b088 }, r.look || {}), [[cx, cz], [-6 + (k % 3) * 2, 6 + (k % 2)], [-14 + k, 13], [cx + 1, cz - 3]]); });
+    R.forEach((r, k) => { const a = k / Math.max(1, R.length) * Math.PI * 2, cx = -12 + Math.cos(a) * 2, cz = 10 + Math.sin(a) * 2; walker(Object.assign({ skin: 0xe0b088 }, r.look || {}), [[cx, cz], [-6 + (k % 3) * 2, 6 + (k % 2)], [-14 + k, 13], [cx + 1, cz - 3]]).who = r; });
 
     // Embers rising from the fire
     const N = 40, pos = new Float32Array(N * 3), eg = new THREE.BufferGeometry();
@@ -284,8 +294,11 @@ const Camp = (() => {
 
   // NPCs breathe, and turn to watch the hero when he comes near; embers drift up
   function update(room, dt, heroPos) {
+    const raid = typeof G !== 'undefined' && G.raid && G.raid.on;
+    if (room.bell) { const b = room.bell; if (raid && b.t <= 0 && !b.rung) { b.t = 4; b.rung = true; } if (!raid) b.rung = false; b.t = Math.max(0, b.t - dt); b.g.rotation.x = Math.sin(b.t * 9) * 0.5 * Math.min(1, b.t); }
     for (const n of room.npcs) {
       if (n.path) { walk(n, dt, heroPos); continue; }
+      if (n.guard && (raid || Math.hypot(n.x - n.home[0], n.z - n.home[1]) > 0.1)) { defend(n, dt, raid); continue; }
       const d = heroPos ? Math.hypot(heroPos.x - n.x, heroPos.z - n.z) : 99;
       const want = d < 4.5 && !n.still ? Math.atan2(heroPos.x - n.x, heroPos.z - n.z) : n.ry;   // the seated and kneeling keep at what they do
       let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 4);
@@ -297,6 +310,31 @@ const Camp = (() => {
       for (let k = 0; k < p.count; k++) { let y = p.getY(k) + dt * (0.6 + (k % 5) * 0.15); if (y > 3.2) { y = 0.3; p.setX(k, (Math.random() - 0.5) * 0.8); p.setZ(k, 1 + (Math.random() - 0.5) * 0.8); } p.setY(k, y); p.setX(k, p.getX(k) + Math.sin(y * 3 + k) * dt * 0.1); }
       p.needsUpdate = true;
     }
+  }
+  // A guard in a raid: out to the post beyond the gate, spear at any raider in reach; home again after
+  function defend(n, dt, raid) {
+    const [tx, tz] = raid ? n.post : n.home, dx = tx - n.x, dz = tz - n.z, d = Math.hypot(dx, dz);
+    const foes = raid ? G.enemies.filter(e => e.raid && e.state !== 'dead' && Math.hypot(e.pos.x - n.x, e.pos.z - n.z) < 6) : [];
+    const foe = foes.sort((a, b) => Math.hypot(a.pos.x - n.x, a.pos.z - n.z) - Math.hypot(b.pos.x - n.x, b.pos.z - n.z))[0];
+    let mode = 'idle', st = { mode, t: 0, speed: 0, calm: false };
+    if (d > 0.1) {
+      n.x += dx / d * Math.min(3 * dt, d); n.z += dz / d * Math.min(3 * dt, d); n.face = Math.atan2(dx, dz);
+      st = { mode: 'move', t: 0, speed: 0.8, mps: 3, dirF: 1, dirS: 0, calm: false };
+    } else if (foe) {
+      n.face = Math.atan2(foe.pos.x - n.x, foe.pos.z - n.z);
+      n.cd -= dt; n.atkT = (n.atkT || 0) + dt;
+      if (n.cd <= 0) { n.cd = 2.2 + Math.random(); n.atkT = 0; n.struck = false; }
+      if (n.atkT < 0.9) {                                                   // a spear thrust: wind 0.35, strike 0.1, recover 0.45
+        const ph = n.atkT < 0.35 ? 'wind' : n.atkT < 0.45 ? 'active' : 'recover';
+        st = { mode: 'attack', atk: 'thrust', phase: ph, phaseT: ph === 'wind' ? n.atkT : ph === 'active' ? n.atkT - 0.35 : n.atkT - 0.45, wind: 0.35, active: 0.1, recover: 0.45, t: n.atkT };
+        if (ph !== 'wind' && !n.struck && Math.hypot(foe.pos.x - n.x, foe.pos.z - n.z) < 2.9) {
+          n.struck = true; Enemy.receive(foe, { dmg: foe.maxHp * 0.12, posture: 18 }, { pos: new THREE.Vector3(n.x, 0, n.z) });
+          if (typeof Snd !== 'undefined') Snd.play('hit');
+        }
+      }
+    }
+    n.rig.root.position.set(n.x, 0, n.z); n.rig.root.rotation.y = n.face;
+    Rig.animate(n.rig, st, dt);
   }
   // A villager on its round: walk to the next point, pause, go on; say hello once per visit when the warden comes close
   function walk(n, dt, heroPos) {
@@ -312,7 +350,8 @@ const Camp = (() => {
     if (!moving && near < 4) { const want = Math.atan2(heroPos.x - n.x, heroPos.z - n.z); let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 4); }
     if (near < 3 && !n.greeted && typeof FX !== 'undefined') {
       n.greeted = true; const L = CFG.townsfolk.villager[1];
-      FX.text(new THREE.Vector3(n.x, 2.2, n.z), L[Math.floor(Math.random() * L.length)], 'xp');
+      const line = n.who ? `${n.who.name}: you found me in ${n.who.where || 'the Deep'}. I won't forget it.` : L[Math.floor(Math.random() * L.length)];
+      FX.text(new THREE.Vector3(n.x, 2.2, n.z), line, 'xp');
     }
     n.rig.root.position.set(n.x, 0, n.z); n.rig.root.rotation.y = n.face;
     Rig.animate(n.rig, { mode: moving ? 'move' : 'idle', t: 0, speed: moving ? 0.35 : 0, mps: moving ? 1.15 : 0, dirF: 1, dirS: 0, calm: true }, dt);

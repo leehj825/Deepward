@@ -102,7 +102,9 @@ const MiniMap = (() => {
       ctx.fillStyle = roused ? 'rgba(200,60,40,0.4)' : 'rgba(160,120,60,0.28)'; ctx.beginPath(); ctx.arc(z.x, z.z, z.r, 0, Math.PI * 2); ctx.fill();
     }
     for (const s of camp.spots) { ctx.fillStyle = s.id === 'gate' ? '#8fd8ff' : '#f2d27a'; ctx.beginPath(); ctx.arc(s.x, s.z, 0.8, 0, Math.PI * 2); ctx.fill(); }
-    for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, 0.7, 0, Math.PI * 2); ctx.fill(); }
+    // A raid: a pulsing alarm ring at the gate, and the band marked red wherever it is
+    if (G.raid && G.raid.on && G.raid.zone) { const z = G.raid.zone, k = 0.5 + 0.5 * Math.sin(performance.now() / 180); ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * k})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(z.x, z.z, z.r + 2 + k * 2, 0, Math.PI * 2); ctx.stroke(); }
+    for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro || e.raid ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.raid ? 0.9 : 0.7, 0, Math.PI * 2); ctx.fill(); }
     ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
     ctx.restore(); ctx.restore();

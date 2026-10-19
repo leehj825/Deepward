@@ -639,7 +639,7 @@ G.startRaid = () => {
   const zone = { id: 'gate', name: 'The south gate', x: 0, z: gz, r: 3 }, m = Field.multOf({ mult: 1 });
   G.raid = { on: true, gate: R.gate, zone, n: B.band.length + 1 };
   [B.chief].concat(B.band).forEach((type, k) => G.queue.push({ type, at: new THREE.Vector3((k % 3 - 1) * 2.4, 0, gz + 24 + Math.floor(k / 3) * 2.6), mult: m.mult, hpMult: m.hpMult, zone, raid: true, elite: k === 0, t: G.time + k * 0.15 }));
-  banner('RAIDERS AT THE GATE'); Snd.play('wave'); G.rumble && G.rumble(0.5, 0.7, 500);
+  banner('RAIDERS AT THE GATE'); Snd.play('horn'); G.after(1.8, () => Snd.play('bell')); G.rumble && G.rumble(0.5, 0.7, 500);
   UI.toast('Captain Rook: Raiders on the Rim road! To the south gate!', '#ff7a2a');
 };
 function updateRaid(dt) {
@@ -776,6 +776,7 @@ function interact() {
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
     Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
+    Items.S.rescued[Items.S.rescued.length - 1].where = World.label().split(' · ')[0];      // remembered: where the warden found them
     Snd.play('shrine'); Codex.add && Codex.add('rescues'); Items.save(); G.spot = null;
     return say([[who.name, P ? 'You came for me? I thought the Deep had me for good. I will find my way to the Hold.' : 'Thank you, warden. I will go home to the Hold.']].concat(P ? [['', 'Rescued ' + who.name + ': ' + P.perk + '.']] : []));
   }

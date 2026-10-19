@@ -201,7 +201,7 @@ const path = require('path');
     // A captive chained in a vault (placed by hand here: vaults roll for one)
     const side = W.sides[0] || W.sections[1]; Props.captive(side, 0, side.cz); const c = Props.captives[Props.captives.length - 1];
     p.pos.set(c.x + 1.2, 0, c.z); __dw.sim(0.3); o.captiveSpot = !!G.spot && G.spot.id === 'captive';
-    __dw.interact(); o.freed = c.freed && I.rescued('pell') && /cartographer|mapped/i.test(document.querySelector('.pcard.dialogue').textContent);
+    __dw.interact(); o.freed = c.freed && I.rescued('pell') && I.S.rescued[0].where === 'The Crypt' && /cartographer|mapped/i.test(document.querySelector('.pcard.dialogue').textContent);
     while (__dw.UI.open) __dw.UI.close();
     const heal0 = Player.gearStats().flaskHeal, gf0 = Player.gearStats().goldFind;
     I.rescue(); o.ilsa = I.rescued('ilsa') && Math.abs(Player.gearStats().flaskHeal / heal0 - 1.1) < 0.01 && Player.gearStats().goldFind > gf0;
@@ -262,10 +262,17 @@ const path = require('path');
     o.raiders = raiders().length === G.raid.n && raiders().some(e => e.elite);
     for (let i = 0; i < 40 && G.raid.gate === CFG.raid.gate; i++) __dw.sim(0.5);
     o.battered = !!G.raid && G.raid.gate < CFG.raid.gate && /Raid/.test(document.getElementById('foesN').textContent) && raiders().length === G.raid.n;
+    // The alarm: the bell swings, and Rook and the sentry go out past the gate and spear the raiders there
+    const camp = W.camp(), guards = camp.npcs.filter(n => n.guard);
+    o.bell = !!camp.bell && camp.bell.rung;
+    o.guardsOut = guards.length === 2 && guards.every(n => Math.hypot(n.x - n.post[0], n.z - n.post[1]) < 0.2);
+    for (let i = 0; i < 20 && !raiders().some(e => e.hp < e.maxHp); i++) __dw.sim(0.5);
+    o.guardsFight = raiders().some(e => e.hp < e.maxHp);
     // ...and is beaten for gold and materials
     const gold0 = I.S.gold, pelt0 = I.S.mats.pelt || 0; p.pos.set(0, 0, W.field().rect.z0 + 1);
     for (const e of raiders()) { e.state = 'broken'; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);
     o.raidWon = !G.raid && I.S.raids === 1 && I.S.gold > gold0 && I.S.mats.pelt >= pelt0 + 2;
+    __dw.sim(4); o.guardsHome = guards.every(n => Math.hypot(n.x - n.home[0], n.z - n.home[1]) < 0.2);
     // If the gate breaks, they run off with some of the gold
     G.startRaid(); __dw.sim(0.5); G.raid.gate = 0; const g1 = I.S.gold; __dw.sim(0.2);
     o.raidLost = !G.raid && I.S.gold === g1 - Math.min(CFG.raid.stealMax, Math.floor(g1 * CFG.raid.steal)) && !G.enemies.some(e => e.raid && !e.remove && e.state !== 'dead');
