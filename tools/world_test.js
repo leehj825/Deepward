@@ -270,7 +270,7 @@ const path = require('path');
     o.guardsFight = raiders().some(e => e.hp < e.maxHp);
     // ...and is beaten for gold and materials
     const gold0 = I.S.gold, pelt0 = I.S.mats.pelt || 0; p.pos.set(0, 0, W.field().rect.z0 + 1);
-    for (const e of raiders()) { e.state = 'broken'; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);
+    for (const e of raiders()) { e.state = 'broken'; e.ward = 0; Enemy.receive(e, { dmg: 1e7, posture: 0 }, p); } __dw.sim(1);   // a warded chief soaks the first blow
     o.raidWon = !G.raid && I.S.raids === 1 && I.S.gold > gold0 && I.S.mats.pelt >= pelt0 + 2;
     __dw.sim(4); o.guardsHome = guards.every(n => Math.hypot(n.x - n.home[0], n.z - n.home[1]) < 0.2);
     // If the gate breaks, they run off with some of the gold
