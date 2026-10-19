@@ -157,15 +157,24 @@ const Items = (() => {
     return out;
   }
   // How the hero should look in this gear (read by Rig.build)
+  const rc = i => [0x8a8f99, 0x9ac8ff, 0xd7a8ff, 0xffcf70][i];
+  const SHIELD_FACE = [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14], ARMOR_CLOTH = [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a];
+  // How one item looks on its own (read by Rig.item for the gear screen's pictures)
+  function itemLook(it) {
+    const w = it.slot === 'weapon' ? C.weapons[it.type] : null;
+    return { slot: it.slot, type: it.type, len: w ? w.len : 0, twoHanded: !!(w && w.twoHanded), blade: rc(it.rarity), glow: it.rarity >= 2 ? rc(it.rarity) : 0,
+      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: it.tier >= 2, helm: it.style || 0,
+      trinket: it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
+  }
   function look() {
-    const E = S.equip, rc = i => [0x8a8f99, 0x9ac8ff, 0xd7a8ff, 0xffcf70][i];
+    const E = S.equip;
     return {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
       dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
-      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
-      armor: E.armor ? [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a][E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
+      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? SHIELD_FACE[E.shield.rarity] : 0,
+      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
       helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
     };
   }
@@ -199,7 +208,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
+    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };

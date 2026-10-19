@@ -269,3 +269,49 @@ body.arranging #pause, body.arranging #title, body.arranging #panel { display: n
 #arrangeBar { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.9); border: 1px solid rgba(242, 210, 122, 0.5); border-radius: 8px; z-index: 31; font-size: 13px; }
 #arrangeBar.show { display: flex; }
 #arrangeBar button { padding: 6px 12px; font-weight: 700; color: #1a1008; background: linear-gradient(#f2d27a, #c9963a); border: none; border-radius: 4px; }
+/* ---- Gear screen: the hero between the slots, item pictures, the bag grid ---- */
+.pcard.bag { width: min(980px, 100%); }
+.gwrap { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(280px, 1.15fr); gap: 16px; align-items: start; }
+.gright h3 { margin-top: 4px; }
+.gright .gdetail { margin-top: 10px; }
+@media (max-width: 680px) { .gwrap { grid-template-columns: 1fr; } }
+.r0 { --rc: #cfc8b8; } .r1 { --rc: #5aa8ff; } .r2 { --rc: #c47cff; } .r3 { --rc: #ffb040; } .uq { --rc: #ff7a2a; }
+.gear { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: stretch; margin: 6px 0 8px; }
+.gcol { display: flex; flex-direction: column; gap: 8px; }
+.gdoll { position: relative; height: clamp(190px, calc(100vh - 170px), 330px); border-radius: 8px; background: radial-gradient(ellipse at 50% 85%, rgba(242, 210, 122, 0.16), transparent 60%), radial-gradient(circle at 50% 40%, rgba(90, 110, 160, 0.18), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(242, 210, 122, 0.15); overflow: hidden; touch-action: none; }
+.gdoll::after { content: 'drag to turn'; position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 10px; opacity: 0.4; letter-spacing: 0.1em; pointer-events: none; }
+.gvcanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.pb.gslot, .pb.icell { position: relative; padding: 0; width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border: 2px solid color-mix(in srgb, var(--rc, #f2d27a) 70%, transparent); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--rc, #f2d27a) 22%, #1a1520), #0f0c12 75%); border-radius: 8px; }
+.pb.gslot.empty { border-style: dashed; border-color: rgba(242, 210, 122, 0.25); background: rgba(255, 255, 255, 0.03); }
+.pb.gslot.empty .ipic { opacity: 0.25; }
+.pb.gslot.unused { opacity: 0.45; }
+.pb.gslot.sel, .pb.icell.sel { box-shadow: 0 0 0 2px #fff, 0 0 14px var(--rc, #f2d27a); }
+.pb.gslot .slab { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; font-weight: 600; }
+.ipic { width: 58px; height: 58px; object-fit: contain; pointer-events: none; }
+.ipic.glyph { display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.pb.gslot .ipic { margin-bottom: 8px; }
+.plus { position: absolute; top: 2px; right: 4px; font-size: 11px; color: #ffd040; font-weight: 800; text-shadow: 0 1px 2px #000; }
+.up { position: absolute; top: 2px; left: 4px; font-size: 11px; color: #6ae86a; text-shadow: 0 1px 2px #000; }
+.gems { position: absolute; bottom: 3px; right: 4px; display: flex; gap: 2px; }
+.pb.gslot .gems { bottom: 14px; }
+.gems i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.5); }
+.gems i.ruby { background: #e03a4a; } .gems i.sapphire { background: #3a7ae8; } .gems i.emerald { background: #3ac86a; } .gems i.topaz { background: #f0c030; } .gems i.onyx { background: #222; }
+.gnums { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 12px; padding: 6px; background: rgba(255, 255, 255, 0.04); border-radius: 6px; width: 72px; box-sizing: border-box; grid-template-columns: 1fr; }
+.gnums span { white-space: nowrap; }
+.igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+.pb.icell, i.icell { width: auto; height: auto; aspect-ratio: 1; }
+i.icell.none { border: 1px dashed rgba(255, 255, 255, 0.08); border-radius: 8px; }
+.pb.icell .ipic { width: 82%; height: 82%; }
+.gdetail { display: flex; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--rc, #f2d27a) 50%, transparent); border-left: 4px solid var(--rc, #f2d27a); border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-bottom: 6px; }
+.gdetail.empty { opacity: 0.7; border-color: rgba(255, 255, 255, 0.15); }
+.gdetail .ipic.big { width: 84px; height: 84px; flex-shrink: 0; background: radial-gradient(circle, color-mix(in srgb, var(--rc, #f2d27a) 25%, transparent), transparent 70%); border-radius: 8px; }
+.gdtext { flex: 1; min-width: 0; }
+.gdtext > small { display: block; opacity: 0.7; margin: 2px 0 4px; }
+.gcmp { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.gdetail .tact { margin-top: 8px; }
+.ithumb { width: 40px; height: 40px; flex-shrink: 0; object-fit: contain; }
+span.ithumb { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+@media (max-width: 520px) {
+  .pb.gslot { width: 60px; height: 60px; } .pb.gslot .ipic { width: 46px; height: 46px; }
+  .gnums { width: 60px; font-size: 10px; }
+}

@@ -4,6 +4,13 @@ A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128
 
 Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
+**Gear screen.** Open it with I (or Tab, d-pad down on a controller, GEAR on touch):
+
+- **The hero in 3D,** wearing exactly what you have on. It turns slowly; drag it to turn it yourself. The five slots sit around it (helm, armour and trinket on the left; weapon and shield on the right), each showing a rendered picture of the piece, its upgrade level and its sockets. Your numbers (health, stamina, damage, posture, block, armour, critical chance, flasks) sit below the weapon.
+- **The bag** is a grid of pictures, framed in the rarity's colour (orange for uniques). A green ▲ marks a piece that beats what you wear in that slot.
+- **Details:** select a piece to see everything about it next to what you wear now, with Equip or Take off. Selecting it again (A on a controller, Enter on the keyboard) does the same.
+- Bram's and Tilda's lists show the same pictures.
+
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.
 
 - **Bestiary:** an enemy's entry opens at your first kill. It lists how each of its attacks is telegraphed and how to answer it, along with the guardians' phases and the champions' traits.
@@ -326,6 +333,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
 | `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
+| `js/gearview.js` | The gear screen's pictures: the turning hero in their gear and a rendered picture of each item, from one small renderer |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -338,6 +346,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/tutorial_test.js` | Headless check of the training yard: the offer, all six lessons done for real, the reward, leaving early |
 | `tools/codex_test.js` | Headless check of records, the bestiary, achievements paying once, and opening the codex from the gear and pause screens |
 | `tools/touch_test.js` | Headless check of the touch controls on a phone screen: size, opacity, left-handed, dragging a button, keeping it, Reset |
+| `tools/gear_test.js` | Headless check of the gear screen: the hero preview, a picture per item, details, equipping and taking off, and that every helm covers the head |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -358,6 +367,7 @@ node tools/endless_test.js
 node tools/tutorial_test.js
 node tools/codex_test.js
 node tools/touch_test.js
+node tools/gear_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 

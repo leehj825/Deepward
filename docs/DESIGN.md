@@ -257,6 +257,13 @@ Real players are slower to react than the bot, so expect more deaths.
 - Size is a `scale()` on each button and opacity is set on the pad. The left-handed layout mirrors each button's distance from the right edge onto the left, and the touch input swaps the stick and look halves of the screen.
 - Arrange mode (Settings → Arrange buttons) shows the pad over everything and drags buttons with a capture-phase pointer listener, so a drag never triggers the action. Positions are saved in `Settings.padLayout` as fractions of the screen; a button with no entry keeps its default spot.
 
+## Gear screen (built)
+
+- **Pictures:** `Rig.item(Items.itemLook(it))` builds a piece of gear on its own from the same parts the hero wears (the same weapon builders, `roundShield`, the cuirass, `helmet`, and trinket models). `GearView.icon` renders it once into a 112 px PNG, keyed by its look, so a bag of 24 costs at most a few dozen renders the first time and nothing after.
+- **The hero:** `GearView.mount` puts a turning copy of the hero (rebuilt only when `Items.look()` changes) into the panel. It runs its own animation frame loop that stops when the panel closes. The pictures and the hero share one small WebGL renderer apart from the game's.
+- **Selection:** `tab.gsel` is `e:<slot>` or `i:<id>`. Confirming the selected piece equips it or takes it off, so a controller needs only the d-pad and A.
+- **Helms:** the hero's head is a box whose top corners reach 0.19 m from its middle, so the old round helms (0.15–0.16 m) let them poke through. `helmet()` now builds a fitted leather cap, a 0.2 m steel helm with its rim above the eyes, and a closed great helm whose front clears the nose. Under a helm only a short tuft of hair is built. Domes are double-sided so their insides show from below. `gear_test` casts rays at the head's corners to check each helm covers them.
+
 ## Roadmap
 
 The next steps, in the order I'd take them. Each is sized like one of the S or T steps: one commit, its own test, and a debug APK.

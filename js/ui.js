@@ -7,9 +7,12 @@ const UI = (() => {
   const R = CFG.gear.rarities;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
+  // An item's picture (rendered by GearView), or a plain glyph when there is no WebGL
+  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', trinket: '💍' };
+  const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow${it.uniq ? ' uniq' : ''}"><div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -46,6 +49,34 @@ const UI = (() => {
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
   const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
+
+  // ---------------- Gear screen helpers ----------------
+  // The selected piece: { it, equipped, slot } from tab.gsel ('e:<slot>' or 'i:<id>')
+  function gearSel() {
+    const S = Items.S, [k, v] = String(tab.gsel || '').split(':');
+    if (k === 'e') return { it: S.equip[v] || null, equipped: true, slot: v };
+    const it = S.inv.find(x => x.id === +v); return it ? { it, equipped: false, slot: it.slot } : null;
+  }
+  const gemDots = it => it.gems && it.gems.length ? `<span class="gems">${it.gems.map(g => `<i class="${g || 'none'}"></i>`).join('')}</span>` : '';
+  // The one number each slot is mostly about, to mark bag pieces that beat what is worn
+  function power(it) {
+    if (!it) return 0;
+    const m = Items.main(it);
+    return it.slot === 'weapon' ? m.dmg * CFG.gear.weapons[it.type].dmg : it.slot === 'shield' ? m.block : it.slot === 'armor' ? m.hp * (1 + m.dr * 4) : it.slot === 'helm' ? m.hp + m.stamina : it.aff.length + it.rarity;
+  }
+  const better = it => { const cur = Items.S.equip[it.slot]; return !cur || power(it) > power(cur) * 1.02; };
+  function gearDetail(st) {
+    const g = gearSel(), C = CFG.gear;
+    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
+    const it = g.it, cur = g.equipped ? null : Items.S.equip[it.slot];
+    let h = `<div class="gdetail${it.uniq ? ' uq' : ''}" style="--rc:${Items.colorOf(it)}">${pic(it, 'ipic big')}<div class="gdtext"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b>`;
+    h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
+    h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
+    if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
+    if (cur) h += `<div class="gcmp">Worn now: <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b><br><span class="dim">${Items.describe(cur).map(esc).join(' · ')}</span></div>`;
+    h += `<div class="tact">${g.equipped ? btn('Take off', 'unequip', it.slot, Items.S.inv.length >= C.invSize) : btn(cur ? 'Equip (swap)' : 'Equip', 'equip', it.id, false, 'hot')}</div></div></div>`;
+    return h;
+  }
 
   // ---------------- Panels ----------------
   const PANELS = {
@@ -155,13 +186,25 @@ const UI = (() => {
         <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
         ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
+    // The gear screen: the hero in their gear between the five slots, the numbers, the selected item's details, and the
+    // bag as a grid of pictures. Selecting a piece shows it; selecting it again (or the button) equips or takes it off.
     bag() {
-      const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
-      let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      const GM = CFG.gear.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
-      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ${GM[k].name} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${CFG.gear.uniques.length}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
-      h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
+      const S = Items.S, st = Items.stats(), inCamp = World.inCamp(), C = CFG.gear;
+      if (!tab.gsel || !gearSel()) tab.gsel = S.inv.length ? 'i:' + S.inv[0].id : 'e:weapon';
+      const sel = tab.gsel;
+      const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
+        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
+          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
+      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('trinket')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}`;
+      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div></div><div class="gright">`;
+      h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="igrid">`;
+      for (const it of S.inv) h += `<button class="pb icell r${it.rarity}${it.uniq ? ' uq' : ''}${sel === 'i:' + it.id ? ' sel' : ''}" data-act="gsel" data-arg="i:${it.id}" title="${esc(Items.fullName(it))}">${pic(it)}${it.plus ? `<span class="plus">+${it.plus}</span>` : ''}${better(it) ? '<span class="up">▲</span>' : ''}${gemDots(it)}</button>`;
+      for (let i = S.inv.length; i < Math.min(C.invSize, S.inv.length + 4); i++) h += '<i class="icell none"></i>';      // a few open places, not the whole bag
+      h += '</div>';
+      if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
+      h += gearDetail(st) + '</div></div>';
+      const GM = C.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
       return h + btn('Close', 'close', '', false, 'leave');
@@ -249,7 +292,8 @@ const UI = (() => {
     if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); if (it.uniq && !S.uniques.includes(it.uniq)) S.uniques.push(it.uniq); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
-    if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'equip') { const it = Items.S.inv.find(x => x.id === +arg); Items.equip(+arg); if (it) tab.gsel = 'e:' + it.slot; Snd.play('block'); changed(); return render(); }
+    if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
     if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
@@ -263,7 +307,7 @@ const UI = (() => {
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
     if (a === 'open') { open.opt = open.id === 'trainer' ? { trainer: true } : {}; open.id = arg; focus = -1; return render(); }
-    if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
+    if (a === 'unequip') { const it = Items.S.equip[arg]; Items.unequip(arg); if (it && !Items.S.equip[arg]) tab.gsel = 'i:' + it.id; changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
@@ -280,6 +324,7 @@ const UI = (() => {
     const card = el('pcard');
     card.className = 'pcard ' + open.id;
     card.innerHTML = PANELS[open.id](open.opt || {});
+    const doll = card.querySelector('.gdoll'); if (doll && typeof GearView !== 'undefined') GearView.mount(doll);
     const bs = buttons();
     if (focus < 0) focus = Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
     focus = Math.max(0, Math.min(focus, bs.length - 1));
@@ -314,6 +359,8 @@ const UI = (() => {
     const b = buttons()[focus]; if (!open || !b || b.disabled) return;
     // On a controller or keyboard, confirming the node that is already selected learns it
     if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
+    // ...and confirming the selected piece of gear equips it (or takes it off)
+    if (b.dataset.act === 'gsel' && tab.gsel === b.dataset.arg) { const [k, v] = b.dataset.arg.split(':'); return act(k === 'e' ? 'unequip' : 'equip', v); }
     act(b.dataset.act, b.dataset.arg);
   }
   function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper') return; if (open.id === 'dialogue') return act('next'); close(); }

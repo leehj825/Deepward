@@ -279,6 +279,52 @@ body.arranging #pause, body.arranging #title, body.arranging #panel { display: n
 #arrangeBar { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.9); border: 1px solid rgba(242, 210, 122, 0.5); border-radius: 8px; z-index: 31; font-size: 13px; }
 #arrangeBar.show { display: flex; }
 #arrangeBar button { padding: 6px 12px; font-weight: 700; color: #1a1008; background: linear-gradient(#f2d27a, #c9963a); border: none; border-radius: 4px; }
+/* ---- Gear screen: the hero between the slots, item pictures, the bag grid ---- */
+.pcard.bag { width: min(980px, 100%); }
+.gwrap { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(280px, 1.15fr); gap: 16px; align-items: start; }
+.gright h3 { margin-top: 4px; }
+.gright .gdetail { margin-top: 10px; }
+@media (max-width: 680px) { .gwrap { grid-template-columns: 1fr; } }
+.r0 { --rc: #cfc8b8; } .r1 { --rc: #5aa8ff; } .r2 { --rc: #c47cff; } .r3 { --rc: #ffb040; } .uq { --rc: #ff7a2a; }
+.gear { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: stretch; margin: 6px 0 8px; }
+.gcol { display: flex; flex-direction: column; gap: 8px; }
+.gdoll { position: relative; height: clamp(190px, calc(100vh - 170px), 330px); border-radius: 8px; background: radial-gradient(ellipse at 50% 85%, rgba(242, 210, 122, 0.16), transparent 60%), radial-gradient(circle at 50% 40%, rgba(90, 110, 160, 0.18), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(242, 210, 122, 0.15); overflow: hidden; touch-action: none; }
+.gdoll::after { content: 'drag to turn'; position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 10px; opacity: 0.4; letter-spacing: 0.1em; pointer-events: none; }
+.gvcanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.pb.gslot, .pb.icell { position: relative; padding: 0; width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border: 2px solid color-mix(in srgb, var(--rc, #f2d27a) 70%, transparent); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--rc, #f2d27a) 22%, #1a1520), #0f0c12 75%); border-radius: 8px; }
+.pb.gslot.empty { border-style: dashed; border-color: rgba(242, 210, 122, 0.25); background: rgba(255, 255, 255, 0.03); }
+.pb.gslot.empty .ipic { opacity: 0.25; }
+.pb.gslot.unused { opacity: 0.45; }
+.pb.gslot.sel, .pb.icell.sel { box-shadow: 0 0 0 2px #fff, 0 0 14px var(--rc, #f2d27a); }
+.pb.gslot .slab { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; font-weight: 600; }
+.ipic { width: 58px; height: 58px; object-fit: contain; pointer-events: none; }
+.ipic.glyph { display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.pb.gslot .ipic { margin-bottom: 8px; }
+.plus { position: absolute; top: 2px; right: 4px; font-size: 11px; color: #ffd040; font-weight: 800; text-shadow: 0 1px 2px #000; }
+.up { position: absolute; top: 2px; left: 4px; font-size: 11px; color: #6ae86a; text-shadow: 0 1px 2px #000; }
+.gems { position: absolute; bottom: 3px; right: 4px; display: flex; gap: 2px; }
+.pb.gslot .gems { bottom: 14px; }
+.gems i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.5); }
+.gems i.ruby { background: #e03a4a; } .gems i.sapphire { background: #3a7ae8; } .gems i.emerald { background: #3ac86a; } .gems i.topaz { background: #f0c030; } .gems i.onyx { background: #222; }
+.gnums { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 12px; padding: 6px; background: rgba(255, 255, 255, 0.04); border-radius: 6px; width: 72px; box-sizing: border-box; grid-template-columns: 1fr; }
+.gnums span { white-space: nowrap; }
+.igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+.pb.icell, i.icell { width: auto; height: auto; aspect-ratio: 1; }
+i.icell.none { border: 1px dashed rgba(255, 255, 255, 0.08); border-radius: 8px; }
+.pb.icell .ipic { width: 82%; height: 82%; }
+.gdetail { display: flex; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--rc, #f2d27a) 50%, transparent); border-left: 4px solid var(--rc, #f2d27a); border-radius: 6px; background: rgba(255, 255, 255, 0.04); margin-bottom: 6px; }
+.gdetail.empty { opacity: 0.7; border-color: rgba(255, 255, 255, 0.15); }
+.gdetail .ipic.big { width: 84px; height: 84px; flex-shrink: 0; background: radial-gradient(circle, color-mix(in srgb, var(--rc, #f2d27a) 25%, transparent), transparent 70%); border-radius: 8px; }
+.gdtext { flex: 1; min-width: 0; }
+.gdtext > small { display: block; opacity: 0.7; margin: 2px 0 4px; }
+.gcmp { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.gdetail .tact { margin-top: 8px; }
+.ithumb { width: 40px; height: 40px; flex-shrink: 0; object-fit: contain; }
+span.ithumb { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+@media (max-width: 520px) {
+  .pb.gslot { width: 60px; height: 60px; } .pb.gslot .ipic { width: 46px; height: 46px; }
+  .gnums { width: 60px; font-size: 10px; }
+}
 
 </style>
 </head>
@@ -1108,15 +1154,24 @@ const Items = (() => {
     return out;
   }
   // How the hero should look in this gear (read by Rig.build)
+  const rc = i => [0x8a8f99, 0x9ac8ff, 0xd7a8ff, 0xffcf70][i];
+  const SHIELD_FACE = [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14], ARMOR_CLOTH = [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a];
+  // How one item looks on its own (read by Rig.item for the gear screen's pictures)
+  function itemLook(it) {
+    const w = it.slot === 'weapon' ? C.weapons[it.type] : null;
+    return { slot: it.slot, type: it.type, len: w ? w.len : 0, twoHanded: !!(w && w.twoHanded), blade: rc(it.rarity), glow: it.rarity >= 2 ? rc(it.rarity) : 0,
+      face: SHIELD_FACE[it.rarity], armor: ARMOR_CLOTH[it.rarity], plate: it.tier >= 2, helm: it.style || 0,
+      trinket: it.slot === 'trinket' ? (C.trinkets.find(t => it.name.includes(t)) || (it.uniq === 'coin' ? 'Coin' : 'Amulet')) : '', uniq: it.uniq || '' };
+  }
   function look() {
-    const E = S.equip, rc = i => [0x8a8f99, 0x9ac8ff, 0xd7a8ff, 0xffcf70][i];
+    const E = S.equip;
     return {
       weapon: E.weapon ? E.weapon.type : 'sword', weaponLen: E.weapon ? C.weapons[E.weapon.type].len : 0.92,
       blade: E.weapon ? rc(E.weapon.rarity) : 0x8a8f99, glow: E.weapon && E.weapon.rarity >= 2 ? rc(E.weapon.rarity) : 0,
       twoHanded: !!(E.weapon && C.weapons[E.weapon.type].twoHanded),
       dual: !!(E.weapon && C.weapons[E.weapon.type].dual),
-      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? [0x6a4a2c, 0x2f4a6b, 0x5a2a6b, 0x8a5a14][E.shield.rarity] : 0,
-      armor: E.armor ? [0x5a4632, 0x2f4a6b, 0x4a3a6a, 0x6a4a1a][E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
+      shield: !!E.shield && !(E.weapon && (C.weapons[E.weapon.type].twoHanded || C.weapons[E.weapon.type].dual)), shieldFace: E.shield ? SHIELD_FACE[E.shield.rarity] : 0,
+      armor: E.armor ? ARMOR_CLOTH[E.armor.rarity] : 0x6a5a48, plate: !!E.armor && E.armor.tier >= 2,
       helm: E.helm ? E.helm.style : -1, trinket: !!E.trinket,
     };
   }
@@ -1150,7 +1205,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, add, equip, unequip, remove, addGold,
+    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
@@ -1496,6 +1551,74 @@ const Rig = (() => {
     return g;
   }
 
+  // ---------------- Helms ----------------
+  // The hero's head is a 0.23 x 0.26 x 0.24 box centred on the head joint. Each helm fully covers its top half:
+  // 0 a leather cap, 1 a steel helm with a nasal guard, 2 a closed great helm with a visor slit.
+  function helmet(head, style, m) {
+    const shell = mat => { const c = mat.clone(); c.side = THREE.DoubleSide; return c; };          // seen from below, the inside shows
+    // The rims sit at 0.065, above the eyes (0.02), and the domes clear the head's top corners
+    if (style === 0) {                                                     // a padded leather cap, fitted to the square head
+      box(head, 0.27, 0.11, 0.28, m.leather, 0, 0.11, 0);
+      const top = mesh(new THREE.SphereGeometry(0.15, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), shell(m.leather), head, 0, 0.165, 0); top.scale.set(0.95, 0.35, 0.98);
+      box(head, 0.285, 0.025, 0.295, m.dark, 0, 0.065, 0);                   // stitched band
+    } else if (style === 1) {
+      const hm = mesh(new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), shell(m.steel), head, 0, 0.06, 0); hm.scale.set(1, 0.95, 1.03);
+      mesh(new THREE.TorusGeometry(0.2, 0.02, 5, 16).rotateX(Math.PI / 2), m.steel, head, 0, 0.06, 0);
+      box(head, 0.035, 0.1, 0.03, m.steel, 0, 0.02, 0.165);                  // nasal guard, down between the eyes
+      box(head, 0.02, 0.08, 0.3, m.steel, 0, 0.24, -0.02);                   // crest ridge
+    } else {
+      box(head, 0.29, 0.34, 0.33, m.steel, 0, 0.015, 0.01);                   // front at 0.175, clear of the nose
+      box(head, 0.22, 0.03, 0.02, m.dark, 0, 0.03, 0.175);                   // visor slit
+      for (let i = -2; i <= 2; i++) box(head, 0.012, 0.012, 0.02, m.dark, i * 0.035, -0.05, 0.176);   // breaths
+      box(head, 0.03, 0.04, 0.3, m.steel, 0, 0.2, 0);                        // crest
+      box(head, 0.31, 0.03, 0.32, m.dark, 0, -0.14, 0);                      // rim
+    }
+  }
+
+  // ---------------- Single items (the gear screen's pictures) ----------------
+  // One piece of gear on its own, from Items.itemLook: the same parts the hero wears, posed to be seen from the front
+  // (+Z toward the viewer, up is +Y). Weapons stand diagonally, blade up.
+  function item(L) {
+    const root = new THREE.Group(), hold = new THREE.Group(); root.add(hold);
+    const steel = std(0x9ca2ad, 0.45, 0.55), leather = std(0x6a4a2c), dark = std(0x1e1a18), gold = std(0xd9a92a, 0.3, 0.6);
+    if (L.slot === 'weapon') {
+      hold.rotation.set(-Math.PI / 2, 0, 0); root.rotation.z = -Math.PI / 4;        // the weapon's +Z points up, then leans right
+      const o = { blade: L.blade | 0x404040, len: L.len, twoHanded: L.twoHanded };
+      let w;
+      if (L.type === 'axe') { w = axe(hold, { blade: L.blade }); w.group.rotation.z = Math.PI / 2; }      // the head's flat side to the viewer
+      else if (L.type === 'mace') w = mace(hold, { blade: L.blade });
+      else if (L.type === 'spear') w = spear(hold, o);
+      else if (L.type === 'daggers') {
+        w = sword(hold, Object.assign(o, { len: 0.42, thin: true })); w.group.position.x = -0.09; w.group.rotation.y = 0.35;
+        const off = sword(hold, o); off.group.position.x = 0.09; off.group.rotation.y = -0.35;
+        if (L.glow) for (const m of off.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.35; }
+      } else w = sword(hold, o);
+      if (L.glow) for (const m of w.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.35; }
+    } else if (L.slot === 'shield') {
+      roundShield(hold, L.face);
+    } else if (L.slot === 'armor') {
+      const cloth = std(L.armor);
+      const torso = mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.36, 9), cloth, hold, 0, 0, 0); torso.scale.z = 0.72;
+      mesh(new THREE.CylinderGeometry(0.175, 0.24, 0.3, 9, 1, true), cloth, hold, 0, -0.32, 0).material.side = THREE.DoubleSide;   // skirt
+      mesh(new THREE.TorusGeometry(0.168, 0.025, 5, 14).rotateX(Math.PI / 2), leather, hold, 0, -0.18, 0);
+      if (L.plate) { const pl = mesh(new THREE.CylinderGeometry(0.21, 0.165, 0.34, 9), steel, hold, 0, 0.01, 0); pl.scale.z = 0.76; for (const s of [1, -1]) ball(hold, 0.12, steel, 0.21 * s, 0.14, 0, 8, 6).scale.set(1, 0.65, 1); }
+      else { const strap = box(hold, 0.06, 0.48, 0.03, leather, 0, 0, 0.13); strap.rotation.z = 0.7; ball(hold, 0.12, steel, 0.19, 0.14, 0, 8, 6).scale.set(1, 0.65, 1); }
+      hold.rotation.y = 0.35;
+    } else if (L.slot === 'helm') {
+      const wood = std(0x3a2c24, 0.9);                                       // a dark wooden stand's head, so the helm reads as worn
+      box(hold, 0.23, 0.26, 0.24, wood, 0, 0, 0); mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.12, 8), wood, hold, 0, -0.18, 0);
+      helmet(hold, L.helm, { steel, leather, dark }); hold.rotation.y = 0.5;
+    } else {
+      const gem = glowMat(L.uniq === 'heart' ? 0xff4a4a : 0x7fe8ff);
+      if (L.trinket === 'Ring') { mesh(new THREE.TorusGeometry(0.1, 0.026, 8, 18), gold, hold); ball(hold, 0.035, gem, 0, 0.12, 0, 8, 6); hold.rotation.x = 0.5; }
+      else if (L.trinket === 'Coin') { mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.025, 16).rotateX(Math.PI / 2), gold, hold); box(hold, 0.05, 0.05, 0.03, std(0x8a6a14), 0, 0, 0.012).rotation.z = Math.PI / 4; hold.rotation.y = 0.4; }
+      else if (L.trinket === 'Charm') { const t = mesh(new THREE.ConeGeometry(0.05, 0.2, 6), std(0xe8e0c8), hold, 0, -0.06, 0); t.rotation.z = Math.PI; mesh(new THREE.TorusGeometry(0.03, 0.01, 5, 10), gold, hold, 0, 0.06, 0); ball(hold, 0.02, gem, 0, -0.02, 0.04, 6, 5); }
+      else { mesh(new THREE.TorusGeometry(0.15, 0.008, 4, 24, Math.PI).rotateZ(Math.PI), gold, hold, 0, 0.12, 0); ball(hold, 0.055, gold, 0, -0.03, 0, 8, 6); ball(hold, 0.032, gem, 0, -0.03, 0.04, 8, 6); }
+    }
+    root.updateMatrixWorld(true);
+    return root;
+  }
+
   // ---------------- Bodies ----------------
   // One humanoid skeleton of joints; "kind" picks proportions, materials and armour.
   // o.look (hero): gear appearance from Items.look(); o.npc (kind 'npc'): { cloth, hair, beard, elder, apron, tool }
@@ -1635,19 +1758,17 @@ const Rig = (() => {
         for (const s of [1, -1]) box(head, 0.035, 0.035, 0.02, dark, 0.055 * s, 0.02, 0.121);
         box(head, 0.05, 0.06, 0.04, skin, 0, -0.03, 0.13);
         if (kind === 'hero' || kind === 'npc') {
-          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8);
-          box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
-          for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+          const hair = std(kind === 'npc' ? (N.hair || 0x5a3a1e) : 0x3b2416, 0.8), helmed = kind === 'hero' && L.helm >= 0;
+          // Under a helm only a short tuft shows at the back; the helm encloses the rest (the head is a box, so its
+          // corners reach 0.19 m from the middle and a round helm must be wider than that)
+          if (helmed) box(head, 0.2, 0.12, 0.05, hair, 0, -0.03, -0.115);
+          else {
+            box(head, 0.25, 0.09, 0.26, hair, 0, 0.12, -0.005); box(head, 0.25, 0.2, 0.06, hair, 0, 0.03, -0.11);
+            for (const s of [1, -1]) box(head, 0.03, 0.12, 0.2, hair, 0.12 * s, 0.05, -0.02);
+          }
           if (N.beard) { box(head, 0.2, 0.12, 0.06, hair, 0, -0.1, 0.11); box(head, 0.12, 0.08, 0.05, hair, 0, -0.18, 0.1); }
-          if (kind === 'hero' && L.helm === 0) { const cap = mesh(new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), leather, head, 0, 0.06, 0); cap.scale.set(1, 0.9, 1.05); }
-          else if (kind === 'hero' && L.helm === 1) {
-            const hm = mesh(new THREE.SphereGeometry(0.16, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.6), steel, head, 0, 0.04, 0); hm.scale.set(1, 1.05, 1.08);
-            box(head, 0.03, 0.14, 0.03, steel, 0, 0.0, 0.15);                  // nasal guard
-          } else if (kind === 'hero' && L.helm === 2) {
-            mesh(new THREE.CylinderGeometry(0.155, 0.15, 0.33, 10), steel, head, 0, 0.01, 0);
-            box(head, 0.2, 0.025, 0.04, dark, 0, 0.03, 0.145);
-            mesh(new THREE.ConeGeometry(0.16, 0.1, 10), steel, head, 0, 0.22, 0);
-          } else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
+          if (helmed) helmet(head, L.helm, { steel, leather, dark });
+          else if (kind === 'hero') box(head, 0.255, 0.035, 0.255, std(0x7a2a22), 0, 0.07, 0);           // headband
         }
         if (kind === 'brute') {
           box(head, 0.24, 0.05, 0.06, dark, 0, 0.06, 0.1);                       // heavy brow
@@ -2168,7 +2289,7 @@ const Rig = (() => {
     tr.mesh.visible = tr.pts.length > 1;
   }
 
-  return { build, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
+  return { build, item, animate, flash, glow, makeTrail, updateTrail, bake, ATTACKS };
 })();
 
 </script>
@@ -4219,6 +4340,89 @@ const World = (() => {
 
 </script>
 <script>
+// Deepward - pictures for the gear screen: the hero in their current gear, turning slowly (drag to turn), and a rendered
+// picture of every item for the slots and the bag. One small WebGL renderer does both; item pictures are rendered once
+// per look and kept as images.
+const GearView = (() => {
+  const ICON = 112;                                   // item picture size in pixels
+  let R = null, scene = null, cam = null, size = [0, 0];
+  const icons = new Map();
+  let doll = null, dollKey = '', host = null, yaw = 0.45, spin = true, drag = null, last = 0;
+
+  function init() {
+    if (R) return true;
+    try { R = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { return false; }
+    R.outputEncoding = THREE.sRGBEncoding; R.setClearColor(0x000000, 0);
+    R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xc8d0e8, 0x2a2018, 0.9));
+    const key = new THREE.DirectionalLight(0xffe8c8, 1.1); key.position.set(1.5, 2.5, 3); scene.add(key);
+    const rim = new THREE.DirectionalLight(0x8aa0ff, 0.6); rim.position.set(-2, 1.5, -2.5); scene.add(rim);
+    cam = new THREE.PerspectiveCamera(30, 1, 0.05, 30);
+    const cv = R.domElement; cv.className = 'gvcanvas';
+    cv.addEventListener('pointerdown', ev => { drag = ev.clientX; spin = false; cv.setPointerCapture && cv.setPointerCapture(ev.pointerId); ev.preventDefault(); });
+    cv.addEventListener('pointermove', ev => { if (drag === null) return; yaw += (ev.clientX - drag) * 0.012; drag = ev.clientX; });
+    const up = () => { drag = null; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    return true;
+  }
+  function resize(w, h) { if (size[0] !== w || size[1] !== h) { R.setSize(w, h, false); size = [w, h]; } }
+  function dispose(o) { o.traverse(m => { if (m.isMesh) { m.geometry.dispose(); } }); }
+
+  // ---------------- Item pictures ----------------
+  const keyOf = L => [L.slot, L.type, L.helm, L.trinket, L.blade, L.face, L.armor, L.plate, L.glow, L.uniq].join('|');
+  // Frames an object from the front and a little above, filling the picture
+  function frame(obj, dir, fill) {
+    const b = new THREE.Box3().setFromObject(obj), c = b.getCenter(new THREE.Vector3()), r = b.getBoundingSphere(new THREE.Sphere()).radius;
+    const d = r / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2)) * fill;
+    cam.position.copy(c).addScaledVector(dir.normalize(), d); cam.lookAt(c); cam.updateProjectionMatrix();
+  }
+  // A data URL for the item's picture ('' when WebGL is not available)
+  function icon(it) {
+    const L = Items.itemLook(it), k = keyOf(L);
+    if (icons.has(k)) return icons.get(k);
+    if (!init()) return '';
+    const g = Rig.item(L); scene.add(g);
+    cam.aspect = 1; frame(g, new THREE.Vector3(0, 0.25, 1), 0.92);
+    const pr = R.getPixelRatio(); R.setPixelRatio(1); resize(ICON, ICON); R.render(scene, cam);
+    const c2 = document.createElement('canvas'); c2.width = c2.height = ICON; c2.getContext('2d').drawImage(R.domElement, 0, 0);
+    const url = c2.toDataURL('image/png');
+    scene.remove(g); dispose(g); R.setPixelRatio(pr); size = [0, 0];
+    icons.set(k, url);
+    return url;
+  }
+
+  // ---------------- The hero ----------------
+  // Puts the turning hero into el (an element in the gear panel); it stops by itself once el leaves the page
+  function mount(el) {
+    if (!init()) return false;
+    const L = Items.look(), k = JSON.stringify(L);
+    if (k !== dollKey) {
+      if (doll) { scene.remove(doll.root); dispose(doll.root); }
+      doll = Rig.build('hero', { look: L }); dollKey = k; scene.add(doll.root);
+      for (let i = 0; i < 30; i++) Rig.animate(doll, { mode: 'idle', t: 0, speed: 0, calm: true }, 1 / 30);   // settle into the idle pose
+    }
+    host = el; el.appendChild(R.domElement);
+    if (!last) { last = performance.now(); requestAnimationFrame(tick); }
+    return true;
+  }
+  function tick(now) {
+    if (!host || !host.isConnected) { host = null; last = 0; return; }
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;     // a frame's timestamp can be older than performance.now()
+    if (spin) yaw += dt * 0.5;
+    doll.root.rotation.y = yaw;
+    Rig.animate(doll, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
+    const w = host.clientWidth || 160, h = host.clientHeight || 240;
+    resize(w, h); cam.aspect = w / h; cam.fov = 30;
+    cam.position.set(0, 1.25, 4.6); cam.lookAt(0, 0.98, 0); cam.updateProjectionMatrix();
+    R.render(scene, cam);
+    requestAnimationFrame(tick);
+  }
+  return { icon, mount, get ready() { return !!R; } };
+})();
+
+</script>
+<script>
 // Deepward - menus and story panels: Maren's dialogue, Bram's smithy, Tilda's stall, the camp ledger, the gate down,
 // the bag (inventory and equipment), the stage-cleared choice and the fall. One panel shows at a time; it works with the
 // mouse and touch, the keyboard (arrows / W S, Enter, Esc) and a controller (d-pad or left stick, A, B).
@@ -4228,9 +4432,12 @@ const UI = (() => {
   const R = CFG.gear.rarities;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = () => `<div class="money"><span class="gold">◆ ${Items.S.gold}</span><span class="scrap">⚙ ${Items.S.scrap} scrap</span></div>`;
+  // An item's picture (rendered by GearView), or a plain glyph when there is no WebGL
+  const GLYPH = { weapon: '⚔', shield: '🛡', armor: '🧥', helm: '⛑', trinket: '💍' };
+  const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow${it.uniq ? ' uniq' : ''}"><div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -4267,6 +4474,34 @@ const UI = (() => {
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
   const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
+
+  // ---------------- Gear screen helpers ----------------
+  // The selected piece: { it, equipped, slot } from tab.gsel ('e:<slot>' or 'i:<id>')
+  function gearSel() {
+    const S = Items.S, [k, v] = String(tab.gsel || '').split(':');
+    if (k === 'e') return { it: S.equip[v] || null, equipped: true, slot: v };
+    const it = S.inv.find(x => x.id === +v); return it ? { it, equipped: false, slot: it.slot } : null;
+  }
+  const gemDots = it => it.gems && it.gems.length ? `<span class="gems">${it.gems.map(g => `<i class="${g || 'none'}"></i>`).join('')}</span>` : '';
+  // The one number each slot is mostly about, to mark bag pieces that beat what is worn
+  function power(it) {
+    if (!it) return 0;
+    const m = Items.main(it);
+    return it.slot === 'weapon' ? m.dmg * CFG.gear.weapons[it.type].dmg : it.slot === 'shield' ? m.block : it.slot === 'armor' ? m.hp * (1 + m.dr * 4) : it.slot === 'helm' ? m.hp + m.stamina : it.aff.length + it.rarity;
+  }
+  const better = it => { const cur = Items.S.equip[it.slot]; return !cur || power(it) > power(cur) * 1.02; };
+  function gearDetail(st) {
+    const g = gearSel(), C = CFG.gear;
+    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
+    const it = g.it, cur = g.equipped ? null : Items.S.equip[it.slot];
+    let h = `<div class="gdetail${it.uniq ? ' uq' : ''}" style="--rc:${Items.colorOf(it)}">${pic(it, 'ipic big')}<div class="gdtext"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b>`;
+    h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
+    h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
+    if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
+    if (cur) h += `<div class="gcmp">Worn now: <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b><br><span class="dim">${Items.describe(cur).map(esc).join(' · ')}</span></div>`;
+    h += `<div class="tact">${g.equipped ? btn('Take off', 'unequip', it.slot, Items.S.inv.length >= C.invSize) : btn(cur ? 'Equip (swap)' : 'Equip', 'equip', it.id, false, 'hot')}</div></div></div>`;
+    return h;
+  }
 
   // ---------------- Panels ----------------
   const PANELS = {
@@ -4376,13 +4611,25 @@ const UI = (() => {
         <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
         ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
+    // The gear screen: the hero in their gear between the five slots, the numbers, the selected item's details, and the
+    // bag as a grid of pictures. Selecting a piece shows it; selecting it again (or the button) equips or takes it off.
     bag() {
-      const S = Items.S, st = Items.stats(), inCamp = World.inCamp();
-      let h = `<h2>Gear</h2>${money()}<div class="statline">Health ${st.maxHp} · Stamina ${st.maxSt} · Damage x${st.dmg.toFixed(2)} · Posture x${st.posture.toFixed(2)} · Block ${Math.round(st.block * 100)}% · Armour ${Math.round(st.dr * 100)}%${st.crit ? ' · Crit ' + Math.round(st.crit * 100) + '%' : ''} · Flasks ${st.flasks}</div>`;
-      const GM = CFG.gear.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
-      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ${GM[k].name} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${CFG.gear.uniques.length}</div>`;
-      h += '<h3>Equipped</h3>' + CFG.gear.slots.map(s => S.equip[s] ? itemRow(S.equip[s], btn('Take off', 'unequip', s), s === 'shield' && (st.twoHanded || st.dual) ? ' · <b class="warnc">unused while both hands are full</b>' : '') : `<div class="irow empty"><div class="iinfo"><small>${CFG.gear.slotNames[s]} · empty</small></div></div>`).join('');
-      h += `<h3>Bag (${S.inv.length} / ${CFG.gear.invSize})</h3>` + (S.inv.length ? S.inv.map(it => { const cur = S.equip[it.slot]; return itemRow(it, btn('Equip', 'equip', it.id), cur ? ' · replaces ' + esc(Items.fullName(cur)) : ''); }).join('') : '<p class="dim">Empty. Chests and guardians drop gear; Bram and Tilda make and sell it.</p>');
+      const S = Items.S, st = Items.stats(), inCamp = World.inCamp(), C = CFG.gear;
+      if (!tab.gsel || !gearSel()) tab.gsel = S.inv.length ? 'i:' + S.inv[0].id : 'e:weapon';
+      const sel = tab.gsel;
+      const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
+        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
+          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
+      let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('trinket')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}`;
+      h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div></div><div class="gright">`;
+      h += `<h3>Bag (${S.inv.length} / ${C.invSize})</h3><div class="igrid">`;
+      for (const it of S.inv) h += `<button class="pb icell r${it.rarity}${it.uniq ? ' uq' : ''}${sel === 'i:' + it.id ? ' sel' : ''}" data-act="gsel" data-arg="i:${it.id}" title="${esc(Items.fullName(it))}">${pic(it)}${it.plus ? `<span class="plus">+${it.plus}</span>` : ''}${better(it) ? '<span class="up">▲</span>' : ''}${gemDots(it)}</button>`;
+      for (let i = S.inv.length; i < Math.min(C.invSize, S.inv.length + 4); i++) h += '<i class="icell none"></i>';      // a few open places, not the whole bag
+      h += '</div>';
+      if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
+      h += gearDetail(st) + '</div></div>';
+      const GM = C.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
       return h + btn('Close', 'close', '', false, 'leave');
@@ -4470,7 +4717,8 @@ const UI = (() => {
     if (a === 'buy') { const it = S.stock[+arg], price = it && Items.value(it) * 3; if (it && S.gold >= price && Items.add(it)) { S.gold -= price; S.stock.splice(+arg, 1); if (it.uniq && !S.uniques.includes(it.uniq)) S.uniques.push(it.uniq); Snd.play('wave'); toast('Bought: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
     if (a === 'sell') { const it = Items.remove(+arg); if (it) { S.gold += Items.value(it); Snd.play('glint'); changed(); } return render(); }
     if (a === 'build') { const b = CFG.camp.buildings[arg], lv = S.camp[arg], cost = b.costs[lv]; if (lv < b.max && S.gold >= cost) { S.gold -= cost; S.camp[arg]++; Snd.play('wave'); toast(`${b.name} built up to level ${S.camp[arg]}`); changed(true); } return render(); }
-    if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
+    if (a === 'equip') { const it = Items.S.inv.find(x => x.id === +arg); Items.equip(+arg); if (it) tab.gsel = 'e:' + it.slot; Snd.play('block'); changed(); return render(); }
+    if (a === 'gsel') { tab.gsel = arg; Snd.play('glint'); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
     if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
@@ -4484,7 +4732,7 @@ const UI = (() => {
     if (a === 'ult') { S.ult = arg; changed(); return render(); }
     if (a === 'respec') { const cost = CFG.progress.respecCost * S.level; if (S.gold >= cost) { S.gold -= cost; Items.respec(); Snd.play('guardBreak'); toast('Talents unlearned: points returned'); changed(); } return render(); }
     if (a === 'open') { open.opt = open.id === 'trainer' ? { trainer: true } : {}; open.id = arg; focus = -1; return render(); }
-    if (a === 'unequip') { Items.unequip(arg); changed(); return render(); }
+    if (a === 'unequip') { const it = Items.S.equip[arg]; Items.unequip(arg); if (it && !Items.S.equip[arg]) tab.gsel = 'i:' + it.id; changed(); return render(); }
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
@@ -4501,6 +4749,7 @@ const UI = (() => {
     const card = el('pcard');
     card.className = 'pcard ' + open.id;
     card.innerHTML = PANELS[open.id](open.opt || {});
+    const doll = card.querySelector('.gdoll'); if (doll && typeof GearView !== 'undefined') GearView.mount(doll);
     const bs = buttons();
     if (focus < 0) focus = Math.max(0, bs.findIndex(b => !b.disabled && b.dataset.act !== 'tab'));
     focus = Math.max(0, Math.min(focus, bs.length - 1));
@@ -4535,6 +4784,8 @@ const UI = (() => {
     const b = buttons()[focus]; if (!open || !b || b.disabled) return;
     // On a controller or keyboard, confirming the node that is already selected learns it
     if (b.dataset.act === 'tsel' && tab.talent === b.dataset.arg && !Items.blocked(b.dataset.arg)) return act('learn', b.dataset.arg);
+    // ...and confirming the selected piece of gear equips it (or takes it off)
+    if (b.dataset.act === 'gsel' && tab.gsel === b.dataset.arg) { const [k, v] = b.dataset.arg.split(':'); return act(k === 'e' ? 'unequip' : 'equip', v); }
     act(b.dataset.act, b.dataset.arg);
   }
   function back() { if (!open) return; if (open.id === 'fallen') return confirm(); if (open.id === 'cleared' || open.id === 'deeper') return; if (open.id === 'dialogue') return act('next'); close(); }
