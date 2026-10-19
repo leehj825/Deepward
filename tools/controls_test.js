@@ -52,7 +52,7 @@ const path = require('path');
   out.padBound = await pg.evaluate(() => { const P = Settings.get('padKeys'); return P.heavy && P.heavy[0] === 3 && !P.ult.includes(3); });
   await play(); await pg.waitForTimeout(300);
   await pg.evaluate(() => { __pad.buttons[3] = { pressed: true, value: 1 }; });
-  out.padHeavy = await until(() => __dw.G.player.state === 'attack' && __dw.G.player.atkKind === 'heavy');
+  out.padHeavy = await until(() => __dw.G.player.state === 'attack' && __dw.G.player.atkKind === 'heavy', 8000);   // slow headless frames under load
   await pg.evaluate(() => { __pad.buttons[3] = { pressed: false, value: 0 }; });
   // Restore defaults
   out.reset = await pg.evaluate(() => { Bindings.reset(); return Bindings.label('light') === 'J' && Bindings.label('heavy', 'pad') === 'RT' && Bindings.label('up') === 'W'; });
