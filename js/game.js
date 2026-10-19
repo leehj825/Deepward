@@ -27,6 +27,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       ev.preventDefault(); return;
     }
     if (ev.repeat) return;
+    if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
@@ -75,6 +76,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   let stickId = null, sx = 0, sy = 0;
   let lookId = null, lx = 0, ly = 0;
   cv.addEventListener('pointerdown', ev => {
+    if (G.state === 'cine') { endCine(); return; }                          // a tap skips a guardian's entrance
     if (ev.pointerType !== 'touch') return;
     if (ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
     if (stickId !== null) return;
@@ -137,6 +139,7 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
+  if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
   if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
@@ -156,6 +159,8 @@ function pollPad(real) {
 }
 // Rumble on the controller, if it has motors: strong / weak in 0..1, duration in ms
 G.rumble = (strong, weak, ms) => {
+  // Phones buzz too (Settings: Vibration)
+  if (!Pad.id && document.body.classList.contains('touch') && Settings.get('haptics') && navigator.vibrate) { try { navigator.vibrate(Math.max(10, Math.round(ms * Math.max(strong, weak) * 0.5))); } catch (e) {} }
   if (!Pad.id) return;
   const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.id === Pad.id);
   const act = gp && gp.vibrationActuator;
@@ -224,6 +229,25 @@ const dust = (() => {
   scene.add(d); return d;
 })();
 
+// The air of each place: what drifts in it (colour, size, fall speed - negative falls, positive rises - and sway)
+const AIR = {
+  crypt: [0xffd8a0, 0.05, -0.05, 0.1, 0.5], keep: [0xffc890, 0.05, -0.04, 0.1, 0.45], den: [0xff9a5a, 0.05, 0.25, 0.25, 0.6],
+  camp: [0xffd8a0, 0.04, -0.03, 0.15, 0.45], depths: [0xb8a0ff, 0.07, 0.1, 0.35, 0.6], court: [0xe8e0ff, 0.04, 0.02, 0.15, 0.45],
+  temple: [0x8ae8ff, 0.05, -3.5, 0, 0.7], frost: [0xffffff, 0.09, -0.7, 0.6, 0.9], forge: [0xff7a2a, 0.07, 1.0, 0.45, 0.9],
+  orchard: [0xcfc8b0, 0.06, -0.3, 0.7, 0.6], throne: [0xffd070, 0.05, 0.06, 0.2, 0.5],
+};
+let airKey = null;
+function updateAir(dt) {
+  const th = World.theme, key = th && Object.keys(CFG.themes).find(k => CFG.themes[k] === th) || 'crypt', A = AIR[key] || AIR.crypt;
+  if (key !== airKey) { airKey = key; dust.material.color.setHex(A[0]); dust.material.size = A[1]; dust.material.opacity = A[4]; }
+  const pos = dust.geometry.attributes.position, a = pos.array, t = G.time || performance.now() / 1000;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] += A[2] * dt;
+    if (a[i + 1] < 0) a[i + 1] += 4; else if (a[i + 1] > 4) a[i + 1] -= 4;
+    if (A[3]) a[i] += Math.sin(t * 0.8 + i) * A[3] * dt;
+  }
+  pos.needsUpdate = true;
+}
 World.init(scene, hemi);
 G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
@@ -254,7 +278,7 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
-    if (q.guardian) { G.bossHits = G.stats.hitsTaken; e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
@@ -353,6 +377,16 @@ function openPanel(id, opt, done) {
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
+// ---------------- Guardian entrances ----------------
+function startCine(e) {
+  if (G.state !== 'play') return;
+  G.cine = { e, t: 0, dur: 2.4 }; G.state = 'cine'; $('letterbox').classList.add('on'); document.body.classList.add('cine'); Input.keys = {};
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function endCine() {
+  if (G.state !== 'cine') return;
+  G.state = 'play'; G.cine = null; $('letterbox').classList.remove('on'); document.body.classList.remove('cine');
+}
 // ---------------- Lock-on ----------------
 // C, the right-stick click or 🎯 locks onto the foe nearest where you look: the camera swings to keep it in view, the
 // hero faces it and strafes around it, and attacks go to it. A gold marker spins over it. When it dies, the lock
@@ -570,7 +604,7 @@ G.onTrained = () => showTip('Ready. The gate north of the fire leads down into t
 // A blessing chosen at a shrine: it lasts until the hero leaves the stage
 G.bless = (id, shrine) => {
   (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true; Codex.add('shrines');
-  Player.refit(G.player, scene, false); Snd.play('wave');
+  Player.refit(G.player, scene, false); Snd.play('shrine');
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
 };
@@ -653,7 +687,8 @@ function frame(now) {
 }
 function step(real) {
   pollPad(real);
-  Snd.music(musicMood());
+  Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
+  updateAir(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
@@ -675,6 +710,16 @@ function step(real) {
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
+  } else if (G.state === 'cine') {
+    // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
+    const c = G.cine; c.t += real; G.time += real;
+    Enemy.update(c.e, real); World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Rig.animate(G.player.rig, { mode: 'idle', t: c.t, speed: 0 }, real);
+    const e = c.e, f = e.facing, k = Math.min(1, c.t / 0.6), out = Math.max(0, (c.t - c.dur + 0.5) / 0.5);
+    const want = new THREE.Vector3(e.pos.x + Math.sin(f) * 5.5 + Math.cos(f) * 1.5, 1.6 + 1.2 * e.def.scale, e.pos.z + Math.cos(f) * 5.5 - Math.sin(f) * 1.5);
+    camera.position.lerp(want, Math.min(1, real * 4 * (1 - out) + k * 0.02));
+    camera.lookAt(e.pos.x, 1.2 * e.def.scale, e.pos.z);
+    if (c.t >= c.dur) endCine();
   } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
     World.update(real);
     Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);

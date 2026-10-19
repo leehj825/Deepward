@@ -44,6 +44,12 @@ const res = path.join(root, 'android/app/src/main/res');
 fs.cpSync(path.join(root, 'resources/android/res'), res, { recursive: true });
 console.log('copied launcher icons and splash screens');
 
+// Phones buzz on hits and parries: the vibrate permission
+const manF = path.join(root, 'android/app/src/main/AndroidManifest.xml');
+let man = fs.readFileSync(manF, 'utf8');
+if (!man.includes('android.permission.VIBRATE')) { man = man.replace(/(<\/manifest>)/, '    <uses-permission android:name="android.permission.VIBRATE" />\n$1'); fs.writeFileSync(manF, man); }
+console.log('vibrate permission set');
+
 // Android 12+ draws its own splash from the theme: keep it dark, with the emblem
 const stylesF = path.join(res, 'values/styles.xml');
 let styles = fs.readFileSync(stylesF, 'utf8');

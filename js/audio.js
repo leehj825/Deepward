@@ -59,11 +59,24 @@ const Snd = (() => {
     boss: { bpm: 108, prog: [[50, 53, 57], [51, 55, 58], [50, 53, 57], [48, 52, 55]], scale: [74, 75, 77, 79, 81, 82, 86],
       mix: { pad: 0.4, arp: 0.4, mel: 0, bass: 0.75, drum: 1, brass: 0.55 } },
   };
+  // Every guardian gets a theme of its own: chords, scale and tempo for the boss mood
+  const BOSS_THEMES = [
+    { bpm: 104, prog: [[50, 53, 57], [51, 55, 58], [50, 53, 57], [48, 52, 55]], scale: [74, 75, 77, 79, 81, 82, 86] },      // Bone Warden: D phrygian
+    { bpm: 100, prog: [[52, 55, 59], [48, 52, 55], [50, 54, 57], [47, 51, 54]], scale: [76, 78, 79, 81, 83, 84, 86] },      // Sir Aldric: E minor, marching
+    { bpm: 116, prog: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]], scale: [69, 71, 72, 74, 76, 77, 80] },      // Den Mother: A harmonic minor
+    { bpm: 112, prog: [[49, 52, 56], [50, 53, 57], [49, 52, 56], [47, 50, 54]], scale: [73, 74, 76, 77, 80, 81, 85] },      // Brood Queen: C# with a crawling half step
+    { bpm: 96, prog: [[48, 51, 55], [44, 48, 51], [46, 50, 53], [43, 47, 50]], scale: [72, 74, 75, 77, 79, 80, 83] },       // Pale Duelist: C minor waltz-ish
+    { bpm: 92, prog: [[47, 50, 54], [43, 47, 50], [45, 49, 52], [42, 46, 49]], scale: [71, 73, 74, 76, 78, 79, 81] },       // Drowned Prophet
+    { bpm: 98, prog: [[52, 55, 59], [50, 53, 57], [48, 52, 55], [47, 50, 54]], scale: [76, 79, 81, 83, 86, 88] },           // Frost Marshal
+    { bpm: 120, prog: [[45, 48, 52], [46, 50, 53], [45, 48, 52], [44, 48, 51]], scale: [69, 70, 72, 74, 76, 77, 79] },      // Furnace Lord
+    { bpm: 94, prog: [[51, 54, 58], [47, 51, 54], [49, 52, 56], [46, 49, 53]], scale: [75, 78, 80, 82, 85, 87] },           // Bone Gardener
+    { bpm: 84, prog: [[38, 41, 45], [39, 43, 46], [36, 40, 43], [37, 41, 44]], scale: [62, 63, 65, 67, 68, 70, 74] },      // Hollow King: low, slow, heavy
+  ];
   const DRUMS = {
     combat: { kick: [1, 0, 0, 0, 1, 0, 0, 1], tom: [0, 0, 1, 0, 0, 0, 1, 0], hat: [0, 1, 0, 1, 0, 1, 0, 1] },
     boss: { kick: [1, 0, 1, 0, 1, 0, 1, 1], tom: [0, 1, 0, 1, 0, 1, 0, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1] },
   };
-  const M = { mood: 'camp', want: 'camp', step: 0, next: 0, lay: {}, mel: 3, timer: null };
+  const M = { mood: 'camp', want: 'camp', step: 0, next: 0, lay: {}, mel: 3, timer: null, theme: null };
   function startMusic() {
     for (const k of ['pad', 'arp', 'mel', 'bass', 'drum', 'brass']) { const g = ctx.createGain(); g.gain.value = MOODS.camp.mix[k]; g.connect(mus); M.lay[k] = g; }
     // A soft echo for the bells and plucks
@@ -91,7 +104,7 @@ const Snd = (() => {
   function schedule() {
     if (!ctx || ctx.state !== 'running') return;
     if (M.next < ctx.currentTime - 0.5) M.next = ctx.currentTime + 0.05;          // after a long pause, don't rush to catch up
-    while (M.next < ctx.currentTime + 0.25) { playStep(M.next); M.next += 30 / MOODS[M.mood].bpm; M.step++; }
+    while (M.next < ctx.currentTime + 0.25) { playStep(M.next); M.next += 30 / (M.mood === 'boss' && M.theme !== null ? BOSS_THEMES[M.theme % BOSS_THEMES.length].bpm : MOODS[M.mood].bpm); M.step++; }
   }
   function playStep(t) {
     const i = M.step % 8;
@@ -99,7 +112,8 @@ const Snd = (() => {
       M.mood = M.want;
       for (const [k, v] of Object.entries(MOODS[M.mood].mix)) M.lay[k].gain.setTargetAtTime(v, t, 0.8);
     }
-    const mood = MOODS[M.mood], bar = Math.floor(M.step / 8), chord = mood.prog[bar % mood.prog.length], beat = 30 / mood.bpm;
+    const base = MOODS[M.mood], mood = M.mood === 'boss' && M.theme !== null ? Object.assign({}, base, BOSS_THEMES[M.theme % BOSS_THEMES.length]) : base;
+    const bar = Math.floor(M.step / 8), chord = mood.prog[bar % mood.prog.length], beat = 30 / mood.bpm;
     if (i === 0) {
       for (const n of chord) for (const det of [-6, 6]) voice(M.lay.pad, NF(n) * Math.pow(2, det / 1200), t, beat * 8.6, 'sawtooth', 0.045, beat * 2.5, 900);
       if (mood.mix.brass) for (const n of chord) voice(M.lay.brass, NF(n + 12), t, beat * 2.2, 'sawtooth', 0.06, 0.04, 1600);
@@ -132,6 +146,15 @@ const Snd = (() => {
     slam: () => { tone(60, 0.5, 'sine', 0.6, 30); noise(0.45, 0.45, 'lowpass', 600, 60); },
     gate: () => { noise(0.9, 0.18, 'lowpass', 700, 120); for (let i = 0; i < 6; i++) tone(90 + (i % 2) * 30, 0.06, 'square', 0.04, 70, i * 0.12); },
     wave: () => { for (const [f, d] of [[392, 0], [523, 0.12], [659, 0.24]]) tone(f, 0.4, 'triangle', 0.12, null, d); },
+    // Newer events
+    spikes: () => { noise(0.12, 0.35, 'highpass', 3000, 6000); for (const f of [1800, 2400]) tone(f, 0.1, 'square', 0.04, f * 0.8); },
+    execute: () => { tone(70, 0.6, 'sine', 0.7, 30); noise(0.5, 0.5, 'lowpass', 2500, 80); for (const [f, d] of [[523, 0.05], [784, 0.1], [1046, 0.15]]) tone(f, 0.5, 'triangle', 0.1, null, d); },
+    cast: () => { tone(300, 0.5, 'sine', 0.12, 900); noise(0.4, 0.12, 'bandpass', 800, 2400); },
+    reflect: () => { for (const [f, d] of [[1568, 0], [2093, 0.04], [2637, 0.08]]) tone(f, 0.4, 'sine', 0.12, null, d); },
+    mimic: () => { tone(120, 0.15, 'square', 0.25, 60); noise(0.12, 0.4, 'lowpass', 1500, 200, 0.05); tone(90, 0.2, 'sawtooth', 0.15, 50, 0.1); },
+    elite: () => { tone(220, 0.6, 'sawtooth', 0.06, 330); tone(330, 0.6, 'triangle', 0.08, 495, 0.05); },
+    shrine: () => { for (const [f, d] of [[392, 0], [494, 0.1], [587, 0.2], [784, 0.3]]) tone(f, 1.4, 'sine', 0.07, null, d); },
+    achieve: () => { for (const [f, d] of [[523, 0], [659, 0.1], [784, 0.2], [1046, 0.32]]) tone(f, 0.5, 'triangle', 0.12, null, d); },
     lose: () => { for (const [f, d] of [[392, 0], [311, 0.2], [262, 0.4]]) tone(f, 0.6, 'triangle', 0.14, null, d); },
   };
 
@@ -145,8 +168,9 @@ const Snd = (() => {
       return muted;
     },
     // The mood of the score: camp, dungeon, combat or boss (takes effect on the next bar)
-    music(mood) { if (MOODS[mood]) M.want = mood; },
+    music(mood, theme = null) { if (MOODS[mood]) { M.want = mood; M.theme = theme; } },
     get mood() { return M.mood; },
+    get theme() { return M.theme; },
     get muted() { return muted; },
   };
 })();

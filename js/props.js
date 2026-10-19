@@ -89,7 +89,7 @@ const Props = (() => {
       if (t.kind === 'spikes') {
         const S = F.spikes, near = p && Math.abs(p.pos.x - t.x) < t.w / 2 + 0.2 && Math.abs(p.pos.z - t.z) < t.L / 2 + 0.2;
         if (t.phase === 'idle' && t.t > S.idle) { t.phase = 'warn'; t.t = 0; if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 8) Snd.play('glint'); }
-        else if (t.phase === 'warn' && t.t > S.warn) { t.phase = 'up'; t.t = 0; t.hit.clear(); if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 10) Snd.play('slam'); }
+        else if (t.phase === 'warn' && t.t > S.warn) { t.phase = 'up'; t.t = 0; t.hit.clear(); if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 10) Snd.play('spikes'); }
         else if (t.phase === 'up' && t.t > S.up) { t.phase = 'idle'; t.t = 0; }
         const want = t.phase === 'warn' ? -0.33 : t.phase === 'up' ? 0.02 : -0.45;
         t.sp.position.y += (want - t.sp.position.y) * Math.min(1, dt * (t.phase === 'up' ? 30 : 10));
@@ -146,7 +146,7 @@ const Props = (() => {
     for (const m of mimics) {
       if (m.sprung || Math.hypot(p.pos.x - m.x, p.pos.z - m.z) > 1.9) continue;
       m.sprung = true; m.room.group.remove(m.g);
-      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('warn'); FX.shake(0.25);
+      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('mimic'); FX.shake(0.25);
       G.queue.push({ type: 'mimic', at: new THREE.Vector3(m.x, 0, m.z), mult: m.mult.mult, hpMult: m.mult.hpMult, room: m.room, mimic: true, t: G.time });
     }
   }

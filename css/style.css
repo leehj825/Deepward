@@ -253,3 +253,10 @@ body:not(.playing) #padKeys { display: none !important; }
 .recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; margin: 8px 0; }
 .recs div { display: flex; justify-content: space-between; padding: 4px 8px; background: rgba(255, 255, 255, 0.04); border-radius: 4px; font-size: 13px; }
 .recs b { color: #f2d27a; }
+
+/* A guardian's entrance */
+#letterbox { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+#letterbox::before, #letterbox::after { content: ''; position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.4s ease; }
+#letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
+#letterbox.on::before, #letterbox.on::after { height: 11vh; }
+body.cine #pad, body.cine #keys { opacity: 0; }

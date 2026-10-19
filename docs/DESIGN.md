@@ -234,3 +234,10 @@ Real players are slower to react than the bot, so expect more deaths.
   - **Raising:** a `raise` hit summons skeletons tied to their caster, which crumble when it dies.
   - **Mimic:** a chest prop that becomes an enemy when the hero comes close.
 - **Balance:** a bot run of stages 6–10 gives guardian fights of 30 s to 3 min. The skilled profile dies once or twice to the Hollow King, and that's intended for the final boss.
+
+## Feel and atmosphere (built)
+
+- **Boss music:** `Snd.music(mood, theme)` takes the guardian's index. The boss mood then uses that guardian's chords, scale and tempo from `BOSS_THEMES`.
+- **Weather:** the drifting points follow `AIR[theme]`: colour, size, fall or rise speed, sway and opacity. `World.theme` says which theme is current.
+- **Entrances:** a guardian's spawn starts the `cine` game state for 2.4 s. Only the guardian, the world and the effects update, the camera frames the guardian from in front, and letterbox bars close in. Any input ends it.
+- **Vibration:** `G.rumble` also uses `navigator.vibrate` on touch devices (with a setting), and the Android patch adds the VIBRATE permission.

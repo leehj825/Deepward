@@ -204,6 +204,21 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
 - **Combat:** drums and bass join, and the tempo rises. It lingers for four seconds after the last foe falls.
 - **Guardian:** faster, with darker chords and brass.
 
+**Atmosphere.**
+
+- **Guardian music:** every guardian has a boss theme of its own (chords, scale and tempo); the Hollow King's is low and slow.
+- **Weather:** each stage has its own:
+  - **Crypt:** dust.
+  - **Spider Depths:** violet spores.
+  - **Sunken Temple:** falling drips.
+  - **Frost Halls:** snow.
+  - **Ashen Forge:** rising embers.
+  - **Bone Orchard:** drifting ash.
+  - **Throne:** gold motes.
+- **Guardian entrances:** a guardian makes an entrance. The world pauses behind letterbox bars while the camera swings to it, and any key, tap or button skips it.
+- **Sounds:** spike traps, orbs being cast and reflected, executions, mimics, elites, shrines and achievements each have their own.
+- **Vibration:** on phones, hits, blocks and parries vibrate (Settings → Vibration).
+
 **Settings** (from the title or the pause screen; Y on a controller):
 
 - Master, music and effects volume.

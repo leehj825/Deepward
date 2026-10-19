@@ -264,6 +264,13 @@ body:not(.playing) #padKeys { display: none !important; }
 .recs div { display: flex; justify-content: space-between; padding: 4px 8px; background: rgba(255, 255, 255, 0.04); border-radius: 4px; font-size: 13px; }
 .recs b { color: #f2d27a; }
 
+/* A guardian's entrance */
+#letterbox { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+#letterbox::before, #letterbox::after { content: ''; position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.4s ease; }
+#letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
+#letterbox.on::before, #letterbox.on::after { height: 11vh; }
+body.cine #pad, body.cine #keys { opacity: 0; }
+
 </style>
 </head>
 <body>
@@ -318,6 +325,7 @@ body:not(.playing) #padKeys { display: none !important; }
 <div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
 <div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
 <div id="fade"></div>
+<div id="letterbox"></div>
 
 <script>
 /**
@@ -911,7 +919,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -1201,11 +1209,24 @@ const Snd = (() => {
     boss: { bpm: 108, prog: [[50, 53, 57], [51, 55, 58], [50, 53, 57], [48, 52, 55]], scale: [74, 75, 77, 79, 81, 82, 86],
       mix: { pad: 0.4, arp: 0.4, mel: 0, bass: 0.75, drum: 1, brass: 0.55 } },
   };
+  // Every guardian gets a theme of its own: chords, scale and tempo for the boss mood
+  const BOSS_THEMES = [
+    { bpm: 104, prog: [[50, 53, 57], [51, 55, 58], [50, 53, 57], [48, 52, 55]], scale: [74, 75, 77, 79, 81, 82, 86] },      // Bone Warden: D phrygian
+    { bpm: 100, prog: [[52, 55, 59], [48, 52, 55], [50, 54, 57], [47, 51, 54]], scale: [76, 78, 79, 81, 83, 84, 86] },      // Sir Aldric: E minor, marching
+    { bpm: 116, prog: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]], scale: [69, 71, 72, 74, 76, 77, 80] },      // Den Mother: A harmonic minor
+    { bpm: 112, prog: [[49, 52, 56], [50, 53, 57], [49, 52, 56], [47, 50, 54]], scale: [73, 74, 76, 77, 80, 81, 85] },      // Brood Queen: C# with a crawling half step
+    { bpm: 96, prog: [[48, 51, 55], [44, 48, 51], [46, 50, 53], [43, 47, 50]], scale: [72, 74, 75, 77, 79, 80, 83] },       // Pale Duelist: C minor waltz-ish
+    { bpm: 92, prog: [[47, 50, 54], [43, 47, 50], [45, 49, 52], [42, 46, 49]], scale: [71, 73, 74, 76, 78, 79, 81] },       // Drowned Prophet
+    { bpm: 98, prog: [[52, 55, 59], [50, 53, 57], [48, 52, 55], [47, 50, 54]], scale: [76, 79, 81, 83, 86, 88] },           // Frost Marshal
+    { bpm: 120, prog: [[45, 48, 52], [46, 50, 53], [45, 48, 52], [44, 48, 51]], scale: [69, 70, 72, 74, 76, 77, 79] },      // Furnace Lord
+    { bpm: 94, prog: [[51, 54, 58], [47, 51, 54], [49, 52, 56], [46, 49, 53]], scale: [75, 78, 80, 82, 85, 87] },           // Bone Gardener
+    { bpm: 84, prog: [[38, 41, 45], [39, 43, 46], [36, 40, 43], [37, 41, 44]], scale: [62, 63, 65, 67, 68, 70, 74] },      // Hollow King: low, slow, heavy
+  ];
   const DRUMS = {
     combat: { kick: [1, 0, 0, 0, 1, 0, 0, 1], tom: [0, 0, 1, 0, 0, 0, 1, 0], hat: [0, 1, 0, 1, 0, 1, 0, 1] },
     boss: { kick: [1, 0, 1, 0, 1, 0, 1, 1], tom: [0, 1, 0, 1, 0, 1, 0, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1] },
   };
-  const M = { mood: 'camp', want: 'camp', step: 0, next: 0, lay: {}, mel: 3, timer: null };
+  const M = { mood: 'camp', want: 'camp', step: 0, next: 0, lay: {}, mel: 3, timer: null, theme: null };
   function startMusic() {
     for (const k of ['pad', 'arp', 'mel', 'bass', 'drum', 'brass']) { const g = ctx.createGain(); g.gain.value = MOODS.camp.mix[k]; g.connect(mus); M.lay[k] = g; }
     // A soft echo for the bells and plucks
@@ -1233,7 +1254,7 @@ const Snd = (() => {
   function schedule() {
     if (!ctx || ctx.state !== 'running') return;
     if (M.next < ctx.currentTime - 0.5) M.next = ctx.currentTime + 0.05;          // after a long pause, don't rush to catch up
-    while (M.next < ctx.currentTime + 0.25) { playStep(M.next); M.next += 30 / MOODS[M.mood].bpm; M.step++; }
+    while (M.next < ctx.currentTime + 0.25) { playStep(M.next); M.next += 30 / (M.mood === 'boss' && M.theme !== null ? BOSS_THEMES[M.theme % BOSS_THEMES.length].bpm : MOODS[M.mood].bpm); M.step++; }
   }
   function playStep(t) {
     const i = M.step % 8;
@@ -1241,7 +1262,8 @@ const Snd = (() => {
       M.mood = M.want;
       for (const [k, v] of Object.entries(MOODS[M.mood].mix)) M.lay[k].gain.setTargetAtTime(v, t, 0.8);
     }
-    const mood = MOODS[M.mood], bar = Math.floor(M.step / 8), chord = mood.prog[bar % mood.prog.length], beat = 30 / mood.bpm;
+    const base = MOODS[M.mood], mood = M.mood === 'boss' && M.theme !== null ? Object.assign({}, base, BOSS_THEMES[M.theme % BOSS_THEMES.length]) : base;
+    const bar = Math.floor(M.step / 8), chord = mood.prog[bar % mood.prog.length], beat = 30 / mood.bpm;
     if (i === 0) {
       for (const n of chord) for (const det of [-6, 6]) voice(M.lay.pad, NF(n) * Math.pow(2, det / 1200), t, beat * 8.6, 'sawtooth', 0.045, beat * 2.5, 900);
       if (mood.mix.brass) for (const n of chord) voice(M.lay.brass, NF(n + 12), t, beat * 2.2, 'sawtooth', 0.06, 0.04, 1600);
@@ -1274,6 +1296,15 @@ const Snd = (() => {
     slam: () => { tone(60, 0.5, 'sine', 0.6, 30); noise(0.45, 0.45, 'lowpass', 600, 60); },
     gate: () => { noise(0.9, 0.18, 'lowpass', 700, 120); for (let i = 0; i < 6; i++) tone(90 + (i % 2) * 30, 0.06, 'square', 0.04, 70, i * 0.12); },
     wave: () => { for (const [f, d] of [[392, 0], [523, 0.12], [659, 0.24]]) tone(f, 0.4, 'triangle', 0.12, null, d); },
+    // Newer events
+    spikes: () => { noise(0.12, 0.35, 'highpass', 3000, 6000); for (const f of [1800, 2400]) tone(f, 0.1, 'square', 0.04, f * 0.8); },
+    execute: () => { tone(70, 0.6, 'sine', 0.7, 30); noise(0.5, 0.5, 'lowpass', 2500, 80); for (const [f, d] of [[523, 0.05], [784, 0.1], [1046, 0.15]]) tone(f, 0.5, 'triangle', 0.1, null, d); },
+    cast: () => { tone(300, 0.5, 'sine', 0.12, 900); noise(0.4, 0.12, 'bandpass', 800, 2400); },
+    reflect: () => { for (const [f, d] of [[1568, 0], [2093, 0.04], [2637, 0.08]]) tone(f, 0.4, 'sine', 0.12, null, d); },
+    mimic: () => { tone(120, 0.15, 'square', 0.25, 60); noise(0.12, 0.4, 'lowpass', 1500, 200, 0.05); tone(90, 0.2, 'sawtooth', 0.15, 50, 0.1); },
+    elite: () => { tone(220, 0.6, 'sawtooth', 0.06, 330); tone(330, 0.6, 'triangle', 0.08, 495, 0.05); },
+    shrine: () => { for (const [f, d] of [[392, 0], [494, 0.1], [587, 0.2], [784, 0.3]]) tone(f, 1.4, 'sine', 0.07, null, d); },
+    achieve: () => { for (const [f, d] of [[523, 0], [659, 0.1], [784, 0.2], [1046, 0.32]]) tone(f, 0.5, 'triangle', 0.12, null, d); },
     lose: () => { for (const [f, d] of [[392, 0], [311, 0.2], [262, 0.4]]) tone(f, 0.6, 'triangle', 0.14, null, d); },
   };
 
@@ -1287,8 +1318,9 @@ const Snd = (() => {
       return muted;
     },
     // The mood of the score: camp, dungeon, combat or boss (takes effect on the next bar)
-    music(mood) { if (MOODS[mood]) M.want = mood; },
+    music(mood, theme = null) { if (MOODS[mood]) { M.want = mood; M.theme = theme; } },
     get mood() { return M.mood; },
+    get theme() { return M.theme; },
     get muted() { return muted; },
   };
 })();
@@ -3037,7 +3069,7 @@ const Enemy = (() => {
     e.ward = 0;
     const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
     FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), 'EXECUTION', 'crit'); FX.burst(at, 0xffd040, 40, 10, 0.8); FX.glint(at, 0xffffff, 4, 0.4);
-    FX.shake(0.5); FX.hitStop(0.2); Snd.play('crit'); G.rumble(1, 0.8, 350); G.stats.crits++;
+    FX.shake(0.5); FX.hitStop(0.2); Snd.play('execute'); G.rumble(1, 0.8, 350); G.stats.crits++;
     hurtFlash(e, 0xffe0a0, 1.4);
     if (e.guardian) { damage(e, atk.dmg * (atk.critMult || CFG.player.critMult) * CFG.player.execute.execMult); if (e.state !== 'dead' && e.state !== 'roar') { e.posture = 0; stun(e, 1.0); } }
     else damage(e, e.hp + 1);
@@ -3084,7 +3116,7 @@ const Enemy = (() => {
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
-    e.boss = { B, next: 0 };
+    e.boss = { B, next: 0 }; e.bossIdx = si;
   }
   function checkPhase(e) {
     const ph = e.boss.B.phases[e.boss.next];
@@ -3163,6 +3195,7 @@ const Enemy = (() => {
     e.title = name;
     const tag = document.createElement('div'); tag.className = 'ename'; tag.textContent = name;
     tag.style.color = '#' + new THREE.Color(color).getHexString(); e.bar.prepend(tag); e.bar.classList.add('elite');
+    if (!title) Snd.play('elite');
   }
   // A volatile elite bursts a moment after it falls
   function explode(e) {
@@ -3203,7 +3236,7 @@ const Enemy = (() => {
       // A glowing orb, slower than an arrow, that a parry sends back
       const core = new THREE.MeshBasicMaterial({ color: 0xffffff }), halo = new THREE.MeshBasicMaterial({ color: P.orb, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
       g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), core), new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), halo));
-      mats = [core, halo]; Snd.play('glint');
+      mats = [core, halo]; Snd.play('cast');
     } else {
       const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
       g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron)); mats = [wood, iron]; Snd.play('swing');
@@ -3231,7 +3264,7 @@ const Enemy = (() => {
           const to = a.owner && a.owner.state !== 'dead' ? Combat.chestPos(a.owner.pos, 1.1 * a.owner.def.scale) : a.origin;
           a.dir = to.sub(a.pos).normalize(); a.speed *= 1.6; a.back = true; a.gone = 0;
           a.mats[1] && a.mats[1].color && a.mats[1].color.setHex(0xffd040);
-          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry');
+          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry'); Snd.play('reflect');
         } else {
           if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
           if (res !== 'dodge') done = true;
@@ -3339,7 +3372,7 @@ const Props = (() => {
       if (t.kind === 'spikes') {
         const S = F.spikes, near = p && Math.abs(p.pos.x - t.x) < t.w / 2 + 0.2 && Math.abs(p.pos.z - t.z) < t.L / 2 + 0.2;
         if (t.phase === 'idle' && t.t > S.idle) { t.phase = 'warn'; t.t = 0; if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 8) Snd.play('glint'); }
-        else if (t.phase === 'warn' && t.t > S.warn) { t.phase = 'up'; t.t = 0; t.hit.clear(); if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 10) Snd.play('slam'); }
+        else if (t.phase === 'warn' && t.t > S.warn) { t.phase = 'up'; t.t = 0; t.hit.clear(); if (p && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 10) Snd.play('spikes'); }
         else if (t.phase === 'up' && t.t > S.up) { t.phase = 'idle'; t.t = 0; }
         const want = t.phase === 'warn' ? -0.33 : t.phase === 'up' ? 0.02 : -0.45;
         t.sp.position.y += (want - t.sp.position.y) * Math.min(1, dt * (t.phase === 'up' ? 30 : 10));
@@ -3396,7 +3429,7 @@ const Props = (() => {
     for (const m of mimics) {
       if (m.sprung || Math.hypot(p.pos.x - m.x, p.pos.z - m.z) > 1.9) continue;
       m.sprung = true; m.room.group.remove(m.g);
-      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('warn'); FX.shake(0.25);
+      FX.text(new THREE.Vector3(m.x, 1.6, m.z), 'MIMIC!', 'danger'); Snd.play('mimic'); FX.shake(0.25);
       G.queue.push({ type: 'mimic', at: new THREE.Vector3(m.x, 0, m.z), mult: m.mult.mult, hpMult: m.mult.hpMult, room: m.room, mimic: true, t: G.time });
     }
   }
@@ -3603,7 +3636,7 @@ const Camp = (() => {
 const World = (() => {
   const CORR_LEN = 8, DOOR = 2.0, SIDE_DOOR = 1.6, SIDE_LEN = 4, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
   const FE = CFG.features;
-  let scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
+  let curTheme = null, scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
   // Which stage, room and loop a running room index falls in
@@ -4131,7 +4164,7 @@ const World = (() => {
   }
   // Tests: stop the dungeon sending enemies
   function halt() { halted = true; active = null; }
-  function applyTheme(th) { scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
+  function applyTheme(th) { curTheme = th; scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
     clearAll();
@@ -4170,7 +4203,7 @@ const World = (() => {
 
   return {
     init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp,
-    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; },
+    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();
 
@@ -4384,7 +4417,7 @@ const UI = (() => {
       const tog = (k, label, on, off) => `<div class="irow srow"><div class="iinfo"><b>${label}</b></div><div class="ibtns">${btn(Settings.get(k) ? on : off, 'toggle', k, false, Settings.get(k) ? 'on' : '')}</div></div>`;
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
@@ -4832,7 +4865,7 @@ const Codex = (() => {
       let ok = false; try { ok = a.test(); } catch (e) {}
       if (!ok) continue;
       got[a.id] = Date.now(); Items.addGold(a.gold); S().tripGold -= a.gold;      // rewards are never at risk
-      UI.toast(`🏆 ${a.name} · +${a.gold} ◆`, '#ffd040'); Snd.play('wave'); Items.save();
+      UI.toast(`🏆 ${a.name} · +${a.gold} ◆`, '#ffd040'); Snd.play('achieve'); Items.save();
     }
   }
 
@@ -4881,6 +4914,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       ev.preventDefault(); return;
     }
     if (ev.repeat) return;
+    if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     if (ev.code === 'KeyM') toggleMute();
     if (ev.code === 'KeyB') toggleView();
@@ -4929,6 +4963,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   let stickId = null, sx = 0, sy = 0;
   let lookId = null, lx = 0, ly = 0;
   cv.addEventListener('pointerdown', ev => {
+    if (G.state === 'cine') { endCine(); return; }                          // a tap skips a guardian's entrance
     if (ev.pointerType !== 'touch') return;
     if (ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
     if (stickId !== null) return;
@@ -4991,6 +5026,7 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
+  if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
   if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
   if (G.state !== 'play') return;
@@ -5010,6 +5046,8 @@ function pollPad(real) {
 }
 // Rumble on the controller, if it has motors: strong / weak in 0..1, duration in ms
 G.rumble = (strong, weak, ms) => {
+  // Phones buzz too (Settings: Vibration)
+  if (!Pad.id && document.body.classList.contains('touch') && Settings.get('haptics') && navigator.vibrate) { try { navigator.vibrate(Math.max(10, Math.round(ms * Math.max(strong, weak) * 0.5))); } catch (e) {} }
   if (!Pad.id) return;
   const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.id === Pad.id);
   const act = gp && gp.vibrationActuator;
@@ -5078,6 +5116,25 @@ const dust = (() => {
   scene.add(d); return d;
 })();
 
+// The air of each place: what drifts in it (colour, size, fall speed - negative falls, positive rises - and sway)
+const AIR = {
+  crypt: [0xffd8a0, 0.05, -0.05, 0.1, 0.5], keep: [0xffc890, 0.05, -0.04, 0.1, 0.45], den: [0xff9a5a, 0.05, 0.25, 0.25, 0.6],
+  camp: [0xffd8a0, 0.04, -0.03, 0.15, 0.45], depths: [0xb8a0ff, 0.07, 0.1, 0.35, 0.6], court: [0xe8e0ff, 0.04, 0.02, 0.15, 0.45],
+  temple: [0x8ae8ff, 0.05, -3.5, 0, 0.7], frost: [0xffffff, 0.09, -0.7, 0.6, 0.9], forge: [0xff7a2a, 0.07, 1.0, 0.45, 0.9],
+  orchard: [0xcfc8b0, 0.06, -0.3, 0.7, 0.6], throne: [0xffd070, 0.05, 0.06, 0.2, 0.5],
+};
+let airKey = null;
+function updateAir(dt) {
+  const th = World.theme, key = th && Object.keys(CFG.themes).find(k => CFG.themes[k] === th) || 'crypt', A = AIR[key] || AIR.crypt;
+  if (key !== airKey) { airKey = key; dust.material.color.setHex(A[0]); dust.material.size = A[1]; dust.material.opacity = A[4]; }
+  const pos = dust.geometry.attributes.position, a = pos.array, t = G.time || performance.now() / 1000;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] += A[2] * dt;
+    if (a[i + 1] < 0) a[i + 1] += 4; else if (a[i + 1] > 4) a[i + 1] -= 4;
+    if (A[3]) a[i] += Math.sin(t * 0.8 + i) * A[3] * dt;
+  }
+  pos.needsUpdate = true;
+}
 World.init(scene, hemi);
 G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp
@@ -5108,7 +5165,7 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
-    if (q.guardian) { G.bossHits = G.stats.hitsTaken; e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
+    if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.raisedBy) e.raisedBy = q.raisedBy;
     if (q.champion) {
@@ -5207,6 +5264,16 @@ function openPanel(id, opt, done) {
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
+// ---------------- Guardian entrances ----------------
+function startCine(e) {
+  if (G.state !== 'play') return;
+  G.cine = { e, t: 0, dur: 2.4 }; G.state = 'cine'; $('letterbox').classList.add('on'); document.body.classList.add('cine'); Input.keys = {};
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function endCine() {
+  if (G.state !== 'cine') return;
+  G.state = 'play'; G.cine = null; $('letterbox').classList.remove('on'); document.body.classList.remove('cine');
+}
 // ---------------- Lock-on ----------------
 // C, the right-stick click or 🎯 locks onto the foe nearest where you look: the camera swings to keep it in view, the
 // hero faces it and strafes around it, and attacks go to it. A gold marker spins over it. When it dies, the lock
@@ -5424,7 +5491,7 @@ G.onTrained = () => showTip('Ready. The gate north of the fire leads down into t
 // A blessing chosen at a shrine: it lasts until the hero leaves the stage
 G.bless = (id, shrine) => {
   (G.blessings = G.blessings || []).push(id); if (shrine) shrine.used = true; Codex.add('shrines');
-  Player.refit(G.player, scene, false); Snd.play('wave');
+  Player.refit(G.player, scene, false); Snd.play('shrine');
   const b = CFG.blessings.find(x => x.id === id); UI.toast(`${b.icon} ${b.name}: ${b.desc}`, '#9ad8ff');
   FX.ring(G.player.pos, 2, 0x9ad8ff, 0.8, { r0: 0.3 });
 };
@@ -5507,7 +5574,8 @@ function frame(now) {
 }
 function step(real) {
   pollPad(real);
-  Snd.music(musicMood());
+  Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
+  updateAir(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
   aimMoon(focus);
@@ -5529,6 +5597,16 @@ function step(real) {
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
+  } else if (G.state === 'cine') {
+    // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
+    const c = G.cine; c.t += real; G.time += real;
+    Enemy.update(c.e, real); World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Rig.animate(G.player.rig, { mode: 'idle', t: c.t, speed: 0 }, real);
+    const e = c.e, f = e.facing, k = Math.min(1, c.t / 0.6), out = Math.max(0, (c.t - c.dur + 0.5) / 0.5);
+    const want = new THREE.Vector3(e.pos.x + Math.sin(f) * 5.5 + Math.cos(f) * 1.5, 1.6 + 1.2 * e.def.scale, e.pos.z + Math.cos(f) * 5.5 - Math.sin(f) * 1.5);
+    camera.position.lerp(want, Math.min(1, real * 4 * (1 - out) + k * 0.02));
+    camera.lookAt(e.pos.x, 1.2 * e.def.scale, e.pos.z);
+    if (c.t >= c.dur) endCine();
   } else if (G.state === 'title' || !G.player) {                          // the title scene (also behind settings opened from it)
     World.update(real);
     Rig.animate(idleRig, { mode: 'idle', t: 0, speed: 0, calm: true }, real);

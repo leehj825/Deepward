@@ -81,7 +81,7 @@ const Codex = (() => {
       let ok = false; try { ok = a.test(); } catch (e) {}
       if (!ok) continue;
       got[a.id] = Date.now(); Items.addGold(a.gold); S().tripGold -= a.gold;      // rewards are never at risk
-      UI.toast(`🏆 ${a.name} · +${a.gold} ◆`, '#ffd040'); Snd.play('wave'); Items.save();
+      UI.toast(`🏆 ${a.name} · +${a.gold} ◆`, '#ffd040'); Snd.play('achieve'); Items.save();
     }
   }
 

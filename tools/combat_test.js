@@ -295,6 +295,24 @@ const SCENARIOS = {
     }
     return out;
   })()`,
+  // Feel: a guardian's entrance plays (letterbox, the world paused) and can be skipped; its own boss theme is chosen;
+  // the air changes with the stage (frost falls as snow)
+  feel: `(() => {
+    if (__dw.View.mode !== 'behind') return { skipped: true };
+    const G = __dw.G, W = __dw.World, out = {};
+    W.startStage(6); G.stageK = 6; G.queue = []; G.player.maxHp = G.player.hp = 1e6;
+    __dw.sim(0.2);
+    out.snow = __dw.scene.children.some(c => c.isPoints && c.material.color.getHex() === 0xffffff);
+    const L = W.sections[W.sections.length - 1]; W.sections.forEach(r => { if (r !== L) r.state = 'cleared'; });
+    G.player.pos.set(L.doorS, 0, L.southZ - 2.5);
+    __dw.sim(3, () => G.state === 'cine');
+    out.cine = G.state === 'cine' && document.getElementById('letterbox').classList.contains('on');
+    const hp0 = G.player.hp; __dw.sim(1); out.paused = G.player.hp === hp0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' })); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ' }));
+    out.skipped = G.state === 'play' && !document.getElementById('letterbox').classList.contains('on');
+    __dw.sim(0.2); out.theme = Snd.theme === 6 && __dw.musicMood() === 'boss';
+    return out;
+  })()`,
   // An archer's arrow is stopped by a raised shield
   arrowBlock: `(() => {
     const e = __dw.spawn('archer', 0, -3.5); e.state = 'hunt'; e.cooldown = 0; e.rig.root.position.y = 0;
@@ -397,6 +415,7 @@ const CHECKS = {
   depth: r => r.skipped || (r.spearShield && r.spearReach && r.daggers && r.daggerCuts >= 5 && r.dashCost < 14 && r.locked && r.camTurned && r.lockMoved && r.unlocked && r.broken && r.prompt && r.executed && r.bossSurvives),
   poses: r => r.bad === '',
   act2: r => r.skipped || (r.reflected === true && r.shelter && r.raised && r.crumbled && r.mimicPlaced && r.sprang && r.mimicGem),
+  feel: r => r.skipped || (r.snow && r.cine && r.paused && r.skipped && r.theme),
   progress: r => r.skipped || (r.sections === 5 && r.winding && r.blocked === 0 && r.woke && r.chased && r.cleared && r.chests === 4 && r.boss && r.lairCleared && r.mapped && r.next === 'The Iron Keep' && r.sameSize),
   strafe: r => r.skipped || (r.x > 1.5 && Math.abs(r.z - 4) < 0.2 && Math.abs(r.facing - Math.PI) < 0.05),
   shield: r => r.enemyHp === r.maxHp && r.playerState === 'hurt',

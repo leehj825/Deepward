@@ -6,7 +6,7 @@
 const World = (() => {
   const CORR_LEN = 8, DOOR = 2.0, SIDE_DOOR = 1.6, SIDE_LEN = 4, WALL_H = 3.4, N_LIGHTS = 6, CULL_DIST = 40;
   const FE = CFG.features;
-  let scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
+  let curTheme = null, scene, hemi, rooms = [], sections = [], sides = [], lights = [], fogTo = null, hemiTo = null, active = null, halted = false;
   const texCache = {};
 
   // Which stage, room and loop a running room index falls in
@@ -534,7 +534,7 @@ const World = (() => {
   }
   // Tests: stop the dungeon sending enemies
   function halt() { halted = true; active = null; }
-  function applyTheme(th) { scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
+  function applyTheme(th) { curTheme = th; scene.fog.color.setHex(th.fog); scene.background.setHex(th.fog); hemi.color.setHex(th.hemi); fogTo = hemiTo = null; }
   // Swap everything for the camp; returns where the hero should stand
   function enterCamp(levels) {
     clearAll();
@@ -573,6 +573,6 @@ const World = (() => {
 
   return {
     init, halt, update, constrain, inSpace, roomOf, route, label, info, enterCamp, startStage, startCustom, inCamp, camp,
-    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; },
+    get active() { return active; }, get rooms() { return rooms; }, get sections() { return sections; }, get sides() { return sides; }, get theme() { return curTheme; },
   };
 })();

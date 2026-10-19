@@ -309,7 +309,7 @@ const Enemy = (() => {
     e.ward = 0;
     const at = Combat.chestPos(e.pos, 1.2 * e.def.scale);
     FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), 'EXECUTION', 'crit'); FX.burst(at, 0xffd040, 40, 10, 0.8); FX.glint(at, 0xffffff, 4, 0.4);
-    FX.shake(0.5); FX.hitStop(0.2); Snd.play('crit'); G.rumble(1, 0.8, 350); G.stats.crits++;
+    FX.shake(0.5); FX.hitStop(0.2); Snd.play('execute'); G.rumble(1, 0.8, 350); G.stats.crits++;
     hurtFlash(e, 0xffe0a0, 1.4);
     if (e.guardian) { damage(e, atk.dmg * (atk.critMult || CFG.player.critMult) * CFG.player.execute.execMult); if (e.state !== 'dead' && e.state !== 'roar') { e.posture = 0; stun(e, 1.0); } }
     else damage(e, e.hp + 1);
@@ -356,7 +356,7 @@ const Enemy = (() => {
     def.attacks = scaleHits(clone(B.attacks || def.attacks).concat(clone(B.add || [])), B.reach);
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
-    e.boss = { B, next: 0 };
+    e.boss = { B, next: 0 }; e.bossIdx = si;
   }
   function checkPhase(e) {
     const ph = e.boss.B.phases[e.boss.next];
@@ -435,6 +435,7 @@ const Enemy = (() => {
     e.title = name;
     const tag = document.createElement('div'); tag.className = 'ename'; tag.textContent = name;
     tag.style.color = '#' + new THREE.Color(color).getHexString(); e.bar.prepend(tag); e.bar.classList.add('elite');
+    if (!title) Snd.play('elite');
   }
   // A volatile elite bursts a moment after it falls
   function explode(e) {
@@ -475,7 +476,7 @@ const Enemy = (() => {
       // A glowing orb, slower than an arrow, that a parry sends back
       const core = new THREE.MeshBasicMaterial({ color: 0xffffff }), halo = new THREE.MeshBasicMaterial({ color: P.orb, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
       g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), core), new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), halo));
-      mats = [core, halo]; Snd.play('glint');
+      mats = [core, halo]; Snd.play('cast');
     } else {
       const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a40 }), iron = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, emissive: 0x606060 });
       g.add(new THREE.Mesh(arrowGeo[0], wood), new THREE.Mesh(arrowGeo[1], iron)); mats = [wood, iron]; Snd.play('swing');
@@ -503,7 +504,7 @@ const Enemy = (() => {
           const to = a.owner && a.owner.state !== 'dead' ? Combat.chestPos(a.owner.pos, 1.1 * a.owner.def.scale) : a.origin;
           a.dir = to.sub(a.pos).normalize(); a.speed *= 1.6; a.back = true; a.gone = 0;
           a.mats[1] && a.mats[1].color && a.mats[1].color.setHex(0xffd040);
-          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry');
+          FX.text(Combat.chestPos(p.pos, 2.4), 'REFLECTED', 'parry'); Snd.play('reflect');
         } else {
           if (res === 'parry') FX.text(Combat.chestPos(p.pos, 2.4), 'DEFLECTED', 'parry');
           if (res !== 'dodge') done = true;
