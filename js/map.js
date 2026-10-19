@@ -23,6 +23,7 @@ const MiniMap = (() => {
     if (!show) return;
     if ((tick += dt) < 1 / 20) return; tick = 0;                         // 20 times a second is plenty
     const px = Math.round(cv.clientWidth * Math.min(2, devicePixelRatio || 1));
+    if (px < 4) return;                                                     // hidden (the Lightless curse) or not laid out yet
     if (px !== size) { size = cv.width = cv.height = px; }
     const W = size, half = W / 2;
     ctx.clearRect(0, 0, W, W);

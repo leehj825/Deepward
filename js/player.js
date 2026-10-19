@@ -15,6 +15,14 @@ const Player = (() => {
       else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
       else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
     }
+    // Curses of an Endless climb, and the gold they pay
+    if (G.run && G.run.curses && G.run.curses.length) {
+      const c = id => G.run.curses.includes(id);
+      if (c('dry')) S.flasks = 0;
+      if (c('glass')) S.maxHp = Math.round(S.maxHp * 0.5);
+      if (c('brittle')) S.block *= 0.6;
+      S.goldFind *= 1 + Endless.curseGold(G.run.curses);
+    }
     return S;
   }
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
@@ -389,5 +397,5 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable, gearStats };
 })();

@@ -394,6 +394,16 @@ const CFG = {
   championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
+  // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
+  curses: [
+    { id: 'dry', name: 'Dry Flasks', icon: '⚗', desc: 'No healing flasks', gold: 0.35 },
+    { id: 'hunted', name: 'Hunted', icon: '☠', desc: 'Every foe is an elite', gold: 0.4 },
+    { id: 'frenzy', name: 'Frenzy', icon: '⚡', desc: 'Foes move 25% faster and attack more often', gold: 0.3 },
+    { id: 'glass', name: 'Glass Warden', icon: '◇', desc: 'Half your health', gold: 0.35 },
+    { id: 'brittle', name: 'Brittle Guard', icon: '🛡', desc: 'Blocks stop 40% less damage', gold: 0.25 },
+    { id: 'dark', name: 'Lightless', icon: '☾', desc: 'The dark closes in, and no map', gold: 0.2 },
+  ],
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
   blessings: [
     { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },

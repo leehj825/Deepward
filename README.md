@@ -92,7 +92,17 @@ A box at the top says what to press in your own controls (keyboard, controller o
   - Every third floor ends in that stage's guardian (with its phases); the other floors bring its champion mid-floor.
   - Between floors, choose to go deeper (you heal 30%) or go home and keep your gold. Fall, and you lose half of the trip's gold as usual.
   - Loot and elite odds keep rising with depth, and your deepest floor is kept.
-- **Daily Descent:** the same climb seeded by the date, so every warden gets the same floors that day. Today's best is kept separately.
+- **Daily Descent:** the same climb seeded by the date, so every warden gets the same floors that day, under the same curse. Today's best is kept separately.
+- **Curses:** before an Endless climb, carry any of six curses. Each makes it harder and pays more gold, and they add up (all six: +185%). The deepest floor is kept for each number of curses carried.
+
+  | Curse | Effect | Gold |
+  | --- | --- | --- |
+  | ⚗ Dry Flasks | No healing flasks | +35% |
+  | ☠ Hunted | Every foe is an elite | +40% |
+  | ⚡ Frenzy | Foes move 25% faster and attack more often | +30% |
+  | ◇ Glass Warden | Half your health | +35% |
+  | 🛡 Brittle Guard | Blocks stop 40% less damage | +25% |
+  | ☾ Lightless | The dark closes in, and no map | +20% |
 
 **Growth.**
 

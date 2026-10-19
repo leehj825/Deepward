@@ -149,7 +149,7 @@ const Enemy = (() => {
       } else if (e.phase === 'recover') {
         if (e.phaseT >= h.recover) {
           if (e.hitIdx < e.atk.hits.length - 1) { e.hitIdx++; beginHit(e); }
-          else { e.cooldown = (def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0])) * Settings.diff.cooldown; setState(e, 'hunt'); }
+          else { e.cooldown = (def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0])) * Settings.diff.cooldown * (e.frenzy ? 0.7 : 1); setState(e, 'hunt'); }
         }
       }
     } else if (e.state === 'roar') {

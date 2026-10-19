@@ -181,8 +181,9 @@ const UI = (() => {
       // The Endless Deep, once the fifth guardian has fallen
       const E = S.endless || { best: 0, daily: {} }, daily = E.daily && E.daily.date === Endless.today() ? E.daily.best : 0;
       if (Endless.unlocked()) {
-        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
-        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
+        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Choose curses…', 'open', 'curses', false, 'hot')}</div></div>`;
+        const dc = CFG.curses.find(c => c.id === Endless.dailyCurse());
+        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today, under today's curse: ${dc.icon} ${dc.name} (${esc(dc.desc.toLowerCase())}), +${Math.round(dc.gold * 100)}% gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
       } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
@@ -221,7 +222,7 @@ const UI = (() => {
     deeper(o) {
       const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
       return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
-        <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
+        ${G.run && G.run.curses.length ? `<p class="dim">Carrying: ${G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ')} · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold</p>` : ''}<p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
         ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
     // The gear screen: the hero in their gear between the five slots, the numbers, the selected item's details, and the
@@ -275,6 +276,18 @@ const UI = (() => {
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Before an Endless climb: pick any curses (each harder, each more gold), then descend
+    curses() {
+      const S = Items.S, E = S.endless || {}, on = tab.curses || (tab.curses = (E.lastCurses || []).slice()), gold = Endless.curseGold(on);
+      let h = '<h2>Curses of the Deep</h2><p class="sub">Carry curses into the Endless Deep for more gold. They last the whole climb, and they add up.</p>';
+      for (const c of CFG.curses) {
+        const sel = on.includes(c.id);
+        h += `<div class="irow curse${sel ? ' got' : ''}"><div class="iinfo"><b>${c.icon} ${esc(c.name)}</b> <small class="goldc">+${Math.round(c.gold * 100)}% gold</small><div class="istats">${esc(c.desc)}</div></div><div class="ibtns">${btn(sel ? 'Carried' : 'Carry', 'curse', c.id, false, sel ? 'on' : '')}</div></div>`;
+      }
+      const heat = E.heat || {}, rec = Object.keys(heat).sort((a, b) => a - b).map(n => `${n} curse${n > 1 ? 's' : ''}: floor ${heat[n]}`).join(' · ');
+      h += `<p>${on.length ? `<b>${on.length} curse${on.length > 1 ? 's' : ''}</b> · <b class="goldc">+${Math.round(gold * 100)}% gold</b>` : 'No curses: the plain climb.'}${rec ? `<br><span class="dim">Deepest with curses — ${rec}</span>` : ''}</p>`;
+      return h + `<div class="tact">${btn('Descend', 'endlessgo', '', false, 'hot')}${btn('Back', 'open', 'gate')}</div>`;
     },
     // The three save slots: play or start one, export it as a code, import a code into it, delete it (asked twice)
     saves() {
@@ -409,6 +422,8 @@ const UI = (() => {
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
+    if (a === 'curse') { const on = tab.curses || (tab.curses = []), i = on.indexOf(arg); if (i >= 0) on.splice(i, 1); else on.push(arg); Snd.play(i >= 0 ? 'glint' : 'warn'); return render(); }
+    if (a === 'endlessgo') { const S = Items.S; S.endless = S.endless || { best: 0, daily: {} }; S.endless.lastCurses = (tab.curses || []).slice(); close(); return G.enterEndless(false, S.endless.lastCurses); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }

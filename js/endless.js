@@ -43,13 +43,19 @@ const Endless = (() => {
     finally { Math.random = keep; }
   }
   // A new climb: daily uses today's seed, otherwise a random one
-  function newRun(daily) { return { daily, floor: 1, date: today(), seed: daily ? hash('deepward:' + today()) : Math.floor(Math.random() * 2 ** 31) }; }
+  function newRun(daily, curses = []) { return { daily, floor: 1, date: today(), seed: daily ? hash('deepward:' + today()) : Math.floor(Math.random() * 2 ** 31), curses: daily ? [dailyCurse()] : curses.slice() }; }
+  // Today's curse for the Daily Descent: the same for everyone
+  const dailyCurse = () => CFG.curses[hash('curse:' + today()) % CFG.curses.length].id;
+  // The extra gold a set of curses brings (they add up)
+  const curseGold = ids => (ids || []).reduce((a, id) => a + ((CFG.curses.find(c => c.id === id) || {}).gold || 0), 0);
   // Keep the deepest floor reached
   function record(run) {
     const S = Items.S, e = S.endless = S.endless || { best: 0, daily: {} };
     if (run.daily) { e.daily = e.daily.date === run.date ? e.daily : { date: run.date, best: 0 }; e.daily.best = Math.max(e.daily.best, run.floor); }
     else e.best = Math.max(e.best, run.floor);
+    const n = (run.curses || []).length;                                      // records by how many curses were carried
+    if (n && !run.daily) { e.heat = e.heat || {}; e.heat[n] = Math.max(e.heat[n] || 0, run.floor); }
   }
   const unlocked = () => !!Items.S && Items.S.stage >= CFG.stages.length;
-  return { rng, today, floorDef, start, newRun, record, unlocked };
+  return { rng, today, floorDef, start, newRun, record, unlocked, dailyCurse, curseGold };
 })();

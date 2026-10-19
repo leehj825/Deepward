@@ -213,6 +213,8 @@ Each stage's plan picks its extras (see `CFG.features`):
 - **Between floors:** a floor is done when its guardian's chest opens, or when every section is cleared. The "deeper" panel can't be dismissed: go deeper (heal 30%, at least one flask) or return to camp.
 - **Records:** `S.endless.best` and `S.endless.daily` (date and best) are updated at the start of each floor.
 
+- **Curses:** `G.run.curses` (ids from `CFG.curses`). `Player.gearStats` applies Dry Flasks, Glass Warden and Brittle Guard and multiplies gold found by `1 + Endless.curseGold`; spawns roll a sure elite under Hunted and get faster steps and 30% shorter cooldowns under Frenzy; `curseWorld()` pulls the fog in and hides the map under Lightless, and restores both anywhere else. The Daily Descent's curse comes from a hash of the date. `S.endless.heat[n]` keeps the deepest floor for n curses; the last chosen set is remembered.
+
 ## Balance (tuned with tools/balance.js)
 
 `tools/balance.js` plays each stage and four Endless floors with a scripted warden.
@@ -313,7 +315,7 @@ The next steps, in the order I'd take them. Each is sized like one of the S or T
 
 **V4. Controls everywhere (done).** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
 
-**V5. Endless Deep with modifiers.** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
+**V5. Endless Deep with modifiers (done).** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
 
 **V6. Weapon arts.** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
 

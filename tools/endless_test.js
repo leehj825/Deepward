@@ -14,12 +14,14 @@ const path = require('path');
   Object.assign(out, await pg.evaluate(() => {
     const o = {}; __dw.start('new'); while (__dw.UI.open) document.querySelector('#pcard .pb').click();
     __dw.openPanel('gate'); o.locked = !document.querySelector('[data-act="endless"]'); __dw.UI.close();
-    __dw.Items.S.stage = CFG.stages.length; __dw.openPanel('gate'); o.unlocked = document.querySelectorAll('[data-act="endless"]').length === 2;
+    __dw.Items.S.stage = CFG.stages.length; __dw.openPanel('gate'); o.unlocked = document.querySelectorAll('[data-act="endless"]').length === 1 && !!document.querySelector('[data-act="open"][data-arg="curses"]');
     // The daily floors are the same from one build to the next
     const a = Endless.floorDef(2, Endless.rng(1234), true), b = Endless.floorDef(2, Endless.rng(1234), true);
     o.seeded = JSON.stringify(a) === JSON.stringify(b);
     o.lairEvery3 = !Endless.floorDef(1, Endless.rng(5)).lair && !Endless.floorDef(2, Endless.rng(5)).lair && Endless.floorDef(3, Endless.rng(5)).lair;
-    window.__floor = 1; document.querySelector('[data-act="endless"][data-arg="0"]').click();
+    document.querySelector('[data-act="open"][data-arg="curses"]').click();
+    o.cursesPanel = document.querySelectorAll('.pcard.curses .irow.curse').length === CFG.curses.length;
+    window.__floor = 1; document.querySelector('[data-act="endlessgo"]').click();
     return o;
   }));
   await wait();
@@ -59,7 +61,30 @@ const path = require('path');
     window.__want = 'dungeon'; window.__floor = 1; __dw.G.enterEndless(true); return o;
   }));
   await wait();
-  Object.assign(out, await pg.evaluate(() => ({ daily: !!__dw.G.run && __dw.G.run.daily && __dw.Items.S.endless.daily.best === 1 && __dw.Items.S.endless.best === 3 })));
+  Object.assign(out, await pg.evaluate(() => ({ daily: !!__dw.G.run && __dw.G.run.daily && __dw.Items.S.endless.daily.best === 1 && __dw.Items.S.endless.best === 3,
+    dailyCurse: __dw.G.run.curses.length === 1 && __dw.G.run.curses[0] === Endless.dailyCurse() })));
+  // Curses: plain numbers first, then a climb carrying Dry Flasks, Hunted, Lightless, Glass Warden, Brittle Guard and Frenzy
+  const plain = await pg.evaluate(() => { const run = __dw.G.run; __dw.G.run = null; const S = Player.gearStats(); __dw.G.run = run; return { hp: S.maxHp, block: S.block, gold: S.goldFind }; });
+  await pg.evaluate(() => { window.__want = 'camp'; window.__floor = 0; __dw.G.returnToCamp(); }); await wait();
+  await pg.evaluate(() => { while (__dw.UI.open) document.querySelector('#pcard .pb').click(); __dw.openPanel('gate'); document.querySelector('[data-act="open"][data-arg="curses"]').click();
+    for (const id of ['dry', 'hunted', 'dark', 'glass', 'brittle', 'frenzy']) document.querySelector(`[data-act="curse"][data-arg="${id}"]`).click();
+    window.__want = 'dungeon'; window.__floor = 1; document.querySelector('[data-act="endlessgo"]').click(); });
+  await wait();
+  Object.assign(out, await pg.evaluate(base => {
+    const o = {}, G = __dw.G, p = G.player, S = p.S;
+    o.cursedRun = G.run.curses.length === 6 && __dw.Items.S.endless.lastCurses.length === 6;
+    o.dry = p.flasks === 0 && S.flasks === 0;
+    o.glass = !!base && S.maxHp <= Math.round(base.hp * 0.5) + 1 && S.block < base.block * 0.7;
+    o.goldMore = !!base && Math.abs(S.goldFind / base.gold - (1 + Endless.curseGold(G.run.curses))) < 0.01;
+    o.dark = document.body.classList.contains('lightless') && __dw.scene.fog.far < 20;
+    // Spawned foes are all elites, and quicker
+    const sp = CFG.enemies.skeleton.speed; G.queue.push({ type: 'skeleton', at: p.pos.clone().add(new THREE.Vector3(0, 0, -4)), mult: 1, t: G.time }); __dw.sim(0.1);
+    const e = G.enemies[G.enemies.length - 1]; o.hunted = !!e.elite; o.frenzy = e.frenzy === true;
+    return o;
+  }, plain));
+  // Records by number of curses; home clears the dark
+  await pg.evaluate(() => { window.__want = 'camp'; window.__floor = 0; __dw.G.returnToCamp(); }); await wait();
+  Object.assign(out, await pg.evaluate(() => ({ heat: __dw.Items.S.endless.heat[6] === 1, lightAgain: !document.body.classList.contains('lightless') && __dw.scene.fog.far === 38 })));
   await b.close();
   const ok = !errs.length && Object.entries(out).every(([k, v]) => k === 'mult1' ? v > 1.1 : v === true);
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(out));

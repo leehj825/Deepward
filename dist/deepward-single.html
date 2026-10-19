@@ -347,6 +347,8 @@ span.ithumb { display: flex; align-items: center; justify-content: center; font-
 .ctlgrid small { text-align: center; }
 .listen { padding: 8px 12px; margin: 6px 0; border: 1px solid #f2d27a; border-radius: 6px; background: rgba(242, 210, 122, 0.12); animation: pulse 1s infinite alternate; }
 @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
+.irow.curse.got { background: linear-gradient(90deg, rgba(192, 106, 255, 0.16), rgba(255, 255, 255, 0.03)); border-left: 3px solid #c06aff; }
 
 </style>
 </head>
@@ -812,6 +814,16 @@ const CFG = {
   championMult: 2.6,
   // The Endless Deep (after the fifth guardian): floors get perFloor tougher; a guardian every lairEvery floors
   endless: { perFloor: 0.18, lairEvery: 3, sections: [3], bigFrom: 4, mixFrom: 4, maxWave: 6 },            // the mid-stage champion: this much tougher (on top of its modifiers), and bigger
+  // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
+  // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
+  curses: [
+    { id: 'dry', name: 'Dry Flasks', icon: '⚗', desc: 'No healing flasks', gold: 0.35 },
+    { id: 'hunted', name: 'Hunted', icon: '☠', desc: 'Every foe is an elite', gold: 0.4 },
+    { id: 'frenzy', name: 'Frenzy', icon: '⚡', desc: 'Foes move 25% faster and attack more often', gold: 0.3 },
+    { id: 'glass', name: 'Glass Warden', icon: '◇', desc: 'Half your health', gold: 0.35 },
+    { id: 'brittle', name: 'Brittle Guard', icon: '🛡', desc: 'Blocks stop 40% less damage', gold: 0.25 },
+    { id: 'dark', name: 'Lightless', icon: '☾', desc: 'The dark closes in, and no map', gold: 0.2 },
+  ],
   // Shrine blessings: pray at a shrine and pick one of three; it lasts until you leave the stage
   blessings: [
     { id: 'wrath', name: 'Wrath', icon: '🔥', desc: '+20% damage' },
@@ -2753,6 +2765,14 @@ const Player = (() => {
       else if (b === 'vigor') S.regen *= 1.4; else if (b === 'fortune') S.goldFind *= 1.5; else if (b === 'thirst') S.lifesteal += 0.04;
       else if (b === 'steady') S.parry += 0.05; else if (b === 'mending') S.mending = 0.06;
     }
+    // Curses of an Endless climb, and the gold they pay
+    if (G.run && G.run.curses && G.run.curses.length) {
+      const c = id => G.run.curses.includes(id);
+      if (c('dry')) S.flasks = 0;
+      if (c('glass')) S.maxHp = Math.round(S.maxHp * 0.5);
+      if (c('brittle')) S.block *= 0.6;
+      S.goldFind *= 1 + Endless.curseGold(G.run.curses);
+    }
     return S;
   }
   const gearLook = () => (typeof Items !== 'undefined' && Items.S) ? Items.look() : {};
@@ -3127,7 +3147,7 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable, gearStats };
 })();
 
 </script>
@@ -3283,7 +3303,7 @@ const Enemy = (() => {
       } else if (e.phase === 'recover') {
         if (e.phaseT >= h.recover) {
           if (e.hitIdx < e.atk.hits.length - 1) { e.hitIdx++; beginHit(e); }
-          else { e.cooldown = (def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0])) * Settings.diff.cooldown; setState(e, 'hunt'); }
+          else { e.cooldown = (def.cooldown[0] + Math.random() * (def.cooldown[1] - def.cooldown[0])) * Settings.diff.cooldown * (e.frenzy ? 0.7 : 1); setState(e, 'hunt'); }
         }
       }
     } else if (e.state === 'roar') {
@@ -4872,8 +4892,9 @@ const UI = (() => {
       // The Endless Deep, once the fifth guardian has fallen
       const E = S.endless || { best: 0, daily: {} }, daily = E.daily && E.daily.date === Endless.today() ? E.daily.best : 0;
       if (Endless.unlocked()) {
-        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 0, false, 'hot')}</div></div>`;
-        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
+        h += `<h3>Below the five</h3><div class="irow uniq"><div class="iinfo"><b>The Endless Deep</b> <small>deepest floor ${E.best || '-'}</small><div class="istats">Floor after floor, each tougher. A guardian every third floor; go home between floors to keep your gold.</div></div><div class="ibtns">${btn('Choose curses…', 'open', 'curses', false, 'hot')}</div></div>`;
+        const dc = CFG.curses.find(c => c.id === Endless.dailyCurse());
+        h += `<div class="irow uniq"><div class="iinfo"><b>Daily Descent</b> <small>${Endless.today()} · today's best ${daily || '-'}</small><div class="istats">The same floors for every warden today, under today's curse: ${dc.icon} ${dc.name} (${esc(dc.desc.toLowerCase())}), +${Math.round(dc.gold * 100)}% gold.</div></div><div class="ibtns">${btn('Descend', 'endless', 1)}</div></div>`;
       } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
@@ -4912,7 +4933,7 @@ const UI = (() => {
     deeper(o) {
       const S = Items.S, next = o.floor + 1, lair = next % CFG.endless.lairEvery === 0;
       return `<h2>Floor ${o.floor} cleared</h2><p class="sub">${o.daily ? 'Daily Descent' : 'The Endless Deep'} · deepest ${o.daily ? (S.endless.daily.best) : S.endless.best}</p>${money()}
-        <p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
+        ${G.run && G.run.curses.length ? `<p class="dim">Carrying: ${G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ')} · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold</p>` : ''}<p>The stair keeps going. Floor ${next} is ${Math.round(CFG.endless.perFloor * 100)}% tougher${lair ? ', and a guardian waits at its end' : ''}. Go home now and the gold is safe; fall and you lose half of this trip's.</p>
         ${btn('Go deeper · floor ' + next, 'deeper', '', false, 'hot')}${btn('Return to camp', 'camp')}`;
     },
     // The gear screen: the hero in their gear between the five slots, the numbers, the selected item's details, and the
@@ -4966,6 +4987,18 @@ const UI = (() => {
       const cost = CFG.progress.respecCost * S.level;
       if (o.trainer) h += btn(`Unlearn all talents · ◆${cost}`, 'respec', '', S.gold < cost || !Object.keys(S.talents).length);
       return h + btn('Close', 'close', '', false, 'leave');
+    },
+    // Before an Endless climb: pick any curses (each harder, each more gold), then descend
+    curses() {
+      const S = Items.S, E = S.endless || {}, on = tab.curses || (tab.curses = (E.lastCurses || []).slice()), gold = Endless.curseGold(on);
+      let h = '<h2>Curses of the Deep</h2><p class="sub">Carry curses into the Endless Deep for more gold. They last the whole climb, and they add up.</p>';
+      for (const c of CFG.curses) {
+        const sel = on.includes(c.id);
+        h += `<div class="irow curse${sel ? ' got' : ''}"><div class="iinfo"><b>${c.icon} ${esc(c.name)}</b> <small class="goldc">+${Math.round(c.gold * 100)}% gold</small><div class="istats">${esc(c.desc)}</div></div><div class="ibtns">${btn(sel ? 'Carried' : 'Carry', 'curse', c.id, false, sel ? 'on' : '')}</div></div>`;
+      }
+      const heat = E.heat || {}, rec = Object.keys(heat).sort((a, b) => a - b).map(n => `${n} curse${n > 1 ? 's' : ''}: floor ${heat[n]}`).join(' · ');
+      h += `<p>${on.length ? `<b>${on.length} curse${on.length > 1 ? 's' : ''}</b> · <b class="goldc">+${Math.round(gold * 100)}% gold</b>` : 'No curses: the plain climb.'}${rec ? `<br><span class="dim">Deepest with curses — ${rec}</span>` : ''}</p>`;
+      return h + `<div class="tact">${btn('Descend', 'endlessgo', '', false, 'hot')}${btn('Back', 'open', 'gate')}</div>`;
     },
     // The three save slots: play or start one, export it as a code, import a code into it, delete it (asked twice)
     saves() {
@@ -5100,6 +5133,8 @@ const UI = (() => {
     if (a === 'descend') { const k = +arg; close(); return G.descend(k); }
     if (a === 'train') { close(); return G.startTraining(); }
     if (a === 'endless') { close(); return G.enterEndless(+arg === 1); }
+    if (a === 'curse') { const on = tab.curses || (tab.curses = []), i = on.indexOf(arg); if (i >= 0) on.splice(i, 1); else on.push(arg); Snd.play(i >= 0 ? 'glint' : 'warn'); return render(); }
+    if (a === 'endlessgo') { const S = Items.S; S.endless = S.endless || { best: 0, daily: {} }; S.endless.lastCurses = (tab.curses || []).slice(); close(); return G.enterEndless(false, S.endless.lastCurses); }
     if (a === 'deeper') { close(); return G.goDeeper(); }
     if (a === 'camp') { close(); return G.returnToCamp(); }
     if (a === 'onward') { close(); return G.pressOn(); }
@@ -5204,6 +5239,7 @@ const MiniMap = (() => {
     if (!show) return;
     if ((tick += dt) < 1 / 20) return; tick = 0;                         // 20 times a second is plenty
     const px = Math.round(cv.clientWidth * Math.min(2, devicePixelRatio || 1));
+    if (px < 4) return;                                                     // hidden (the Lightless curse) or not laid out yet
     if (px !== size) { size = cv.width = cv.height = px; }
     const W = size, half = W / 2;
     ctx.clearRect(0, 0, W, W);
@@ -5314,15 +5350,21 @@ const Endless = (() => {
     finally { Math.random = keep; }
   }
   // A new climb: daily uses today's seed, otherwise a random one
-  function newRun(daily) { return { daily, floor: 1, date: today(), seed: daily ? hash('deepward:' + today()) : Math.floor(Math.random() * 2 ** 31) }; }
+  function newRun(daily, curses = []) { return { daily, floor: 1, date: today(), seed: daily ? hash('deepward:' + today()) : Math.floor(Math.random() * 2 ** 31), curses: daily ? [dailyCurse()] : curses.slice() }; }
+  // Today's curse for the Daily Descent: the same for everyone
+  const dailyCurse = () => CFG.curses[hash('curse:' + today()) % CFG.curses.length].id;
+  // The extra gold a set of curses brings (they add up)
+  const curseGold = ids => (ids || []).reduce((a, id) => a + ((CFG.curses.find(c => c.id === id) || {}).gold || 0), 0);
   // Keep the deepest floor reached
   function record(run) {
     const S = Items.S, e = S.endless = S.endless || { best: 0, daily: {} };
     if (run.daily) { e.daily = e.daily.date === run.date ? e.daily : { date: run.date, best: 0 }; e.daily.best = Math.max(e.daily.best, run.floor); }
     else e.best = Math.max(e.best, run.floor);
+    const n = (run.curses || []).length;                                      // records by how many curses were carried
+    if (n && !run.daily) { e.heat = e.heat || {}; e.heat[n] = Math.max(e.heat[n] || 0, run.floor); }
   }
   const unlocked = () => !!Items.S && Items.S.stage >= CFG.stages.length;
-  return { rng, today, floorDef, start, newRun, record, unlocked };
+  return { rng, today, floorDef, start, newRun, record, unlocked, dailyCurse, curseGold };
 })();
 
 </script>
@@ -5872,7 +5914,8 @@ function updateSpawns() {
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
-    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, G.cursed('hunted')); if (m) Enemy.makeElite(e, m); }
+    if (G.cursed('frenzy')) { e.def.speed *= 1.25; e.frenzy = true; }                 // a curse of the Endless Deep
     G.enemies.push(e);
     return false;
   });
@@ -6020,7 +6063,7 @@ function placeHero(at) {
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
   if (Tutorial.active) Tutorial.stop();
-  clearEnemies(); G.blessings = []; G.run = null;
+  clearEnemies(); G.blessings = []; G.run = null; curseWorld();
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -6056,7 +6099,7 @@ function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
 G.descend = (k, onward) => fadeTo(() => {
   clearEnemies(); G.blessings = []; G.run = null;
-  const at = World.startStage(k);
+  const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
@@ -6128,15 +6171,24 @@ G.onChest = room => {
 };
 // ---------------- The Endless Deep ----------------
 // A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
-G.enterEndless = daily => { G.run = Endless.newRun(daily); Items.S.tripGold = 0; G.goFloor(); };
+G.enterEndless = (daily, curses) => { G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
+// Is this curse on the current Endless climb?
+G.cursed = id => !!(G.run && G.run.curses && G.run.curses.includes(id));
+// Lightless closes the fog in and hides the map; anywhere else the air is as usual
+function curseWorld() {
+  const dark = G.cursed('dark');
+  scene.fog.near = dark ? 5 : 18; scene.fog.far = dark ? 15 : 38;
+  document.body.classList.toggle('lightless', dark);
+}
 G.goFloor = () => fadeTo(() => {
   clearEnemies(); G.blessings = [];
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
   Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
-  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); p.flasks = Math.max(p.flasks, 1); }
-  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label();
+  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
+  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
+  if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');
   if (at.lair) UI.toast('A guardian waits at the end of this floor', '#ff7a2a');
 });
 G.onFloorCleared = () => { if (G.run && !UI.open) openPanel('deeper', { floor: G.run.floor, daily: G.run.daily }); };

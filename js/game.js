@@ -303,7 +303,8 @@ function updateSpawns() {
       const cm = CFG.championMult * (C.hp || 1); e.hp *= cm; e.maxHp *= cm; e.def.scale *= 1.25; e.def.radius *= 1.25; e.rig.root.scale.multiplyScalar(1.25);
       e.def.flinch = false; e.champion = true; e.guardian = C.name; e.bar.style.display = 'none'; G.boss = e;
     } else if (q.elite) { Enemy.makeElite(e, Enemy.rollElite(G.stageK || 0, true)); e.rig.root.scale.multiplyScalar(1.18); }
-    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, false); if (m) Enemy.makeElite(e, m); }
+    else if (!q.guardian && !q.add && !q.raisedBy && !q.mimic && G.mode === 'dungeon') { const m = Enemy.rollElite(G.stageK || 0, G.cursed('hunted')); if (m) Enemy.makeElite(e, m); }
+    if (G.cursed('frenzy')) { e.def.speed *= 1.25; e.frenzy = true; }                 // a curse of the Endless Deep
     G.enemies.push(e);
     return false;
   });
@@ -451,7 +452,7 @@ function placeHero(at) {
 // Into the camp: everything restored, Tilda's stock refreshed, the game saved
 function enterCamp(atSpawn = true) {
   if (Tutorial.active) Tutorial.stop();
-  clearEnemies(); G.blessings = []; G.run = null;
+  clearEnemies(); G.blessings = []; G.run = null; curseWorld();
   const at = World.enterCamp();
   G.mode = 'camp';
   const S = Items.S; S.tripGold = 0;
@@ -487,7 +488,7 @@ function runTimers() { const due = G.timers.filter(t => G.time >= t.t); G.timers
 // Down into stage k (onward: pressing on from the last guardian, so the trip's gold stays at risk)
 G.descend = (k, onward) => fadeTo(() => {
   clearEnemies(); G.blessings = []; G.run = null;
-  const at = World.startStage(k);
+  const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
   Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
@@ -559,15 +560,24 @@ G.onChest = room => {
 };
 // ---------------- The Endless Deep ----------------
 // A climb (G.run): floor after floor from Endless.start; between floors, deeper or home
-G.enterEndless = daily => { G.run = Endless.newRun(daily); Items.S.tripGold = 0; G.goFloor(); };
+G.enterEndless = (daily, curses) => { G.run = Endless.newRun(daily, curses); Items.S.tripGold = 0; G.goFloor(); };
+// Is this curse on the current Endless climb?
+G.cursed = id => !!(G.run && G.run.curses && G.run.curses.includes(id));
+// Lightless closes the fog in and hides the map; anywhere else the air is as usual
+function curseWorld() {
+  const dark = G.cursed('dark');
+  scene.fog.near = dark ? 5 : 18; scene.fog.far = dark ? 15 : 38;
+  document.body.classList.toggle('lightless', dark);
+}
 G.goFloor = () => fadeTo(() => {
   clearEnemies(); G.blessings = [];
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
   Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
-  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); p.flasks = Math.max(p.flasks, 1); }
-  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label();
+  if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
+  placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
+  if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');
   if (at.lair) UI.toast('A guardian waits at the end of this floor', '#ff7a2a');
 });
 G.onFloorCleared = () => { if (G.run && !UI.open) openPanel('deeper', { floor: G.run.floor, daily: G.run.daily }); };
