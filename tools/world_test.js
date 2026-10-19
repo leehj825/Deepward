@@ -58,6 +58,7 @@ const path = require('path');
     // Through the gate: the Rim is a little trip of its own
     I.S.gold = 500; p.maxHp = p.hp = 1e5; p.pos.set(0, 0, f.rect.z0 + 2); __dw.sim(0.3);
     o.fieldMode = G.mode === 'field' && /The Rim/.test(W.label());
+    __dw.setView('top'); __dw.sim(0.2); o.topCamera = [__dw.camera.position.x, __dw.camera.position.y, __dw.camera.position.z].every(Number.isFinite); __dw.setView('behind');   // the field has no depth to frame (was NaN)
     // The Meadow fills with beasts that wander until the warden is near
     const mead = f.zones.find(z => z.id === 'meadow'); p.pos.set(mead.x, 0, mead.z - mead.r - 12); __dw.sim(2);
     const beasts = () => G.enemies.filter(e => e.zone === mead && e.state !== 'dead');
@@ -95,6 +96,36 @@ const path = require('path');
     p.maxHp = p.hp = 1; p.state = 'free'; p.blocking = false; const e = __dw.spawn('skeleton', p.pos.x, p.pos.z - 1.5); Player.receive(p, e, Object.assign({}, e.def.attacks[0].hits[0], { dmg: 500 })); e.remove = true;
     __dw.sim(2.5);
     return { rimDeath: I.S.gold === g0 - 10 && !!document.querySelector('.pcard.fallen') };
+  }));
+  // ---- W3: materials and crafting ----
+  await pg.evaluate(() => { while (__dw.UI.open) __dw.UI.close(); __dw.G.wakeInCamp(); });
+  await pg.waitForFunction(() => __dw.G.mode === 'camp' && !document.getElementById('fade').classList.contains('on'), null, { timeout: 8000 });
+  Object.assign(out, await pg.evaluate(() => {
+    const o = {}, G = __dw.G, I = __dw.Items, f = __dw.World.field(), p = G.player; while (__dw.UI.open) __dw.UI.close(); G.state = 'play';
+    p.maxHp = p.hp = 1e5; p.pos.set(0, 0, f.rect.z0 + 2); __dw.sim(0.3);
+    // Wolves drop pelts on the Rim
+    const mead = f.zones.find(z => z.id === 'meadow'); I.S.mats = {};
+    for (let k = 0; k < 10; k++) { const w = __dw.spawn('wolf', p.pos.x, p.pos.z + 3); w.zone = mead; w.state = 'broken'; Enemy.receive(w, { dmg: 9999, posture: 0 }, p); __dw.sim(0.05); w.remove = true; }
+    o.pelts = (I.S.mats.pelt || 0) > 0;
+    // Gather a herb patch and an ore vein; they grow back
+    const herb = f.nodes.find(n => n.kind === 'herb'), ore = f.nodes.find(n => n.kind === 'ore');
+    p.pos.set(herb.x + 1, 0, herb.z); __dw.sim(0.2); const spot = G.spot && G.spot.id; __dw.interact();
+    o.gather = spot === 'gather' && I.S.mats.herb > 0 && !herb.ready && !herb.g.visible;
+    p.pos.set(ore.x + 1.3, 0, ore.z); __dw.sim(0.2); __dw.interact(); o.mine = I.S.mats.ore > 0;
+    herb.t = 0.1; __dw.sim(0.3); o.regrow = herb.ready && herb.g.visible;
+    // Bram crafts Wolfhide Wraps from pelts, and tempers a worn piece with ore
+    I.S.mats = { pelt: 5, ore: 5, herb: 5, tusk: 0, bone: 0 }; I.S.gold = 1000; I.S.scrap = 10;
+    __dw.openPanel('smith'); document.querySelector('[data-arg="smith:craft"]').click();
+    document.querySelector('[data-act="craft"][data-arg="wolfwraps"]').click();
+    const wraps = I.S.inv.find(x => x.name === 'Wolfhide Wraps');
+    o.craft = !!wraps && wraps.slot === 'gloves' && wraps.rarity >= 1 && wraps.aff.some(a => a.k === 'crit') && I.S.mats.pelt === 1 && I.S.gold === 960;
+    document.querySelector('[data-arg="smith:upgrade"]').click();
+    const wpn = I.S.equip.weapon, plus0 = wpn.plus; document.querySelector(`[data-act="temper"][data-arg="${wpn.id}"]`).click();
+    o.temper = wpn.plus === plus0 + 1 && I.S.mats.ore === 2 && I.S.scrap === 8; __dw.UI.close();
+    // Ysolde brews a Wind Tonic from herbs for a fifth of the price
+    I.S.tonics = []; __dw.openPanel('herbalist'); document.querySelector('[data-act="brew"][data-arg="stamina"]').click();
+    o.brew = I.S.tonics.includes('stamina') && I.S.mats.herb === 3 && I.S.gold === 960 - 12; __dw.UI.close();
+    return o;
   }));
   await b.close();
   const ok = !errs.length && Object.values(out).every(v => v === true);

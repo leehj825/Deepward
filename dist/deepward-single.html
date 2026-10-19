@@ -871,9 +871,30 @@ const CFG = {
       { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4 },
       { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
     ],
+    nodes: { herb: 12, ore: 8, regrow: 150 },   // herb patches and ore veins to gather; each grows back after regrow seconds
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // Materials: dropped by beasts (and the dead below, less often) and gathered on the Rim; Bram crafts with them and
+  // Ysolde brews tonics from herbs
+  materials: {
+    pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+  },
+  matDrops: {                      // chance per kill on the Rim; below, a third of it
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
+  },
+  // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
+  crafts: [
+    { id: 'wolfwraps', name: 'Wolfhide Wraps', slot: 'gloves', wc: 0, rarity: 1, aff: ['crit'], need: { pelt: 4 }, gold: 40 },
+    { id: 'tuskfists', name: 'Tuskbreaker Gauntlets', slot: 'gloves', wc: 2, rarity: 2, aff: ['posture', 'hp'], need: { tusk: 3, ore: 2 }, gold: 80 },
+    { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
+    { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
+    { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
+  ],
+  temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [
@@ -1006,10 +1027,10 @@ const CFG = {
     deathGoldLoss: 0.5,         // share of the gold gathered on a trip that is lost if you fall
     // Ysolde the herbalist's tonics: drunk in camp, they last for the next trip below (or out on the Rim)
     tonics: [
-      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60 },
-      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80 },
-      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70 },
-      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90 },
+      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60, herbs: 2 },
+      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80, herbs: 3 },
+      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70, herbs: 3 },
+      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90, herbs: 2, ore: 1 },
     ],
     curioMult: 4,               // Odo the curio dealer: one rare-or-better piece a day, at this many times its value
   },
@@ -1246,7 +1267,7 @@ const Items = (() => {
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
-      gems: {}, uniques: [],                        // loose gems by kind; uniques found so far
+      gems: {}, uniques: [], mats: {},                        // loose gems by kind; uniques found so far
     };
   }
 
@@ -1330,6 +1351,17 @@ const Items = (() => {
   // A random gem kind
   const randomGem = () => pick(Object.keys(C.gems));
   function addGem(kind, n = 1) { S.gems[kind] = (S.gems[kind] || 0) + n; }
+  // Materials (pelts, tusks, bones, ore, herbs)
+  function addMat(kind, n = 1) { S.mats = S.mats || {}; S.mats[kind] = (S.mats[kind] || 0) + n; }
+  const hasMats = need => Object.entries(need || {}).every(([k, n]) => ((S.mats || {})[k] || 0) >= n);
+  function spendMats(need) { if (!hasMats(need)) return false; for (const [k, n] of Object.entries(need || {})) S.mats[k] -= n; return true; }
+  // Bram's hunter work: a piece from a recipe, at the warden's depth
+  function craft(r) {
+    if (!hasMats(r.need) || S.gold < r.gold || S.inv.length >= C.invSize) return null;
+    spendMats(r.need); S.gold -= r.gold;
+    const it = generate(Math.min(S.stage, C.tierNames.length - 1), { slot: r.slot, wc: r.wc, rarity: r.rarity });
+    it.name = r.name; it.aff = r.aff.map(k => rollAffix(k, it.tier)); add(it); return it;
+  }
   // Set a loose gem into an item's first empty socket, or take one out
   function setGem(it, kind) { const i = (it.gems || []).indexOf(null); if (i < 0 || !(S.gems[kind] > 0)) return false; it.gems[i] = kind; S.gems[kind]--; return true; }
   function pryGems(it) { for (let i = 0; i < (it.gems || []).length; i++) if (it.gems[i]) { addGem(it.gems[i]); it.gems[i] = null; } }
@@ -1523,7 +1555,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY_OF()); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
+    get S() { return S; }, addMat, hasMats, spendMats, craft, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
@@ -4467,6 +4499,19 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
+    // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back)
+    room.nodes = [];
+    const herbM = M(0x6aa83a), flowerM = new THREE.MeshBasicMaterial({ color: 0xd8f070 }), oreM = M(0x5a5a5e), veinM = new THREE.MeshBasicMaterial({ color: 0xd88a4a });
+    room.mats.push(flowerM, veinM);
+    const N = F.nodes;
+    for (const [kind, n] of [['herb', N.herb], ['ore', N.ore]]) for (let k = 0, tries = 0; k < n && tries < 400; tries++) {
+      const x = R(-hw + 4, hw - 4), z = R(z0 + 6, z1 - 4);
+      if (Math.abs(x) < 4 || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
+      const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+      if (kind === 'herb') for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; const st = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 4), herbM); st.position.set(Math.sin(a) * 0.2, 0.25, Math.cos(a) * 0.2); g.add(st); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), flowerM); fl.position.set(Math.sin(a) * 0.2, 0.52, Math.cos(a) * 0.2); g.add(fl); room.geos.push(st.geometry, fl.geometry); }
+      else { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), oreM); r.position.y = 0.3; r.castShadow = true; g.add(r); room.geos.push(r.geometry); for (let j = 0; j < 4; j++) { const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), veinM); v.position.set(Math.sin(j * 1.6) * 0.45, 0.35 + (j % 2) * 0.2, Math.cos(j * 1.6) * 0.45); g.add(v); room.geos.push(v.geometry); } room.pillars.push([x, z, 0.6]); }
+      room.nodes.push({ kind, x, z, g, ready: true, t: 0 }); k++;
+    }
     return room;
   }
 
@@ -4485,6 +4530,7 @@ const Field = (() => {
   }
   // Keep each zone stocked while the warden is anywhere near it; beasts far behind are let go (they come back later)
   function update(room, dt, p) {
+    for (const n of room.nodes) if (!n.ready && (n.t -= dt) <= 0) { n.ready = true; n.g.visible = true; }
     if (!p || G.state !== 'play' || G.training) return;
     const here = p.pos.z > room.rect.z0 - 3;
     for (const z of room.zones) {
@@ -4503,9 +4549,22 @@ const Field = (() => {
     // ...and no beast follows the warden through the gate
     for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
   }
+  // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
+  function nearest(room, pos) {
+    let best = null, bd = 1.8;
+    for (const n of room.nodes) { if (!n.ready) continue; const d = Math.hypot(pos.x - n.x, pos.z - n.z); if (d < bd) { bd = d; best = n; } }
+    return best && { id: 'gather', node: best, name: best.kind === 'herb' ? 'Herbs' : 'Iron ore', verb: best.kind === 'herb' ? 'Gather' : 'Mine', x: best.x, z: best.z };
+  }
+  // Pick it: one to three of the material, and it grows back in a while
+  function gather(node) {
+    if (!node.ready) return 0;
+    const n = 1 + Math.floor(Math.random() * (node.kind === 'herb' ? 3 : 2));
+    Items.addMat(node.kind, n); node.ready = false; node.t = F.nodes.regrow; node.g.visible = false;
+    return n;
+  }
   // The zone the hero stands in (for the label and the map)
   function zoneAt(room, pos) { return room.zones.find(z => Math.hypot(pos.x - z.x, pos.z - z.z) < z.r + 2) || null; }
-  return { build, update, zoneAt, multOf };
+  return { build, update, zoneAt, multOf, nearest, gather };
 })();
 
 </script>
@@ -5288,6 +5347,9 @@ const UI = (() => {
     return h;
   }
 
+  // The materials carried, as a short line
+  const matLine = () => { const M = Items.S.mats || {}; const have = Object.keys(CFG.materials).filter(k => M[k] > 0); return have.length ? 'Materials: ' + have.map(k => `${CFG.materials[k].icon} ${CFG.materials[k].name} ×${M[k]}`).join(' · ') : '<span class="dim">No materials yet: hunt on the Rim, gather herbs and ore.</span>'; };
+  const brewNeed = t => Object.assign({ herb: t.herbs }, t.ore ? { ore: t.ore } : {});
   // Setting, prying and socketing gems in worn gear (Bram's Gems tab and Nell's bench)
   function gemsBody(say) {
     const S = Items.S, GM = CFG.gear.gems, SC = CFG.gear.sockets;
@@ -5313,11 +5375,12 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['craft', 'Craft'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
-          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok)); }).join('') : '<p class="dim">Nothing equipped.</p>';
+          const T = CFG.temper, tOk = !max && Items.hasMats({ ore: T.ore }) && S.scrap >= T.scrap;
+          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok) + btn(`Temper · ${CFG.materials.ore.icon}${T.ore} ⚙${T.scrap}`, 'temper', it.id, !tOk)); }).join('') : '<p class="dim">Nothing equipped.</p>';
       } else if (t === 'forge') {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
@@ -5333,6 +5396,13 @@ const UI = (() => {
         for (const it of eq) {
           const c = Items.rerollCost(it), ok = S.gold >= c.gold && S.scrap >= c.scrap;
           h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
+        }
+      } else if (t === 'craft') {
+        h += `<p>"Bring me what the Rim gives up, and I'll make something of it." · ${matLine()}</p>`;
+        for (const r of CFG.crafts) {
+          const ok = Items.hasMats(r.need) && S.gold >= r.gold && S.inv.length < CFG.gear.invSize, Rr = CFG.gear.rarities[r.rarity];
+          const need = Object.entries(r.need).map(([k, n]) => `${CFG.materials[k].icon}${n}`).join(' ');
+          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${CFG.gear.slotNames[r.slot]}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
         }
       } else if (t === 'gems') {
         h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
@@ -5432,6 +5502,7 @@ const UI = (() => {
       if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
       h += gearDetail(st) + '</div></div>';
       const GM = C.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
@@ -5532,9 +5603,11 @@ const UI = (() => {
       const S = Items.S, have = S.tonics || [];
       let h = `<h2>Ysolde's Stall</h2><p class="sub">"Drink it on the stair, not before. It keeps for one trip and no longer."</p>${money()}`;
       h += `<p>${have.length ? 'Packed for your next trip: ' + have.map(id => { const t = CFG.camp.tonics.find(x => x.id === id); return t.icon + ' ' + t.name; }).join(', ') : 'Nothing packed yet.'}</p>`;
+      h += `<p class="dim">Bring herbs and she brews it for a fraction of the price. ${matLine()}</p>`;
       for (const t of CFG.camp.tonics) {
-        const got = have.includes(t.id);
-        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost)}</div></div>`;
+        const got = have.includes(t.id), need = brewNeed(t), canBrew = Items.hasMats(need) && S.gold >= Math.round(t.cost * 0.2);
+        const brew = btn(`Brew · ${Object.entries(need).map(([k, n]) => CFG.materials[k].icon + n).join(' ')} ◆${Math.round(t.cost * 0.2)}`, 'brew', t.id, !canBrew);
+        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost) + brew}</div></div>`;
       }
       return h + btn('Close', 'close', '', false, 'leave');
     },
@@ -5609,6 +5682,9 @@ const UI = (() => {
     }
     if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
     if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
+    if (a === 'craft') { const r = CFG.crafts.find(x => x.id === arg), it = r && Items.craft(r); if (it) { Snd.play('parry'); toast('Crafted: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'temper') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), T = CFG.temper; if (it && it.plus < Items.maxPlus() && S.scrap >= T.scrap && Items.spendMats({ ore: T.ore })) { S.scrap -= T.scrap; it.plus++; Snd.play('block'); toast('Tempered: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'brew') { const t = CFG.camp.tonics.find(x => x.id === arg), g = t && Math.round(t.cost * 0.2); S.tonics = S.tonics || []; if (t && !S.tonics.includes(t.id) && S.gold >= g && Items.spendMats(brewNeed(t))) { S.gold -= g; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
     if (a === 'gemcut') { const [from, to] = arg.split(':'); if ((S.gems[from] || 0) >= 3) { S.gems[from] -= 3; Items.addGem(to); Snd.play('parry'); toast(`Cut: ${CFG.gear.gems[to].icon} ${CFG.gear.gems[to].name}`, '#9ad8ff'); changed(); } return render(); }
     if (a === 'tonic') { const t = CFG.camp.tonics.find(x => x.id === arg); S.tonics = S.tonics || []; if (t && S.gold >= t.cost && !S.tonics.includes(t.id)) { S.gold -= t.cost; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
     if (a === 'curiobuy') { const c = curioOfDay(), price = c.item && Items.value(c.item) * CFG.camp.curioMult; if (c.item && S.gold >= price && Items.add(c.item)) { S.gold -= price; if (c.item.uniq && !S.uniques.includes(c.item.uniq)) S.uniques.push(c.item.uniq); toast('Bought: ' + Items.fullName(c.item), R[c.item.rarity].color); S.curio.item = null; Snd.play('wave'); changed(); } return render(); }
@@ -6494,7 +6570,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -6678,6 +6754,8 @@ G.onEnemyDeath = e => {
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  // Materials: beasts of the Rim drop them; the dead below now and then
+  for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
   if (e.type === 'mimic') {                                                // what a mimic swallowed
     gemFound(1);
     if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
@@ -6788,6 +6866,11 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'gather') {                                                // a herb patch or an ore vein on the Rim
+    const n = Field.gather(s.node), M = CFG.materials[s.node.kind];
+    if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
+    return;
+  }
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
@@ -6861,7 +6944,7 @@ function updateCamera(dt) {
   // Stay framed on the section the hero is in (in a passage, just follow)
   const r = p && World.roomOf(p.pos);
   let tx = camTarget.x, tz = camTarget.z;
-  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
+  if (r && r.kind !== 'field') { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);

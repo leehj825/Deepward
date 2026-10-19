@@ -108,6 +108,9 @@ const UI = (() => {
     return h;
   }
 
+  // The materials carried, as a short line
+  const matLine = () => { const M = Items.S.mats || {}; const have = Object.keys(CFG.materials).filter(k => M[k] > 0); return have.length ? 'Materials: ' + have.map(k => `${CFG.materials[k].icon} ${CFG.materials[k].name} ×${M[k]}`).join(' · ') : '<span class="dim">No materials yet: hunt on the Rim, gather herbs and ore.</span>'; };
+  const brewNeed = t => Object.assign({ herb: t.herbs }, t.ore ? { ore: t.ore } : {});
   // Setting, prying and socketing gems in worn gear (Bram's Gems tab and Nell's bench)
   function gemsBody(say) {
     const S = Items.S, GM = CFG.gear.gems, SC = CFG.gear.sockets;
@@ -133,11 +136,12 @@ const UI = (() => {
     smith() {
       const S = Items.S, t = tab.smith || (tab.smith = 'upgrade'), tier = Math.min(S.stage, CFG.gear.tierNames.length - 1);
       let h = `<h2>Bram's Forge</h2><p class="sub">"Bring me gold and scrap and I'll make that steel sing." · Forge level ${S.camp.forge}, upgrades up to +${Items.maxPlus()}</p>${money()}`;
-      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
+      h += tabs('smith', [['upgrade', 'Upgrade'], ['forge', 'Forge new'], ['craft', 'Craft'], ['gems', 'Gems'], ['reroll', 'Reroll'], ['salvage', 'Salvage']]);
       if (t === 'upgrade') {
         const eq = CFG.gear.slots.map(s => S.equip[s]).filter(Boolean);
         h += eq.length ? eq.map(it => { const c = Items.upgradeCost(it), max = it.plus >= Items.maxPlus(), ok = !max && S.gold >= c.gold && S.scrap >= c.scrap;
-          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok)); }).join('') : '<p class="dim">Nothing equipped.</p>';
+          const T = CFG.temper, tOk = !max && Items.hasMats({ ore: T.ore }) && S.scrap >= T.scrap;
+          return itemRow(it, max ? '<small class="dim">Needs a better forge</small>' : btn(`+${it.plus + 1} · ◆${c.gold} ⚙${c.scrap}`, 'upgrade', it.id, !ok) + btn(`Temper · ${CFG.materials.ore.icon}${T.ore} ⚙${T.scrap}`, 'temper', it.id, !tOk)); }).join('') : '<p class="dim">Nothing equipped.</p>';
       } else if (t === 'forge') {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
@@ -153,6 +157,13 @@ const UI = (() => {
         for (const it of eq) {
           const c = Items.rerollCost(it), ok = S.gold >= c.gold && S.scrap >= c.scrap;
           h += itemRow(it, it.aff.map((a, i) => btn(`${CFG.gear.affixes[a.k].name.split(' (')[0]} · ◆${c.gold} ⚙${c.scrap}`, 'reroll', it.id + ':' + i, !ok)).join(''));
+        }
+      } else if (t === 'craft') {
+        h += `<p>"Bring me what the Rim gives up, and I'll make something of it." · ${matLine()}</p>`;
+        for (const r of CFG.crafts) {
+          const ok = Items.hasMats(r.need) && S.gold >= r.gold && S.inv.length < CFG.gear.invSize, Rr = CFG.gear.rarities[r.rarity];
+          const need = Object.entries(r.need).map(([k, n]) => `${CFG.materials[k].icon}${n}`).join(' ');
+          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${CFG.gear.slotNames[r.slot]}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
         }
       } else if (t === 'gems') {
         h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
@@ -252,6 +263,7 @@ const UI = (() => {
       if (!S.inv.length) h += '<p class="dim">Chests and guardians drop gear; Bram and Tilda make and sell it.</p>';
       h += gearDetail(st) + '</div></div>';
       const GM = C.gems, held = Object.keys(GM).filter(k => S.gems[k] > 0);
+      h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
       h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex');
@@ -352,9 +364,11 @@ const UI = (() => {
       const S = Items.S, have = S.tonics || [];
       let h = `<h2>Ysolde's Stall</h2><p class="sub">"Drink it on the stair, not before. It keeps for one trip and no longer."</p>${money()}`;
       h += `<p>${have.length ? 'Packed for your next trip: ' + have.map(id => { const t = CFG.camp.tonics.find(x => x.id === id); return t.icon + ' ' + t.name; }).join(', ') : 'Nothing packed yet.'}</p>`;
+      h += `<p class="dim">Bring herbs and she brews it for a fraction of the price. ${matLine()}</p>`;
       for (const t of CFG.camp.tonics) {
-        const got = have.includes(t.id);
-        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost)}</div></div>`;
+        const got = have.includes(t.id), need = brewNeed(t), canBrew = Items.hasMats(need) && S.gold >= Math.round(t.cost * 0.2);
+        const brew = btn(`Brew · ${Object.entries(need).map(([k, n]) => CFG.materials[k].icon + n).join(' ')} ◆${Math.round(t.cost * 0.2)}`, 'brew', t.id, !canBrew);
+        h += `<div class="irow${got ? ' got' : ''}"><div class="iinfo"><b>${t.icon} ${esc(t.name)}</b><div class="istats">${esc(t.desc)} · next trip</div></div><div class="ibtns">${got ? '<small class="goldc">Packed</small>' : btn('◆ ' + t.cost, 'tonic', t.id, S.gold < t.cost) + brew}</div></div>`;
       }
       return h + btn('Close', 'close', '', false, 'leave');
     },
@@ -429,6 +443,9 @@ const UI = (() => {
     }
     if (a === 'bindkey' || a === 'bindpad') { Bindings.startListen(arg, a === 'bindkey' ? 'key' : 'pad', () => { if (open && open.id === 'controls') { Snd.play('glint'); render(); } }); return render(); }
     if (a === 'bindreset') { Bindings.reset(); Snd.play('glint'); return render(); }
+    if (a === 'craft') { const r = CFG.crafts.find(x => x.id === arg), it = r && Items.craft(r); if (it) { Snd.play('parry'); toast('Crafted: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'temper') { const it = CFG.gear.slots.map(s => S.equip[s]).find(x => x && x.id === +arg), T = CFG.temper; if (it && it.plus < Items.maxPlus() && S.scrap >= T.scrap && Items.spendMats({ ore: T.ore })) { S.scrap -= T.scrap; it.plus++; Snd.play('block'); toast('Tempered: ' + Items.fullName(it), R[it.rarity].color); changed(); } return render(); }
+    if (a === 'brew') { const t = CFG.camp.tonics.find(x => x.id === arg), g = t && Math.round(t.cost * 0.2); S.tonics = S.tonics || []; if (t && !S.tonics.includes(t.id) && S.gold >= g && Items.spendMats(brewNeed(t))) { S.gold -= g; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
     if (a === 'gemcut') { const [from, to] = arg.split(':'); if ((S.gems[from] || 0) >= 3) { S.gems[from] -= 3; Items.addGem(to); Snd.play('parry'); toast(`Cut: ${CFG.gear.gems[to].icon} ${CFG.gear.gems[to].name}`, '#9ad8ff'); changed(); } return render(); }
     if (a === 'tonic') { const t = CFG.camp.tonics.find(x => x.id === arg); S.tonics = S.tonics || []; if (t && S.gold >= t.cost && !S.tonics.includes(t.id)) { S.gold -= t.cost; S.tonics.push(t.id); Snd.play('glint'); changed(); } return render(); }
     if (a === 'curiobuy') { const c = curioOfDay(), price = c.item && Items.value(c.item) * CFG.camp.curioMult; if (c.item && S.gold >= price && Items.add(c.item)) { S.gold -= price; if (c.item.uniq && !S.uniques.includes(c.item.uniq)) S.uniques.push(c.item.uniq); toast('Bought: ' + Items.fullName(c.item), R[c.item.rarity].color); S.curio.item = null; Snd.play('wave'); changed(); } return render(); }

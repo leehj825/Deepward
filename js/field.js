@@ -89,6 +89,19 @@ const Field = (() => {
     const sign = M(0x6a4a2c);
     for (const q of room.zones) { const a = Math.atan2(-q.x, room.cz - q.z), x = q.x + Math.sin(a) * (q.r + 1.5), z = q.z + Math.cos(a) * (q.r + 1.5); add(new THREE.BoxGeometry(0.1, 1.5, 0.1), trunk, x, 0.75, z); add(new THREE.BoxGeometry(0.9, 0.4, 0.06), sign, x, 1.35, z).rotation.y = a; }
     Rig.bake(group, false, room.keep);
+    // Herb patches and ore veins to gather (kept apart from the baked meshes: they vanish when picked and grow back)
+    room.nodes = [];
+    const herbM = M(0x6aa83a), flowerM = new THREE.MeshBasicMaterial({ color: 0xd8f070 }), oreM = M(0x5a5a5e), veinM = new THREE.MeshBasicMaterial({ color: 0xd88a4a });
+    room.mats.push(flowerM, veinM);
+    const N = F.nodes;
+    for (const [kind, n] of [['herb', N.herb], ['ore', N.ore]]) for (let k = 0, tries = 0; k < n && tries < 400; tries++) {
+      const x = R(-hw + 4, hw - 4), z = R(z0 + 6, z1 - 4);
+      if (Math.abs(x) < 4 || room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < pr + 1.2) || room.nodes.some(q => Math.hypot(q.x - x, q.z - z) < 6)) continue;
+      const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+      if (kind === 'herb') for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; const st = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 4), herbM); st.position.set(Math.sin(a) * 0.2, 0.25, Math.cos(a) * 0.2); g.add(st); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), flowerM); fl.position.set(Math.sin(a) * 0.2, 0.52, Math.cos(a) * 0.2); g.add(fl); room.geos.push(st.geometry, fl.geometry); }
+      else { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), oreM); r.position.y = 0.3; r.castShadow = true; g.add(r); room.geos.push(r.geometry); for (let j = 0; j < 4; j++) { const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), veinM); v.position.set(Math.sin(j * 1.6) * 0.45, 0.35 + (j % 2) * 0.2, Math.cos(j * 1.6) * 0.45); g.add(v); room.geos.push(v.geometry); } room.pillars.push([x, z, 0.6]); }
+      room.nodes.push({ kind, x, z, g, ready: true, t: 0 }); k++;
+    }
     return room;
   }
 
@@ -107,6 +120,7 @@ const Field = (() => {
   }
   // Keep each zone stocked while the warden is anywhere near it; beasts far behind are let go (they come back later)
   function update(room, dt, p) {
+    for (const n of room.nodes) if (!n.ready && (n.t -= dt) <= 0) { n.ready = true; n.g.visible = true; }
     if (!p || G.state !== 'play' || G.training) return;
     const here = p.pos.z > room.rect.z0 - 3;
     for (const z of room.zones) {
@@ -125,7 +139,20 @@ const Field = (() => {
     // ...and no beast follows the warden through the gate
     for (const e of G.enemies) if (e.zone && e.pos.z < room.rect.z0 + 0.5) { e.pos.z = room.rect.z0 + 0.5; if (e.aggro && p.pos.z < room.rect.z0 - 1) { e.aggro = false; e.wanderT = 0; } }
   }
+  // A ready herb patch or ore vein within reach of the hero, as a spot to interact with
+  function nearest(room, pos) {
+    let best = null, bd = 1.8;
+    for (const n of room.nodes) { if (!n.ready) continue; const d = Math.hypot(pos.x - n.x, pos.z - n.z); if (d < bd) { bd = d; best = n; } }
+    return best && { id: 'gather', node: best, name: best.kind === 'herb' ? 'Herbs' : 'Iron ore', verb: best.kind === 'herb' ? 'Gather' : 'Mine', x: best.x, z: best.z };
+  }
+  // Pick it: one to three of the material, and it grows back in a while
+  function gather(node) {
+    if (!node.ready) return 0;
+    const n = 1 + Math.floor(Math.random() * (node.kind === 'herb' ? 3 : 2));
+    Items.addMat(node.kind, n); node.ready = false; node.t = F.nodes.regrow; node.g.visible = false;
+    return n;
+  }
   // The zone the hero stands in (for the label and the map)
   function zoneAt(room, pos) { return room.zones.find(z => Math.hypot(pos.x - z.x, pos.z - z.z) < z.r + 2) || null; }
-  return { build, update, zoneAt, multOf };
+  return { build, update, zoneAt, multOf, nearest, gather };
 })();

@@ -20,7 +20,7 @@ const Items = (() => {
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {},
-      gems: {}, uniques: [],                        // loose gems by kind; uniques found so far
+      gems: {}, uniques: [], mats: {},                        // loose gems by kind; uniques found so far
     };
   }
 
@@ -104,6 +104,17 @@ const Items = (() => {
   // A random gem kind
   const randomGem = () => pick(Object.keys(C.gems));
   function addGem(kind, n = 1) { S.gems[kind] = (S.gems[kind] || 0) + n; }
+  // Materials (pelts, tusks, bones, ore, herbs)
+  function addMat(kind, n = 1) { S.mats = S.mats || {}; S.mats[kind] = (S.mats[kind] || 0) + n; }
+  const hasMats = need => Object.entries(need || {}).every(([k, n]) => ((S.mats || {})[k] || 0) >= n);
+  function spendMats(need) { if (!hasMats(need)) return false; for (const [k, n] of Object.entries(need || {})) S.mats[k] -= n; return true; }
+  // Bram's hunter work: a piece from a recipe, at the warden's depth
+  function craft(r) {
+    if (!hasMats(r.need) || S.gold < r.gold || S.inv.length >= C.invSize) return null;
+    spendMats(r.need); S.gold -= r.gold;
+    const it = generate(Math.min(S.stage, C.tierNames.length - 1), { slot: r.slot, wc: r.wc, rarity: r.rarity });
+    it.name = r.name; it.aff = r.aff.map(k => rollAffix(k, it.tier)); add(it); return it;
+  }
   // Set a loose gem into an item's first empty socket, or take one out
   function setGem(it, kind) { const i = (it.gems || []).indexOf(null); if (i < 0 || !(S.gems[kind] > 0)) return false; it.gems[i] = kind; S.gems[kind]--; return true; }
   function pryGems(it) { for (let i = 0; i < (it.gems || []).length; i++) if (it.gems[i]) { addGem(it.gems[i]); it.gems[i] = null; } }
@@ -297,7 +308,7 @@ const Items = (() => {
   function wipe() { try { localStorage.removeItem(SAVE_KEY_OF()); } catch (e) {} }
 
   return {
-    get S() { return S; }, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
+    get S() { return S; }, addMat, hasMats, spendMats, craft, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, wipe, rollRarity,
     rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };

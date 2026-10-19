@@ -26,6 +26,9 @@ Every model is built in code from primitives, and there are no model, texture or
 - Beasts wander their zone until you come close, then attack; hit one, or come near a wolf, and its pack comes too. Lead one too far from home and it gives up, mending as it goes back. They come back a while after they fall, and nothing follows you through the gate.
 - **Boars** gore up close, and from 5 to 10 m lower their heads and **charge** in a straight line (red, unblockable): dash out of the line. **Goblin scouts** keep their distance and throw spears you can block, parry or dash.
 - The Rim grows tougher as you go deeper below. Kills give XP, gold and weapon mastery as in the dungeon.
+- **Materials:** beasts drop pelts 🐾, tusks 🦷 and ore ⛏ (the dead below drop bones 🦴, less often), and the Rim has herb patches 🌿 and ore veins to gather (E / A / TALK); they grow back after a while.
+  - **Bram's Craft tab** makes hunter gear: Wolfhide Wraps, Tuskbreaker Gauntlets, Hunter's Boots, a Bone Charm, the Ring of the Pack and a Tusk-plated Hauberk (at your depth, rare or epic, with fixed bonuses). **Temper** raises a worn piece one + level for ore and scrap instead of gold.
+  - **Ysolde brews** any tonic from herbs for a fifth of its price.
 - Going out through the gate starts a little trip: your tonics are drunk, and the gold you pick up is carried. Walking back into the Hold banks it. Falling on the Rim costs only a tenth of the gold carried (below it is half).
 
 **Codex and achievements.** Open the codex with O, from the gear screen, or from the pause screen.

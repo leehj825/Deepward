@@ -448,9 +448,30 @@ const CFG = {
       { id: 'graves', name: 'Old Graveyard', x: -36, z: 50, r: 15, mobs: ['skeleton', 'skeleton', 'archer'], cap: 5, respawn: 30, mult: 1.4 },
       { id: 'ridge', name: 'The Broken Ridge', x: 0, z: 88, r: 18, mobs: ['boar', 'wolf', 'scout', 'brute'], cap: 6, respawn: 40, mult: 1.9 },
     ],
+    nodes: { herb: 12, ore: 8, regrow: 150 },   // herb patches and ore veins to gather; each grows back after regrow seconds
     leash: 14,                     // a beast chases this far past its zone, then gives up and goes home
     deathGoldLoss: 0.1,            // falling on the Rim costs this share of the gold carried (less than below)
   },
+  // Materials: dropped by beasts (and the dead below, less often) and gathered on the Rim; Bram crafts with them and
+  // Ysolde brews tonics from herbs
+  materials: {
+    pelt: { name: 'Pelt', icon: '🐾' }, tusk: { name: 'Tusk', icon: '🦷' }, bone: { name: 'Bone', icon: '🦴' },
+    ore: { name: 'Iron ore', icon: '⛏' }, herb: { name: 'Herbs', icon: '🌿' },
+  },
+  matDrops: {                      // chance per kill on the Rim; below, a third of it
+    wolf: [['pelt', 0.6]], boar: [['tusk', 0.5], ['pelt', 0.35]], scout: [['ore', 0.35]], spider: [['herb', 0.3]],
+    skeleton: [['bone', 0.5]], archer: [['bone', 0.4]], brute: [['ore', 0.5], ['tusk', 0.2]], goblin: [['ore', 0.2]], necro: [['bone', 0.6]],
+  },
+  // Bram's hunter work: gear made from materials (tier of the warden's depth, at least rare), and tempering with ore
+  crafts: [
+    { id: 'wolfwraps', name: 'Wolfhide Wraps', slot: 'gloves', wc: 0, rarity: 1, aff: ['crit'], need: { pelt: 4 }, gold: 40 },
+    { id: 'tuskfists', name: 'Tuskbreaker Gauntlets', slot: 'gloves', wc: 2, rarity: 2, aff: ['posture', 'hp'], need: { tusk: 3, ore: 2 }, gold: 80 },
+    { id: 'hunterboots', name: "Hunter's Boots", slot: 'boots', wc: 0, rarity: 1, aff: ['regen'], need: { pelt: 3, ore: 1 }, gold: 50 },
+    { id: 'bonecharm', name: 'Bone Charm', slot: 'trinket', rarity: 2, aff: ['hp', 'lifesteal'], need: { bone: 6 }, gold: 60 },
+    { id: 'packring', name: 'Ring of the Pack', slot: 'ring', rarity: 2, aff: ['crit', 'stamina'], need: { pelt: 3, tusk: 2, bone: 2 }, gold: 90 },
+    { id: 'tuskmail', name: 'Tusk-plated Hauberk', slot: 'armor', wc: 1, rarity: 2, aff: ['hp', 'parry'], need: { tusk: 4, ore: 4, pelt: 2 }, gold: 120 },
+  ],
+  temper: { ore: 3, scrap: 2 },    // Bram tempers a worn piece one + level with ore instead of gold
   // Curses for the Endless Deep: chosen before a climb, each makes it harder for more gold (they add up). The Daily
   // Descent carries one, the same for everyone that day. Records are kept by the number of curses.
   curses: [
@@ -583,10 +604,10 @@ const CFG = {
     deathGoldLoss: 0.5,         // share of the gold gathered on a trip that is lost if you fall
     // Ysolde the herbalist's tonics: drunk in camp, they last for the next trip below (or out on the Rim)
     tonics: [
-      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60 },
-      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80 },
-      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70 },
-      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90 },
+      { id: 'stamina', name: 'Wind Tonic', icon: '💨', desc: 'Stamina comes back 30% faster', cost: 60, herbs: 2 },
+      { id: 'iron', name: 'Iron Draught', icon: '🛡', desc: 'Take 10% less damage', cost: 80, herbs: 3 },
+      { id: 'flask', name: 'Spare Flask', icon: '⚗', desc: 'One more healing flask', cost: 70, herbs: 3 },
+      { id: 'edge', name: 'Whetstone Oil', icon: '⚔', desc: '+10% damage', cost: 90, herbs: 2, ore: 1 },
     ],
     curioMult: 4,               // Odo the curio dealer: one rare-or-better piece a day, at this many times its value
   },

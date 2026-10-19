@@ -342,7 +342,7 @@ function updateHud() {
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
-  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : Props.nearest(p.pos);
+  const spot = p.state === 'dead' || G.training ? null : G.mode === 'camp' ? Camp.nearest(World.camp(), p.pos) : G.mode === 'field' ? Field.nearest(World.field(), p.pos) : Props.nearest(p.pos);
   const bl = (G.blessings || []).join();
   if (bl !== G.shownBless) {
     G.shownBless = bl;
@@ -526,6 +526,8 @@ G.onEnemyDeath = e => {
   const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
+  // Materials: beasts of the Rim drop them; the dead below now and then
+  for (const [k, ch] of (CFG.matDrops[e.type] || [])) if (Math.random() < ch * (e.zone ? 1 : 0.33)) { Items.addMat(k); const M = CFG.materials[k]; FX.text(Combat.chestPos(e.pos, 2.0), `+${M.icon} ${M.name}`, 'xp'); }
   if (e.type === 'mimic') {                                                // what a mimic swallowed
     gemFound(1);
     if (Math.random() < 0.6) { const it = Items.generate(Math.min(G.stageK || 0, CFG.gear.tierNames.length - 1), { minRarity: 1, boost: 0.6 }); if (Items.add(it)) UI.toast('The mimic coughs up: ' + Items.fullName(it), Items.colorOf(it)); }
@@ -636,6 +638,11 @@ function interact() {
     return say(lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
+  if (s.id === 'gather') {                                                // a herb patch or an ore vein on the Rim
+    const n = Field.gather(s.node), M = CFG.materials[s.node.kind];
+    if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
+    return;
+  }
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
@@ -709,7 +716,7 @@ function updateCamera(dt) {
   // Stay framed on the section the hero is in (in a passage, just follow)
   const r = p && World.roomOf(p.pos);
   let tx = camTarget.x, tz = camTarget.z;
-  if (r) { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
+  if (r && r.kind !== 'field') { const lx = Math.max(0, r.hw - 4), lz = Math.max(0, r.hd - 3.5), cx = r.cx || 0; tx = Math.max(cx - lx, Math.min(cx + lx, tx)); tz = Math.max(r.cz - lz - 1, Math.min(r.cz + lz, tz)); }
   const k = portrait ? 1.3 : 1, s = FX.shakeAmt;
   camera.position.set(tx + (Math.random() - 0.5) * s, 10.8 * k + (Math.random() - 0.5) * s, tz + 8.2 * k);
   camera.lookAt(tx, 0.6, tz - 0.4);
