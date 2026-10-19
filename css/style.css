@@ -260,3 +260,12 @@ body:not(.playing) #padKeys { display: none !important; }
 #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
 #letterbox.on::before, #letterbox.on::after { height: 11vh; }
 body.cine #pad, body.cine #keys { opacity: 0; }
+
+/* Arranged touch controls */
+#pad.free button { position: fixed; transform-origin: center; }
+body.arranging #pad { display: block !important; z-index: 30; }
+body.arranging #pad button { outline: 2px dashed rgba(242, 210, 122, 0.8); outline-offset: 3px; cursor: grab; }
+body.arranging #pause, body.arranging #title, body.arranging #panel { display: none !important; }
+#arrangeBar { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.9); border: 1px solid rgba(242, 210, 122, 0.5); border-radius: 8px; z-index: 31; font-size: 13px; }
+#arrangeBar.show { display: flex; }
+#arrangeBar button { padding: 6px 12px; font-weight: 700; color: #1a1008; background: linear-gradient(#f2d27a, #c9963a); border: none; border-radius: 4px; }

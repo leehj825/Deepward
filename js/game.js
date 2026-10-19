@@ -78,7 +78,8 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   cv.addEventListener('pointerdown', ev => {
     if (G.state === 'cine') { endCine(); return; }                          // a tap skips a guardian's entrance
     if (ev.pointerType !== 'touch') return;
-    if (ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
+    // The look side is the right of the screen, or the left in the left-handed layout
+    if (Settings.get('lefty') ? ev.clientX < innerWidth * 0.55 : ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
     if (stickId !== null) return;
     stickId = ev.pointerId; sx = ev.clientX; sy = ev.clientY;
     stickEl.style.display = 'block'; stickEl.style.left = sx + 'px'; stickEl.style.top = sy + 'px'; knob.style.transform = '';
@@ -248,6 +249,7 @@ function updateAir(dt) {
   }
   pos.needsUpdate = true;
 }
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) setTimeout(() => TouchLayout.apply(), 0);
 World.init(scene, hemi);
 G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp

@@ -45,7 +45,7 @@ const UI = (() => {
   }
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
-  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2] };      // min, max, step
+  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
 
   // ---------------- Panels ----------------
   const PANELS = {
@@ -207,6 +207,9 @@ const UI = (() => {
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
         + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
+          + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
+          + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
@@ -249,6 +252,8 @@ const UI = (() => {
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
+    if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
+    if (a === 'padreset') { TouchLayout.reset(); Snd.play('glint'); return render(); }
     if (a === 'difficulty') { const order = Object.keys(CFG.difficulty); Settings.set('difficulty', order[(order.indexOf(Settings.get('difficulty')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'quality') { const order = ['auto', 'high', 'medium', 'low']; Settings.set('quality', order[(order.indexOf(Settings.get('quality')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'toggle') { Settings.set(arg, !Settings.get(arg)); Snd.play('glint'); return render(); }

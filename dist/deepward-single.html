@@ -271,6 +271,15 @@ body:not(.playing) #padKeys { display: none !important; }
 #letterbox.on::before, #letterbox.on::after { height: 11vh; }
 body.cine #pad, body.cine #keys { opacity: 0; }
 
+/* Arranged touch controls */
+#pad.free button { position: fixed; transform-origin: center; }
+body.arranging #pad { display: block !important; z-index: 30; }
+body.arranging #pad button { outline: 2px dashed rgba(242, 210, 122, 0.8); outline-offset: 3px; cursor: grab; }
+body.arranging #pause, body.arranging #title, body.arranging #panel { display: none !important; }
+#arrangeBar { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.9); border: 1px solid rgba(242, 210, 122, 0.5); border-radius: 8px; z-index: 31; font-size: 13px; }
+#arrangeBar.show { display: flex; }
+#arrangeBar button { padding: 6px 12px; font-weight: 700; color: #1a1008; background: linear-gradient(#f2d27a, #c9963a); border: none; border-radius: 4px; }
+
 </style>
 </head>
 <body>
@@ -326,6 +335,7 @@ body.cine #pad, body.cine #keys { opacity: 0; }
 <div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
 <div id="fade"></div>
 <div id="letterbox"></div>
+<div id="arrangeBar"><span>Drag the buttons where your thumbs want them.</span><button data-pad="reset">Reset</button><button data-pad="done">Done</button></div>
 
 <script>
 /**
@@ -919,7 +929,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {} };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -4256,7 +4266,7 @@ const UI = (() => {
   }
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
-  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2] };      // min, max, step
+  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
 
   // ---------------- Panels ----------------
   const PANELS = {
@@ -4418,6 +4428,9 @@ const UI = (() => {
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
         + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
+          + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
+          + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
@@ -4460,6 +4473,8 @@ const UI = (() => {
     if (a === 'equip') { Items.equip(+arg); changed(); return render(); }
     if (a === 'set') { const [k, d] = arg.split(':'), [lo, hi, st] = LIM[k]; Settings.set(k, Math.min(hi, Math.max(lo, Math.round((Settings.get(k) + st * d) * 100) / 100))); Snd.play('glint'); return render(); }
     if (a === 'bless') { const sh = open.opt.shrine; close(); return G.bless(arg, sh); }
+    if (a === 'arrange') { close(); return TouchLayout.beginEdit(); }
+    if (a === 'padreset') { TouchLayout.reset(); Snd.play('glint'); return render(); }
     if (a === 'difficulty') { const order = Object.keys(CFG.difficulty); Settings.set('difficulty', order[(order.indexOf(Settings.get('difficulty')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'quality') { const order = ['auto', 'high', 'medium', 'low']; Settings.set('quality', order[(order.indexOf(Settings.get('quality')) + 1) % order.length]); Snd.play('glint'); return render(); }
     if (a === 'toggle') { Settings.set(arg, !Settings.get(arg)); Snd.play('glint'); return render(); }
@@ -4885,6 +4900,57 @@ const Codex = (() => {
 
 </script>
 <script>
+// Deepward - touch controls the player can arrange: button size and opacity, a left-handed (mirrored) layout, and an
+// editor to drag each button where the thumb wants it. Positions are kept as fractions of the screen, so they survive
+// turning the phone; a button never moved stays where the stylesheet puts it.
+const TouchLayout = (() => {
+  const pad = document.getElementById('pad'), bar = document.getElementById('arrangeBar');
+  const buttons = () => [...pad.querySelectorAll('button[data-act]')];
+  let defs = null, drag = null, editing = false;
+  // Where each button sits by default, measured from the bottom-right corner of the screen
+  function measure() {
+    if (defs) return defs;
+    defs = {};
+    const pr = parseFloat(getComputedStyle(pad).right) || 16, pb = parseFloat(getComputedStyle(pad).bottom) || 18;
+    for (const b of buttons()) { const cs = getComputedStyle(b); defs[b.dataset.act] = { r: pr + parseFloat(cs.right), b: pb + parseFloat(cs.bottom) }; }
+    return defs;
+  }
+  function apply() {
+    const D = measure(), L = Settings.get('padLayout') || {}, lefty = Settings.get('lefty'), s = Settings.get('padScale');
+    pad.classList.add('free'); pad.style.opacity = Settings.get('padOpacity');
+    for (const b of buttons()) {
+      const a = b.dataset.act, c = L[a], r = c ? c.x * innerWidth : D[a].r, btm = c ? c.y * innerHeight : D[a].b;
+      b.style.bottom = btm + 'px';
+      if (lefty) { b.style.left = r + 'px'; b.style.right = 'auto'; } else { b.style.right = r + 'px'; b.style.left = 'auto'; }
+      b.style.transform = `scale(${s})`;
+    }
+  }
+  // The editor: drag buttons; Reset puts them back; Done saves
+  function beginEdit() { editing = true; document.body.classList.add('arranging'); bar.classList.add('show'); apply(); }
+  function endEdit() { editing = false; document.body.classList.remove('arranging'); bar.classList.remove('show'); apply(); }
+  function reset() { Settings.set('padLayout', {}); apply(); }
+  function setPos(act, clientX, clientY) {
+    const b = pad.querySelector(`[data-act="${act}"]`), w = b.offsetWidth, h = b.offsetHeight, lefty = Settings.get('lefty');
+    const fromSide = lefty ? clientX - w / 2 : innerWidth - clientX - w / 2, fromBottom = innerHeight - clientY - h / 2;
+    const L = Object.assign({}, Settings.get('padLayout') || {});
+    L[act] = { x: Math.max(0, Math.min(0.95, fromSide / innerWidth)), y: Math.max(0, Math.min(0.92, fromBottom / innerHeight)) };
+    Settings.set('padLayout', L); apply();
+  }
+  pad.addEventListener('pointerdown', ev => {
+    if (!editing) return;
+    const b = ev.target.closest('button[data-act]'); if (!b) return;
+    drag = b.dataset.act; b.setPointerCapture && b.setPointerCapture(ev.pointerId); ev.stopPropagation(); ev.preventDefault();
+  }, true);
+  addEventListener('pointermove', ev => { if (editing && drag) setPos(drag, ev.clientX, ev.clientY); });
+  addEventListener('pointerup', () => { drag = null; });
+  bar.addEventListener('click', ev => { const t = ev.target.closest('[data-pad]'); if (!t) return; if (t.dataset.pad === 'reset') reset(); else endEdit(); });
+  addEventListener('resize', () => { if (pad.classList.contains('free')) apply(); });
+  Settings.on(k => { if (k === 'padScale' || k === 'padOpacity' || k === 'lefty') apply(); });
+  return { apply, beginEdit, endEdit, reset, setPos, get editing() { return editing; } };
+})();
+
+</script>
+<script>
 // Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
 // The dungeon itself (rooms, gates, progression) lives in world.js.
 // G.state: title | play | pause | menu (a panel is open) · G.mode: camp | dungeon
@@ -4965,7 +5031,8 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   cv.addEventListener('pointerdown', ev => {
     if (G.state === 'cine') { endCine(); return; }                          // a tap skips a guardian's entrance
     if (ev.pointerType !== 'touch') return;
-    if (ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
+    // The look side is the right of the screen, or the left in the left-handed layout
+    if (Settings.get('lefty') ? ev.clientX < innerWidth * 0.55 : ev.clientX > innerWidth * 0.45) { if (lookId === null) { lookId = ev.pointerId; lx = ev.clientX; ly = ev.clientY; } return; }
     if (stickId !== null) return;
     stickId = ev.pointerId; sx = ev.clientX; sy = ev.clientY;
     stickEl.style.display = 'block'; stickEl.style.left = sx + 'px'; stickEl.style.top = sy + 'px'; knob.style.transform = '';
@@ -5135,6 +5202,7 @@ function updateAir(dt) {
   }
   pos.needsUpdate = true;
 }
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) setTimeout(() => TouchLayout.apply(), 0);
 World.init(scene, hemi);
 G.scene = scene;
 World.enterCamp({ forge: 0, apothecary: 0, yard: 0 });                    // the title screen looks out over the camp

@@ -241,3 +241,9 @@ Real players are slower to react than the bot, so expect more deaths.
 - **Weather:** the drifting points follow `AIR[theme]`: colour, size, fall or rise speed, sway and opacity. `World.theme` says which theme is current.
 - **Entrances:** a guardian's spawn starts the `cine` game state for 2.4 s. Only the guardian, the world and the effects update, the camera frames the guardian from in front, and letterbox bars close in. Any input ends it.
 - **Vibration:** `G.rumble` also uses `navigator.vibrate` on touch devices (with a setting), and the Android patch adds the VIBRATE permission.
+
+## Touch controls (built)
+
+- `TouchLayout` measures where the stylesheet puts each button, then positions them itself (`#pad.free`) so they can move one by one.
+- Size is a `scale()` on each button and opacity is set on the pad. The left-handed layout mirrors each button's distance from the right edge onto the left, and the touch input swaps the stick and look halves of the screen.
+- Arrange mode (Settings → Arrange buttons) shows the pad over everything and drags buttons with a capture-phase pointer listener, so a drag never triggers the action. Positions are saved in `Settings.padLayout` as fractions of the screen; a button with no entry keeps its default spot.

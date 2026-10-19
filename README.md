@@ -236,6 +236,10 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
   - **High:** sharp, with soft shadows.
   - **Medium:** 1.5× resolution and smaller shadows; enemies get a soft blob shadow instead of a real one.
   - **Low:** 1× resolution and no shadows.
+- Touch controls (phones and tablets only):
+  - Button size (0.7× to 1.5×) and opacity.
+  - **Left-handed:** mirrors the buttons to the left side, with the move stick and camera drag swapped.
+  - **Arrange buttons:** drag each button where your thumb wants it, then tap Done. Reset puts them all back. Positions are kept as a share of the screen, so they survive turning the phone.
 
 They are kept on the device, apart from the saved game. M still mutes everything.
 
@@ -243,7 +247,7 @@ They are kept on the device, apart from the saved game. M still mutes everything
 
 There are two views; switch with **B** or the 🎥 button, and the game remembers your choice.
 
-- **Behind (default):** an orbit camera over the hero's shoulder. Backed against a wall, it slides in smoothly and rises over the shoulder rather than clipping into the wall, like Nightfall Settlement's normal view. The mouse turns the camera (click once to capture it; Esc releases it and pauses). On touch, drag the right side of the screen. The scroll wheel zooms. The hero always faces where the camera looks, so WASD strafes and walks backward; backing up and sidestepping are a little slower. Attacks go where you look, with light aim assist.
+- **Behind (default):** an orbit camera over the hero's shoulder. Backed against a wall, it slides in smoothly and rises over the shoulder rather than clipping into the wall, like Nightfall Settlement's normal view. The mouse turns the camera (click once to capture it; Esc releases it and pauses). On touch, drag the right side of the screen (the left side in the left-handed layout). The scroll wheel zooms. The hero always faces where the camera looks, so WASD strafes and walks backward; backing up and sidestepping are a little slower. Attacks go where you look, with light aim assist.
 - **Top-down:** the fixed high quarter view. The hero faces the way it walks and turns toward the nearest enemy while blocking.
 
 ## Controls
@@ -307,6 +311,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/endless.js` | The Endless Deep and Daily Descent: seeded random floors, the floor generator, records |
 | `js/tutorial.js` | The training yard: Sergeant Hobb's six lessons, counted as you do them |
 | `js/codex.js` | Lifetime records, the bestiary text and the achievements |
+| `js/touchlayout.js` | Touch button size, opacity, the left-handed layout and the drag-to-arrange editor |
 | `js/map.js` | The minimap and compass |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
@@ -318,6 +323,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/endless_test.js` | Headless check of the Endless Deep: unlocking, seeded floors, toughness, the guardian every third floor, the choice between floors, records |
 | `tools/tutorial_test.js` | Headless check of the training yard: the offer, all six lessons done for real, the reward, leaving early |
 | `tools/codex_test.js` | Headless check of records, the bestiary, achievements paying once, and opening the codex from the gear and pause screens |
+| `tools/touch_test.js` | Headless check of the touch controls on a phone screen: size, opacity, left-handed, dragging a button, keeping it, Reset |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
 | `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
@@ -337,6 +343,7 @@ node tools/loot_test.js
 node tools/endless_test.js
 node tools/tutorial_test.js
 node tools/codex_test.js
+node tools/touch_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
 ```
 
