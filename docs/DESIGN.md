@@ -224,3 +224,13 @@ Real players are slower to react than the bot, so expect more deaths.
 - **Lifetime records:** `S.life` is fed every frame from the per-trip `G.stats`. Kill hooks add counts by kind, elites, champions and guardians, flawless guardians (no hits taken since the guardian appeared) and guardians beaten on Hard.
 - **Bestiary:** the attack lines are generated from the enemy definitions, so new enemies document themselves.
 - **Achievements:** `Codex.list` holds 32 tests, checked twice a second. Each pays its gold once and keeps it out of the trip's at-risk gold.
+
+## Act II (built)
+
+- **Stages:** five more (6–10), each with a theme of its own (decor: pools and reeds, ice shards and drifts, anvils and embers, bone trees, a dark court), a champion and a guardian. Enemy toughness keeps climbing per stage. The Endless Deep opens after the tenth guardian and starts above stage 10.
+- **New mechanics:**
+  - **Reflectable orbs:** an orb parried within the window turns around at its caster, deals 2.2× damage and breaks guard.
+  - **Shelter:** a `ward` enemy cuts damage to allies within its radius.
+  - **Raising:** a `raise` hit summons skeletons tied to their caster, which crumble when it dies.
+  - **Mimic:** a chest prop that becomes an enemy when the hero comes close.
+- **Balance:** a bot run of stages 6–10 gives guardian fights of 30 s to 3 min. The skilled profile dies once or twice to the Hollow King, and that's intended for the final boss.

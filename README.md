@@ -69,7 +69,7 @@ A box at the top says what to press in your own controls (keyboard, controller o
 - **Falling:** if you fall, you wake in camp having lost half the gold gathered on that trip.
 - **Saving:** progress saves in the browser, and the title screen offers Continue.
 
-**The Endless Deep.** Once the fifth guardian (the Pale Duelist) falls, the camp gate offers two more ways down:
+**The Endless Deep.** Once the last guardian (the Hollow King) falls, the camp gate offers two more ways down:
 
 - **The Endless Deep:** floor after floor of fresh dungeon, drawn from a random stage's look and enemies. It gets 18% tougher each floor and brings in enemies from every stage from floor 4.
   - Every third floor ends in that stage's guardian (with its phases); the other floors bring its champion mid-floor.
@@ -125,6 +125,25 @@ The middle section of each stage ends with a **champion**: a named elite with it
 
 When a guardian falls, the adds it summoned crumble with it.
 
+**Act II.** Below the Shadow Court the stair goes on through five more stages, and the story ends at the Throne:
+
+| Stage | Guardian | Phases |
+| --- | --- | --- |
+| The Sunken Temple | **The Drowned Prophet**, a caster throwing three-orb volleys | 66%: two acolytes. 33%: more raised dead, and faster volleys. |
+| The Frost Halls | **The Frost Marshal**, a shield-bearer | 60%: a bearer and a knight. 30%: drops the shield for a two-handed stance with an unblockable spin. |
+| The Ashen Forge | **The Furnace Lord**, a brute with a huge fire slam | 65%: goblins. 30%: rages and calls a bearer. |
+| The Bone Orchard | **The Bone Gardener**, a bone caller | 66%: skeletons and an archer. 33%: two knights, and it raises up to six. |
+| The Throne of the Deep | **The Hollow King**, the first warden | 70%: two-handed, with a parry-only overhead. 40%: a duelist and a caster join, and he blinks behind you. 15%: rages. |
+
+New enemies:
+
+- **Drowned Acolyte:** keeps its distance and throws slow glowing orbs. Block them, dash, or parry at the last moment to send the orb back for heavy damage.
+- **Shieldbearer:** a blue knight with a faint blue circle. Allies inside the circle take 45% less damage, so kill it first.
+- **Bone Caller:** raises up to four skeletons from the floor (they crumble when it dies) and throws cursed orbs.
+- **Mimic:** one chest per Act II stage isn't a chest. It springs when you come close, and pays a gem and often rare gear.
+
+Each Act II stage has its own champion: the Tidecaller, the Ice Bulwark, the Slagborn, the Gravetender and the King's Hand.
+
 **Dungeon progression.** Each stage is one large, winding dungeon with no gates:
 
 - **Sections:** five wide halls, each 30% bigger than the old rooms, set off to the side of one another so the path bends. Open passages join them, so you can walk the whole stage freely.
@@ -144,7 +163,7 @@ When a guardian falls, the adds it summoned crumble with it.
   - **Full map:** tap it, or press N, to see the whole stage you've found so far.
 - **The lair:** the last section ends in a dark archway. When you step in, the stage's guardian comes out of it.
 - **After the guardian:** return to camp, or press on down the stair into the next stage.
-- **The stages:** The Crypt, The Iron Keep, The Ogre Den, The Spider Depths and The Shadow Court, each with its own stone, torchlight, fog and enemies. After the last one they repeat with tougher enemies.
+- **The stages:** The Crypt, The Iron Keep, The Ogre Den, The Spider Depths and The Shadow Court, then Act II's Sunken Temple, Frost Halls, Ashen Forge, Bone Orchard and Throne of the Deep, each with its own stone, torchlight, fog and enemies. After the last one they repeat with tougher enemies.
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
