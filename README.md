@@ -252,9 +252,13 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Status and roadmap
 
-Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, camp, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, and automatic resolution for phones. Only a debug APK is built for now.
+Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, photo mode, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
-Done from the last plan: V1 (phone pass), V2 (gear depth), V3 (save safety), V4 (remapping), V5 (Endless curses), V6 (weapon arts). Still open, on purpose: **V7**, a signed release build, when you want one. Details in `docs/DESIGN.md` → Roadmap.
+Next, in order (details in `docs/DESIGN.md` → Roadmap):
+1. **Check what is built.** A real-phone pass (P1), photo saving in the Android app (P2), Korean polish (P3), the balance bot on the new content (P4).
+2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
+3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
+4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
 
 ## Run
 

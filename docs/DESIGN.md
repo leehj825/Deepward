@@ -370,30 +370,49 @@ A Ring rematch pays about a seventh of a stage for a one-minute fight (and a gem
 
 ## Roadmap
 
-The next steps, in the order I'd take them. Each is sized like one of the S or T steps: one commit, its own test, and a debug APK.
+Each step is sized like the earlier S, T and V steps: one commit, its own test, and a debug APK.
 
-**V1. Play on a real phone.** Everything so far was measured headless. Install the debug APK on a mid-range Android phone and fix what shows up.
-- An FPS and draw-call overlay (Settings → Show performance), and dynamic resolution that drops a step when the frame time stays above 20 ms.
-- Check touch reach, text size, safe areas (notches) and the pause on app switch (Capacitor `appStateChange`).
-- Exit criterion: 50+ FPS on Medium through a full Act II stage.
+### Done
 
-**V2. Gear depth (done).** Finish the original gear plan.
-- Gloves, boots and a ring slot (eight slots total), with their own looks on the rig.
-- Weight: heavy armour slows the dash and costs more stamina; light gear the reverse.
-- Elemental bonuses (fire burns over time, frost slows, shock breaks posture faster) using the existing burn hook.
-- Bram rerolls one bonus for gold and scrap.
+- **V1–V6.** Phone overlay and dynamic resolution (V1; the check on a real phone is still open, see P1), gear depth, save safety, controls everywhere, Endless curses, weapon arts.
+- **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
+- **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, photo mode, the gauntlet and the rune vault, and Korean.
 
-**V3. Save safety (done).** The save was one `localStorage` key.
-- Versioned saves with a migration step, so future changes never wipe progress.
-- Export and import the save as text (and Android share) for moving between devices.
-- Three save slots.
+### Next: check what is built
 
-**V4. Controls everywhere (done).** Remap keyboard and controller buttons in Settings, with the training yard and prompts showing the new bindings.
+**P1. Real-phone pass.** Every number so far is headless. Install the debug APK on a mid-range Android phone and play the Hold, the Rim during a raid, the Fen at night and a boss fight.
+- Frame rate, touch reach, text size, safe areas, and the Korean font.
+- Exit criterion: 50+ FPS on Medium in the Hold, the Fen and an Act II stage.
 
-**V5. Endless Deep with modifiers (done).** Optional curses that make a run harder for more gold and a separate leaderboard on the device: no flasks, enemies always elite, double speed, glass hero. The Daily Descent gets one fixed curse.
+**P2. Photo saving in the app.** Save picture is a browser download, which the Android WebView may not allow. Save to the gallery or open the share sheet there (Capacitor Filesystem / Share).
 
-**V6. Weapon arts (done).** One special move per weapon type, unlocked at mastery rank 3: a sword riposte stance, an axe leap, a mace ground shock, a longsword thrust charge, a greatsword spin, a spear vault and a dagger flurry.
+**P3. Korean polish.**
+- Texts built from pieces in code (key hints, tutorial lines, "Go deeper · floor 3") become whole sentences with numbered slots, so Korean word order comes out right.
+- A native read of the story lines and boss names.
+- The i18n test fails when new English shows up.
 
-**V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
+**P4. Balance bot on the new content.** Run tools/balance.js (casual and skilled) through the Fen, the gauntlet, the Ring monsters and raids; tune health and damage where it dies too often or never.
 
-Smaller ideas kept for later: hero appearance options, a photo mode, more Act II side-room types (a gauntlet room, a trap puzzle), and translations.
+### Then: feel
+
+**P5. Sound pass.** Ambient loops for the Hold (fire, chatter), the Rim (wind, birds) and the Fen (frogs, dripping water); footsteps on different ground; a boss theme for field bosses.
+
+**P6. Weather.** Rain and fog on the Rim and the Fen, changing with the day and shortening how far you see.
+
+**P7. Hold life.** Villagers gather at the fire at night and go into the cabins; shops close after dark; people react when a raid starts (run inside, Wenna stops playing).
+
+### Then: content
+
+**P8. Act III.** A third set of stages below the Throne of the Deep, with new enemy types and a final boss; the Endless Deep starts after it.
+
+**P9. More side quests like Rook's.** Maren's (the story), Bram's (a legendary forge recipe) and Ysolde's (rare herbs in the Fen at night).
+
+**P10. Companions.** A freed captive can follow the warden below as a light helper (Mira with a bow, Brother Aldo healing).
+
+**P11. Set items.** A few gear sets with bonuses for wearing two and four pieces, dropped by field bosses and Ring fights.
+
+### Later
+
+- **P12.** More languages (Japanese, Simplified Chinese, Spanish): one table each with tools/i18n_harvest.js and tools/i18n_merge.py.
+- **P13.** Cloud save, or export to a file and the Android share sheet.
+- **V7. Release build (when wanted).** A signed APK and .aab from repository secrets, a version number per tag, and a store listing. Not started on purpose: debug APKs only for now.
