@@ -75,13 +75,11 @@ The Android app wraps the web game with [Capacitor](https://capacitorjs.com/).
 
 **Getting a debug APK from GitHub Actions:** the workflow "Android debug APK" (`.github/workflows/android-debug.yml`) runs on every push to `main` or a `ccr-*` branch that changes the game, on `v*` tags, and from the Actions tab (Run workflow). When it finishes, open the run and download the **deepward-debug-apk** artifact. It's a zip holding `deepward-debug-<commit>.apk`. Copy that to your phone and install it; you may need to allow installs from unknown sources.
 
-**Release for Google Play:** the workflow "Android release" (`.github/workflows/android-release.yml`) builds a signed `.aab` for the Play Store and a signed APK. Run it from the Actions tab. Signing uses four repository secrets; [RELEASE.md](RELEASE.md) shows how to make the key and walks through the Play Console checklist.
-
-**What the debug workflow does:**
+**What the workflow does:**
 
 1. Copies the game into `www/` (`npm run www`).
 2. Generates the Android project (`npx cap add android`).
-3. Patches it (`tools/android_patch.js`): fullscreen with the screen kept on, Deepward's icons and splash screens, a dark Android 12+ splash, and the version and signing from the environment.
+3. Patches it (`tools/android_patch.js`): fullscreen with the screen kept on, Deepward's icons and splash screens, and a dark Android 12+ splash.
 4. Builds with Gradle.
 
 The `android/` folder isn't committed. It's generated on every build, and the patch applies the customisations. The icon is drawn in code by `tools/make_icons.py`.

@@ -119,4 +119,4 @@ A quarter-view action dungeon crawler. You enter a dungeon, fight through its ro
 - **Music:** a generative WebAudio score with a pad, arpeggio, bell line, bass, drums and brass. Its mix and tempo follow the mood (camp, dungeon, combat, guardian) and change on bar lines. There are no audio files.
 - **Settings:** master, music and effects volume, look sensitivity, inverted vertical look and screen shake. They are kept apart from the save.
 - **Icon and splash:** drawn in code by `tools/make_icons.py` and copied into the generated Android project by `tools/android_patch.js`.
-- **Release:** the "Android release" workflow builds a signed `.aab` and APK from repository secrets (see `RELEASE.md`).
+- **Android:** only a debug APK is built for now (the "Android debug APK" workflow).
