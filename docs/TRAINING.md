@@ -21,6 +21,7 @@ npx playwright install chromium          # on Linux add --with-deps
 | Check the shipped weights in the real game (rules against network) | `npm run policy:test -- 8` (fights per case) | 5 to 10 min |
 | Does learning while playing help? (simulator) | `npm run policy:learn-check -- 8 300` | 1 min |
 | Fold learned data from a phone into the weights | `node tools/policy/bake.js <code or file>` | seconds |
+| **Compare two weight files on the same randomized real fights** (before shipping new weights) | `node tools/policy/compare_real.js <candidate weights file> 200 3` | about 6 min for 200 fights |
 | Read the fight log in learned data from a phone | `node tools/policy/analyze.js <code or file>` | seconds |
 
 ## What they write
