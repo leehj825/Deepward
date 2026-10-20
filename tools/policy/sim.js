@@ -47,17 +47,22 @@ function newWorld(sc, seed2) {
   sc.classes.forEach((cls, i) => {
     const mh = Math.round(hpBase * HPM[cls]);
     const a = { id: cls + i, cls, ally: true, tank: cls === 'warrior', x: Math.sin(2 + i * 1.6) * 2.5, z: Math.cos(2 + i * 1.6) * 2.5, hp: mh, maxHp: mh, dr: DRM[cls], dmg: S, mend: 1 + 0.05 * tier, state: 'free', facing: 0,
-      cd: 1, heavyCd: 3, healCd: 0, guardT: 0, phase: null, phaseT: 0, atk: null, struck: false, tgt: null, downT: 0, hurtT: 0, hitT: 9, decT: 0, act: A.regroup, slot: i, goal: null };
+      cd: 1, heavyCd: 3, healCd: 0, guardT: 0, dodgeCd: 0, rollT: 0, rollDir: 0, rollFrom: null, threat: null, phase: null, phaseT: 0, atk: null, struck: false, tgt: null, downT: 0, hurtT: 0, hitT: 9, decT: 0, act: A.regroup, slot: i, goal: null };
     w.allies.push(a); w.log.compMax += mh;
   });
   w.hpMult = 1 + 0.25 * tier; w.heroDmg = 17 * (1 + 0.16 * tier);
   return w;
 }
 
+// Each scenario perturbs the enemies a little (speed, damage, wind-up time by up to +-15%), so a policy cannot fit one exact version of them
+function jitterDef(d, w) {
+  const f = () => 0.85 + 0.3 * w.r(), sp = f(), dm = f(), wd = f();
+  return Object.assign({}, d, { speed: d.speed * sp, attacks: d.attacks.map(a => Object.assign({}, a, { hits: a.hits.map(h => Object.assign({}, h, { dmg: h.dmg * dm, wind: h.wind * wd })) })) });
+}
 function spawnWave(w, wave) {
   const ang = wave.ang;
   wave.list.forEach((type, i) => {
-    const d = CFG.enemies[type], dd = 13 + w.r() * 3, a = ang + (w.r() - 0.5) * 0.9;
+    const d = jitterDef(CFG.enemies[type], w), dd = 13 + w.r() * 3, a = ang + (w.r() - 0.5) * 0.9;
     const hp = d.hp * w.hpMult;
     const e = { type, d, x: w.hero.x - Math.sin(a) * dd - Math.sin(a + 1.5) * i * 0.4, z: w.hero.z - Math.cos(a) * dd, hp, maxHp: hp, mult: w.hpMult, facing: 0, state: 'hunt', cd: 0.6 + w.r() * 1.2, atk: null, hitIdx: 0, phase: null, phaseT: 0, tgt: null, tgtT: 0, threat: new Map(), strafe: w.r() < 0.5 ? 1 : -1, aim: null, struck: false };
     w.enemies.push(e); w.log.enemyHp += hp;
@@ -69,6 +74,7 @@ const cands = w => [w.hero].concat(w.allies).filter(aliveC);
 
 function dmgTo(w, c, n, e) {
   if (!aliveC(c)) return;
+  if (c.state === 'roll' && c.rollT >= P.dodge.iStart && c.rollT <= P.dodge.iEnd) { w.log.dodges = (w.log.dodges || 0) + 1; return; }       // the dash is untouchable for most of it
   if (c.hero) { n *= (1 - 0.05); c.hp -= n; w.log.heroDmg += n; if (c.hp <= 0) { c.state = 'dead'; w.log.heroDied = true; } return; }
   n *= (1 - c.dr) * (c.guardT > 0 ? 0.5 : 1);
   const before = c.hp; c.hp = Math.max(0, c.hp - n); c.hitT = 0; w.log.compDmg += before - c.hp;
@@ -110,12 +116,12 @@ function enemyStep(w, e, dt) {
     if (e.phase === 'wind') {
       if (e.phaseT < h.wind - 0.22) e.facing += wrap(ang - e.facing) * Math.min(1, 6 * dt);
       if (e.phaseT > h.wind * 0.65 && d0 > d.radius + 0.8 && !h.aoe && !h.projectile) step(e.facing, (h.lunge || 1.5) / (h.wind * 0.35 + h.active));
-      if (e.phaseT >= h.wind) { e.phase = 'active'; e.phaseT = 0; if (h.aoe) e.aim = { x: p.x, z: p.z }; }
+      if (e.phaseT >= h.wind) { e.phase = 'active'; e.phaseT = 0; }
     } else if (e.phase === 'active') {
       if (!e.struck && e.phaseT >= h.active * 0.5) { e.struck = true; strike(w, e, h); }
       if (e.phaseT >= h.active) { e.phase = 'recover'; e.phaseT = 0; }
     } else if (e.phase === 'recover' && e.phaseT >= h.recover) {
-      if (e.hitIdx < e.atk.hits.length - 1) { e.hitIdx++; e.phase = 'wind'; e.phaseT = 0; e.struck = false; }
+      if (e.hitIdx < e.atk.hits.length - 1) { e.hitIdx++; e.phase = 'wind'; e.phaseT = 0; e.struck = false; aimRing(e); }
       else { e.cd = (d.cooldown[0] + w.r() * (d.cooldown[1] - d.cooldown[0])); e.state = 'hunt'; e.atk = null; }
     }
   }
@@ -123,8 +129,10 @@ function enemyStep(w, e, dt) {
 function begin(w, e) {
   const list = e.d.attacks, tot = list.reduce((s, a) => s + a.weight, 0); let x = w.r() * tot, pick = list[0];
   for (const a of list) { x -= a.weight; if (x <= 0) { pick = a; break; } }
-  e.atk = pick; e.hitIdx = 0; e.phase = 'wind'; e.phaseT = 0; e.struck = false; e.state = 'attack';
+  e.atk = pick; e.hitIdx = 0; e.phase = 'wind'; e.phaseT = 0; e.struck = false; e.state = 'attack'; aimRing(e);
 }
+// A ring on the floor is aimed once, when its wind-up starts, at where the target stands
+function aimRing(e) { const h = e.atk.hits[e.hitIdx]; if (h.aoe && e.tgt) e.aim = { x: e.tgt.x, z: e.tgt.z }; }
 function strike(w, e, h) {
   if (h.projectile) { const p = e.tgt; if (p) w.shots.push({ x: e.x, z: e.z, tx: p.x, tz: p.z, t: dist(e, p) / 14, dmg: h.dmg * e.mult, enemy: true }); return; }
   for (const c of cands(w)) {
@@ -146,16 +154,24 @@ function stateOf(w, a) {
   const hero = w.hero, tg = a.tgt, party = [hero].concat(w.allies), near = party.filter(m => m !== a && dist(a, m) < 8);
   const frac = m => m.state === 'down' ? 0 : m.hp / m.maxHp, grp = [a].concat(near);
   let nearest = 99; for (const e of liveEnemies(w)) nearest = Math.min(nearest, dist(a, e));
-  let danger = 3, targeted = 0;
+  let danger = 3, targeted = 0, aoe = 0, threat = null;
+  const note = (t, kind, e, cx, cz) => { if (t < danger) { danger = t; aoe = kind === 'aoe' ? 1 : 0; threat = { kind, e, cx, cz }; } };
   for (const e of liveEnemies(w)) {
-    if (e.tgt !== a) continue; targeted++;
-    if (e.state === 'attack') { const h = e.atk.hits[e.hitIdx], rem = e.phase === 'wind' ? h.wind - e.phaseT : 0; danger = Math.min(danger, Math.max(0, rem)); }
+    if (e.tgt === a) targeted++;
+    if (e.state !== 'attack') continue;
+    const h = e.atk.hits[e.hitIdx];
+    let t = e.phase === 'wind' ? Math.max(0, h.wind - e.phaseT) + h.active * 0.5 : e.phase === 'active' && !e.struck ? Math.max(0, h.active * 0.5 - e.phaseT) : -1;
+    if (t < 0 || h.projectile) continue;
+    if (h.aoe) { const c = e.aim || e; if (dist(a, c) <= h.aoe.r + 0.9) note(t, 'aoe', e, c.x, c.z); }
+    else if (e.tgt === a && dist(a, e) <= h.range + 1.0 + P.radius) note(t, 'melee', e, e.x, e.z);
   }
-  for (const s of w.shots) if (s.enemy && dist({ x: s.tx, z: s.tz }, a) < 1.5) danger = Math.min(danger, s.t);
+  for (const s of w.shots) if (s.enemy && dist({ x: s.tx, z: s.tz }, a) < 1.5) note(s.t, 'shot', null, s.tx, s.tz);
+  a.threat = threat;
+  const dodgeRdy = a.dodgeCd <= 0 && (a.state === 'free' || (a.state === 'attack' && a.phase === 'recover')) ? 1 : 0;
   const others = w.allies.filter(m => m !== a);
   return {
     cls: a.cls, hp: a.hp / a.maxHp, hero: Math.max(0, hero.hp / hero.maxHp), other: others.length ? Math.min(...others.map(frac)) : 1, downed: others.filter(m => m.state === 'down').length,
-    dHero: dist(a, hero), dEnemy: tg ? dist(a, tg) : nearest, nNear: liveEnemies(w).filter(e => dist(a, e) < 7).length, nHero: liveEnemies(w).filter(e => dist(hero, e) < 7).length, targeted, danger,
+    dHero: dist(a, hero), dEnemy: tg ? dist(a, tg) : nearest, nNear: liveEnemies(w).filter(e => dist(a, e) < 7).length, nHero: liveEnemies(w).filter(e => dist(hero, e) < 7).length, targeted, danger, aoe, dodgeRdy,
     atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
     lowest: Math.min(...grp.filter(m => dist(a, m) < 8).map(frac)), hurtN: grp.filter(m => m.state === 'down' || m.hp / m.maxHp < 0.6).length, hasTarget: !!tg,
   };
@@ -222,8 +238,21 @@ function execute(w, a, act, s) {
     case A.heal: if (a.cd <= 0) { beginAtk(a, P.combos.scepterHeal[0], { kind: 'heal1', dmg: 0 }); a.cd = 2.2; } return null;
     case A.area: if (a.cd <= 0 && a.healCd <= 0) { beginAtk(a, P.heavies.scepterHeal, { kind: 'area', dmg: 0 }); a.cd = 1.2; a.healCd = 7; } return null;
     case A.guard: return null;
+    case A.dodge: startRoll(w, a); return null;
   }
   return null;
+}
+// The dash: away from a ring's middle, else sideways to the blow on the side with fewer foes
+function startRoll(w, a) {
+  const th = a.threat; if (a.dodgeCd > 0 || !th) return;
+  let dx = a.x - th.cx, dz = a.z - th.cz, d = Math.hypot(dx, dz);
+  if (th.kind === 'aoe') { if (d < 1e-3) { dx = Math.sin(a.facing); dz = Math.cos(a.facing); d = 1; } dx /= d; dz /= d; }
+  else {
+    const fx = d < 1e-3 ? Math.sin(a.facing) : dx / d, fz = d < 1e-3 ? Math.cos(a.facing) : dz / d;
+    const side = sg => { const px = -fz * sg, pz = fx * sg; let m = 99; for (const e of liveEnemies(w)) m = Math.min(m, Math.hypot(e.x - (a.x + px * 2.6), e.z - (a.z + pz * 2.6))); return m; };
+    const sg = side(1) >= side(-1) ? 1 : -1; dx = -fz * sg; dz = fx * sg;
+  }
+  a.rollDir = Math.atan2(dx, dz); a.rollT = 0; a.rollFrom = { x: a.x, z: a.z }; a.dodgeCd = 1.8; a.state = 'roll'; a.atk = null; a.phase = null;
 }
 const goHome = (a, home) => (dist(a, home) > 1.0 ? { x: home.x, z: home.z, run: dist(a, home) > 6 } : null);
 
@@ -231,7 +260,7 @@ function allyStep(w, a, dt, policyFn) {
   a.hitT += dt;
   if (a.state === 'down') { a.downT += dt; if (a.downT > CP.downFor) { a.state = 'free'; a.hp = Math.round(a.maxHp * 0.25); a.cd = 1; } return; }
   if (a.state === 'free' && a.hitT > 5 && a.hp < a.maxHp) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * 0.015 * dt);
-  a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt;
+  a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt; a.dodgeCd -= dt;
   const hero = w.hero; let goal = null;
   if (a.state === 'attack') {
     const k = a.atk; a.phaseT += dt;
@@ -239,6 +268,14 @@ function allyStep(w, a, dt, policyFn) {
     if (a.phase === 'active' && !a.struck && a.phaseT >= k.active * 0.5) { a.struck = true; strikeAlly(w, a); }
     if (a.phase === 'active' && a.phaseT >= k.active) { a.phase = 'recover'; a.phaseT = 0; }
     if (a.phase === 'recover' && a.phaseT >= k.recover) { a.state = 'free'; a.atk = null; a.phase = null; }
+    else if (a.phase === 'recover' && w.hero.state !== 'dead') {                       // a dash can cut the recovery short
+      a.decT -= dt;
+      if (a.decT <= 0) { const s = stateOf(w, a); a.decT = s.danger < 0.9 ? 0.06 : DECIDE; if (s.danger < 0.9) { const m = Policy.legal(s); let act = policyFn(s); if (act == null || !m[act]) act = Policy.classic(s); if (act === A.dodge) { a.act = act; startRoll(w, a); } } }
+    }
+  } else if (a.state === 'roll') {
+    a.rollT += dt; const f = Math.min(1, a.rollT / P.dodge.time), e = f * (2 - f), dd = P.dodge.dist * e;
+    a.x = a.rollFrom.x + Math.sin(a.rollDir) * dd; a.z = a.rollFrom.z + Math.cos(a.rollDir) * dd;
+    if (a.rollT >= P.dodge.time) { a.state = 'free'; a.cd = Math.max(a.cd, 0.2); }
   } else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
   else if (hero.state !== 'dead') {
     a.decT -= dt;
@@ -246,7 +283,7 @@ function allyStep(w, a, dt, policyFn) {
     if (dp > CP.far) goal = goHome(a, home);
     else {
       a.tgt = tgtOf(w, a);
-      if (a.decT <= 0) { a.decT = DECIDE; const s = stateOf(w, a), m = Policy.legal(s); let act = policyFn(s); if (act == null || !m[act]) act = Policy.classic(s); a.act = act; }
+      if (a.decT <= 0) { const s = stateOf(w, a), m = Policy.legal(s); a.decT = s.danger < 0.9 ? 0.06 : DECIDE; let act = policyFn(s); if (act == null || !m[act]) act = Policy.classic(s); a.act = act; }
       goal = execute(w, a, a.act, null);
       if (a.act === A.guard) goal = null;
     }

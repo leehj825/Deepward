@@ -369,16 +369,8 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 .pb.swatch.on { border-color: #f2d27a; box-shadow: 0 0 0 2px rgba(242, 210, 122, 0.5); }
 .looksdoll { height: clamp(220px, calc(100vh - 220px), 360px); }
 
-/* Photo mode: the HUD hides, a bar of choices along the bottom */
-body.photo :is(#hud, #waveBox, #corner, #minimap, #mapInfo, #bars, #floaters, #banner, #tip, #lesson, #padKeys, #keys, #stick, #pad, #perf, #prompt) { display: none !important; }
-#photoBar { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: none; flex-wrap: wrap; justify-content: center; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(12, 9, 14, 0.78); border: 1px solid rgba(242, 210, 122, 0.4); border-radius: 8px; z-index: 31; max-width: calc(100vw - 32px); }
-#photoBar.show { display: flex; }
-#photoBar button { padding: 7px 12px; font-weight: 700; color: #f2e6c8; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(242, 210, 122, 0.4); border-radius: 4px; }
-#photoBar small { flex-basis: 100%; text-align: center; font-size: 11px; opacity: 0.6; }
-body.pad #photoBar small::after { content: ' · Ⓐ save · Ⓧ filter · Ⓨ warden · Ⓑ done'; }
 
 /* Korean: letter-spaced capitals read badly in Hangul, and words should not break mid-syllable-block */
 html[lang="ko"] body { word-break: keep-all; }
 html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }
 html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
-html[lang="ko"] body.pad #photoBar small::after { content: ' · Ⓐ 저장 · Ⓧ 필터 · Ⓨ 파수꾼 · Ⓑ 완료'; }

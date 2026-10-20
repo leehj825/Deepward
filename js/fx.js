@@ -1,7 +1,7 @@
 // Deepward - combat feedback: sparks, glints, ground rings, floating text, screen shake, hit-stop and slow motion.
 const FX = (() => {
   let scene, camera, layer;
-  const sparks = [], rings = [], glints = [], texts = [];
+  const sparks = [], rings = [], glints = [], texts = [], timings = [];
   const sparkGeo = new THREE.BoxGeometry(0.05, 0.05, 0.22);
   const time = { stop: 0, slow: 0, slowScale: 1 }, cam = { shake: 0 };
 
@@ -10,6 +10,13 @@ const FX = (() => {
     const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.6)'); g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, 64, 64);
     c.fillStyle = 'rgba(255,255,255,0.9)'; c.fillRect(30, 0, 4, 64); c.fillRect(0, 30, 64, 4);
+    return new THREE.CanvasTexture(cv);
+  })();
+
+  // A plain circle outline, for the closing timing circle
+  const circleTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+    c.strokeStyle = '#fff'; c.lineWidth = 9; c.beginPath(); c.arc(64, 64, 55, 0, Math.PI * 2); c.stroke();
     return new THREE.CanvasTexture(cv);
   })();
 
@@ -29,6 +36,18 @@ const FX = (() => {
     s.position.copy(pos); s.scale.setScalar(size); scene.add(s);
     glints.push({ s, life, max: life, size, follow });
     return s;
+  }
+  // The timing circle of an enemy blow: a ring that shrinks onto a small fixed circle and arrives exactly when the blow lands
+  // (`time` seconds from now). The last `parryWin` seconds are the parry window: the ring turns gold and bright (raise the block now).
+  // follow() gives where to draw it (the enemy keeps moving). Returns a handle with kill().
+  function timing(follow, color, time, r0, r1, parryWin) {
+    const mk = (op) => new THREE.Sprite(new THREE.SpriteMaterial({ map: circleTex, color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const outer = mk(0.85), inner = mk(0.55);
+    outer.renderOrder = inner.renderOrder = 999;
+    const at = follow(); outer.position.copy(at); inner.position.copy(at); outer.scale.setScalar(r0 * 2); inner.scale.setScalar(r1 * 2);
+    scene.add(outer, inner);
+    const o = { outer, inner, t: 0, time: Math.max(0.05, time), r0, r1, parryWin: Math.min(parryWin, time), follow, color, hit: 0, dead: false, kill() { this.dead = true; } };
+    timings.push(o); return o;
   }
   // A flat ring on the floor. grow: radius animates from r0 to r over the lifetime (used to telegraph area attacks).
   function ring(pos, r, color, life, opts = {}) {
@@ -72,6 +91,21 @@ const FX = (() => {
       s.o.scale.setScalar(Math.max(0.01, s.life / s.max));
       if (s.life <= 0) { scene.remove(s.o); sparks.splice(i, 1); }
     }
+    for (let i = timings.length - 1; i >= 0; i--) {
+      const o = timings[i]; let done = o.dead;
+      if (!done && o.hit <= 0) {
+        o.t += dt; const k = Math.min(1, o.t / o.time), win = o.time - o.t <= o.parryWin;
+        o.outer.scale.setScalar((o.r0 + (o.r1 - o.r0) * k) * 2);
+        o.outer.material.color.setHex(win ? 0xffe060 : o.color); o.outer.material.opacity = win ? 1 : 0.8; o.inner.material.color.setHex(win ? 0xffe060 : o.color);
+        const at = o.follow(); o.outer.position.copy(at); o.inner.position.copy(at);
+        if (o.t >= o.time) o.hit = 0.14;                                         // the blow lands: a flash that fades
+      } else if (o.hit > 0) {
+        o.hit -= dt; const f = Math.max(0, o.hit / 0.14);
+        o.outer.scale.setScalar(o.r1 * 2 * (1 + (1 - f) * 0.9)); o.outer.material.opacity = f; o.inner.material.opacity = f * 0.6;
+        if (o.hit <= 0) done = true;
+      }
+      if (done) { scene.remove(o.outer, o.inner); o.outer.material.dispose(); o.inner.material.dispose(); timings.splice(i, 1); }
+    }
     for (let i = glints.length - 1; i >= 0; i--) {
       const g = glints[i]; g.life -= dt; const k = g.life / g.max;
       g.s.scale.setScalar(g.size * (0.4 + Math.sin(k * Math.PI) * 0.9)); g.s.material.opacity = Math.min(1, k * 2);
@@ -107,7 +141,7 @@ const FX = (() => {
   }
 
   return {
-    init, burst, glint, ring, killRing, ghost, text, update, scaleDt, project,
+    init, burst, glint, ring, timing, killRing, ghost, text, update, scaleDt, project, get timings() { return timings; },
     shake(a) { if (!Settings.get('shake')) return; cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
     hitStop(t) { if (Settings.get('hitstop')) time.stop = Math.max(time.stop, t); },
     slowmo(t, s) { if (Settings.get('slowmo')) { time.slow = t; time.slowScale = s; } },
@@ -116,6 +150,7 @@ const FX = (() => {
       for (const s of sparks) scene.remove(s.o); sparks.length = 0;
       for (const r of rings) { scene.remove(r.m); if (r.fill) scene.remove(r.fill); } rings.length = 0;
       for (const g of glints) scene.remove(g.s); glints.length = 0;
+      for (const o of timings) scene.remove(o.outer, o.inner); timings.length = 0;
       for (const t of texts) t.d.remove(); texts.length = 0;
       for (const h of ghosts) { scene.remove(h.g); h.m.dispose(); } ghosts.length = 0;
       time.stop = time.slow = 0;

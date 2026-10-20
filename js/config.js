@@ -702,9 +702,9 @@ const CFG = {
   // base numbers; light and heavy attacks, the dash and stamina work the same for all. hp / st multiply base health and stamina.
   classes: {
     warrior: { name: 'Warrior', role: 'Melee · tank', desc: 'Sword and shield. Block, parry and cut down whatever comes close.', weapons: ['sword', 'axe', 'mace', 'longsword', 'greatsword', 'spear', 'daggers'], start: 'sword', offhand: 'shield', hp: 1, st: 1, melee: true },
-    archer: { name: 'Archer', role: 'Ranged · damage', desc: 'A bow and a quiver. Quick arrows from afar, and a heavy shot that pierces everything in line.', weapons: ['bow'], start: 'bow', offhand: 'quiver', hp: 0.9, st: 1.1, dash: 0.9 },
+    archer: { name: 'Archer', role: 'Ranged · damage', desc: 'A bow and a quiver. Quick arrows from afar, and a fan of arrows that all strike a close foe.', weapons: ['bow'], start: 'bow', offhand: 'quiver', hp: 0.9, st: 1.1, dash: 0.9 },
     mage: { name: 'Mage', role: 'Ranged · damage', desc: 'A staff and an orb. Arcane bolts and a fireball that burns a crowd. The hardest hitter and the frailest.', weapons: ['staff'], start: 'staff', offhand: 'orb', hp: 0.8, st: 1 },
-    cleric: { name: 'Cleric', role: 'Support · healer', desc: 'A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast mends everyone near. Weaker than the mage in a fight.', weapons: ['scepter'], start: 'scepter', offhand: 'tome', hp: 1, st: 1 },
+    cleric: { name: 'Cleric', role: 'Support · healer', desc: 'A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast is a stronger smite or an area heal. Weaker than the mage in a fight.', weapons: ['scepter'], start: 'scepter', offhand: 'tome', hp: 1, st: 1 },
   },
 
   // ---------------- Gear ----------------

@@ -68,7 +68,6 @@ A box at the top says what to press in your own controls (keyboard, controller o
 
 **Languages.** English and Korean (한국어), chosen in Settings → Language; a Korean phone starts in Korean. The game is written in English and `js/i18n.js` translates what it shows from a table per language (`js/lang_ko.js`), so a new language is one more table: run `tools/i18n_harvest.js --missing <lang>` for the texts to translate, then `tools/i18n_merge.py <lang>`. `tools/i18n_test.js` walks the screens in Korean and fails if English is left showing.
 
-**Photo mode.** Press H (D-pad left on a controller, or Photo mode on the pause screen). The fight holds still and the HUD hides; drag or use the arrow keys / right stick to turn around a point, the wheel, pinch, Q / E or the triggers to zoom, and WASD / the left stick to move it. Six filters (Warm, Cold, Noir, Old print, Vivid), the warden can be hidden, and Save picture downloads a PNG with the filter baked in. Esc, H or Ⓑ returns to the fight.
 
 **Appearance.** After the opening story you choose how the warden looks: six skin tones, eight hair colours, four hair styles (short, long, tail, shaved) and a beard (none, short, long). The gear screen's **Appearance** button changes it any time; a helm covers the hair but not the beard.
 
@@ -252,10 +251,10 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 ## Status and roadmap
 
-Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, photo mode, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
+Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
 Next, in order (details in `docs/DESIGN.md` → Roadmap):
-1. **Check what is built.** A real-phone pass (P1), photo saving in the Android app (P2), Korean polish (P3), the balance bot on the new content (P4).
+1. **Check what is built.** A real-phone pass (P1), Korean polish (P3), the balance bot on the new content (P4).
 2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
 3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
 4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
@@ -433,7 +432,6 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/aoe_test.js` | Headless check that an area blow's ring stays where it was drawn, a dash out is safe, staying in is hit, and leaps land on their ring |
 | `tools/i18n_test.js` | Headless check of the Korean texts: every screen walked in Korean with nothing left in English, item names and number templates, and back to English |
 | `tools/rooms_test.js` | Headless check of the gauntlet (sealed, three waves, rich chest, opens again) and the rune vault (a wrong plate hurts and resets, the right order opens it) |
-| `tools/photo_test.js` | Headless check of photo mode: frozen fight, hidden HUD, orbit and zoom, filters, hiding the warden, a saved picture, and back |
 | `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |

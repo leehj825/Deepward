@@ -158,9 +158,9 @@ const Items = (() => {
       if (w.twoHanded) L.push(`Two-handed: no shield, blade blocks ${Math.round(w.block * 100)}%, +${Math.round(w.exposed * 100)}% damage taken`);
       if (w.dual) L.push(`Twin blades: five-cut combo, dashes cost ${Math.round((1 - w.dash) * 100)}% less, no shield, blades block ${Math.round(w.block * 100)}%`);
       if (w.combo === 'spear') L.push('Spear: long thrusts and a wide sweep; heavy is a lunging thrust');
-      if (w.combo === 'bow') L.push('Bow: quick arrows from afar; heavy is a piercing power shot');
-      if (w.combo === 'staff') L.push('Staff: arcane bolts; heavy is a fireball that burns');
-      if (w.combo === 'scepter') L.push('Scepter: holy bolts (more against the undead) or a heal, by mode; heavy mends everyone near');
+      if (w.combo === 'bow') L.push('Bow: quick arrows from afar; heavy is a fan of arrows');
+      if (w.combo === 'staff') L.push('Staff: arcane bolts; heavy calls a fireball down on the target');
+      if (w.combo === 'scepter') L.push('Scepter: holy bolts (more against the undead) or a heal, by mode; heavy is a stronger smite or an area heal');
     }
     if (it.slot === 'shield') {
       if (m.dmg) L.push(`+${Math.round(m.dmg * 100)}% damage`); if (m.crit) L.push(`+${Math.round(m.crit * 100)}% critical chance`);

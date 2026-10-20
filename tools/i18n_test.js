@@ -21,7 +21,7 @@ const ALLOW = /^(WASD|Esc|Space|Enter|Tab|Shift|Ctrl|LB|RB|LT|RT|LS|RS|View|Menu
     I.S.raids = 2; I.S.endless = { best: 6, daily: { date: '', best: 2 }, heat: { 1: 4 } }; I.S.bossKills = { ridgehorror: 1, mossback: 1, colossus: 1, mirelord: 1 };
     for (let r = 0; r < 4; r++) for (const s of CFG.gear.slots) I.add(I.generate(r + 2, { slot: s, rarity: r }));
     G.onGearChanged(true); await sleep(30); scan();
-    for (const id of ['smith', 'trader', 'ledger', 'gate', 'gemcutter', 'herbalist', 'curio', 'board', 'arena', 'looks', 'trainOffer', 'trainer', 'settings', 'controls', 'saves', 'curses', 'talents', 'codex', 'bag']) await panel(id);
+    for (const id of ['smith', 'trader', 'ledger', 'gate', 'gemcutter', 'herbalist', 'curio', 'board', 'arena', 'looks', 'trainOffer', 'trainer', 'settings', 'controls', 'saves', 'curses', 'talents', 'codex', 'bag', 'classpick', 'party']) await panel(id);
     close(); for (const k of [0, 5]) { G.descend(k); await sleep(1300); scan(); close(); __dw.sim(1); scan(); }
     return [...bad];
   });
