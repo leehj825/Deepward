@@ -33,8 +33,8 @@ const path = require('path');
       __dw.sim(secs); return { e, dmg: e.maxHp - e.hp, d: Math.min(...G.allies.map(x => Math.hypot(x.pos.x - e.pos.x, x.pos.z - e.pos.z))) };
     };
     const w = fight(['hobb']); o.warriorFights = w.dmg > 20 && w.d < 3;
-    const ar = fight(['mira']); o.archerShoots = ar.dmg > 15 && ar.d > 3;
-    const mg = fight(['pell']); o.mageCasts = mg.dmg > 15 && mg.d > 3;
+    const ar = fight(['mira'], 10); o.archerShoots = ar.dmg > 15 && ar.d > 3;
+    const mg = fight(['pell'], 10); o.mageCasts = mg.dmg > 15 && mg.d > 3;
     const cl = fight(['aldo']); o.clericSmites = cl.dmg > 5;
     // The cleric mends a hurt warden
     p = fresh(); I.S.rescued = [{ id: 'aldo' }]; Party.recruit('aldo'); p.hp = p.maxHp * 0.3; __dw.sim(3); o.clericHeals = p.hp > p.maxHp * 0.4;
