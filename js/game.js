@@ -14,10 +14,10 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
-// Capture the mouse for looking around, without the operating system's pointer acceleration where the browser allows it
+// Capture the mouse for looking around (the cursor then stays inside the window)
 function lockMouse(el) {
   if (!el.requestPointerLock) return;
-  try { const r = el.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { el.requestPointerLock(); } catch (e) {} }); } catch (e) { try { el.requestPointerLock(); } catch (e2) {} }
+  try { const r = el.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {}
 }
 (function setupInput() {
   addEventListener('keydown', ev => {
@@ -70,20 +70,21 @@ function lockMouse(el) {
   cv.addEventListener('contextmenu', ev => ev.preventDefault());
   addEventListener('mousemove', ev => {
     if (document.pointerLockElement !== cv || View.mode !== 'behind') return;
-    // A mouse can report wild jumps (Chrome on a Mac does, right after capture and at times mid-turn, even with the opposite sign):
-    // skip the first moments after capture, drop spikes, and cap what one event can turn
+    if (!Settings.get('mouse')) { turnView(ev.movementX * 0.0032, ev.movementY * 0.0026); return; }       // trackpad
+    // A mouse covers many more counts per hand movement than a trackpad, and can report wild jumps (Chrome on a Mac does, right after
+    // capture): gentler turn, skip the first moments after capture, drop spikes
     if (performance.now() - lockedAt < 150) return;
     let mx = ev.movementX, my = ev.movementY;
     if (Math.abs(mx) > 250 || Math.abs(my) > 250) return;
-    mx = Math.max(-60, Math.min(60, mx)); my = Math.max(-60, Math.min(60, my));
-    turnView(mx * 0.0017, my * 0.0014);       // a mouse covers many more counts per hand movement than a trackpad: gentler than the touch scale
+    turnView(Math.max(-60, Math.min(60, mx)) * 0.0017, Math.max(-60, Math.min(60, my)) * 0.0014);
   });
   cv.addEventListener('wheel', ev => { ev.preventDefault(); View.dist = Math.min(12, Math.max(3.5, View.dist * Math.exp(ev.deltaY * 0.001))); }, { passive: false });
   // Esc releases the captured mouse before the page sees the key, so losing the capture mid-fight pauses
   let lockedAt = 0;
+  document.addEventListener('pointerlockerror', () => { if (G.state === 'play' && View.mode === 'behind') setTimeout(() => { if (document.pointerLockElement !== cv) lockMouse(cv); }, 300); });
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === cv) lockedAt = performance.now();
-    if (document.pointerLockElement !== cv) { Input.unlockedAt = performance.now(); if (G.state === 'play' && View.mode === 'behind') togglePause(); }
+    if (document.pointerLockElement !== cv) { Input.unlockedAt = performance.now(); Input.keys = {}; Input.mouseBlock = false; if (G.state === 'play' && View.mode === 'behind') togglePause(); }
   });
 
   // Touch: a floating joystick on the left half, action buttons on the right

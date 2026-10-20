@@ -48,7 +48,7 @@ const UI = (() => {
   }
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
-  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.2, 3, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
+  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
 
   // ---------------- Gear screen helpers ----------------
   // The selected piece: { it, equipped, slot } from tab.gsel ('e:<slot>' or 'i:<id>')
@@ -382,7 +382,7 @@ const UI = (() => {
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
         + `<h3>Controls</h3><div class="irow srow"><div class="iinfo"><b>Keyboard and controller</b><div class="istats">Change the key or button for any action.</div></div><div class="ibtns">${btn('Change…', 'open', 'controls', false, 'on')}</div></div>`
-        + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
+        + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('mouse', 'Pointing device', 'Mouse', 'Trackpad') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
     },
     // Nell the gem cutter: the same setting and prying as Bram, and three stones of a kind cut into one of another kind
