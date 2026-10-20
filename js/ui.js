@@ -245,7 +245,7 @@ const UI = (() => {
       const n = Party.fights();
       h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
       if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text: tools/policy/bake.js folds it into the shipped companion network.</p>`;
-      return h + (n ? btn(tab.policyShow ? 'Hide learned data' : 'Show learned data', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
+      return h + (n ? btn('Share learned data', 'policyshare', '', false, 'hot') + ' ' + btn('Copy', 'policycopy', '') + ' ' + btn(tab.policyShow ? 'Hide the text' : 'Show the text', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
     classpick() {
@@ -355,7 +355,7 @@ const UI = (() => {
           + (s ? `<div class="istats">Level ${s.level} · ${esc(st ? st.name : '')} · ◆ ${s.gold}${s.best ? ' · deepest floor ' + s.best : ''} · saved ${ago(s.savedAt)}</div>` : '<div class="istats dim">Empty</div>')
           + `</div><div class="ibtns">${s ? btn('Play', 'saveplay', n, false, 'hot') + btn('Export', 'saveexport', n) + btn('Import', 'saveimport', n) + btn(tab.saveDel === n ? 'Sure? Delete' : 'Delete', 'savedel', n, false, tab.saveDel === n ? 'warn' : '')
             : btn('New game', 'savenew', n, false, 'hot') + btn('Import', 'saveimport', n)}</div></div>`;
-        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${navigator.share ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
+        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${(navigator.share || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share)) ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
         if (tab.saveImport === n) h += `<div class="savecode"><textarea rows="3" placeholder="Paste a DEEPWARD1: code here"></textarea><div class="tact">${btn(s ? 'Load (replaces this slot)' : 'Load', 'saveimportgo', n, false, 'hot')}${tab.importBad ? '<small class="warnc">That code does not work.</small>' : ''}</div></div>`;
       }
       return h + btn('Back', 'close', '', false, 'leave');
@@ -491,6 +491,12 @@ const UI = (() => {
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
     if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'policyshare' || a === 'policycopy') {
+      const text = 'Deepward companion learning\n' + Party.exportData();
+      (a === 'policycopy' ? (async () => { try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) { return shareText('Deepward companion learning', text); } })() : shareText('Deepward companion learning', text))
+        .then(r => toast(r === 'shared' ? 'Learned data sent to the share sheet' : r === 'copied' ? 'Learned data copied' : 'Could not copy: use Show the text', '#9affc8'));
+      return;
+    }
     if (a === 'policyshow') { tab.policyShow = !tab.policyShow; return render(); }
     if (a === 'forget') { Party.forget(); Items.save(); return render(); }
     if (a === 'dismiss') { Party.dismiss(arg); return render(); }
@@ -545,7 +551,7 @@ const UI = (() => {
     if (a === 'saveexport') { tab.saveExport = tab.saveExport === +arg ? 0 : +arg; tab.saveImport = 0; return render(); }
     if (a === 'saveimport') { tab.saveImport = tab.saveImport === +arg ? 0 : +arg; tab.saveExport = 0; tab.importBad = false; return render(); }
     if (a === 'savecopy') { const t = el('pcard').querySelector('.savecode textarea'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand && document.execCommand('copy'); } toast('Save code copied'); return; }
-    if (a === 'saveshare') { try { navigator.share({ title: 'Deepward save', text: Items.exportSlot(+arg) }); } catch (e) {} return; }
+    if (a === 'saveshare') { shareText('Deepward save', Items.exportSlot(+arg)); return; }
     if (a === 'saveimportgo') {
       const t = el('pcard').querySelector('.savecode textarea'), ok = Items.importSlot(+arg, t ? t.value : '');
       tab.importBad = !ok; if (ok) { tab.saveImport = 0; Snd.play('parry'); toast('Save imported into slot ' + arg); }
@@ -636,6 +642,15 @@ const UI = (() => {
 
   // ---------------- HUD bits ----------------
   let toastT = null;
+  // Send text out of the app: the phone's share sheet (the Capacitor Share plugin in the Android app, else the browser's), else the
+  // clipboard. Returns 'shared' or 'copied' (or '' if neither worked).
+  async function shareText(title, text) {
+    const C = window.Capacitor;
+    try { if (C && C.Plugins && C.Plugins.Share) { await C.Plugins.Share.share({ title, text, dialogTitle: title }); return 'shared'; } } catch (e) { if (e && /cancel/i.test(String(e.message || e))) return 'shared'; }
+    try { if (navigator.share) { await navigator.share({ title, text }); return 'shared'; } } catch (e) { if (e && e.name === 'AbortError') return 'shared'; }
+    try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) {}
+    try { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); const ok = document.execCommand && document.execCommand('copy'); t.remove(); return ok ? 'copied' : ''; } catch (e) { return ''; }
+  }
   function toast(text, color) {
     const t = el('toast'); t.textContent = text; t.style.color = color || ''; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);

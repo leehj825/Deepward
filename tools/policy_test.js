@@ -76,6 +76,12 @@ const N = parseInt(process.argv[2] || '8', 10);
     Settings.set('learnOnline', false); const n0 = Party.fights();
     const f2 = [-3].map(x => { const e = __dw.spawn('skeleton', x, -9); e.state = 'hunt'; return e; }); __dw.sim(40, () => { p.st = p.maxSt; return f2.every(e => e.state === 'dead'); }); __dw.sim(4);
     o.offStaysPut = Party.fights() === n0;
+    // The Party panel offers Share, Copy and the text itself
+    __dw.openPanel('party'); const has = a => !!document.querySelector(`[data-act="${a}"]`);
+    o.shareButtons = has('policyshare') && has('policycopy') && has('policyshow');
+    document.querySelector('[data-act="policyshare"]').click(); document.querySelector('[data-act="policycopy"]').click();
+    document.querySelector('[data-act="policyshow"]').click(); o.textShown = /DWPOLICY1:/.test((document.querySelector('.savecode textarea') || {}).value || '');
+    while (__dw.UI.open) __dw.UI.close();
     // The learned preferences copy out as text, and tools/policy/bake.js folds such text into a network's per-class bias
     const code = Party.exportData(); o.exportCode = /^DWPOLICY1:[A-Za-z0-9+\/=]+$/.test(code) && JSON.parse(atob(code.slice(10))).n === 1;
     o.exportCode = o.exportCode && (window.__code = code, true);
