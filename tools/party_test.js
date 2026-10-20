@@ -70,6 +70,12 @@ const path = require('path');
     Enemy.addThreat(sk3, al[0], 80); sk3.tgtT = 0; __dw.sim(0.6); o.threatPulls = sk3.tgt === al[0];
     // 6. A new stage stands them up
     al = room(['hobb']); al[0].hp = 0; al[0].state = 'down'; Party.restore(true); o.restoreStands = al[0].state === 'free' && al[0].hp === al[0].maxHp;
+    // 7. The dash: untouchable in the middle of it, hurt at its ends; companions dash out of a skeleton's blow by themselves; can be switched off
+    al = room(['hobb']); const dd = al[0]; dd.state = 'roll'; dd.rollT = 0.1; const dh = dd.hp; o.dashSafe = Party.hurt(dd, { mult: 1, pos: p.pos }, { dmg: 10 }) === 'dodge' && dd.hp === dh;
+    dd.state = 'free';
+    const dodgeRun = on => { let n = 0, lost = 0; for (let k = 0; k < 5; k++) { al = room(['hobb']); const a = al[0]; Settings.set('companionDodge', on); a.pos.set(0, 0, 2); p.pos.set(0, 0, 5); const sk = __dw.spawn('skeleton', 0, -0.6); sk.state = 'hunt'; sk.tgt = a; sk.cooldown = 0; sk.tgtT = 99; let rolled = false; const h0 = a.hp; __dw.sim(3, () => { if (a.state === 'roll') rolled = true; a.hp = Math.max(a.hp, 1); return false; }); n += rolled ? 1 : 0; lost += h0 - a.hp; sk.state = 'dead'; sk.hp = 0; } return { n, lost }; };
+    const on = dodgeRun(true), off = dodgeRun(false); Settings.set('companionDodge', true);
+    o.dodgesOnItsOwn = on.n >= 2 && off.n === 0;
     // The hero's flask spills over to the companions near (half its healing); the downed stay down
     al = room(['hobb', 'mira']); const [fh, fa] = al; fh.hp = fh.maxHp * 0.4; fa.hp = 0; Party.hurt(fa, { mult: 1, pos: p.pos }, { dmg: 1 }); fa.state = 'down'; p.hp = p.maxHp * 0.5; p.flasks = 2; fh.pos.set(2, 0, 4); fa.pos.set(-2, 0, 4); p.pos.set(0, 0, 4);
     const f0 = fh.hp; Player.drink(p); __dw.sim(1.2); o.flaskSpills = fh.hp > f0 + fh.maxHp * 0.1 && fa.state === 'down' && p.hp > p.maxHp * 0.7;

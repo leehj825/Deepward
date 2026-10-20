@@ -15,14 +15,15 @@ const N = parseInt(process.argv[2] || '8', 10);
     o.shape = w.in === Policy.N_IN && w.out === Policy.ACTIONS.length && w.W1.length === w.in * w.hid && w.W2.length === w.out * w.hid && w.b1.length === w.hid && w.b2.length === w.out;
     o.finite = [...w.W1, ...w.b1, ...w.W2, ...w.b2].every(Number.isFinite);
     o.ready = Policy.ready === true && !!Policy.info && Policy.info.actions.join() === Policy.ACTIONS.join();
-    const base = { cls: 'warrior', hp: 1, hero: 1, other: 1, downed: 0, dHero: 3, dEnemy: 5, nNear: 1, nHero: 1, targeted: 0, danger: 3, atkRdy: 1, heavyRdy: 1, healRdy: 1, lowest: 1, hurtN: 0, hasTarget: true };
+    const base = { cls: 'warrior', hp: 1, hero: 1, other: 1, downed: 0, dHero: 3, dEnemy: 5, nNear: 1, nHero: 1, targeted: 0, danger: 3, atkRdy: 1, heavyRdy: 1, healRdy: 1, lowest: 1, hurtN: 0, hasTarget: true, dodgeRdy: 1, aoe: 0 };
     o.encodes = Policy.encode(base).length === Policy.N_IN && Policy.encode(base).every(Number.isFinite);
     // The mask: only a cleric heals, only a warrior guards, nothing attacks without a target
     o.mask = Policy.legal(Object.assign({}, base, { cls: 'archer' }))[A.heal] === false && Policy.legal(base)[A.guard] === true && Policy.legal(Object.assign({}, base, { cls: 'mage' }))[A.guard] === false && Policy.legal(Object.assign({}, base, { hasTarget: false }))[A.attack] === false;
+    o.dodgeMask = Policy.legal(Object.assign({}, base, { danger: 0.2 }))[A.dodge] === true && Policy.legal(base)[A.dodge] === false && Policy.legal(Object.assign({}, base, { danger: 0.2, dodgeRdy: 0 }))[A.dodge] === false && Policy.classic(Object.assign({}, base, { danger: 0.15 })) === A.dodge && Policy.classic(Object.assign({}, base, { danger: 0.15, dodgeRdy: 0 })) !== A.dodge;
     // Whatever the state, the network only picks a legal move
     let ok = true, agree = 0, n = 0;
     for (let i = 0; i < 4000; i++) {
-      const s = { cls: Policy.CLS[i % 4], hp: Math.random(), hero: Math.random(), other: Math.random(), downed: Math.floor(Math.random() * 3), dHero: Math.random() * 20, dEnemy: Math.random() < 0.15 ? 99 : Math.random() * 15, nNear: Math.floor(Math.random() * 5), nHero: Math.floor(Math.random() * 5), targeted: Math.floor(Math.random() * 3), danger: Math.random() * 3, atkRdy: Math.random() < 0.6 ? 1 : 0, heavyRdy: Math.random() < 0.3 ? 1 : 0, healRdy: Math.random() < 0.3 ? 1 : 0, lowest: Math.random(), hurtN: Math.floor(Math.random() * 3), hasTarget: Math.random() < 0.85 };
+      const s = { cls: Policy.CLS[i % 4], hp: Math.random(), hero: Math.random(), other: Math.random(), downed: Math.floor(Math.random() * 3), dHero: Math.random() * 20, dEnemy: Math.random() < 0.15 ? 99 : Math.random() * 15, nNear: Math.floor(Math.random() * 5), nHero: Math.floor(Math.random() * 5), targeted: Math.floor(Math.random() * 3), danger: Math.random() * 3, atkRdy: Math.random() < 0.6 ? 1 : 0, heavyRdy: Math.random() < 0.3 ? 1 : 0, healRdy: Math.random() < 0.3 ? 1 : 0, lowest: Math.random(), hurtN: Math.floor(Math.random() * 3), hasTarget: Math.random() < 0.85, dodgeRdy: Math.random() < 0.5 ? 1 : 0, aoe: Math.random() < 0.3 ? 1 : 0 };
       s.lowest = Math.min(s.lowest, s.hp); const m = Policy.legal(s), c = Policy.choose(s);
       if (c == null || !m[c]) ok = false; if (c === Policy.classic(s)) agree++; n++;
     }
@@ -89,7 +90,7 @@ const N = parseInt(process.argv[2] || '8', 10);
     const code = Party.exportData(); o.exportCode = /^DWPOLICY1:[A-Za-z0-9+\/=]+$/.test(code) && JSON.parse(atob(code.slice(10))).n === 1;
     o.exportCode = o.exportCode && (window.__code = code, true);
     // A baked bias changes a class's choice only by its own amount (a big bias for one move wins whenever that move is legal)
-    const s0 = { cls: 'archer', hp: 1, hero: 1, other: 1, downed: 0, dHero: 3, dEnemy: 8, nNear: 1, nHero: 1, targeted: 0, danger: 3, atkRdy: 1, heavyRdy: 0, healRdy: 0, lowest: 1, hurtN: 0, hasTarget: true };
+    const s0 = { cls: 'archer', hp: 1, hero: 1, other: 1, downed: 0, dHero: 3, dEnemy: 8, nNear: 1, nHero: 1, targeted: 0, danger: 3, atkRdy: 1, heavyRdy: 0, healRdy: 0, lowest: 1, hurtN: 0, hasTarget: true, dodgeRdy: 1, aoe: 0 };
     const w0 = JSON.parse(JSON.stringify(DW_POLICY)), w1 = JSON.parse(JSON.stringify(DW_POLICY)); w1.cb = { archer: [0, 0, 0, 50, 0, 0, 0], warrior: [0, 0, 0, 0, 0, 0, 0], mage: [0, 0, 0, 0, 0, 0, 0], cleric: [0, 0, 0, 0, 0, 0, 0] };
     o.bakedBias = Policy.choose(s0, w1) === Policy.A.regroup && Policy.choose(Object.assign({}, s0, { cls: 'mage' }), w1) === Policy.choose(Object.assign({}, s0, { cls: 'mage' }), w0);
     Party.forget(); o.forgets = Party.fights() === 0 && Party.exportData() === '';

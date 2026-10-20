@@ -54,6 +54,7 @@ const Enemy = (() => {
   function endTelegraph(e) {
     Rig.glow(e.rig, 0, 0);
     if (e.ring) { FX.killRing(e.ring); e.ring = null; }
+    if (e.tmark) { if (!e.struck) e.tmark.kill(); e.tmark = null; }                  // a blow that never lands (stunned, parried, dead): the circle goes; one that landed finishes its flash
   }
 
   function pickAttack(e) {
@@ -90,6 +91,13 @@ const Enemy = (() => {
       e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
     }
     if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
+    // The timing circle: shrinks onto a small circle and arrives exactly when the blow lands (not for a feint, which never lands, nor
+    // for a shot, which has its own flight). Only for blows meant for the warden.
+    const hero = G.player;
+    if (!h.feint && !h.projectile && Settings.get('timingRing') !== false && hero && hero.state !== 'dead' && (e.tgt === hero || Combat.dist(e.pos, hero.pos) < (h.range || 2.5) + 2.5)) {
+      const sc = e.def.scale, hitT = h.wind + h.active * (h.leap ? 0.8 : 0.5), col = h.unblockable ? GLOW_RED : h.parryOnly ? GLOW_AMBER : GLOW_OK;
+      e.tmark = FX.timing(() => new THREE.Vector3(e.pos.x + Math.sin(e.facing) * e.def.radius * 0.5, 1.5 * sc + 0.25, e.pos.z + Math.cos(e.facing) * e.def.radius * 0.5), col, hitT, 0.7 + 0.45 * sc, 0.22 + 0.1 * sc, hero.S ? hero.S.parry : 0.2);
+    }
   }
 
   // ---------------- Aggro ----------------
@@ -566,7 +574,7 @@ const Enemy = (() => {
   // An enemy arrow or orb that meets a companion hurts them (the first one it touches)
   function hitAlly(a) {
     if (a.back) return false;
-    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit); return true; }
+    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { return Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit) !== 'dodge'; }
     return false;
   }
   function updateArrows(dt) {

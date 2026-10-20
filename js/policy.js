@@ -1,18 +1,19 @@
-// Deepward - the companions' battle policy: which of seven moves a companion makes next. The game and the offline trainer
+// Deepward - the companions' battle policy: which of eight moves a companion makes next. The game and the offline trainer
 // (tools/policy/) share this file, so what the network sees and chooses from is identical in both.
 //   state s   a small description of the moment (health of the companion, warden and others, distances, danger, cooldowns)
 //   classic   the hand-written rules (the companions' behaviour before there was a network, and the fallback)
-//   choose    the learned network (weights in js/policy_weights.js, made by tools/policy/train.js): a 21 -> 20 -> 7 MLP,
+//   choose    the learned network (weights in js/policy_weights.js, made by tools/policy/train.js): a 23 -> 20 -> 8 MLP,
 //             a few hundred numbers, run a few times a second. Illegal moves are masked out, so it can only reorder legal ones.
 // Following the warden comes before all of this (Party.think handles it); the policy decides what to do in a fight.
 const Policy = (() => {
-  const ACTIONS = ['attack', 'heavy', 'kite', 'regroup', 'heal', 'area', 'guard'];
+  const ACTIONS = ['attack', 'heavy', 'kite', 'regroup', 'heal', 'area', 'guard', 'dodge'];
   const CLS = ['warrior', 'archer', 'mage', 'cleric'];
   const A = Object.fromEntries(ACTIONS.map((n, i) => [n, i]));
-  const N_IN = 21;
+  const N_IN = 23;
   const cl = (v, m) => Math.max(0, Math.min(1, v / m));
   // The state is plain numbers: hp, hero, other, lowest are shares of health (0..1); distances in metres; danger is the seconds
-  // until the next blow aimed at this companion lands (3 when none); *Rdy are 0 or 1.
+  // until the next blow that would hit this companion strikes (a wind-up aimed at it or a ring on the floor around it, or an arrow on its
+  // way; 3 when none); *Rdy are 0 or 1; aoe is 1 when that blow is a ring (the way out is away from its middle).
   function encode(s) {
     const v = new Array(N_IN).fill(0);
     v[CLS.indexOf(s.cls)] = 1;
@@ -20,6 +21,7 @@ const Policy = (() => {
     v[i++] = s.hp; v[i++] = s.hero; v[i++] = s.other; v[i++] = cl(s.downed, 2); v[i++] = cl(s.dHero, 20); v[i++] = cl(s.dEnemy, 20);
     v[i++] = cl(s.nNear, 5); v[i++] = cl(s.nHero, 5); v[i++] = cl(s.targeted, 3); v[i++] = cl(s.danger, 3);
     v[i++] = s.atkRdy; v[i++] = s.heavyRdy; v[i++] = s.healRdy; v[i++] = s.lowest; v[i++] = cl(s.hurtN, 3); v[i++] = s.hasTarget ? 1 : 0;
+    v[i++] = s.dodgeRdy ? 1 : 0; v[i++] = s.aoe ? 1 : 0;
     return v;
   }
   // Which moves are possible right now
@@ -32,10 +34,13 @@ const Policy = (() => {
     m[A.heal] = s.cls === 'cleric' && !!s.atkRdy;
     m[A.area] = s.cls === 'cleric' && !!s.healRdy;
     m[A.guard] = s.cls === 'warrior';
+    m[A.dodge] = !!s.dodgeRdy && s.danger < 1.0;                 // only when a blow is coming
     return m;
   }
   // The hand-written rules: the behaviour the companions had before the network
   function classic(s) {
+    // The reflex: a dash through the last quarter second before a blow lands (the dash is untouchable for most of it)
+    if (s.dodgeRdy && s.danger >= 0.03 && s.danger <= 0.26) return A.dodge;
     if (s.cls === 'cleric') {
       if (s.healRdy && (s.lowest < 0.4 || s.hurtN >= 2)) return A.area;
       if (s.atkRdy && s.lowest < 0.75) return A.heal;
@@ -50,7 +55,8 @@ const Policy = (() => {
   }
 
   // ---------------- The network ----------------
-  const W = () => (typeof DW_POLICY !== 'undefined' && DW_POLICY && DW_POLICY.W1) ? DW_POLICY : null;
+  // The shipped weights, if they fit this file's inputs and moves (weights made for another shape are ignored: the rules play)
+  const W = () => (typeof DW_POLICY !== 'undefined' && DW_POLICY && DW_POLICY.W1 && DW_POLICY.in === N_IN && DW_POLICY.out === ACTIONS.length) ? DW_POLICY : null;
   function forward(w, x) {
     const h = new Array(w.hid);
     for (let j = 0; j < w.hid; j++) { let a = w.b1[j]; for (let i = 0; i < w.in; i++) a += w.W1[j * w.in + i] * x[i]; h[j] = Math.tanh(a); }
@@ -83,7 +89,7 @@ const Policy = (() => {
     const params = { LR: 0.25, CLIP: 2, EXPLORE: 0.25 };
     const make = saved => {
       const L = { bias: {}, base: 25, sd: 12, n: 0, ep: [], log: [] };
-      for (const c of CLS) L.bias[c] = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice() : new Array(ACTIONS.length).fill(0);
+      for (const c of CLS) { const b = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice(0, ACTIONS.length) : []; while (b.length < ACTIONS.length) b.push(0); L.bias[c] = b; }      // (older saves have fewer moves: new ones start at 0)
       if (saved) { L.base = Math.max(-60, Math.min(90, saved.base === undefined ? 25 : saved.base)); L.sd = Math.min(30, saved.sd || 12); L.n = saved.n || 0; L.log = Array.isArray(saved.log) ? saved.log.slice(-30) : []; }
       return L;
     };

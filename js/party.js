@@ -52,7 +52,7 @@ const Party = (() => {
     const p = G.player, rig = Rig.build('hero', { look: lookFor(d) }), pw = power();
     p.rig.root.parent.add(rig.root);
     const a = {
-      id: d.id, def: d, cls: d.cls, ally: true, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
+      id: d.id, def: d, cls: d.cls, ally: true, dodgeCd: 0, rollT: 0, rollDir: 0, threat: null, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
       phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, guardT: 0, decT: 0, shots: 0, speedK: 0, cycle: 0,
       S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
     };
@@ -77,6 +77,7 @@ const Party = (() => {
   // ---------------- Taking damage ----------------
   function hurt(a, e, hit) {
     if (a.state === 'down') return;
+    if (a.state === 'roll' && a.rollT >= P.dodge.iStart && a.rollT <= P.dodge.iEnd) { FX.text(Combat.chestPos(a.pos, 2.1), 'DODGE', 'dodge'); return 'dodge'; }          // the dash is untouchable for most of it
     const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * (a.guardT > 0 ? 0.5 : 1) * Settings.diff.dmg;           // a guarding warrior takes half
     a.hp = Math.max(0, a.hp - n); a.hitT = 0;
     FX.text(Combat.chestPos(a.pos, 2.0), '-' + Math.round(n), 'hurt'); Snd.play('hit');
@@ -222,31 +223,61 @@ const Party = (() => {
   function stateOf(a, p) {
     const t = a.target, party = Shots.party(a), near = party.filter(m => m !== a && Combat.dist(a.pos, m.pos) < 8), grp = [a].concat(near);
     const foes = G.enemies.filter(usable), others = (G.allies || []).filter(m => m !== a);
-    let nearest = 99, ne = null, danger = 3, targeted = 0;
+    let nearest = 99, ne = null, danger = 3, targeted = 0, aoe = 0; a.threat = null;
     for (const e of foes) {
       const d = Combat.dist(a.pos, e.pos); if (d < nearest) { nearest = d; ne = e; }
-      if (e.tgt !== a) continue;
-      targeted++;
-      if (e.state === 'attack' && e.phase === 'wind' && e.atk) danger = Math.min(danger, Math.max(0, e.atk.hits[e.hitIdx].wind - e.phaseT));
+      if (e.tgt === a) targeted++;
+      // The next blow that would strike this companion, and in how long: a wind-up aimed at it, or a ring on the floor around it
+      if (e.state !== 'attack' || !e.atk || e.struck || (e.phase !== 'wind' && e.phase !== 'active')) continue;
+      const h = e.atk.hits[e.hitIdx], strikeAt = h.active * (h.leap ? 0.8 : 0.5), t = e.phase === 'wind' ? Math.max(0, h.wind - e.phaseT) + strikeAt : Math.max(0, strikeAt - e.phaseT);
+      if (h.projectile) continue;
+      let hits = false, ring = false, c = null;
+      if (h.aoe) { c = e.aoeAt || Enemy.aoeCenter(e, h); ring = true; hits = Math.hypot(a.pos.x - c.x, a.pos.z - c.z) <= h.aoe.r + 0.9; }
+      else hits = e.tgt === a && d <= h.range + 1.0 + e.def.radius;
+      if (hits && t < danger) { danger = t; aoe = ring ? 1 : 0; a.threat = { kind: ring ? 'aoe' : 'melee', e, cx: c ? c.x : 0, cz: c ? c.z : 0 }; }
     }
     for (const ar of Enemy.arrows) {                                               // an arrow or orb on its way to this companion
       if (ar.back) continue;
       const dx = a.pos.x - ar.pos.x, dz = a.pos.z - ar.pos.z, d = Math.hypot(dx, dz);
-      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93) danger = Math.min(danger, d / ar.speed);
+      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93 && d / ar.speed < danger) { danger = d / ar.speed; aoe = 0; a.threat = { kind: 'shot', dx: ar.dir.x, dz: ar.dir.z }; }
     }
     a.nearest = ne;
+    const rollable = (a.state === 'free' || (a.state === 'attack' && a.phase === 'recover')) && a.dodgeCd <= 0 && Settings.get('companionDodge') !== false;
     return {
       cls: a.cls, hp: frac(a), hero: frac(p), other: others.length ? Math.min(...others.map(frac)) : 1, downed: others.filter(m => m.state === 'down').length,
       dHero: Combat.dist(a.pos, p.pos), dEnemy: t ? D(a, t) : nearest, nNear: foes.filter(e => Combat.dist(a.pos, e.pos) < 7).length, nHero: foes.filter(e => Combat.dist(p.pos, e.pos) < 7).length,
-      targeted, danger, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
+      targeted, danger, aoe, dodgeRdy: rollable ? 1 : 0, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
       lowest: Math.min(...grp.filter(m => Combat.dist(a.pos, m.pos) < 8).map(frac)), hurtN: grp.filter(m => m.state === 'down' || frac(m) < 0.6).length, hasTarget: !!t,
     };
+  }
+  // The dash (the hero's own: 2.6 m in 0.3 s, untouchable for most of it). Which way: out of a ring (away from its middle), or to the
+  // side of a swing or a shot, to whichever side is clear of other foes and inside the walls.
+  function startRoll(a) {
+    const T = a.threat, foes = G.enemies.filter(usable);
+    let ang;
+    const side = (fromX, fromZ) => {                                               // perpendicular to the line from (fromX, fromZ) to the companion
+      const base = Math.atan2(a.pos.x - fromX, a.pos.z - fromZ);
+      let best = base + Math.PI / 2, bs = -1e9;
+      for (const sg of [1, -1]) {
+        const ang2 = base + sg * Math.PI / 2, x = a.pos.x + Math.sin(ang2) * P.dodge.dist, z = a.pos.z + Math.cos(ang2) * P.dodge.dist;
+        let s = World.inSpace(x, z, 0.5) ? 0 : -50; for (const e of foes) s += Math.min(6, Math.hypot(e.pos.x - x, e.pos.z - z));
+        if (s > bs) { bs = s; best = ang2; }
+      }
+      return best;
+    };
+    if (T && T.kind === 'aoe') { const dx = a.pos.x - T.cx, dz = a.pos.z - T.cz; ang = Math.hypot(dx, dz) > 0.3 ? Math.atan2(dx, dz) : side(T.e.pos.x, T.e.pos.z); }
+    else if (T && T.kind === 'melee') ang = side(T.e.pos.x, T.e.pos.z);
+    else if (T && T.kind === 'shot') ang = side(a.pos.x - T.dx, a.pos.z - T.dz);
+    else ang = a.facing + Math.PI / 2;
+    a.state = 'roll'; a.rollT = 0; a.rollDir = ang; a.rollFrom = a.pos.clone(); a.atk = null; a.phase = null; a.dodgeCd = 1.8;
+    Snd.play('roll'); FX.burst(new THREE.Vector3(a.pos.x, 0.1, a.pos.z), 0x9a8e7a, 8, 3, 0.3);
   }
   // Doing the chosen move: starts a blow when it is ready, and returns a movement goal {x, z, run} (or null to stand)
   function execute(a, act, p) {
     const A = Policy.A, t = a.target, home = homeOf(a, p), toward = (e, run = true) => ({ x: e.pos.x, z: e.pos.z, run });
     const goHome = () => (Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: Combat.dist(a.pos, p.pos) > 6 } : null);
     if (act === A.guard) { a.guardT = 0.6; return null; }
+    if (act === A.dodge) { startRoll(a); return null; }
     if (act === A.regroup) return goHome();
     if (act === A.kite) {
       const e = a.nearest; if (!e) return goHome();
@@ -276,14 +307,17 @@ const Party = (() => {
   function think(a, p, dt) {
     const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
     a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt; a.decT -= dt;
-    if (dp > CP.far || a.state === 'attack' || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
+    const recovering = a.state === 'attack' && a.phase === 'recover';              // a dash may cut short the end of a blow
+    if (dp > CP.far || (a.state === 'attack' && !recovering) || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
     a.target = pickTarget(a, p);
     if (a.decT <= 0 || a.act === undefined) {
-      a.decT = 0.3; const s = stateOf(a, p), legal = Policy.legal(s);
+      const s = stateOf(a, p), legal = Policy.legal(s);
+      a.decT = s.danger < 0.9 ? 0.06 : 0.3;                                      // decide faster while a blow is coming: the dash must start in the last quarter second
       let act = Settings.get('learnedAI') !== false ? Policy.Learner.pick(learner(), s, undefined, !!(fight && fight.on)) : null;
       if (act == null || !legal[act]) act = Policy.classic(s);
       a.act = act;
     }
+    if (recovering && a.act !== Policy.A.dodge) return null;                        // otherwise the recovery runs its course
     return execute(a, a.act, p);
   }
 
@@ -294,7 +328,7 @@ const Party = (() => {
     const dead = p.state === 'dead';
     trackFight(dt, p);
     for (const a of G.allies) {
-      a.t += dt; a.hitT += dt;
+      a.t += dt; a.hitT += dt; a.dodgeCd -= dt;
       if (a.state === 'down') {                                                      // lies still until healed (or a while passes)
         a.downT += dt; if (a.downT > CP.downFor) revive(a, 0.25);
         a.rig.root.position.copy(a.pos); a.rig.root.rotation.y = a.facing;
@@ -313,7 +347,16 @@ const Party = (() => {
         if (a.phase === 'active' && a.phaseT >= k.active) { a.phase = 'recover'; a.phaseT = 0; }
         if (a.phase === 'recover' && a.phaseT >= k.recover) { a.state = 'free'; a.phase = null; a.atk = null; }
         if (a.target && Enemy.targetable(a.target) && a.phase === 'wind') a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 14 * dt);
-      } else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
+        if (a.state === 'attack' && a.phase === 'recover' && !dead) think(a, p, dt);          // in the recovery a dash can still be chosen
+      } else if (a.state === 'roll') {                                             // the dash: along rollDir, 2.6 m in 0.3 s
+        a.rollT += dt;
+        const D = P.dodge, k = Math.min(1, a.rollT / D.time), ease = 1 - Math.pow(1 - k, 2.2);
+        a.pos.x = a.rollFrom.x + Math.sin(a.rollDir) * D.dist * ease; a.pos.z = a.rollFrom.z + Math.cos(a.rollDir) * D.dist * ease;
+        moving = 1;
+        if (a.target && Enemy.targetable(a.target)) a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 10 * dt);
+        if (a.rollT >= D.time) { a.state = 'free'; a.cd = Math.max(a.cd, 0.2); }
+      }
+      else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
       else if (!dead) goal = think(a, p, dt);
       if (goal) {
         const dx = goal.x - a.pos.x, dz = goal.z - a.pos.z, dist = Math.hypot(dx, dz);
@@ -332,8 +375,8 @@ const Party = (() => {
       const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
       const atk = a.state === 'attack' ? a.atk : null;
       Rig.animate(r, {
-        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
-        phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
+        mode: a.state === 'hurt' ? 'hurt' : a.state === 'roll' ? 'dash' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: a.state === 'roll' ? Math.cos(a.rollDir - a.facing) : 1, dirS: a.state === 'roll' ? Math.sin(a.rollDir - a.facing) : 0,
+        phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: a.state === 'roll' ? a.rollT / P.dodge.time : atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
         atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
       }, dt);
     }
