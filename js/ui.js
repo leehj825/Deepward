@@ -238,7 +238,7 @@ const UI = (() => {
       let h = `<h2>Party</h2><p class="sub">${S.party.length} of ${Party.max} walk with you. They follow, and fight what is near.${camp ? '' : ' Recruit in the Hold.'}</p>`;
       for (const d of Party.defs) {
         const st = Party.status(d.id), full = S.party.length >= Party.max;
-        const note = st === 'locked' ? (d.rescue ? 'Free them from the Deep first' : '') : st === 'hire' ? `Hire for ◆ ${d.hire}` : st === 'in' ? 'In your party' : 'Ready to join';
+        const note = st === 'locked' ? 'Free them from the Deep first' : st === 'hire' ? `Hire for ◆ ${d.hire}` + (d.rescue ? ' (free if you free them from the Deep)' : '') : st === 'in' ? 'In your party' : 'Ready to join';
         const b = st === 'in' ? btn('Dismiss', 'dismiss', d.id, !camp) : st === 'locked' ? '' : btn(st === 'hire' ? '◆ ' + d.hire : 'Recruit', 'recruit', d.id, !camp || full || (st === 'hire' && S.gold < d.hire), 'hot');
         h += `<div class="irow"><div class="iinfo"><b>${Party.GLYPH[d.cls]} ${esc(d.name)}</b> <small>${esc(CFG.classes[d.cls].name)} · ${esc(note)}</small><p class="dim">${esc(d.blurb)}</p></div><div class="ibtns">${b}</div></div>`;
       }

@@ -15,10 +15,15 @@ const path = require('path');
     o.names = Party.defs.every(d => d.short && d.name);
     let p = fresh(); I.S.gold = 0;
     o.hobbHire = Party.status('hobb') === 'hire' && Party.recruit('hobb') === false && Party.status('hobb') === 'hire';
-    o.miraLocked = Party.status('mira') === 'locked' && Party.recruit('mira') === false;
+    o.miraHire = Party.status('mira') === 'hire' && Party.recruit('mira') === false;                 // hired for gold, or free once rescued
     I.S.gold = 200; o.hired = Party.recruit('hobb') === true && I.S.gold === 50 && I.S.party.join() === 'hobb' && Party.status('hobb') === 'in';
     I.S.rescued.push({ id: 'mira', name: 'Mira' }, { id: 'aldo', name: 'Aldo' }, { id: 'pell', name: 'Pell' });
     o.miraReady = Party.status('mira') === 'ready'; o.miraFree = Party.recruit('mira') === true && I.S.gold === 50;
+    // Anyone can be hired for gold without a rescue (Pell: 260), and the second companion comes that way
+    { const keep = I.S.rescued; I.S.rescued = []; I.S.party = ['hobb']; I.S.hired = { hobb: true }; I.S.gold = 100; Party.sync();
+      o.pellNeedsGold = Party.status('pell') === 'hire' && Party.recruit('pell') === false;
+      I.S.gold = 300; o.pellHiredForGold = Party.recruit('pell') === true && I.S.gold === 40 && I.S.party.join() === 'hobb,pell';
+      I.S.party = ['hobb', 'mira']; I.S.rescued = keep; I.S.gold = 50; Party.sync(); I.S.hired = { hobb: true }; }
     o.maxTwo = Party.recruit('aldo') === false && I.S.party.length === 2;
     __dw.sim(0.2); o.bodies = G.allies.length === 2 && G.allies.every(a => a.rig.root.parent) && document.querySelectorAll('#party .pm').length === 2;
     o.dismiss = Party.dismiss('mira') === true && (__dw.sim(0.1), G.allies.length === 1) && I.S.party.join() === 'hobb';
@@ -72,7 +77,7 @@ const path = require('path');
     // --- The panel
     p = fresh(); I.S.gold = 999; I.S.rescued = [{ id: 'mira' }]; G.mode = 'camp'; __dw.openPanel('party');
     const rows = document.querySelectorAll('#pcard .irow').length; o.panelRows = rows === 4;
-    o.panelRecruit = document.querySelectorAll('[data-act="recruit"]').length === 2 && document.querySelectorAll('[data-act="recruit"]:not([disabled])').length === 2;
+    o.panelRecruit = document.querySelectorAll('[data-act="recruit"]').length === 4 && document.querySelectorAll('[data-act="recruit"]:not([disabled])').length === 4;
     document.querySelector('[data-act="recruit"][data-arg="hobb"]').click(); o.panelJoined = I.S.party.includes('hobb') && !!document.querySelector('[data-act="dismiss"][data-arg="hobb"]');
     while (__dw.UI.open) __dw.UI.close(); G.mode = 'dungeon'; __dw.openPanel('party'); o.panelCampOnly = [...document.querySelectorAll('[data-act="dismiss"],[data-act="recruit"]')].every(x => x.disabled); while (__dw.UI.open) __dw.UI.close();
     return o;

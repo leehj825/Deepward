@@ -17,8 +17,9 @@ const Party = (() => {
     const d = def(id), s = S();
     if (!d || !s) return 'locked';
     if (s.party.includes(id)) return 'in';
-    if (d.rescue && !Items.rescued(d.rescue)) return 'locked';
+    if (d.rescue && Items.rescued(d.rescue)) return 'ready';                      // freed from the Deep: joins free
     if (d.hire && !s.hired[id]) return 'hire';
+    if (d.rescue && !s.hired[id]) return 'locked';
     return 'ready';
   }
   function recruit(id) {

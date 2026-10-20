@@ -1154,13 +1154,13 @@ const CFG = {
 
   // ---------------- Party ----------------
   // Companions walk with the warden (see js/party.js): they follow, and attack, shoot or heal what is near. For now they are
-  // helpers: foes do not target them and they cannot fall. Rescued captives join free; the others are hired once.
+  // helpers. Anyone can be hired once for gold (hire); a captive freed from the Deep (rescue) joins free.
   party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5, downFor: 25 },
   companions: [
     { id: 'hobb', short: 'Hobb', name: 'Sergeant Hobb', cls: 'warrior', weapon: 'sword', hire: 150, blurb: 'Keeps the line. A sword, a shield and thirty years of bad knees.', cloth: 0x7a3a2a, look: { skin: 0xd8a07a, hair: 0x6a6a6a, hairStyle: 'short', beard: 'long' } },
-    { id: 'mira', short: 'Mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
-    { id: 'pell', short: 'Pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
-    { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
+    { id: 'mira', short: 'Mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', hire: 220, rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
+    { id: 'pell', short: 'Pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', hire: 260, rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
+    { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', hire: 220, rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
   ],
 
   // ---------------- Classes ----------------
@@ -6214,8 +6214,9 @@ const Party = (() => {
     const d = def(id), s = S();
     if (!d || !s) return 'locked';
     if (s.party.includes(id)) return 'in';
-    if (d.rescue && !Items.rescued(d.rescue)) return 'locked';
+    if (d.rescue && Items.rescued(d.rescue)) return 'ready';                      // freed from the Deep: joins free
     if (d.hire && !s.hired[id]) return 'hire';
+    if (d.rescue && !s.hired[id]) return 'locked';
     return 'ready';
   }
   function recruit(id) {
@@ -8299,7 +8300,7 @@ const UI = (() => {
       let h = `<h2>Party</h2><p class="sub">${S.party.length} of ${Party.max} walk with you. They follow, and fight what is near.${camp ? '' : ' Recruit in the Hold.'}</p>`;
       for (const d of Party.defs) {
         const st = Party.status(d.id), full = S.party.length >= Party.max;
-        const note = st === 'locked' ? (d.rescue ? 'Free them from the Deep first' : '') : st === 'hire' ? `Hire for ◆ ${d.hire}` : st === 'in' ? 'In your party' : 'Ready to join';
+        const note = st === 'locked' ? 'Free them from the Deep first' : st === 'hire' ? `Hire for ◆ ${d.hire}` + (d.rescue ? ' (free if you free them from the Deep)' : '') : st === 'in' ? 'In your party' : 'Ready to join';
         const b = st === 'in' ? btn('Dismiss', 'dismiss', d.id, !camp) : st === 'locked' ? '' : btn(st === 'hire' ? '◆ ' + d.hire : 'Recruit', 'recruit', d.id, !camp || full || (st === 'hire' && S.gold < d.hire), 'hot');
         h += `<div class="irow"><div class="iinfo"><b>${Party.GLYPH[d.cls]} ${esc(d.name)}</b> <small>${esc(CFG.classes[d.cls].name)} · ${esc(note)}</small><p class="dim">${esc(d.blurb)}</p></div><div class="ibtns">${b}</div></div>`;
       }
