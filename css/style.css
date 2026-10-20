@@ -164,6 +164,23 @@ body:not(.playing) #padKeys { display: none !important; }
 #ultBox.ready { color: #ffd040; border-color: #ffd040; box-shadow: 0 0 10px rgba(255, 208, 64, 0.6); }
 .ftxt.xp { color: #9ad8ff; font-size: 13px; }
 .b-lock { width: 44px; height: 44px; right: 132px; bottom: 236px; font-size: 18px !important; }
+.b-mode { width: 58px; height: 58px; right: 70px; bottom: 236px; font-size: 11px !important; color: #ffe9a0 !important; border-color: #ffe9a0 !important; }
+.b-mode.heal { color: #9affc0 !important; border-color: #9affc0 !important; }
+#party { position: absolute; left: 16px; top: 112px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; width: 150px; }
+.pm { background: rgba(10, 8, 12, 0.62); border: 1px solid rgba(154, 255, 200, 0.3); border-radius: 6px; padding: 3px 7px 4px; font-size: 12px; color: #cfe8d8; }
+.pm b { font-weight: 600; }
+.pm .pbar { height: 6px; background: rgba(0, 0, 0, 0.6); border-radius: 3px; overflow: hidden; margin: 2px 0; }
+.pm .pbar i { display: block; height: 100%; background: #58c878; transition: width 0.15s; }
+.pm .pn { font-size: 10px; color: #9ab8a8; }
+.pm.low .pbar i, .abar.low .hp i { background: #e0a040; }
+.pm.down { border-color: #d8403a; } .pm.down .pn { color: #ff8a80; } .pm.down b { color: #ff8a80; }
+.abar { position: absolute; left: 0; top: 0; width: 48px; pointer-events: none; }
+.abar span { display: block; font-size: 10px; color: #cfe8d8; text-align: center; text-shadow: 0 1px 2px #000; }
+.abar .hp { height: 4px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.abar .hp i { display: block; height: 100%; background: #58c878; }
+.abar.down .hp i { background: #d8403a; }
+#modeBox { margin-left: 8px; padding: 1px 8px; border-radius: 10px; border: 1px solid #ffe9a0; color: #ffe9a0; font-size: 12px; background: rgba(10, 8, 12, 0.7); pointer-events: none; }
+#modeBox.heal { color: #9affc0; border-color: #9affc0; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
 .warnc { color: #ff9a5a; }
 .ftxt.amber { color: #ffa010; font-size: 30px; }

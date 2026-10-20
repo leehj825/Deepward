@@ -3,6 +3,14 @@
 // In the behind view it turns so that where you look is up. A gold chevron on its rim points the way to the next
 // uncleared area (or the lair), with the distance below. Tap it, or press N, for the whole stage.
 const MiniMap = (() => {
+  // The companions: a green dot (red ring when down; amber when hurt)
+  function allyDots(ctx) {
+    for (const a of G.allies || []) {
+      const down = a.state === 'down', f = down ? 0 : a.hp / a.maxHp;
+      ctx.fillStyle = down ? '#d8403a' : f < 0.4 ? '#e0a040' : '#58d878'; ctx.beginPath(); ctx.arc(a.pos.x, a.pos.z, 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.25; ctx.stroke();
+    }
+  }
   const cv = document.getElementById('minimap'), ctx = cv.getContext('2d'), info = document.getElementById('mapInfo');
   let big = false, size = 0, tick = 0;
   const C = { floor: 'rgba(120,112,100,0.55)', fight: 'rgba(200,60,40,0.65)', clear: 'rgba(110,120,110,0.45)', lair: 'rgba(150,40,40,0.75)', edge: 'rgba(255,230,190,0.35)' };
@@ -60,6 +68,7 @@ const MiniMap = (() => {
       if (e.state === 'dead') continue;
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();
     }
+    allyDots(ctx);
     // The hero: an arrow the way they face
     // Rook's task: a gold diamond where it leads next
     const q = Items.S && Items.S.quest && Items.S.quest.rook;
@@ -112,6 +121,7 @@ const MiniMap = (() => {
     // A raid: a pulsing alarm ring at the gate, and the band marked red wherever it is
     if (G.raid && G.raid.on && G.raid.zone) { const z = G.raid.zone, k = 0.5 + 0.5 * Math.sin(performance.now() / 180); ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * k})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(z.x, z.z, z.r + 2 + k * 2, 0, Math.PI * 2); ctx.stroke(); }
     for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro || e.raid ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.raid ? 0.9 : 0.7, 0, Math.PI * 2); ctx.fill(); }
+    allyDots(ctx);
     ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
     ctx.restore(); ctx.restore();

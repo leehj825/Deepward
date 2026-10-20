@@ -12,7 +12,7 @@ const UI = (() => {
   const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${Items.slotName(it.slot)} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -95,10 +95,10 @@ const UI = (() => {
   }
   function gearDetail(st) {
     const g = gearSel(), C = CFG.gear;
-    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
+    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${Items.slotName(g ? g.slot : 'weapon')}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
     const it = g.it, cur = g.equipped ? null : Items.S.equip[it.slot];
     let h = `<div class="gdetail${it.uniq ? ' uq' : ''}" style="--rc:${Items.colorOf(it)}">${pic(it, 'ipic big')}<div class="gdtext"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b>`;
-    h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
+    h += `<small>${Items.slotName(it.slot)} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
     h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
     if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
     if (!g.equipped) h += `<div class="gcmp">${cur ? `Instead of <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b>:` : 'Wearing it:'}${compare(st, Items.statsWith(it.slot, it))}</div>`;
@@ -146,8 +146,8 @@ const UI = (() => {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
         for (const slot of CFG.gear.slots) {
-          h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
-          if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
+          h += `<div class="irow"><div class="iinfo"><b>${Items.slotName(slot)}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
+          if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']].filter(([t]) => CFG.classes[Items.cls()].weapons.includes(t)))
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
         }
       } else if (t === 'reroll') {
@@ -163,7 +163,7 @@ const UI = (() => {
         for (const r of CFG.crafts) {
           const ok = Items.hasMats(r.need) && S.gold >= r.gold && S.inv.length < CFG.gear.invSize, Rr = CFG.gear.rarities[r.rarity];
           const need = Object.entries(r.need).map(([k, n]) => `${CFG.materials[k].icon}${n}`).join(' ');
-          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${CFG.gear.slotNames[r.slot]}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
+          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${Items.slotName(r.slot)}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
         }
       } else if (t === 'gems') {
         h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
@@ -218,7 +218,7 @@ const UI = (() => {
         for (const B of CFG.bosses) { const k = l.guardians[B.name] || 0; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(B.name) : '???'}</b> <small>${k ? 'defeated ' + k + '×' : 'a guardian of the Deep'}</small>${k ? `<div class="istats">${B.phases.map(ph => Math.round(ph.at * 100) + '%: ' + esc(ph.shout.toLowerCase())).join(' · ')}</div>` : ''}</div></div>`; }
         for (const st of CFG.stages) { const c = st.champion, k = l.champs[c.name]; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(c.name) : '???'}</b> <small>champion of ${esc(st.name)}</small>${k ? `<div class="istats">${c.mods.map(m => CFG.elites.mods[m].name + ': ' + CFG.elites.mods[m].desc).map(esc).join(' · ')}</div>` : ''}</div></div>`; }
       } else if (t === 'uniques') {
-        for (const u of CFG.gear.uniques) { const got = S.uniques.includes(u.id); h += `<div class="irow${got ? ' uniq' : ' empty'}"><div class="iinfo"><b style="color:${got ? CFG.gear.uniqueColor : ''}">${got ? esc(u.name) : '???'}</b> <small>${CFG.gear.slotNames[u.slot]}${u.type ? ' · ' + CFG.gear.weapons[u.type].name : ''}</small>${got ? `<div class="istats">★ ${esc(u.desc)}</div>` : ''}</div></div>`; }
+        for (const u of CFG.gear.uniques.filter(x => !x.cls || x.cls === Items.cls())) { const got = S.uniques.includes(u.id); h += `<div class="irow${got ? ' uniq' : ' empty'}"><div class="iinfo"><b style="color:${got ? CFG.gear.uniqueColor : ''}">${got ? esc(u.name) : '???'}</b> <small>${CFG.gear.slotNames[u.slot]}${u.type ? ' · ' + CFG.gear.weapons[u.type].name : ''}</small>${got ? `<div class="istats">★ ${esc(u.desc)}</div>` : ''}</div></div>`; }
       } else if (t === 'ach') {
         for (const a of Codex.list) h += `<div class="irow${ach[a.id] ? ' got' : ' empty'}"><div class="iinfo"><b>${ach[a.id] ? '🏆 ' : ''}${esc(a.name)}</b> <small>${ach[a.id] ? 'earned' : '+' + a.gold + ' ◆'}</small><div class="istats">${esc(a.desc)}</div></div></div>`;
       } else {
@@ -231,6 +231,30 @@ const UI = (() => {
       const S = Items.S;
       return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
         ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
+    },
+    // The party: who walks with the warden (recruit and dismiss in the Hold)
+    party() {
+      const S = Items.S, camp = G.mode === 'camp';
+      let h = `<h2>Party</h2><p class="sub">${S.party.length} of ${Party.max} walk with you. They follow, and fight what is near.${camp ? '' : ' Recruit in the Hold.'}</p>`;
+      for (const d of Party.defs) {
+        const st = Party.status(d.id), full = S.party.length >= Party.max;
+        const note = st === 'locked' ? 'Free them from the Deep first' : st === 'hire' ? `Hire for ◆ ${d.hire}` + (d.rescue ? ' (free if you free them from the Deep)' : '') : st === 'in' ? 'In your party' : 'Ready to join';
+        const b = st === 'in' ? btn('Dismiss', 'dismiss', d.id, !camp) : st === 'locked' ? '' : btn(st === 'hire' ? '◆ ' + d.hire : 'Recruit', 'recruit', d.id, !camp || full || (st === 'hire' && S.gold < d.hire), 'hot');
+        h += `<div class="irow"><div class="iinfo"><b>${Party.GLYPH[d.cls]} ${esc(d.name)}</b> <small>${esc(CFG.classes[d.cls].name)} · ${esc(note)}</small><p class="dim">${esc(d.blurb)}</p></div><div class="ibtns">${b}</div></div>`;
+      }
+      const n = Party.fights();
+      h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
+      if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text: tools/policy/bake.js folds it into the shipped companion network.</p>`;
+      return h + (n ? btn('Share learned data', 'policyshare', '', false, 'hot') + ' ' + btn('Copy', 'policycopy', '') + ' ' + btn(tab.policyShow ? 'Hide the text' : 'Show the text', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
+    },
+    // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
+    classpick() {
+      let h = `<h2>Choose your calling</h2><p class="sub">The Deep takes all kinds. This choice stays with this warden.</p>`;
+      for (const [id, c] of Object.entries(CFG.classes)) {
+        const w = CFG.gear.weapons[c.start].name, o = CFG.gear.offhands[c.offhand].label;
+        h += `<div class="irow"><div class="iinfo"><b>${esc(c.name)}</b> <small>${esc(c.role)} · ${esc(w)} and ${esc(o)}</small><p class="dim">${esc(c.desc)}</p></div><div class="ibtns">${btn('Choose', 'pickclass', id, false, id === 'warrior' ? 'hot' : '')}</div></div>`;
+      }
+      return h;
     },
     // The warden's looks: skin, hair colour, hair, beard, with the turning hero beside them
     looks(o = {}) {
@@ -261,8 +285,8 @@ const UI = (() => {
       if (!tab.gsel || !gearSel()) tab.gsel = S.inv.length ? 'i:' + S.inv[0].id : 'e:weapon';
       const sel = tab.gsel;
       const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
-        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
-          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
+        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${Items.slotName(s)}">`
+          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${Items.slotName(s)}</span></button>`; };
       let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('gloves')}${slot('boots')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}${slot('trinket')}${slot('ring')}`;
       h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div><div class="gload l${st.loadClass}">⚖ ${CFG.gear.weightNames[st.loadClass]} load ${st.load} · dash ${Math.round(st.dashDist * 100)}% reach, ${Math.round(st.dashCost * 100)}% stamina · walk ${Math.round(st.move * 100)}%</div></div><div class="gright">`;
       const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
@@ -278,7 +302,7 @@ const UI = (() => {
       h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
-      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks');
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks') + ' ' + btn('Party', 'open', 'party');
       return h + btn('Close', 'close', '', false, 'leave');
     },
     // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you
@@ -288,6 +312,7 @@ const UI = (() => {
       const sel = tab.talent || (tab.talent = firstOpenTalent());
       let h = `<h2>Expertise</h2><p class="sub">Level ${S.level} · ${S.xp} / ${need} XP · <b class="goldc">${S.points} talent point${S.points === 1 ? '' : 's'}</b> to spend · up to ${CFG.progress.maxTrees} trees</p><div class="tgrid">`;
       for (const [k, t] of Object.entries(T)) {
+        if (!Items.treeFor(k)) continue;
         const spent = Items.spentIn(k), shut = !used.includes(k) && used.length >= CFG.progress.maxTrees;
         h += `<div class="tcol${shut ? ' shut' : ''}" style="--tc:${t.color}"><div class="thead"><b>${t.name}</b><small>${shut ? 'closed' : spent + ' spent'}</small></div>`;
         t.talents.forEach((x, i) => {
@@ -298,7 +323,7 @@ const UI = (() => {
         h += `<i class="tlink tolt${spent >= CFG.progress.ultimateNeeds ? ' lit' : ''}"><em>${Math.min(spent, CFG.progress.ultimateNeeds)}/${CFG.progress.ultimateNeeds}</em></i>` + node(t.ult, Items.rank(t.ult.id), 1, true) + '</div>';
       }
       h += '</div>' + talentDetail(sel);
-      h += '<h3>Weapon mastery</h3><div class="mgrid">' + Object.entries(CFG.gear.weapons).map(([k, w]) => {
+      h += '<h3>Weapon mastery</h3><div class="mgrid">' + Object.entries(CFG.gear.weapons).filter(([k]) => CFG.classes[Items.cls()].weapons.includes(k)).map(([k, w]) => {
         const r = Items.masteryRank(k), n = S.mastery[k] || 0, nx = CFG.progress.mastery[r], prev = r ? CFG.progress.mastery[r - 1] : 0;
         const pct = nx ? Math.min(100, (n - prev) / (nx - prev) * 100) : 100;
         return `<div class="mrow"><b>${w.name}</b><span class="mbar"><i style="width:${pct}%"></i></span><small>rank ${r}${nx ? ` · ${n}/${nx}` : ' · max'}</small></div>`;
@@ -330,7 +355,7 @@ const UI = (() => {
           + (s ? `<div class="istats">Level ${s.level} · ${esc(st ? st.name : '')} · ◆ ${s.gold}${s.best ? ' · deepest floor ' + s.best : ''} · saved ${ago(s.savedAt)}</div>` : '<div class="istats dim">Empty</div>')
           + `</div><div class="ibtns">${s ? btn('Play', 'saveplay', n, false, 'hot') + btn('Export', 'saveexport', n) + btn('Import', 'saveimport', n) + btn(tab.saveDel === n ? 'Sure? Delete' : 'Delete', 'savedel', n, false, tab.saveDel === n ? 'warn' : '')
             : btn('New game', 'savenew', n, false, 'hot') + btn('Import', 'saveimport', n)}</div></div>`;
-        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${navigator.share ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
+        if (tab.saveExport === n) h += `<div class="savecode"><textarea readonly rows="3">${esc(Items.exportSlot(n))}</textarea><div class="tact">${btn('Copy', 'savecopy', n)}${(navigator.share || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share)) ? btn('Share', 'saveshare', n) : ''}<small class="dim">Keep this code somewhere safe; Import puts it back.</small></div></div>`;
         if (tab.saveImport === n) h += `<div class="savecode"><textarea rows="3" placeholder="Paste a DEEPWARD1: code here"></textarea><div class="tact">${btn(s ? 'Load (replaces this slot)' : 'Load', 'saveimportgo', n, false, 'hot')}${tab.importBad ? '<small class="warnc">That code does not work.</small>' : ''}</div></div>`;
       }
       return h + btn('Back', 'close', '', false, 'leave');
@@ -350,7 +375,7 @@ const UI = (() => {
       const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('learnOnline', 'Companions keep learning from your fights', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
@@ -465,6 +490,17 @@ const UI = (() => {
     if (a === 'wgem') { const W = S.wander; if (W && W.gem && S.gold >= CFG.wanderer.gem) { S.gold -= CFG.wanderer.gem; Items.addGem(W.gem); toast('Gem: ' + CFG.gear.gems[W.gem].name, '#9ad8ff'); W.gem = null; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
+    if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'policyshare' || a === 'policycopy') {
+      const text = 'Deepward companion learning\n' + Party.exportData();
+      (a === 'policycopy' ? (async () => { try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) { return shareText('Deepward companion learning', text); } })() : shareText('Deepward companion learning', text))
+        .then(r => toast(r === 'shared' ? 'Learned data sent to the share sheet' : r === 'copied' ? 'Learned data copied' : 'Could not copy: use Show the text', '#9affc8'));
+      return;
+    }
+    if (a === 'policyshow') { tab.policyShow = !tab.policyShow; return render(); }
+    if (a === 'forget') { Party.forget(); Items.save(); return render(); }
+    if (a === 'dismiss') { Party.dismiss(arg); return render(); }
+    if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }
     if (a === 'looksdone') { close(); return show('trainOffer'); }
     if (a === 'jobin') { const r = Jobs.turnIn(+arg); if (r) { Snd.play('glint'); toast(`Job done: ◆ ${r.gold}` + (r.gem ? ` and ${CFG.gear.gems[r.gem].icon} ${CFG.gear.gems[r.gem].name}` : ''), '#ffd040'); changed(); } return render(); }
     if (a === 'jobdrop') { Jobs.drop(+arg); Items.save(); return render(); }
@@ -515,7 +551,7 @@ const UI = (() => {
     if (a === 'saveexport') { tab.saveExport = tab.saveExport === +arg ? 0 : +arg; tab.saveImport = 0; return render(); }
     if (a === 'saveimport') { tab.saveImport = tab.saveImport === +arg ? 0 : +arg; tab.saveExport = 0; tab.importBad = false; return render(); }
     if (a === 'savecopy') { const t = el('pcard').querySelector('.savecode textarea'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand && document.execCommand('copy'); } toast('Save code copied'); return; }
-    if (a === 'saveshare') { try { navigator.share({ title: 'Deepward save', text: Items.exportSlot(+arg) }); } catch (e) {} return; }
+    if (a === 'saveshare') { shareText('Deepward save', Items.exportSlot(+arg)); return; }
     if (a === 'saveimportgo') {
       const t = el('pcard').querySelector('.savecode textarea'), ok = Items.importSlot(+arg, t ? t.value : '');
       tab.importBad = !ok; if (ok) { tab.saveImport = 0; Snd.play('parry'); toast('Save imported into slot ' + arg); }
@@ -606,6 +642,15 @@ const UI = (() => {
 
   // ---------------- HUD bits ----------------
   let toastT = null;
+  // Send text out of the app: the phone's share sheet (the Capacitor Share plugin in the Android app, else the browser's), else the
+  // clipboard. Returns 'shared' or 'copied' (or '' if neither worked).
+  async function shareText(title, text) {
+    const C = window.Capacitor;
+    try { if (C && C.Plugins && C.Plugins.Share) { await C.Plugins.Share.share({ title, text, dialogTitle: title }); return 'shared'; } } catch (e) { if (e && /cancel/i.test(String(e.message || e))) return 'shared'; }
+    try { if (navigator.share) { await navigator.share({ title, text }); return 'shared'; } } catch (e) { if (e && e.name === 'AbortError') return 'shared'; }
+    try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) {}
+    try { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); const ok = document.execCommand && document.execCommand('copy'); t.remove(); return ok ? 'copied' : ''; } catch (e) { return ''; }
+  }
   function toast(text, color) {
     const t = el('toast'); t.textContent = text; t.style.color = color || ''; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);

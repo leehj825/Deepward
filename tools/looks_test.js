@@ -9,6 +9,7 @@ const path = require('path');
   await pg.goto('file://' + path.resolve(__dirname, '../index.html')); await pg.evaluate(() => localStorage.clear()); await pg.reload(); await pg.waitForTimeout(300);
   await pg.evaluate(() => __dw.start('new')); await pg.waitForTimeout(300);
   for (let i = 0; i < 15; i++) { if (await pg.evaluate(() => __dw.UI.open && __dw.UI.open.id) !== 'dialogue') break; await pg.click('[data-act="next"]'); }
+  await pg.click('[data-act="pickclass"][data-arg="warrior"]');
   const out = { offered: await pg.evaluate(() => __dw.UI.open && __dw.UI.open.id === 'looks') };
   for (const a of ['skin:5', 'hair:5', 'style:2', 'beard:1']) await pg.click(`[data-act="look"][data-arg="${a}"]`);
   Object.assign(out, await pg.evaluate(() => {

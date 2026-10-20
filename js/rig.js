@@ -123,6 +123,36 @@ const Rig = (() => {
     const tip = joint(g, 0, R * 0.92, R), base = joint(g, 0, R * 0.92, -R);
     return { group: g, glowMats: [wood], tip, base };
   }
+  // The cleric's scepter: a short gilded rod ending in a sunburst around a glowing heart
+  function scepter(hand, o) {
+    const g = joint(hand, 0, -0.03, 0), gold = std(0xd9a92a, 0.3, 0.6), wood = std(0xe8e0d0, 0.6, 0.1);
+    const heartM = std(o.glow || 0xfff0b0, 0.3); heartM.emissive.setHex(o.glow || 0xfff0b0); heartM.emissiveIntensity = 0.9;
+    mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.8, 7).rotateX(Math.PI / 2), wood, g, 0, 0, 0.3);
+    mesh(new THREE.TorusGeometry(0.085, 0.014, 5, 12), gold, g, 0, 0, 0.78);
+    ball(g, 0.055, heartM, 0, 0, 0.78, 8, 6);
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const r = mesh(new THREE.ConeGeometry(0.018, 0.1, 4), gold, g, Math.cos(a) * 0.12, Math.sin(a) * 0.12, 0.78); r.rotation.z = a - Math.PI / 2; }
+    const tip = joint(g, 0, 0, 0.9), base = joint(g, 0, 0, 0.6);
+    return { group: g, glowMats: [heartM], tip, base };
+  }
+  // Off-hand pieces of the ranged classes: a quiver on the back, an orb or a book held in the left hand
+  function quiver(parent) {
+    const g = joint(parent, 0.06, 0.22, -0.2), leather = std(0x5a3a22), wood = std(0x8a6a40);
+    g.rotation.set(0, 0, -0.35);
+    mesh(new THREE.CylinderGeometry(0.07, 0.055, 0.5, 8), leather, g, 0, 0.05, 0);
+    for (let i = 0; i < 3; i++) box(g, 0.04, 0.12, 0.012, std(0xe8e0d0), (i - 1) * 0.035, 0.36, (i - 1) * 0.01);
+    box(g, 0.012, 0.012, 0.0, wood, 0, 0.3, 0);
+    return g;
+  }
+  function orb(hand, color) {
+    const g = joint(hand, 0, -0.08, 0.1), m = std(color || 0x7ae8ff, 0.3); m.emissive.setHex(color || 0x7ae8ff); m.emissiveIntensity = 0.9;
+    ball(g, 0.1, m, 0, 0, 0.06, 10, 8); mesh(new THREE.TorusGeometry(0.13, 0.012, 5, 14), std(0xd9a92a, 0.3, 0.6), g, 0, 0, 0.06).rotation.x = 1.2;
+    return { group: g, glowMats: [m] };
+  }
+  function tome(hand, color) {
+    const g = joint(hand, 0, -0.08, 0.1), cover = std(color || 0x6a2a2a, 0.8), pages = std(0xe8e0c8, 0.9), gold = std(0xd9a92a, 0.3, 0.6);
+    box(g, 0.2, 0.05, 0.26, cover, 0, 0, 0.1); box(g, 0.18, 0.035, 0.24, pages, 0, 0.003, 0.1); box(g, 0.05, 0.056, 0.05, gold, 0, 0, 0.1);
+    return { group: g, glowMats: [] };
+  }
   function roundShield(hand, c) {
     const g = new THREE.Group(); hand.add(g);
     const face = std(c, 0.8), rim = std(0x8a8f99, 0.45, 0.5), boss = std(0xc9a23a, 0.4, 0.5);
@@ -182,6 +212,9 @@ const Rig = (() => {
       if (L.type === 'axe') { w = axe(hold, { blade: L.blade }); w.group.rotation.z = Math.PI / 2; }      // the head's flat side to the viewer
       else if (L.type === 'mace') w = mace(hold, { blade: L.blade });
       else if (L.type === 'spear') w = spear(hold, o);
+      else if (L.type === 'bow') { w = bow(hold); w.group.rotation.set(0, 0, 0); }
+      else if (L.type === 'staff') w = staff(hold, L.glow || 0x4ae8d0);
+      else if (L.type === 'scepter') w = scepter(hold, { glow: L.glow });
       else if (L.type === 'daggers') {
         w = sword(hold, Object.assign(o, { len: 0.42, thin: true })); w.group.position.x = -0.09; w.group.rotation.y = 0.35;
         const off = sword(hold, o); off.group.position.x = 0.09; off.group.rotation.y = -0.35;
@@ -189,7 +222,10 @@ const Rig = (() => {
       } else w = sword(hold, o);
       if (L.glow) for (const m of w.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.35; }
     } else if (L.slot === 'shield') {
-      roundShield(hold, L.face);
+      if (L.kind === 'quiver') { const q = quiver(hold); q.position.set(0, -0.2, 0); q.rotation.set(0, 0.4, 0); }
+      else if (L.kind === 'orb') orb(hold, L.glow || 0x7ae8ff).group.position.set(0, 0, 0);
+      else if (L.kind === 'tome') tome(hold, L.face).group.rotation.set(-0.9, 0.5, 0);
+      else roundShield(hold, L.face);
     } else if (L.slot === 'armor') {
       const cloth = std(L.armor);
       const torso = mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.36, 9), cloth, hold, 0, 0, 0); torso.scale.z = 0.72;
@@ -476,6 +512,9 @@ const Rig = (() => {
     else if (kind === 'duelist') wpn = sword(rig.j.hdR, { blade: 0xe0e4ee, guard: 0xc9a23a, len: 1.05, thin: true });
     else if (kind === 'hero' && L.weapon === 'axe') wpn = axe(rig.j.hdR, { blade: L.blade });
     else if (kind === 'hero' && L.weapon === 'mace') wpn = mace(rig.j.hdR, { blade: L.blade });
+    else if (kind === 'hero' && L.weapon === 'bow') wpn = bow(rig.j.hdL);
+    else if (kind === 'hero' && L.weapon === 'staff') wpn = staff(rig.j.hdR, L.glow || 0x4ae8d0);
+    else if (kind === 'hero' && L.weapon === 'scepter') wpn = scepter(rig.j.hdR, { glow: L.glow });
     else if (kind === 'hero' && L.weapon === 'spear') wpn = spear(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined });
     else if (kind === 'hero' && L.weapon === 'daggers') {
       wpn = sword(rig.j.hdR, { blade: L.blade ? (L.blade | 0x404040) : undefined, len: 0.42, thin: true });
@@ -485,11 +524,15 @@ const Rig = (() => {
     rig.weapon = wpn; if (wpn) rig.glowMats.push(...wpn.glowMats);
     if (wpn && L.glow) for (const m of wpn.glowMats) { m.emissive.setHex(L.glow); m.emissiveIntensity = 0.25; }     // rare-and-better weapons shimmer faintly
     if (kind === 'hero' && L.shield !== false) rig.shield = roundShield(rig.j.hdL, L.shieldFace || 0x2f4a6b);
+    if (kind === 'hero' && L.offhand) {
+      if (L.offhand === 'quiver') quiver(rig.j.spine);
+      else { const oh = L.offhand === 'orb' ? orb(rig.j.hdL, 0x7ae8ff) : tome(rig.j.hdL, 0x6a2a2a); rig.glowMats.push(...oh.glowMats); }
+    }
     if (kind === 'knight') rig.shield = towerShield(rig.j.hdL, 0x3a3e48);
     // Motion capture drives every rig: sword-and-shield clips for people, great-sword clips for the two-handed brute.
     // The shield rides on the outside of the forearm, where the clips expect it (mirrored from Nightfall's rig).
     // A two-handed hero uses the great-sword clips, with the left hand held on the grip (gripIK)
-    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'mutant' ? 'mu' : kind === 'brute' || L.twoHanded ? 'gs' : 'ss'; rig.calm = kind === 'npc'; rig.twoHand = kind === 'hero' && !!L.twoHanded;
+    rig.mocap = typeof Mocap !== 'undefined'; rig.set = kind === 'mutant' ? 'mu' : kind === 'hero' && L.caster ? 'mg' : kind === 'brute' || L.twoHanded ? 'gs' : 'ss'; rig.calm = kind === 'npc'; rig.twoHand = kind === 'hero' && !!L.twoHanded;
     if (rig.mocap && rig.shield) {
       rig.j.elL.add(rig.shield); rig.shield.position.set(0.14, -0.2, 0.02);
       rig.shield.rotation.set(0, Math.PI / 2, kind === 'knight' ? Math.PI / 2 : 0);    // face outward; a tall shield stands across the forearm
@@ -826,6 +869,7 @@ const Rig = (() => {
   // Attack poses map onto clips; the clip is time-warped so its moment of impact lands exactly on the game's hit frame.
   const MOCAP_ATTACK = {
     ss: { slashR: 'attack1', slashL: 'attack2', overhead: 'attack3', thrust: 'slash5', heavy: 'attackJump', shoot: 'shoot' },
+    mg: { shoot: 'mgBolt', overhead: 'mgFire', nova: 'mgNova', thrust: 'mgHoly', heal: 'mgHeal', bless: 'mgBless', sanct: 'mgSanct', slashR: 'mgHoly', slashL: 'mgHoly', heavy: 'mgFire' },
     gs: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', thrust: 'gsAttack', heavy: 'gsJumpAttack' },
     gsHero: { slashR: 'gsSlash', slashL: 'gsSlash5', overhead: 'gsAttack', heavy: 'gsSpin' },
     mu: { swipe: 'brawlSwipe', punch: 'brawlPunch', slam: 'mJumpAttack', leap: 'mJumpAttack2', roar: 'mRoar', slashR: 'brawlSwipe', heavy: 'mJumpAttack' },
@@ -833,6 +877,11 @@ const Rig = (() => {
   function locoClip(rig, st) {
     if (rig.set === 'mu') return (st.mps || 0) > 2.8 ? { name: 'mRun', ref: 4.2 } : { name: 'mWalk', ref: 1.5 };
     const gs = rig.set === 'gs', run = (st.mps || 0) > 2.8, f = st.dirF === undefined ? 1 : st.dirF, side = st.dirS || 0;
+    if (rig.set === 'mg') {                                                 // the caster stance (Pro Magic Pack)
+      if (f > 0.5) return { name: run ? 'mgRun' : 'mgWalk', ref: run ? 4.6 : 1.6 };
+      if (f < -0.5) return { name: run ? 'mgRunB' : 'mgWalkB', ref: run ? 3.6 : 1.4 };
+      return { name: (run ? 'mgRun' : 'mgWalk') + (side > 0 ? 'N' : 'P'), ref: run ? 3.6 : 1.5 };
+    }
     if (gs) {
       if (f > 0.5 || (rig.calm || st.calm)) return { name: run ? 'gsRun' : 'gsWalk', ref: run ? 4.5 : 1.5 };
       if (f < -0.5) return { name: run ? 'gsRunB' : 'gsWalkB', ref: run ? 3.6 : 1.4 };
@@ -871,17 +920,17 @@ const Rig = (() => {
     if (m === 'idle' || m === 'spawn' || (m === 'move' && !moving)) {
       if (rig.posture && m !== 'spawn') posture(rig, rig.posture);                // a person's own way of standing, sitting or kneeling
       else if (st.calm && !rig.calm && rig.set === 'ss') Mocap.sample('idleEase', rig.time, out);   // the hero at ease in the Hold
-      else Mocap.sample(rig.set === 'mu' ? 'mIdle' : gs ? 'gsIdle' : rig.calm ? 'idleCalm' : 'idle', rig.time * (rig.pace || 1), out);
+      else Mocap.sample(rig.set === 'mu' ? 'mIdle' : rig.set === 'mg' ? 'mgIdle' : gs ? 'gsIdle' : rig.calm ? 'idleCalm' : 'idle', rig.time * (rig.pace || 1), out);
     }
     if (m === 'block') {                                                    // guard up; the legs keep walking underneath when moving
       if (gs && !rig.twoHand) return 0;
       if (gs) Mocap.sample('gsBlock', Math.min(st.blockT || 0, 0.45), out, moving ? Mocap.UPPER : Mocap.BONES);
-      else Mocap.sample('blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES);
+      else Mocap.sample(rig.set === 'mg' ? 'mgBlock' : 'blockIdle', rig.time, out, moving ? Mocap.UPPER : Mocap.BONES);
       return 20;
     }
     if (m === 'idle' || m === 'move' || m === 'spawn') return 16;
     if (m === 'attack') {
-      const name = MOCAP_ATTACK[rig.twoHand ? 'gsHero' : rig.set][st.atk] || (gs ? 'gsSlash' : 'attack1'), c = Mocap.clips[name];
+      const name = MOCAP_ATTACK[rig.twoHand ? 'gsHero' : rig.set][st.atk] || (gs ? 'gsSlash' : rig.set === 'mg' ? 'mgBolt' : 'attack1'), c = Mocap.clips[name];
       const W = st.wind, A = st.active, R = st.recover, el = st.phase === 'wind' ? st.phaseT : st.phase === 'active' ? W + st.phaseT : W + A + st.phaseT;
       const hitAt = W + A * 0.5, hitT = c.hit * c.d;
       const ct = el <= hitAt ? hitT * el / hitAt : hitT + (c.d - hitT) * Math.min(1, (el - hitAt) / (A * 0.5 + R));
@@ -890,8 +939,8 @@ const Rig = (() => {
       return 30;
     }
     if (rig.set === 'mu' && (m === 'hurt' || m === 'stagger' || m === 'broken')) return 0;   // no clip: the hand-made stagger
-    if (m === 'hurt' || m === 'stagger') { Mocap.sample(gs ? 'gsImpact' : (rig.hurtVar ? 'impact2' : 'impact'), Math.min(st.t * 1.6, 0.75), out); out.hipsZ = 0; return 22; }
-    if (m === 'dead') { Mocap.sample(rig.set === 'mu' ? 'mDie' : gs ? 'gsDie' : rig.dieVar ? 'die2' : 'die', st.t * (rig.set === 'mu' ? 1.0 : 1.5), out); return 14; }
+    if (m === 'hurt' || m === 'stagger') { Mocap.sample(rig.set === 'mg' ? (rig.hurtVar ? 'mgImpact2' : 'mgImpact') : gs ? 'gsImpact' : (rig.hurtVar ? 'impact2' : 'impact'), Math.min(st.t * 1.6, 0.75), out); out.hipsZ = 0; return 22; }
+    if (m === 'dead') { Mocap.sample(rig.set === 'mu' ? 'mDie' : rig.set === 'mg' ? (rig.dieVar ? 'mgDie2' : 'mgDie') : gs ? 'gsDie' : rig.dieVar ? 'die2' : 'die', st.t * (rig.set === 'mu' ? 1.0 : 1.5), out); return 14; }
     return 0;                                                                // roll, broken, guard break: hand-made poses
   }
 

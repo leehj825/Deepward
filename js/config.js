@@ -24,6 +24,12 @@ const CFG = {
     heavy: { pose: 'heavy', wind: 0.42, active: 0.12, recover: 0.5, dmg: 32, posture: 45, cost: 26, range: 2.6, arc: 150, lunge: 2.2, breaksGuard: true },
     // Light combos and heavy attacks for weapons that move differently (the rest use light / heavy above)
     combos: {
+      // A lone shot per press, so a ranged class fires as fast as stamina lasts
+      bow: [{ pose: 'shoot', wind: 0.2, active: 0.08, recover: 0.26, dmg: 11, posture: 7, cost: 8, range: 22, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34 } }],
+      staff: [{ pose: 'shoot', wind: 0.22, active: 0.1, recover: 0.3, dmg: 13, posture: 8, cost: 9, range: 16, arc: 0, lunge: 0, shot: { kind: 'bolt', speed: 26, color: 0x7ae8ff } }],
+      // The cleric's light blow is a holy bolt (weaker than the mage's, a third more against the undead) or, in heal mode, a single heal
+      scepter: [{ pose: 'thrust', wind: 0.2, active: 0.1, recover: 0.3, dmg: 8, posture: 6, cost: 9, range: 13, arc: 0, lunge: 0, shot: { kind: 'holy', speed: 24, color: 0xfff0b0, undead: 1.4 } }],
+      scepterHeal: [{ pose: 'heal', wind: 0.28, active: 0.1, recover: 0.36, dmg: 0, posture: 0, cost: 14, range: 0, arc: 0, lunge: 0, heal: { amount: 0.10, self: 0.5, reach: 8, cd: 1.6, color: 0x9affc0 } }],
       spear: [
         { pose: 'thrust', wind: 0.13, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
         { pose: 'thrust', wind: 0.11, active: 0.08, recover: 0.3, dmg: 12, posture: 9, cost: 11, range: 3.0, arc: 40, lunge: 1.2 },
@@ -38,12 +44,26 @@ const CFG = {
       ],
     },
     heavies: {
+      // Ranged classes: `shot` makes the blow a projectile (see js/shots.js); `heal` makes it a healing spell. range is how far it flies / reaches.
+      // The archer's heavy is a fan of seven arrows: point blank they all strike one foe, far off they spread over several
+      bow: { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.45, dmg: 10, posture: 10, cost: 26, range: 14, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34, count: 7, spread: 0.7 } },
+      // The mage's heavy calls a fireball down on the target (the locked or nearest foe, else a spot ahead): the blast and the burn are there, not at the hero
+      staff: { pose: 'overhead', wind: 0.5, active: 0.12, recover: 0.5, dmg: 32, posture: 30, cost: 28, range: 15, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'meteor', splash: 3, ignite: true, color: 0xff7a30, delay: 0.45 } },
+      // The cleric's heavy follows her mode: a stronger smite (a bright orb that bursts), or in heal mode the area heal below
+      scepter: { pose: 'overhead', wind: 0.45, active: 0.12, recover: 0.5, dmg: 22, posture: 30, cost: 24, range: 14, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'holy', speed: 20, splash: 1.8, size: 1.5, color: 0xfff0b0, undead: 1.5 } },
+      scepterHeal: { pose: 'bless', wind: 0.5, active: 0.12, recover: 0.5, dmg: 0, posture: 0, cost: 28, range: 0, arc: 0, lunge: 0, heal: { amount: 0.22, self: 0.5, radius: 5.5, cd: 9, color: 0x9affc0 } },
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
     },
     // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
     // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
     arts: {
+      bow: { name: 'Piercing Shot', cost: 30, cd: 9, desc: 'One heavy arrow that pierces everything in line', hits: [
+        { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.5, dmg: 46, posture: 40, range: 28, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'arrow', speed: 46, pierce: true } }] },
+      staff: { name: 'Arcane Nova', cost: 32, cd: 9, desc: 'A blast of raw magic all around you', hits: [
+        { pose: 'nova', wind: 0.5, active: 0.14, recover: 0.55, dmg: 36, posture: 60, range: 4.2, arc: 360, lunge: 0, breaksGuard: true, ring: 4.2 }] },
+      scepter: { name: 'Sanctuary', cost: 34, cd: 14, desc: 'A great light that mends everyone near', hits: [
+        { pose: 'sanct', wind: 0.6, active: 0.14, recover: 0.5, dmg: 0, posture: 0, range: 0, arc: 0, lunge: 0, heal: { amount: 0.4, self: 0.6, radius: 7, cd: 0, color: 0xfff0b0, ring: 7 } }] },
       sword: { name: 'Falling Star', cost: 30, cd: 8, desc: 'A leaping overhead that breaks guards', hits: [
         { pose: 'overhead', wind: 0.34, active: 0.12, recover: 0.5, dmg: 46, posture: 62, range: 2.7, arc: 100, lunge: 3.2, breaksGuard: true }] },
       axe: { name: 'Cleaving Leap', cost: 32, cd: 9, desc: 'Leap in and split the ground around you', hits: [
@@ -666,6 +686,27 @@ const CFG = {
   },
   pillarR: 0.75,
 
+  // ---------------- Party ----------------
+  // Companions walk with the warden (see js/party.js): they follow, and attack, shoot or heal what is near. For now they are
+  // helpers. Anyone can be hired once for gold (hire); a captive freed from the Deep (rescue) joins free.
+  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5, downFor: 25 },
+  companions: [
+    { id: 'hobb', short: 'Hobb', name: 'Sergeant Hobb', cls: 'warrior', weapon: 'sword', hire: 150, blurb: 'Keeps the line. A sword, a shield and thirty years of bad knees.', cloth: 0x7a3a2a, look: { skin: 0xd8a07a, hair: 0x6a6a6a, hairStyle: 'short', beard: 'long' } },
+    { id: 'mira', short: 'Mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', hire: 220, rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
+    { id: 'pell', short: 'Pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', hire: 260, rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
+    { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', hire: 220, rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
+  ],
+
+  // ---------------- Classes ----------------
+  // Chosen once, when a new warden takes up the watch (S.cls). A class sets the weapons it finds, its off-hand piece and a few
+  // base numbers; light and heavy attacks, the dash and stamina work the same for all. hp / st multiply base health and stamina.
+  classes: {
+    warrior: { name: 'Warrior', role: 'Melee · tank', desc: 'Sword and shield. Block, parry and cut down whatever comes close.', weapons: ['sword', 'axe', 'mace', 'longsword', 'greatsword', 'spear', 'daggers'], start: 'sword', offhand: 'shield', hp: 1, st: 1, melee: true },
+    archer: { name: 'Archer', role: 'Ranged · damage', desc: 'A bow and a quiver. Quick arrows from afar, and a heavy shot that pierces everything in line.', weapons: ['bow'], start: 'bow', offhand: 'quiver', hp: 0.9, st: 1.1, dash: 0.9 },
+    mage: { name: 'Mage', role: 'Ranged · damage', desc: 'A staff and an orb. Arcane bolts and a fireball that burns a crowd. The hardest hitter and the frailest.', weapons: ['staff'], start: 'staff', offhand: 'orb', hp: 0.8, st: 1 },
+    cleric: { name: 'Cleric', role: 'Support · healer', desc: 'A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast mends everyone near. Weaker than the mage in a fight.', weapons: ['scepter'], start: 'scepter', offhand: 'tome', hp: 1, st: 1 },
+  },
+
   // ---------------- Gear ----------------
   // Item power grows with tier (the stage depth it was found at); rarity adds a multiplier and random bonuses.
   gear: {
@@ -697,6 +738,17 @@ const CFG = {
       spear: { name: 'Spear', dmg: 1.0, posture: 1.1, speed: 0.95, range: 0, len: 1.9, combo: 'spear' },
       // A blade in each hand: a fast five-cut combo and cheap dashes, but no shield and a weak guard
       daggers: { name: 'Twin Daggers', dmg: 1.0, posture: 0.75, speed: 1.0, range: 0, len: 0.42, dual: true, block: 0.6, guard: 1.35, dash: 0.6, combo: 'daggers' },
+      // The ranged classes (see classes below). Their blows are projectiles; `range` here is unused, `ranged` is read by the fight.
+      bow: { name: 'Bow', dmg: 1.0, posture: 0.8, speed: 1.0, range: 0, len: 0.5, ranged: true, cls: 'archer', combo: 'bow' },
+      staff: { name: 'Staff', dmg: 1.2, posture: 0.7, speed: 0.95, range: 0, len: 1.6, ranged: true, caster: true, cls: 'mage', combo: 'staff' },
+      scepter: { name: 'Scepter', dmg: 0.72, posture: 0.6, speed: 1.0, range: 0, len: 0.7, ranged: true, caster: true, cls: 'cleric', combo: 'scepter' },
+    },
+    // The piece carried in the off hand (gear slot 'shield'): a shield for the warrior, something else for each other class
+    offhands: {
+      shield: { label: 'Shield', names: ['Buckler', 'Heater', 'Kite Shield'] },
+      quiver: { label: 'Quiver', names: ['Satchel', 'Quiver', 'Great Quiver'], dmg: 0.05, crit: 0.02, block: 0.4, guard: 2.0 },
+      orb: { label: 'Orb', names: ['Shard', 'Orb', 'Grand Orb'], dmg: 0.05, regen: 0.04, block: 0.4, guard: 2.0 },
+      tome: { label: 'Tome', names: ['Prayer Book', 'Holy Tome', 'Reliquary'], mend: 0.06, dmg: 0.02, block: 0.55, guard: 1.6 },
     },
     shields: ['Buckler', 'Heater', 'Kite Shield'],
     armors: ['Jerkin', 'Hauberk', 'Brigandine'],
@@ -717,6 +769,9 @@ const CFG = {
       { id: 'thorns', name: 'Crown of Thorns', slot: 'helm', desc: 'Blocked blows hurt the attacker for half their damage' },
       { id: 'aegis', name: 'Aegis of the Pale', slot: 'shield', desc: 'Parries give back 25 stamina; parry window +0.04 s' },
       { id: 'coin', name: "Gambler's Coin", slot: 'trinket', desc: '+15% critical chance, but 10% less health' },
+      { id: 'wind', name: 'Windrunner', slot: 'weapon', type: 'bow', cls: 'archer', desc: 'Arrows cost a quarter less stamina' },
+      { id: 'storm', name: 'Stormcaller', slot: 'weapon', type: 'staff', cls: 'mage', desc: 'Bolts leap to a second foe for 40% damage' },
+      { id: 'dawnlight', name: 'Dawnlight', slot: 'weapon', type: 'scepter', cls: 'cleric', desc: 'Healing is 30% stronger, and holy bolts mend you a little' },
       { id: 'heart', name: 'Heart of the Deep', slot: 'trinket', desc: 'One more flask, and flasks heal 15% more' },
     ],
     uniqueColor: '#ff7a2a', uniqueChance: 0.3, uniqueRich: 0.1, uniqueStock: 0.12,
@@ -739,6 +794,9 @@ const CFG = {
       parry: { name: 'Parry window', unit: 's', min: 0.02, max: 0.04, step: 0.004 },
       lifesteal: { name: 'Life on hit', unit: '%', min: 2, max: 4, step: 0.3 },
       gold: { name: 'Gold found', unit: '%', min: 10, max: 22, step: 2 },
+      // Found by the ranged classes only (see `cls`)
+      power: { name: 'Arrow and spell damage', unit: '%', min: 5, max: 10, step: 0.8, only: ['weapon', 'trinket', 'ring'], cls: ['archer', 'mage', 'cleric'] },
+      mend: { name: 'Healing power', unit: '%', min: 8, max: 15, step: 1.2, only: ['trinket', 'ring', 'helm', 'shield'], cls: ['cleric'] },
       // Weapons only: elements carried by every hit that lands
       fire: { name: 'Fire (burns over 2 s)', unit: '%', min: 15, max: 25, step: 1.5, only: ['weapon'] },
       frost: { name: 'Frost (slows for 2 s)', unit: '%', min: 20, max: 30, step: 1, only: ['weapon'] },
@@ -839,6 +897,22 @@ const CFG = {
       { id: 'ward', name: 'Frost Ward', desc: '+5% damage reduction per rank' },
       { id: 'focus', name: 'Focus', desc: 'Stamina regenerates 10% faster per rank' },
     ], ult: { id: 'nova', name: 'Nova', desc: 'A blast of force around you: heavy damage and posture, throws foes back', cd: 25 } },
+    // One tree for each ranged class, shown to that class only (cls); it counts toward the two trees a warden may learn
+    marksman: { name: 'Marksman', cls: 'archer', color: '#ffd27a', talents: [
+      { id: 'volley', name: 'Volley', desc: 'One more arrow in the heavy fan per rank' },
+      { id: 'longshot', name: 'Long Shot', desc: '+8% damage per rank to foes more than 8 m away' },
+      { id: 'quick', name: 'Quick Draw', desc: 'Shoot 6% faster per rank' },
+    ], ult: { id: 'storm', name: 'Arrow Storm', desc: 'For 6 s every arrow is a burst of three', cd: 30 } },
+    spellweaver: { name: 'Spellweaver', cls: 'mage', color: '#ff9a5a', talents: [
+      { id: 'conduit', name: 'Conduit', desc: '+8% damage per rank' },
+      { id: 'wildfire', name: 'Wildfire', desc: 'Fireballs burn 30% harder per rank' },
+      { id: 'blast', name: 'Wide Blast', desc: 'The fireball blast is 0.4 m wider per rank' },
+    ], ult: { id: 'meteors', name: 'Meteor Shower', desc: 'Five fireballs fall on the foes around you', cd: 35 } },
+    devotion: { name: 'Devotion', cls: 'cleric', color: '#9affc0', talents: [
+      { id: 'mercy', name: 'Mercy', desc: 'Healing is 10% stronger per rank' },
+      { id: 'prayer', name: 'Swift Prayer', desc: 'Heal cooldowns are 10% shorter per rank' },
+      { id: 'radiance', name: 'Radiance', desc: 'Whoever you heal takes 6% less damage per rank for 4 s' },
+    ], ult: { id: 'halo', name: 'Halo', desc: 'A great light: mends everyone near for 45% and burns the foes in it', cd: 40 } },
   },
 
   // ---------------- Story ----------------

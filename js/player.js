@@ -5,7 +5,7 @@ const Player = (() => {
 
   // Gear numbers (Items.stats); plain defaults when there is no saved game (tests)
   const BASE = { maxHp: P.hp, maxSt: P.stamina, dmg: 1, posture: 1, speed: 1, range: 0, crit: 0, block: P.block.reduce, guard: 1, parry: P.block.parryWindow, regen: 1, dr: 0, lifesteal: 0, goldFind: 1, flasks: 3, flaskHeal: 0.4, twoHanded: false,
-    critMult: P.critMult, dashCost: 1, dashDist: 1, load: 0, loadClass: 0, burn: 0, chill: 0, shock: 0, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null };
+    critMult: P.critMult, dashCost: 1, dashDist: 1, load: 0, loadClass: 0, burn: 0, chill: 0, shock: 0, counter: 0, fury: 0, fire: 0, finisher: false, weaponType: 'sword', ult: null, ranged: false, mend: 1, cls: 'warrior' };
   // Gear, levels and talents, then any shrine blessings for this stage
   function gearStats() {
     const S = Object.assign({ move: 1 }, (typeof Items !== 'undefined' && Items.S) ? Items.stats() : BASE);
@@ -99,16 +99,19 @@ const Player = (() => {
         if (p.comboT > P.comboReset || p.combo >= len) p.combo = 0;
         data = p.combo < L.length ? L[p.combo] : CFG.progress.finisher; p.combo++;
       }
+      if (data.heal && p.healCd > 0) { FX.text(Combat.chestPos(p.pos, 2.1), Math.ceil(p.healCd) + 's', 'warn'); p.buffer = null; return false; }
       startAttack(p, b.act, data); p.buffer = null; return true;
     }
     return false;
   }
 
-  const lightOf = p => (p.S.combo && P.combos[p.S.combo]) || P.light;
-  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo]) || P.heavy;
+  // The cleric's light blow follows the mode (holy bolt or a heal); everything else follows the weapon
+  const lightOf = p => (p.S.combo && P.combos[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.light;
+  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.heavy;
   const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
   // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
   function executable(p) {
+    if (p.S.ranged) return null;                                    // the ranged classes do not step in for an execution
     let best = null, bd = Infinity;
     for (const e of G.enemies) {
       if (e.state !== 'broken') continue;
@@ -120,8 +123,8 @@ const Player = (() => {
     return best;
   }
   function startAttack(p, kind, data) {
-    spend(p, data.cost);
-    const { target, dir } = data.exec ? { target: data.exec, dir: 0 } : pickTarget(p);
+    spend(p, data.cost * (data.shot && p.S.u && p.S.u.wind ? 0.75 : 1));                       // Windrunner
+    const { target, dir } = data.exec ? { target: data.exec, dir: 0 } : data.heal ? { target: null, dir: p.facing } : pickTarget(p, data.shot ? data.range : 5);
     p.target = target;
     p.facing = target ? Combat.yawTo(p.pos, target.pos) : dir;
     // The weapon and its bonuses scale the move: damage, posture, swing speed and reach; criticals roll per swing
@@ -170,7 +173,7 @@ const Player = (() => {
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
     updateFires(p, dt);
-    for (const k of ['ultCd', 'artCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    for (const k of ['ultCd', 'artCd', 'healCd', 'stormT', 'wardT', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
@@ -251,7 +254,7 @@ const Player = (() => {
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; p.pos.z += m.z / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; moveSpeed = mlen * P.blockSpeed * 0.8; }
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       if (!p.healed && p.t > 0.45) {
-        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h);
+        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h); Party.flask(p, p.S.flaskHeal);
         FX.text(Combat.chestPos(p.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(p.pos, 1.4), 0x7aff9a, 14, 3);
       }
       if (p.t >= 0.85) setState(p, 'free');
@@ -276,7 +279,7 @@ const Player = (() => {
       p: p.state === 'roll' ? p.t / P.dodge.time : p.state === 'attack' && p.phase === 'recover' ? p.phaseT / p.atk.recover : 0,
       atk: p.atk && p.atk.pose, phase: p.phase, windRate: p.atk ? 3.2 / p.atk.wind : 12,
     }, dt);
-    const swinging = p.state === 'attack' && (p.phase === 'active' || (p.phase === 'recover' && p.phaseT < 0.06));
+    const swinging = p.state === 'attack' && !(p.atk.shot || p.atk.heal) && (p.phase === 'active' || (p.phase === 'recover' && p.phaseT < 0.06));
     Rig.updateTrail(p.trail, r.weapon, swinging, p.atkKind === 'heavy' ? 0xffc870 : 0xbfe4ff);
     if (p.flashT > 0) { p.flashT -= dt; Rig.flash(r, p.flashC, Math.max(0, p.flashT / 0.2) * 0.8); if (p.flashT <= 0) Rig.flash(r, 0, 0); }
   }
@@ -289,7 +292,7 @@ const Player = (() => {
 
   function flash(p, c) { p.flashT = 0.2; p.flashC = c; }
   function damage(p, n, from) {
-    n *= (1 - p.S.dr) * Settings.diff.dmg;                                // armour, then the difficulty
+    n *= (1 - p.S.dr) * Settings.diff.dmg * (p.wardT > 0 ? 1 - p.wardDr : 1);                                // armour, then the difficulty
     p.hp = Math.max(0, p.hp - n);
     FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
     if (p.hp <= 0) { p.rig.dieVar = Math.random() < 0.5; setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
@@ -377,6 +380,14 @@ const Player = (() => {
     p.rig = Rig.build('hero', { look: gearLook() }); scene.add(p.rig.root);
     p.rig.root.position.copy(p.pos); p.rig.root.rotation.y = p.facing;
   }
+  // The cleric's toggle: holy bolts or healing, for the light and the heavy attack (heavy: a stronger smite, or the area heal)
+  function toggleMode(p) {
+    if (!p || p.S.weaponType !== 'scepter' || p.state === 'dead') return false;
+    p.healMode = !p.healMode; p.combo = 0;
+    FX.text(Combat.chestPos(p.pos, 2.4), p.healMode ? '✚ HEAL' : '✦ SMITE', p.healMode ? 'heal' : 'crit'); Snd.play('glint');
+    if (G.onMode) G.onMode(p);
+    return true;
+  }
   function revive(p) { setState(p, 'free'); p.kb.set(0, 0, 0); p.buffer = null; p.blocking = false; p.combo = 0; }
 
   // ---------------- Ultimates ----------------
@@ -397,6 +408,9 @@ const Player = (() => {
         const a = Combat.yawTo(p.pos, e.pos); e.pos.x += Math.sin(a) * 1.6; e.pos.z += Math.cos(a) * 1.6;
       }
     }
+    if (id === 'storm') { p.stormT = 6; Snd.play('warn'); FX.ring(p.pos, 1.6, 0xffd27a, 1, { r0: 1.6 }); FX.burst(at, 0xffd27a, 24, 6); }
+    if (id === 'meteors') Shots.shower(p);
+    if (id === 'halo') Shots.halo(p);
     if (id === 'dance') { setState(p, 'dance'); p.danceN = 0; p.danceNext = 0; p.blocking = false; Snd.play('swing'); }
     return true;
   }
@@ -422,5 +436,5 @@ const Player = (() => {
     Rig.updateTrail(p.trail, r.weapon, true, 0x9affc8);
   }
 
-  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable, gearStats };
+  return { create, update, press, receive, recoil, drink, refit, revive, ultimate, executable, gearStats, toggleMode };
 })();

@@ -15,8 +15,9 @@
 <div id="hud">
   <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
   <div id="stBar" class="bar"><i id="stFill"></i></div>
-  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span></div>
+  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span><span id="modeBox" style="display:none" title="Cleric mode (V)">✦ Smite</span></div>
   <div id="bless"></div>
+  <div id="party" style="display:none"></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
@@ -39,6 +40,7 @@
   <button data-act="flask" class="b-flask">⚗</button>
   <button data-act="bag" class="b-bag">GEAR</button>
   <button data-act="ult" class="b-ult" style="display:none">ULT</button>
+  <button data-act="mode" class="b-mode" style="display:none">✦ Smite</button>
   <button data-act="lock" class="b-lock">🎯</button>
   <button data-act="heavy" class="b-heavy">HEAVY</button>
   <button data-act="block" class="b-block">BLOCK</button>
@@ -59,7 +61,7 @@
   <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera</p>
   <div class="tbtns"><button id="contBtn" style="display:none">Continue</button><button id="startBtn">Begin</button><button id="titleSetBtn" class="quiet">Settings</button></div>
 </div></div>
-<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button><button id="photoBtn" class="quiet">Photo mode</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
+<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button><button id="photoBtn" class="quiet">Photo mode</button><button id="titleBtn" class="quiet">Main menu</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
 <div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
 <div id="fade"></div>
 <div id="letterbox"></div>
@@ -76,12 +78,17 @@
 <script src="js/audio.js"></script>
 <script src="js/anims.js"></script>
 <script src="js/anims_mutant.js"></script>
+<script src="js/anims_magic.js"></script>
 <script src="js/mocap.js"></script>
 <script src="js/rig.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/player.js"></script>
 <script src="js/enemies.js"></script>
+<script src="js/shots.js"></script>
+<script src="js/policy.js"></script>
+<script src="js/policy_weights.js"></script>
+<script src="js/party.js"></script>
 <script src="js/props.js"></script>
 <script src="js/camp.js"></script>
 <script src="js/field.js"></script>

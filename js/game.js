@@ -45,6 +45,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (has('interact')) interact();
     if (has('flask')) Player.drink(G.player);
     if (has('ult')) Player.ultimate(G.player);
+    if (has('mode')) Player.toggleMode(G.player);
     if (has('talents')) openPanel('talents');
     if (has('gear')) { openPanel('bag'); ev.preventDefault(); }
     for (const a of ['light', 'heavy', 'dodge']) if (has(a)) { Player.press(G.player, a); ev.preventDefault(); }
@@ -110,6 +111,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       if (act === 'light' && G.spot) interact();
       else if (act === 'flask') Player.drink(G.player);
       else if (act === 'ult') Player.ultimate(G.player);
+      else if (act === 'mode') Player.toggleMode(G.player);
       else if (act === 'bag') openPanel('bag');
       else if (act === 'lock') toggleLock();
       else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
@@ -160,6 +162,7 @@ function pollPad(real) {
   if (pressed('light')) Player.press(G.player, 'light');
   if (pressed('heavy')) Player.press(G.player, 'heavy');
   if (pressed('ult')) Player.ultimate(G.player);
+  if (pressed('mode')) Player.toggleMode(G.player);
   if (pressed('interact') && G.spot) interact();
   else if (pressed('dodge')) Player.press(G.player, 'dodge');
   if (pressed('flask')) Player.drink(G.player);
@@ -351,6 +354,9 @@ function updateHud() {
     const u = $('ultBox'); u.style.display = p.S.ult ? '' : 'none';
     if (p.S.ult) { const ready = !(p.ultCd > 0); u.classList.toggle('ready', ready); u.textContent = ready ? '✦' : Math.ceil(p.ultCd); }
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
+    const cleric = p.S.weaponType === 'scepter', mb = document.querySelector('.b-mode'), mo = $('modeBox');
+    mb.style.display = cleric ? '' : 'none'; mo.style.display = cleric ? '' : 'none';
+    if (cleric) { const t = p.healMode ? '✚ Heal' : '✦ Smite'; if (mb.textContent !== t) { mb.textContent = t; mo.textContent = t; } mo.classList.toggle('heal', !!p.healMode); mb.classList.toggle('heal', !!p.healMode); }
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
@@ -387,6 +393,17 @@ function openSettings() {
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 $('photoBtn').addEventListener('click', () => { if (G.state !== 'pause') return; togglePause(); G.photo(true); });
+// Main menu: back to the title (to start a new game or continue) without closing the app. Everything that is kept is already
+// saved, so the page simply starts over; a run in the dungeon is lost, as it would be on closing the app, so ask twice there.
+let titleAsk = 0;
+$('titleBtn').addEventListener('click', () => {
+  if (G.state !== 'pause') return;
+  const b = $('titleBtn'), inRun = G.mode !== 'camp';
+  if (inRun && !titleAsk) { titleAsk = setTimeout(() => { titleAsk = 0; b.textContent = 'Main menu'; }, 4000); b.textContent = 'Tap again: leave this run'; return; }
+  clearTimeout(titleAsk); titleAsk = 0;
+  if (Items.S) Items.save();
+  location.reload();
+});
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
@@ -458,7 +475,7 @@ function updateLock(dt) {
 }
 G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
 function clearEnemies() {
-  G.raid = null; G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+  G.raid = null; G.lock = null; Enemy.clearArrows(); Shots.clear(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -481,7 +498,7 @@ function enterCamp(atSpawn = true) {
     }
   }
   Items.save();
-  Player.refit(G.player, scene, true); Player.revive(G.player);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore();
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
@@ -491,13 +508,14 @@ function startGame(how = 'new') {
   if (how === 'new' || !Items.load()) Items.newGame();
   if (G.player) { scene.remove(G.player.rig.root); scene.remove(G.player.trail.mesh); }
   G.player = Player.create(scene);
+  Party.clear();
   G.time = 0; G.seen = {};
   G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 };
   $('title').classList.remove('show'); $('pause').classList.remove('show');
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('looks', { first: true })); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('classpick')); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -553,7 +571,7 @@ G.descend = (k, onward) => fadeTo(() => {
   clearEnemies(); G.blessings = []; G.run = null; G.arena = null; if (!onward) drinkTonics();
   const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
   const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
   if (!S.story.pre[k]) {
@@ -608,7 +626,8 @@ G.onHits = (n, crit) => {
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
     const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
-    const perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
+    const ranged = CFG.gear.weapons[p.S.weaponType].ranged, perk2 = !ranged ? 'a fourth, finishing blow in the light combo' : p.S.weaponType === 'bow' ? 'two more arrows in the heavy fan' : p.S.weaponType === 'staff' ? 'a wider fireball blast' : 'healing 10% stronger';
+    const perk = ['', '+4% damage', perk2, `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
     UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
   }
 };
@@ -715,7 +734,7 @@ G.enterArena = A => fadeTo(() => {
   G.arena = A;
   const at = World.startCustom(def, { si: A.si || 0, k: A.lvl, mult: 1 + CFG.stageScale * A.lvl, hpMult: 1 + CFG.stageHp * A.lvl });
   G.mode = 'dungeon'; G.stageK = A.lvl; curseWorld();
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
 });
 G.arenaGold = arenaGold;
@@ -735,7 +754,7 @@ G.goFloor = () => fadeTo(() => {
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
-  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
+  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player); Party.restore(G.run.floor === 1, 0.3);
   if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
   placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
   if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');
@@ -1067,13 +1086,14 @@ function step(real) {
     const dt = FX.scaleDt(real);
     G.time += dt;
     Player.update(G.player, dt);
+    Party.update(dt);
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
     World.update(dt, camera.position);
     if (World.inCamp()) checkRim();
     updateDay(dt);
     updateSpawns(); updateRaid(dt);
-    Enemy.updateArrows(dt);
+    Enemy.updateArrows(dt); Shots.update(dt);
     runTimers();
     FX.update(dt);
     updateHud();

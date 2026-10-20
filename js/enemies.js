@@ -84,7 +84,7 @@ const Enemy = (() => {
     // leap. The ring stays put and the blow lands on it, so a dash out of it works whatever the body does next.
     e.aoeAt = e.aoeTo = null;
     if (h.aoe) {
-      const p = G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const p = e.tgt || G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const go = Math.min(h.lunge, Math.max(0, Combat.dist(e.pos, p.pos) - e.def.radius - 0.8));
       e.aoeTo = e.pos.clone().addScaledVector(dir, go); e.aoeTo.y = 0;
       e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
@@ -92,9 +92,32 @@ const Enemy = (() => {
     if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
   }
 
+  // ---------------- Aggro ----------------
+  // A foe goes for whoever scores best: the nearer, the more damage (or healing) they have done to it lately (threat, which fades),
+  // and a tank is hard to ignore. It sticks to its pick for a moment, and does not change its mind in the middle of a blow.
+  // The warden and the companions (G.allies) are all candidates; those who are down are not.
+  const alive = c => c === G.player ? c.state !== 'dead' : c.state !== 'down';
+  function addThreat(e, who, n) { if (!who || !(n > 0)) return; e.threat = e.threat || new Map(); e.threat.set(who, (e.threat.get(who) || 0) + n); }
+  function pickTarget(e, dt) {
+    const hero = G.player;
+    if (e.threat) for (const [k, v] of e.threat) { const nv = v * Math.exp(-0.3 * dt); if (nv < 1 || !alive(k)) e.threat.delete(k); else e.threat.set(k, nv); }
+    if (!G.allies || !G.allies.length) return (e.tgt = hero);
+    e.tgtT = (e.tgtT || 0) - dt;
+    if (e.tgt && alive(e.tgt) && (e.tgtT > 0 || e.state === 'attack')) return e.tgt;
+    e.tgtT = 0.45;
+    let best = null, bs = -Infinity;
+    for (const c of [hero].concat(G.allies)) {
+      if (!alive(c)) continue;
+      const d = Combat.dist(e.pos, c.pos);
+      const s = Math.min(60, (e.threat && e.threat.get(c)) || 0) + (14 - Math.min(14, d)) * 1.5 + (c.tank ? 9 : 0) + (c === e.tgt ? 5 : 0);
+      if (s > bs) { bs = s; best = c; }
+    }
+    return (e.tgt = best || hero);
+  }
+
   function update(e, dt) {
     e.t += dt; e.postureT += dt;
-    const p = G.player, d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
+    const p = pickTarget(e, dt), d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
     if (def.regen && e.state !== 'dead' && e.postureT > 3 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regen * dt); updateBar(e); }   // a troll knits back together when left alone
@@ -254,6 +277,7 @@ const Enemy = (() => {
   function receive(e, atk, p) {
     if (!targetable(e) || e.state === 'roar') return null;
     if (e.zone) rouse(e);
+    addThreat(e, p, atk.dmg);
     // A ward soaks the blow (heavy attacks crack it twice as fast)
     if (e.ward > 0) {
       e.ward = Math.max(0, e.ward - (atk.breaksGuard ? 2 : 1)); e.wardT = 0;
@@ -497,6 +521,7 @@ const Enemy = (() => {
     const B = e.blast, p = G.player, at = new THREE.Vector3(e.pos.x, 0, e.pos.z);
     FX.ring(at, B.r, 0xff7a20, 0.5, { r0: 0.3 }); FX.burst(Combat.chestPos(e.pos, 0.8), 0xff8a30, 40, 9, 0.8); FX.shake(0.45); Snd.play('slam');
     e.rig.root.visible = false;
+    for (const al of G.allies || []) if (al.state !== 'down' && Combat.dist(al.pos, at) < B.r + CFG.player.radius) Party.hurt(al, e, { dmg: B.dmg });
     if (p && p.state !== 'dead' && Combat.dist(p.pos, at) < B.r + CFG.player.radius) Player.receive(p, { pos: at, mult: e.mult }, { dmg: B.dmg, posture: 0, unblockable: true, aoe: true });
   }
   // A vampiric elite's blow landed
@@ -523,7 +548,7 @@ const Enemy = (() => {
       arrowGeo = [shaft, head];
     }
     const from = e.rig.weapon.group.getWorldPosition(new THREE.Vector3()); from.y = Math.max(1.1, from.y);
-    const p = G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
+    const p = e.tgt || G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
     const g = new THREE.Group(), P = h.projectile;
     let mats;
     if (P.orb) {
@@ -538,6 +563,12 @@ const Enemy = (() => {
     g.position.copy(from); g.lookAt(from.clone().add(dir)); e.rig.root.parent.add(g);
     arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: P.speed, hit: h, mult: e.mult, gone: 0, mats, owner: e, orb: P.orb });
   }
+  // An enemy arrow or orb that meets a companion hurts them (the first one it touches)
+  function hitAlly(a) {
+    if (a.back) return false;
+    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit); return true; }
+    return false;
+  }
   function updateArrows(dt) {
     const p = G.player;
     for (let i = arrows.length - 1; i >= 0; i--) {
@@ -551,6 +582,8 @@ const Enemy = (() => {
           if (e.state === 'dead' && typeof Codex !== 'undefined' && Items.S) Codex.add('reflectKills');
           break;
         }
+      } else if (hitAlly(a)) {
+        done = true;
       } else if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
         const res = Player.receive(p, { pos: a.origin, mult: a.mult }, a.hit);
         if (res === 'parry' && a.hit.projectile.reflect) {
@@ -570,5 +603,5 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, addThreat, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();

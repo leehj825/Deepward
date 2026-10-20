@@ -5,16 +5,16 @@ const Bindings = (() => {
   const ACTIONS = [
     ['up', 'Move forward'], ['down', 'Move back'], ['left', 'Move left'], ['right', 'Move right'],
     ['light', 'Attack'], ['heavy', 'Heavy attack'], ['block', 'Block / parry'], ['dodge', 'Dash'],
-    ['flask', 'Healing flask'], ['ult', 'Ultimate'], ['interact', 'Talk / use'], ['lock', 'Lock on'],
+    ['flask', 'Healing flask'], ['ult', 'Ultimate'], ['mode', 'Cleric: heal / smite'], ['interact', 'Talk / use'], ['lock', 'Lock on'],
     ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['camera', 'Switch camera'], ['map', 'Full map'], ['photo', 'Photo mode'], ['mute', 'Mute'],
   ];
   const KEYS = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
-    light: ['KeyJ'], heavy: ['KeyK', 'KeyQ'], block: ['KeyL', 'ShiftLeft'], dodge: ['Space'], flask: ['KeyR'], ult: ['KeyF'], interact: ['KeyE'],
+    light: ['KeyJ'], heavy: ['KeyK', 'KeyQ'], block: ['KeyL', 'ShiftLeft'], dodge: ['Space'], flask: ['KeyR'], ult: ['KeyF'], mode: ['KeyV'], interact: ['KeyE'],
     lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], camera: ['KeyB'], map: ['KeyN'], photo: ['KeyH'], mute: ['KeyM'],
   };
   // Standard-mapping button numbers. A both talks (when something is near) and dashes; movement is on the stick.
-  const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], flask: [12], gear: [13], camera: [8], lock: [11], photo: [14] };
+  const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], mode: [10], flask: [12], gear: [13], camera: [8], lock: [11], photo: [14] };
   const PADNAME = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS', 'D-pad up', 'D-pad down', 'D-pad left', 'D-pad right'];
   const FIXED_KEYS = ['Escape', 'Enter'], FIXED_PAD = [9];                 // pause / confirm stay where they are
   const MOUSE = { light: 'left-click', block: 'right-click', heavy: 'middle-click' };

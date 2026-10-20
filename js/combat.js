@@ -16,8 +16,20 @@ const Combat = (() => {
   const tmp = new THREE.Vector3();
   function chestPos(pos, h = 1.2) { return tmp.set(pos.x, h, pos.z).clone(); }
 
+  // Hit-stop, shake, sound, life on hit and mastery for blows that landed (a swing's, or a shot's)
+  function landedFeel(p, atk, landed, crit) {
+    FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
+    FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
+    Snd.play(crit ? 'crit' : 'hit');
+    G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
+    if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
+    if (G.onHits) G.onHits(landed, crit);
+  }
+
   // The player's swing lands: every enemy in the cone takes it
   function playerStrike(p, atk) {
+    if (atk.shot) return Shots.fire(p, atk);                                      // a ranged class's blow flies off instead
+    if (atk.heal) return Shots.heal(p, atk);
     if (atk.exec) { Enemy.execute(atk.exec, atk, p); G.onHits && G.onHits(1, true); return 1; }
     let landed = 0, blocked = 0, crit = false;
     for (const e of G.enemies) {
@@ -29,14 +41,8 @@ const Combat = (() => {
     }
     const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
     if (broke && !landed) FX.hitStop(0.03);
-    if (landed) {
-      FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
-      FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
-      Snd.play(crit ? 'crit' : 'hit');
-      G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
-      if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
-      if (G.onHits) G.onHits(landed, crit);
-    } else if (blocked) {
+    if (landed) landedFeel(p, atk, landed, crit);
+    else if (blocked) {
       Player.recoil(p);
     }
     return landed;
@@ -50,21 +56,23 @@ const Combat = (() => {
     for (const e of G.enemies) if (Enemy.targetable(e) && inArc(p.pos, f, e.pos, L, 22, e.def.radius)) Enemy.receive(e, { dmg: 16 * (p.S ? p.S.dmg : 1), posture: 18 }, p);
   }
 
-  // An enemy's swing lands: check the player is inside its reach and resolve block / parry / dodge
+  // An enemy's swing lands: everyone inside its reach (the warden, and any companion) takes it. The warden resolves block, parry
+  // and dodge; a companion simply takes the damage (Party.hurt).
   function enemyStrike(e, hit) {
-    const p = G.player; if (!p || p.state === 'dead') return;
-    let reached;
+    const hero = G.player, R = CFG.player.radius;
+    let c = null;
     if (hit.aoe) {
-      const c = e.aoeAt || Enemy.aoeCenter(e, hit);
-      reached = Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= hit.aoe.r + CFG.player.radius;
+      c = e.aoeAt || Enemy.aoeCenter(e, hit);
       Snd.play('slam'); FX.shake(0.35); FX.ring(c, hit.aoe.r * 1.2, 0xff6a3a, 0.4, { r0: 0.3 });
       FX.burst(new THREE.Vector3(c.x, 0.2, c.z), 0xb09070, 22, 7, 0.5);
-    } else reached = inArc(e.pos, e.facing, p.pos, hit.range, hit.arc, CFG.player.radius);
-    if (!reached) return;
-    const res = Player.receive(p, e, hit);
+    }
+    const reaches = t => hit.aoe ? Math.hypot(t.pos.x - c.x, t.pos.z - c.z) <= hit.aoe.r + R : inArc(e.pos, e.facing, t.pos, hit.range, hit.arc, R);
+    for (const al of G.allies || []) if (al.state !== 'down' && reaches(al)) Party.hurt(al, e, hit);
+    if (!hero || hero.state === 'dead' || !reaches(hero)) return;
+    const res = Player.receive(hero, e, hit);
     if (res === 'parry') Enemy.parried(e);
     else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
 
-  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike, wave };
+  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, landed: landedFeel, enemyStrike, wave };
 })();
