@@ -48,7 +48,7 @@ const UI = (() => {
   }
 
   const QNAME = { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' };
-  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.4, 2.4, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
+  const LIM = { master: [0, 1, 0.1], music: [0, 1, 0.1], sfx: [0, 1, 0.1], sens: [0.2, 3, 0.2], padScale: [0.7, 1.5, 0.1], padOpacity: [0.3, 1, 0.1] };      // min, max, step
 
   // ---------------- Gear screen helpers ----------------
   // The selected piece: { it, equipped, slot } from tab.gsel ('e:<slot>' or 'i:<id>')
