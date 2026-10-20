@@ -58,10 +58,17 @@ const Policy = (() => {
     for (let k = 0; k < w.out; k++) { let a = w.b2[k]; for (let j = 0; j < w.hid; j++) a += w.W2[k * w.hid + j] * h[j]; o[k] = a; }
     return o;
   }
+  // The network's scores for this state: the forward pass plus the class's own bias table (w.cb, filled by tools/policy/bake.js
+  // from what companions learned in play; absent in a freshly trained file)
+  function logits(w, s) {
+    const o = forward(w, encode(s));
+    if (w.cb && w.cb[s.cls]) for (let k = 0; k < o.length; k++) o[k] += w.cb[s.cls][k];
+    return o;
+  }
   // The best legal move by the network (weights given, or the shipped ones); null if there are none
   function choose(s, w = W()) {
     if (!w) return null;
-    const o = forward(w, encode(s)), m = legal(s);
+    const o = logits(w, s), m = legal(s);
     let best = -1;
     for (let k = 0; k < o.length; k++) if (m[k] && (best < 0 || o[k] > o[best])) best = k;
     return best < 0 ? null : best;
@@ -85,7 +92,7 @@ const Policy = (() => {
     // One decision: the chosen move (null if none is legal). With learn, moves are sampled and remembered for the fight's update.
     function pick(L, s, w = W(), learn = false, rand = Math.random) {
       if (!w) return null;
-      const o = forward(w, encode(s)), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
+      const o = logits(w, s), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
       const z = o.map((x, k) => (m[k] ? x / tau + (b ? b[k] : 0) : -1e9));
       let mx = -1e9; for (const v of z) if (v > mx) mx = v;
       let sum = 0; const p = z.map(v => { const e = Math.exp(v - mx); sum += e; return e; }).map(e => e / sum);
@@ -117,7 +124,7 @@ const Policy = (() => {
     function score(f) { return 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * f.downs - (f.heroDied ? 60 : 0) - 20 * f.heroLost - 8 * f.compLost; }
     return { make, dump, pick, end, score, params };
   })();
-  const api = { Learner, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
+  const api = { Learner, logits, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
   return api;
 })();
 if (typeof module !== 'undefined') module.exports = Policy;

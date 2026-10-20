@@ -244,7 +244,8 @@ const UI = (() => {
       }
       const n = Party.fights();
       h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
-      return h + (n ? btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
+      if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text: tools/policy/bake.js folds it into the shipped companion network.</p>`;
+      return h + (n ? btn(tab.policyShow ? 'Hide learned data' : 'Show learned data', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
     classpick() {
@@ -490,6 +491,7 @@ const UI = (() => {
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
     if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'policyshow') { tab.policyShow = !tab.policyShow; return render(); }
     if (a === 'forget') { Party.forget(); Items.save(); return render(); }
     if (a === 'dismiss') { Party.dismiss(arg); return render(); }
     if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }

@@ -198,7 +198,7 @@ const Party = (() => {
       if (m !== p) { const d = m.state === 'down'; if (d && !fight.down.get(m)) fight.downs++; fight.down.set(m, d); }
     }
     fight.quiet = foes.length ? 0 : fight.quiet + dt;
-    if (fight.quiet > 2.5 || p.state === 'dead') endFight(p);
+    if (fight.quiet > 2.5 || p.state === 'dead' || fight.t > 75) endFight(p);                  // a very long fight is scored in parts, so its lessons are saved
   }
   function endFight(p) {
     const f = fight; fight = null; if (!f || !f.on || !learning() || f.t < 4) { learner().ep = []; return; }
@@ -209,6 +209,8 @@ const Party = (() => {
     Policy.Learner.end(Ln, Policy.Learner.score(res));
     S().policyAdapt = Policy.Learner.dump(Ln); Items.save();
   }
+  // The learned preferences as text to copy out (tools/policy/bake.js folds them into the shipped network)
+  const exportData = () => { const a = S() && S().policyAdapt; return a ? 'DWPOLICY1:' + btoa(JSON.stringify(a)) : ''; };
   const forget = () => { const s = S(); if (s) s.policyAdapt = null; L = null; fight = null; };
   const fights = () => (S() && S().policyAdapt ? S().policyAdapt.n : 0);
 
@@ -336,5 +338,5 @@ const Party = (() => {
     updateBars();
   }
 
-  return { status, recruit, hurt, revive, restore, flask, forget, fights, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+  return { status, recruit, hurt, revive, restore, flask, forget, fights, exportData, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
 })();

@@ -6255,10 +6255,17 @@ const Policy = (() => {
     for (let k = 0; k < w.out; k++) { let a = w.b2[k]; for (let j = 0; j < w.hid; j++) a += w.W2[k * w.hid + j] * h[j]; o[k] = a; }
     return o;
   }
+  // The network's scores for this state: the forward pass plus the class's own bias table (w.cb, filled by tools/policy/bake.js
+  // from what companions learned in play; absent in a freshly trained file)
+  function logits(w, s) {
+    const o = forward(w, encode(s));
+    if (w.cb && w.cb[s.cls]) for (let k = 0; k < o.length; k++) o[k] += w.cb[s.cls][k];
+    return o;
+  }
   // The best legal move by the network (weights given, or the shipped ones); null if there are none
   function choose(s, w = W()) {
     if (!w) return null;
-    const o = forward(w, encode(s)), m = legal(s);
+    const o = logits(w, s), m = legal(s);
     let best = -1;
     for (let k = 0; k < o.length; k++) if (m[k] && (best < 0 || o[k] > o[best])) best = k;
     return best < 0 ? null : best;
@@ -6282,7 +6289,7 @@ const Policy = (() => {
     // One decision: the chosen move (null if none is legal). With learn, moves are sampled and remembered for the fight's update.
     function pick(L, s, w = W(), learn = false, rand = Math.random) {
       if (!w) return null;
-      const o = forward(w, encode(s)), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
+      const o = logits(w, s), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
       const z = o.map((x, k) => (m[k] ? x / tau + (b ? b[k] : 0) : -1e9));
       let mx = -1e9; for (const v of z) if (v > mx) mx = v;
       let sum = 0; const p = z.map(v => { const e = Math.exp(v - mx); sum += e; return e; }).map(e => e / sum);
@@ -6314,7 +6321,7 @@ const Policy = (() => {
     function score(f) { return 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * f.downs - (f.heroDied ? 60 : 0) - 20 * f.heroLost - 8 * f.compLost; }
     return { make, dump, pick, end, score, params };
   })();
-  const api = { Learner, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
+  const api = { Learner, logits, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
   return api;
 })();
 if (typeof module !== 'undefined') module.exports = Policy;
@@ -6526,7 +6533,7 @@ const Party = (() => {
       if (m !== p) { const d = m.state === 'down'; if (d && !fight.down.get(m)) fight.downs++; fight.down.set(m, d); }
     }
     fight.quiet = foes.length ? 0 : fight.quiet + dt;
-    if (fight.quiet > 2.5 || p.state === 'dead') endFight(p);
+    if (fight.quiet > 2.5 || p.state === 'dead' || fight.t > 75) endFight(p);                  // a very long fight is scored in parts, so its lessons are saved
   }
   function endFight(p) {
     const f = fight; fight = null; if (!f || !f.on || !learning() || f.t < 4) { learner().ep = []; return; }
@@ -6537,6 +6544,8 @@ const Party = (() => {
     Policy.Learner.end(Ln, Policy.Learner.score(res));
     S().policyAdapt = Policy.Learner.dump(Ln); Items.save();
   }
+  // The learned preferences as text to copy out (tools/policy/bake.js folds them into the shipped network)
+  const exportData = () => { const a = S() && S().policyAdapt; return a ? 'DWPOLICY1:' + btoa(JSON.stringify(a)) : ''; };
   const forget = () => { const s = S(); if (s) s.policyAdapt = null; L = null; fight = null; };
   const fights = () => (S() && S().policyAdapt ? S().policyAdapt.n : 0);
 
@@ -6664,7 +6673,7 @@ const Party = (() => {
     updateBars();
   }
 
-  return { status, recruit, hurt, revive, restore, flask, forget, fights, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+  return { status, recruit, hurt, revive, restore, flask, forget, fights, exportData, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
 })();
 
 </script>
@@ -8520,7 +8529,8 @@ const UI = (() => {
       }
       const n = Party.fights();
       h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
-      return h + (n ? btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
+      if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text: tools/policy/bake.js folds it into the shipped companion network.</p>`;
+      return h + (n ? btn(tab.policyShow ? 'Hide learned data' : 'Show learned data', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
     classpick() {
@@ -8766,6 +8776,7 @@ const UI = (() => {
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
     if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'policyshow') { tab.policyShow = !tab.policyShow; return render(); }
     if (a === 'forget') { Party.forget(); Items.save(); return render(); }
     if (a === 'dismiss') { Party.dismiss(arg); return render(); }
     if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }
