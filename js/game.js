@@ -70,12 +70,12 @@ function lockMouse(el) {
   cv.addEventListener('contextmenu', ev => ev.preventDefault());
   addEventListener('mousemove', ev => {
     if (document.pointerLockElement !== cv || View.mode !== 'behind') return;
+    // A capture on a Mac can report wild jumps (some of them the wrong way round): drop those, whatever the device
+    if (performance.now() - lockedAt < 150 || Math.abs(ev.movementX) > 250 || Math.abs(ev.movementY) > 250) return;
     if (!Settings.get('mouse')) { turnView(ev.movementX * 0.0032, ev.movementY * 0.0026); return; }       // trackpad
     // A mouse covers many more counts per hand movement than a trackpad, and can report wild jumps (Chrome on a Mac does, right after
     // capture): gentler turn, skip the first moments after capture, drop spikes
-    if (performance.now() - lockedAt < 150) return;
-    let mx = ev.movementX, my = ev.movementY;
-    if (Math.abs(mx) > 250 || Math.abs(my) > 250) return;
+    const mx = ev.movementX, my = ev.movementY;
     turnView(Math.max(-60, Math.min(60, mx)) * 0.0017, Math.max(-60, Math.min(60, my)) * 0.0014);
   });
   cv.addEventListener('wheel', ev => { ev.preventDefault(); View.dist = Math.min(12, Math.max(3.5, View.dist * Math.exp(ev.deltaY * 0.001))); }, { passive: false });
