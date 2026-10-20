@@ -254,7 +254,7 @@ const Player = (() => {
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; p.pos.z += m.z / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; moveSpeed = mlen * P.blockSpeed * 0.8; }
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       if (!p.healed && p.t > 0.45) {
-        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h);
+        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h); Party.flask(p, p.S.flaskHeal);
         FX.text(Combat.chestPos(p.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(p.pos, 1.4), 0x7aff9a, 14, 3);
       }
       if (p.t >= 0.85) setState(p, 'free');

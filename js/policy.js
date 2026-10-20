@@ -66,7 +66,58 @@ const Policy = (() => {
     for (let k = 0; k < o.length; k++) if (m[k] && (best < 0 || o[k] > o[best])) best = k;
     return best < 0 ? null : best;
   }
-  const api = { ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
+  // ---------------- Learning while playing ----------------
+  // The network itself stays as trained. On top sits a small table of preferences per class (a bias for each move, in units of the
+  // network's own typical gap between its first and second choice), nudged after every fight by REINFORCE: the moves chosen in a
+  // fight that went better than usual become a little likelier, those in a fight that went worse a little less likely. While
+  // learning, moves are sampled (mostly the network's first choice, now and then another legal one); otherwise the best move is
+  // taken. The table is small (4 x 7 numbers), clipped, saved with the game, and can be forgotten.
+  const Learner = (() => {
+    const params = { LR: 0.25, CLIP: 2, EXPLORE: 0.25 };
+    const make = saved => {
+      const L = { bias: {}, base: 0, sd: 12, n: 0, ep: [] };
+      for (const c of CLS) L.bias[c] = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice() : new Array(ACTIONS.length).fill(0);
+      if (saved) { L.base = saved.base || 0; L.sd = saved.sd || 12; L.n = saved.n || 0; }
+      return L;
+    };
+    const dump = L => ({ bias: L.bias, base: L.base, sd: L.sd, n: L.n });
+    const gapOf = w => (w && w.meta && w.meta.gap) || 4;
+    // One decision: the chosen move (null if none is legal). With learn, moves are sampled and remembered for the fight's update.
+    function pick(L, s, w = W(), learn = false, rand = Math.random) {
+      if (!w) return null;
+      const o = forward(w, encode(s)), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
+      const z = o.map((x, k) => (m[k] ? x / tau + (b ? b[k] : 0) : -1e9));
+      let mx = -1e9; for (const v of z) if (v > mx) mx = v;
+      let sum = 0; const p = z.map(v => { const e = Math.exp(v - mx); sum += e; return e; }).map(e => e / sum);
+      let act = 0; for (let k = 1; k < p.length; k++) if (p[k] > p[act]) act = k;
+      if (!m[act]) return null;
+      if (learn && L) {
+        let x = rand(); for (let k = 0; k < p.length; k++) { x -= p[k]; if (x <= 0) { act = k; break; } }
+        L.ep.push({ cls: s.cls, p, act });
+      }
+      return act;
+    }
+    // The fight is over with this reward: learn from it
+    function end(L, reward) {
+      const adv = Math.max(-2, Math.min(2, (reward - L.base) / Math.max(8, L.sd)));
+      if (L.n > 0) {
+        const per = {};
+        for (const d of L.ep) (per[d.cls] = per[d.cls] || []).push(d);
+        for (const c in per) {
+          const g = new Array(ACTIONS.length).fill(0);
+          for (const d of per[c]) for (let k = 0; k < g.length; k++) g[k] += ((k === d.act ? 1 : 0) - d.p[k]) / per[c].length;
+          for (let k = 0; k < g.length; k++) L.bias[c][k] = Math.max(-params.CLIP, Math.min(params.CLIP, L.bias[c][k] + params.LR * adv * g[k]));
+        }
+      }
+      L.sd = 0.85 * L.sd + 0.15 * Math.abs(reward - L.base);
+      L.base = L.n === 0 ? reward : 0.85 * L.base + 0.15 * reward;
+      L.n++; L.ep = [];
+    }
+    // The fight's score: the same as the trainer's simulator uses
+    function score(f) { return 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * f.downs - (f.heroDied ? 60 : 0) - 20 * f.heroLost - 8 * f.compLost; }
+    return { make, dump, pick, end, score, params };
+  })();
+  const api = { Learner, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
   return api;
 })();
 if (typeof module !== 'undefined') module.exports = Policy;

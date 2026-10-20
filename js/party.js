@@ -105,6 +105,15 @@ const Party = (() => {
     }
   }
 
+  // The hero's flask spills over: companions within 7 m take half of its healing (a share of their own health; the downed stay down)
+  function flask(p, share) {
+    for (const a of G.allies || []) {
+      if (a.state === 'down' || Combat.dist(a.pos, p.pos) > 7 || a.hp >= a.maxHp) continue;
+      const h = Math.min(a.maxHp - a.hp, a.maxHp * share * 0.5); a.hp += h;
+      FX.text(Combat.chestPos(a.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(a.pos, 1.4), 0x7aff9a, 8, 3);
+    }
+  }
+
   // The names under the purse: who walks with you
   function chips() {
     const el = document.getElementById('party'); if (!el) return;
@@ -165,6 +174,44 @@ const Party = (() => {
     }
     if (hit) { Snd.play('hit'); }
   }
+  // ---------------- Learning from fights ----------------
+  // A fight starts when a foe is near the party and ends when none is left within 25 m for 2.5 s (or the warden falls). It is scored
+  // like the trainer's simulator scores a fight (Policy.Learner.score), and Policy.Learner turns the score into a small adjustment
+  // of the companions' preferences, kept in the save (S.policyAdapt).
+  let L = null, Lfor = null, fight = null;
+  const learner = () => { const s = S(); if (!L || Lfor !== s) { L = Policy.Learner.make(s && s.policyAdapt); Lfor = s; } return L; };
+  const learning = () => Settings.get('learnedAI') !== false && Settings.get('learnOnline') !== false && Policy.ready;
+  function trackFight(dt, p) {
+    const foes = G.enemies.filter(e => usable(e) && Combat.dist(e.pos, p.pos) < 25 && e.state !== 'spawn'), A = G.allies || [];
+    const hpAll = [p].concat(A);
+    if (!fight) {
+      if (!foes.some(e => Combat.dist(e.pos, p.pos) < 14) || !A.length) return;
+      fight = { t: 0, quiet: 0, foes: new Map(), last: new Map(hpAll.map(m => [m, m.hp])), heroLost: 0, compLost: 0, downs: 0, down: new Map(A.map(a => [a, a.state === 'down'])), heroMax: p.maxHp, compMax: A.reduce((s, a) => s + a.maxHp, 0), on: learning() };
+      learner().ep = [];
+    }
+    fight.t += dt;
+    for (const e of foes) if (!fight.foes.has(e)) fight.foes.set(e, e.maxHp);
+    for (const m of hpAll) {
+      const was = fight.last.get(m); if (was === undefined) { fight.last.set(m, m.hp); continue; }
+      if (m.hp < was) { if (m === p) fight.heroLost += was - m.hp; else fight.compLost += was - m.hp; }
+      fight.last.set(m, m.hp);
+      if (m !== p) { const d = m.state === 'down'; if (d && !fight.down.get(m)) fight.downs++; fight.down.set(m, d); }
+    }
+    fight.quiet = foes.length ? 0 : fight.quiet + dt;
+    if (fight.quiet > 2.5 || p.state === 'dead') endFight(p);
+  }
+  function endFight(p) {
+    const f = fight; fight = null; if (!f || !f.on || !learning() || f.t < 4) { learner().ep = []; return; }
+    let removed = 0, total = 0, alive = 0;
+    for (const [e, mx] of f.foes) { total += mx; removed += mx - Math.max(0, e.state === 'dead' ? 0 : e.hp); if (e.state !== 'dead' && usable(e)) alive++; }
+    const res = { frac: total ? Math.min(1, removed / total) : 1, cleared: alive === 0, time: f.t, downs: f.downs, heroDied: p.state === 'dead', heroLost: f.heroLost / f.heroMax, compLost: f.compLost / Math.max(1, f.compMax) };
+    const Ln = learner(); if (!Ln.ep.length) return;
+    Policy.Learner.end(Ln, Policy.Learner.score(res));
+    S().policyAdapt = Policy.Learner.dump(Ln); Items.save();
+  }
+  const forget = () => { const s = S(); if (s) s.policyAdapt = null; L = null; fight = null; };
+  const fights = () => (S() && S().policyAdapt ? S().policyAdapt.n : 0);
+
   // ---------------- Deciding ----------------
   // What a companion sees of the moment (see js/policy.js for the meaning of each number)
   const frac = m => m.state === 'down' ? 0 : Math.max(0, m.hp / m.maxHp);
@@ -229,7 +276,7 @@ const Party = (() => {
     a.target = pickTarget(a, p);
     if (a.decT <= 0 || a.act === undefined) {
       a.decT = 0.3; const s = stateOf(a, p), legal = Policy.legal(s);
-      let act = Settings.get('learnedAI') !== false ? Policy.choose(s) : null;
+      let act = Settings.get('learnedAI') !== false ? Policy.Learner.pick(learner(), s, undefined, !!(fight && fight.on)) : null;
       if (act == null || !legal[act]) act = Policy.classic(s);
       a.act = act;
     }
@@ -241,6 +288,7 @@ const Party = (() => {
     if (!G.allies || G.allies.length !== s.party.length) sync();
     if (!G.allies || !G.allies.length) return;
     const dead = p.state === 'dead';
+    trackFight(dt, p);
     for (const a of G.allies) {
       a.t += dt; a.hitT += dt;
       if (a.state === 'down') {                                                      // lies still until healed (or a while passes)
@@ -288,5 +336,5 @@ const Party = (() => {
     updateBars();
   }
 
-  return { status, recruit, hurt, revive, restore, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+  return { status, recruit, hurt, revive, restore, flask, forget, fights, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
 })();

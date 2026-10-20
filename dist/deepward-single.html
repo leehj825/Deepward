@@ -1423,7 +1423,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true, keys: {}, padKeys: {}, lang: /^ko/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'ko' : 'en' };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, learnedAI: true, learnOnline: true, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true, keys: {}, padKeys: {}, lang: /^ko/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'ko' : 'en' };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -3016,7 +3016,7 @@ const Items = (() => {
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
-      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {},
+      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {}, policyAdapt: null,
       gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
     };
   }
@@ -5208,7 +5208,7 @@ const Player = (() => {
       if (mlen > 0.05) { p.pos.x += m.x / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; p.pos.z += m.z / Math.max(1, mlen) * P.blockSpeed * 0.8 * dt; moveSpeed = mlen * P.blockSpeed * 0.8; }
       if (View.mode === 'behind') p.facing += Combat.wrap(View.yaw + Math.PI - p.facing) * Math.min(1, 20 * dt);
       if (!p.healed && p.t > 0.45) {
-        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h);
+        p.healed = true; const h = p.maxHp * p.S.flaskHeal; p.hp = Math.min(p.maxHp, p.hp + h); Party.flask(p, p.S.flaskHeal);
         FX.text(Combat.chestPos(p.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(p.pos, 1.4), 0x7aff9a, 14, 3);
       }
       if (p.t >= 0.85) setState(p, 'free');
@@ -6195,6 +6195,137 @@ const Shots = (() => {
 
 </script>
 <script>
+// Deepward - the companions' battle policy: which of seven moves a companion makes next. The game and the offline trainer
+// (tools/policy/) share this file, so what the network sees and chooses from is identical in both.
+//   state s   a small description of the moment (health of the companion, warden and others, distances, danger, cooldowns)
+//   classic   the hand-written rules (the companions' behaviour before there was a network, and the fallback)
+//   choose    the learned network (weights in js/policy_weights.js, made by tools/policy/train.js): a 21 -> 20 -> 7 MLP,
+//             a few hundred numbers, run a few times a second. Illegal moves are masked out, so it can only reorder legal ones.
+// Following the warden comes before all of this (Party.think handles it); the policy decides what to do in a fight.
+const Policy = (() => {
+  const ACTIONS = ['attack', 'heavy', 'kite', 'regroup', 'heal', 'area', 'guard'];
+  const CLS = ['warrior', 'archer', 'mage', 'cleric'];
+  const A = Object.fromEntries(ACTIONS.map((n, i) => [n, i]));
+  const N_IN = 21;
+  const cl = (v, m) => Math.max(0, Math.min(1, v / m));
+  // The state is plain numbers: hp, hero, other, lowest are shares of health (0..1); distances in metres; danger is the seconds
+  // until the next blow aimed at this companion lands (3 when none); *Rdy are 0 or 1.
+  function encode(s) {
+    const v = new Array(N_IN).fill(0);
+    v[CLS.indexOf(s.cls)] = 1;
+    let i = 4;
+    v[i++] = s.hp; v[i++] = s.hero; v[i++] = s.other; v[i++] = cl(s.downed, 2); v[i++] = cl(s.dHero, 20); v[i++] = cl(s.dEnemy, 20);
+    v[i++] = cl(s.nNear, 5); v[i++] = cl(s.nHero, 5); v[i++] = cl(s.targeted, 3); v[i++] = cl(s.danger, 3);
+    v[i++] = s.atkRdy; v[i++] = s.heavyRdy; v[i++] = s.healRdy; v[i++] = s.lowest; v[i++] = cl(s.hurtN, 3); v[i++] = s.hasTarget ? 1 : 0;
+    return v;
+  }
+  // Which moves are possible right now
+  function legal(s) {
+    const m = new Array(ACTIONS.length).fill(false);
+    m[A.attack] = !!s.hasTarget;
+    m[A.heavy] = !!s.hasTarget && !!s.heavyRdy;
+    m[A.kite] = s.dEnemy < 40;
+    m[A.regroup] = true;
+    m[A.heal] = s.cls === 'cleric' && !!s.atkRdy;
+    m[A.area] = s.cls === 'cleric' && !!s.healRdy;
+    m[A.guard] = s.cls === 'warrior';
+    return m;
+  }
+  // The hand-written rules: the behaviour the companions had before the network
+  function classic(s) {
+    if (s.cls === 'cleric') {
+      if (s.healRdy && (s.lowest < 0.4 || s.hurtN >= 2)) return A.area;
+      if (s.atkRdy && s.lowest < 0.75) return A.heal;
+      if (s.hasTarget && s.atkRdy && s.dEnemy < 11) return A.attack;
+      return A.regroup;
+    }
+    if (!s.hasTarget) return A.regroup;
+    if (s.cls === 'warrior') return A.attack;
+    if (s.dEnemy < 4.2) return s.atkRdy && s.dEnemy > 1.6 ? A.attack : A.kite;
+    if (s.atkRdy && s.heavyRdy && (s.cls === 'mage' || s.dEnemy < 7)) return A.heavy;
+    return A.attack;
+  }
+
+  // ---------------- The network ----------------
+  const W = () => (typeof DW_POLICY !== 'undefined' && DW_POLICY && DW_POLICY.W1) ? DW_POLICY : null;
+  function forward(w, x) {
+    const h = new Array(w.hid);
+    for (let j = 0; j < w.hid; j++) { let a = w.b1[j]; for (let i = 0; i < w.in; i++) a += w.W1[j * w.in + i] * x[i]; h[j] = Math.tanh(a); }
+    const o = new Array(w.out);
+    for (let k = 0; k < w.out; k++) { let a = w.b2[k]; for (let j = 0; j < w.hid; j++) a += w.W2[k * w.hid + j] * h[j]; o[k] = a; }
+    return o;
+  }
+  // The best legal move by the network (weights given, or the shipped ones); null if there are none
+  function choose(s, w = W()) {
+    if (!w) return null;
+    const o = forward(w, encode(s)), m = legal(s);
+    let best = -1;
+    for (let k = 0; k < o.length; k++) if (m[k] && (best < 0 || o[k] > o[best])) best = k;
+    return best < 0 ? null : best;
+  }
+  // ---------------- Learning while playing ----------------
+  // The network itself stays as trained. On top sits a small table of preferences per class (a bias for each move, in units of the
+  // network's own typical gap between its first and second choice), nudged after every fight by REINFORCE: the moves chosen in a
+  // fight that went better than usual become a little likelier, those in a fight that went worse a little less likely. While
+  // learning, moves are sampled (mostly the network's first choice, now and then another legal one); otherwise the best move is
+  // taken. The table is small (4 x 7 numbers), clipped, saved with the game, and can be forgotten.
+  const Learner = (() => {
+    const params = { LR: 0.25, CLIP: 2, EXPLORE: 0.25 };
+    const make = saved => {
+      const L = { bias: {}, base: 0, sd: 12, n: 0, ep: [] };
+      for (const c of CLS) L.bias[c] = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice() : new Array(ACTIONS.length).fill(0);
+      if (saved) { L.base = saved.base || 0; L.sd = saved.sd || 12; L.n = saved.n || 0; }
+      return L;
+    };
+    const dump = L => ({ bias: L.bias, base: L.base, sd: L.sd, n: L.n });
+    const gapOf = w => (w && w.meta && w.meta.gap) || 4;
+    // One decision: the chosen move (null if none is legal). With learn, moves are sampled and remembered for the fight's update.
+    function pick(L, s, w = W(), learn = false, rand = Math.random) {
+      if (!w) return null;
+      const o = forward(w, encode(s)), m = legal(s), tau = gapOf(w) * params.EXPLORE, b = L ? L.bias[s.cls] : null;
+      const z = o.map((x, k) => (m[k] ? x / tau + (b ? b[k] : 0) : -1e9));
+      let mx = -1e9; for (const v of z) if (v > mx) mx = v;
+      let sum = 0; const p = z.map(v => { const e = Math.exp(v - mx); sum += e; return e; }).map(e => e / sum);
+      let act = 0; for (let k = 1; k < p.length; k++) if (p[k] > p[act]) act = k;
+      if (!m[act]) return null;
+      if (learn && L) {
+        let x = rand(); for (let k = 0; k < p.length; k++) { x -= p[k]; if (x <= 0) { act = k; break; } }
+        L.ep.push({ cls: s.cls, p, act });
+      }
+      return act;
+    }
+    // The fight is over with this reward: learn from it
+    function end(L, reward) {
+      const adv = Math.max(-2, Math.min(2, (reward - L.base) / Math.max(8, L.sd)));
+      if (L.n > 0) {
+        const per = {};
+        for (const d of L.ep) (per[d.cls] = per[d.cls] || []).push(d);
+        for (const c in per) {
+          const g = new Array(ACTIONS.length).fill(0);
+          for (const d of per[c]) for (let k = 0; k < g.length; k++) g[k] += ((k === d.act ? 1 : 0) - d.p[k]) / per[c].length;
+          for (let k = 0; k < g.length; k++) L.bias[c][k] = Math.max(-params.CLIP, Math.min(params.CLIP, L.bias[c][k] + params.LR * adv * g[k]));
+        }
+      }
+      L.sd = 0.85 * L.sd + 0.15 * Math.abs(reward - L.base);
+      L.base = L.n === 0 ? reward : 0.85 * L.base + 0.15 * reward;
+      L.n++; L.ep = [];
+    }
+    // The fight's score: the same as the trainer's simulator uses
+    function score(f) { return 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * f.downs - (f.heroDied ? 60 : 0) - 20 * f.heroLost - 8 * f.compLost; }
+    return { make, dump, pick, end, score, params };
+  })();
+  const api = { Learner, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };
+  return api;
+})();
+if (typeof module !== 'undefined') module.exports = Policy;
+
+</script>
+<script>
+// Generated by tools/policy/train.js (imitation of the rules, then evolution strategies in tools/policy/sim.js). Do not edit by hand.
+const DW_POLICY = {"in":21,"hid":20,"out":7,"W1":[3.3176,0.0316,0.6723,-3.1278,-0.4204,-0.2762,-0.2946,-0.1177,0.1678,6.902,-0.1119,0.0786,-0.6107,-0.4045,3.8074,2.8489,2.6426,-0.6562,-0.7085,-0.5644,0.1028,0.3504,-0.7814,-0.4034,2.4763,-0.7643,0.3278,0.5286,-0.9209,1.2882,2.053,-1.8451,1.1255,3.664,-0.4026,0.4874,0.5188,0.6406,-0.109,-1.1376,-0.168,0.4706,1.7006,-0.1769,-1.3679,-0.6075,-0.0055,0.8028,0.1615,1.4493,0.4279,1.8052,-0.5355,0.2584,0.1016,0.3924,-0.5749,1.0195,-0.6164,2.9754,-0.9267,-0.9407,0.3406,-0.7005,-0.298,-0.1281,0.8936,0.3947,-0.7079,0.1415,-0.4648,1.031,3.1737,0.0741,-1.4505,0.148,-0.1829,-0.1291,0.5809,-0.5372,-2.8889,0.7683,-0.4456,0.0588,1.2129,0.7589,-4.3238,-0.1784,-0.3309,0.2119,-0.2074,1.365,-1.226,3.4057,-11.6982,-0.3292,-0.661,-0.0438,-0.6051,-0.0131,-0.1579,-0.3982,-0.0101,-0.3656,0.856,1.5543,1.3889,1.7478,-1.4333,0.0334,-0.1399,0.3148,1.2361,0.143,0.9742,-0.2924,-0.9642,0.1169,-0.1836,2.0216,0.2327,0.3958,2.1696,-2.5263,-0.7588,-0.0095,0.563,-0.8102,-0.117,-0.2641,0.7768,0.0633,0.4166,-0.0624,-1.2008,0.4406,0.6086,0.1673,0.009,0.1066,-0.8893,-0.7257,-0.6478,3.0823,-1.1817,-0.2446,0.4638,0.7172,-0.6726,-1.3019,2.781,-0.4587,-0.4355,1.1844,1.5047,1.9839,-0.9141,-1.5669,-0.0997,3.9959,-0.6821,0.5863,0.3175,0.063,-0.9065,0.2889,0.1264,-0.2372,-2.4772,-0.8913,-0.7383,2.8918,-0.204,-0.166,0.3697,-0.3499,-0.2423,9.7624,0.1734,-0.1493,-0.299,0.1372,0.4319,0.1634,0.5482,-0.4816,-0.2244,-1.313,0.0054,0.3224,-0.0377,0.303,0.1426,0.1122,-0.1277,0.1056,1.1949,0.3357,1.7446,0.5728,0.8179,0.6,0.3537,0.248,0.9907,0.2224,0.2218,1.3637,1.3202,-0.2548,0.8152,1.0581,1.5218,-0.1502,-0.8155,-0.5209,-0.1029,1.4605,0.8619,0.5734,0.2708,0.3595,0.3227,0.2881,0.8169,0.1775,0.5593,-4.4469,3.9156,0.3176,-0.0254,-4.1601,0.3424,1.3844,-3.3161,0.0359,-0.0409,-0.0132,-0.368,0.0254,-6.5277,2.2505,-0.8775,0.21,0.07,0.6102,1.2217,1.1975,-0.381,-0.387,0.5721,0.0807,2.8265,0.0838,0.1451,-1.577,0.2714,-0.6373,-0.3386,0.499,-0.0638,8.2505,-0.2575,-0.0985,-0.3294,0.1819,0.9179,-0.0405,0.0196,0.1744,-0.4269,-1.3005,0.4395,-0.4576,0.5955,1.4354,0.065,0.6205,0.1424,0.2334,-0.5121,1.3701,-4.0614,0.2612,-0.5778,-0.9895,-0.0342,0.6931,0.5124,0.583,-0.2753,-1.8642,0.659,0.0263,-2.3344,0.5411,2.7545,0.6633,-0.146,-0.6312,0.2681,-2.1339,0.1239,-0.1887,1.2558,-0.5118,-0.0015,0.2955,0.7328,0.8968,-0.5226,-3.9905,-0.346,0.3818,-0.0035,1.5444,-2.6174,-0.0372,0.2114,-0.3353,-0.0116,0.4669,-0.6983,0.1917,-0.0176,1.6713,-0.3837,0.6035,0.2,-1.1934,-0.8041,-0.1311,3.4788,1.5017,-0.4409,0.652,-0.468,-4.1604,-0.5098,-0.579,0.6126,0.6967,0.3501,0.7181,0.0814,-0.7725,0.3297,0.1777,-0.1668,-0.1687,-0.717,-0.8742,0.1609,4.9017,-4.4325,-0.2166,0.0545,-0.0773,1.9807,1.2265,-1.4562,-1.4182,1.5651,0.0295,1.5431,1.1843,-0.3393,0.8746,2.1357,-0.3084,-0.1285,1.5164,0.2717,0.3164,-1.7438,-3.0627,1.4714,0.1127,0.0623,0.4218,0.2813,-0.4507,0.1466,0.3641,0.543,1.7425,1.0767,1.0668,0.8012,1.2026,2.0896,0.3222,1.2176,0.7123,0.1433,-0.6125,0.5242,0.8126,0.3918,-2.7786,0.8008,3.0404,-0.0805,0.6006,-0.5804,0.0643,-0.277,-0.3091,-0.189,2.8964,0.1551,-0.0847,0.5248,0.5211,0.7813,-0.1445,-2.7535,0.2917,-0.3275,-0.6134],"b1":[-0.4893,0.3311,-0.6652,0.8868,-0.0488,-0.2617,-0.6821,0.7334,-0.3059,0.1721,0.664,0.0138,-0.6181,0.3876,0.9258,-0.8235,-0.7051,-0.3098,0.6416,0.4239],"W2":[2.952,0.161,1.9918,-1.0629,1.3675,1.8302,0.3933,-0.0281,-0.4204,1.0972,-0.2024,-1.0766,0.9937,0.0146,-1.0759,0.6019,2.5387,0.0974,0.3718,-1.4203,-0.4134,-1.584,1.6471,0.0264,-3.808,0.163,1.7214,-2.5948,6.7906,-0.7729,-0.545,3.1593,5.2389,-0.0214,-0.4145,-0.7495,1.8485,-0.4571,-0.5722,0.2931,-2.8154,-0.9548,0.1967,-2.1452,0.5053,0.5984,0.4224,-0.3878,-9.9475,-0.7985,-1.5172,0.7946,-6.5927,1.2167,-0.7082,0.6103,1.7772,-0.0129,-0.5389,-1.642,-1.8672,0.8297,-0.1557,1.5167,0.651,-2.8756,1.0489,0.3437,0.7106,-0.8176,-1.0497,-0.3456,-1.2094,-1.072,-3.5063,1.6371,7.0382,-1.6563,-0.4215,-1.1132,0.639,0.6038,-0.6743,0.1681,0.4437,0.6591,-0.9065,1.3304,0.5958,0.1336,-0.8287,-0.8881,0.248,1.1656,4.107,-2.0497,-7.0997,0.6091,0.7369,1.1652,0.8232,0.4943,-3.0367,1.8765,1.0833,-0.041,-3.7794,0.4847,0.3877,0.6213,9.8576,-0.6167,-1.0526,-1.2094,2.5501,-3.4742,-2.4847,-0.2398,0.9888,3.4161,-0.1428,-0.351,-1.2356,-1.0814,-1.52,-1.5707,-0.4836,-1.6296,-1.2495,-0.2523,-2.2835,0.4375,-1.6275,0.297,0.4883,-0.5777,3.0446,-0.3202,-0.8895,-0.1858],"b2":[0.2947,-0.8914,-0.6428,-0.2671,0.8022,0.5795,-0.491],"meta":{"actions":["attack","heavy","kite","regroup","heal","area","guard"],"trained":"2026-10-20","generations":401,"simRewardRules":32.59,"simRewardNet":36.05,"params":587,"gap":14.42}};
+
+</script>
+<script>
 // Deepward - the party: companions who walk with the warden. They follow (that comes first), and attack, shoot or heal what
 // is near: a warrior closes in and swings, an archer keeps her distance and shoots (a fan of arrows now and then), a mage
 // casts bolts and a fireball, a cleric mends whoever is hurt and smites when no one is. No planning yet: each is a few plain
@@ -6250,7 +6381,7 @@ const Party = (() => {
     p.rig.root.parent.add(rig.root);
     const a = {
       id: d.id, def: d, cls: d.cls, ally: true, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
-      phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, shots: 0, speedK: 0, cycle: 0,
+      phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, guardT: 0, decT: 0, shots: 0, speedK: 0, cycle: 0,
       S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
     };
     a.pos.x += Math.sin(p.facing + 1.5) * 1.5; a.pos.z += Math.cos(p.facing + 1.5) * 1.5;
@@ -6274,7 +6405,7 @@ const Party = (() => {
   // ---------------- Taking damage ----------------
   function hurt(a, e, hit) {
     if (a.state === 'down') return;
-    const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * Settings.diff.dmg;
+    const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * (a.guardT > 0 ? 0.5 : 1) * Settings.diff.dmg;           // a guarding warrior takes half
     a.hp = Math.max(0, a.hp - n); a.hitT = 0;
     FX.text(Combat.chestPos(a.pos, 2.0), '-' + Math.round(n), 'hurt'); Snd.play('hit');
     FX.burst(Combat.chestPos(a.pos, 1.2), 0xc0201a, 6, 3, 0.3);
@@ -6299,6 +6430,15 @@ const Party = (() => {
       if (a.state === 'down') revive(a, full ? 1 : add);
       else a.hp = Math.min(a.maxHp, full ? a.maxHp : a.hp + a.maxHp * add);
       a.state = a.state === 'hurt' ? 'free' : a.state;
+    }
+  }
+
+  // The hero's flask spills over: companions within 7 m take half of its healing (a share of their own health; the downed stay down)
+  function flask(p, share) {
+    for (const a of G.allies || []) {
+      if (a.state === 'down' || Combat.dist(a.pos, p.pos) > 7 || a.hp >= a.maxHp) continue;
+      const h = Math.min(a.maxHp - a.hp, a.maxHp * share * 0.5); a.hp += h;
+      FX.text(Combat.chestPos(a.pos, 2.1), '+' + Math.round(h), 'heal'); FX.burst(Combat.chestPos(a.pos, 1.4), 0x7aff9a, 8, 3);
     }
   }
 
@@ -6362,40 +6502,113 @@ const Party = (() => {
     }
     if (hit) { Snd.play('hit'); }
   }
-  // The few rules. Returns a movement goal {x, z, run} or null to stand.
-  function think(a, p, dt) {
-    const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
-    a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt;
-    const goHome = () => Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
-    if (dp > CP.far || a.state === 'attack' || noFight) return goHome();          // following comes first
-    a.target = pickTarget(a, p);
-    const t = a.target;
-    if (a.cls === 'cleric') {
-      // Heal the hurt first; smite when everyone is well
-      const group = Shots.party(a).filter(m => Combat.dist(a.pos, m.pos) < 8), low = Math.min(...group.map(m => m.state === 'down' ? 0 : m.hp / m.maxHp)), hurtN = group.filter(m => m.state === 'down' || m.hp / m.maxHp < 0.6).length;
-      if (a.cd <= 0 && (low < 0.4 || hurtN >= 2) && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; return null; }
-      if (a.cd <= 0 && low < 0.75) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 2.2; return null; }
-      if (t && a.cd <= 0 && D(a, t) < 11) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; }
-      return goHome();
+  // ---------------- Learning from fights ----------------
+  // A fight starts when a foe is near the party and ends when none is left within 25 m for 2.5 s (or the warden falls). It is scored
+  // like the trainer's simulator scores a fight (Policy.Learner.score), and Policy.Learner turns the score into a small adjustment
+  // of the companions' preferences, kept in the save (S.policyAdapt).
+  let L = null, Lfor = null, fight = null;
+  const learner = () => { const s = S(); if (!L || Lfor !== s) { L = Policy.Learner.make(s && s.policyAdapt); Lfor = s; } return L; };
+  const learning = () => Settings.get('learnedAI') !== false && Settings.get('learnOnline') !== false && Policy.ready;
+  function trackFight(dt, p) {
+    const foes = G.enemies.filter(e => usable(e) && Combat.dist(e.pos, p.pos) < 25 && e.state !== 'spawn'), A = G.allies || [];
+    const hpAll = [p].concat(A);
+    if (!fight) {
+      if (!foes.some(e => Combat.dist(e.pos, p.pos) < 14) || !A.length) return;
+      fight = { t: 0, quiet: 0, foes: new Map(), last: new Map(hpAll.map(m => [m, m.hp])), heroLost: 0, compLost: 0, downs: 0, down: new Map(A.map(a => [a, a.state === 'down'])), heroMax: p.maxHp, compMax: A.reduce((s, a) => s + a.maxHp, 0), on: learning() };
+      learner().ep = [];
     }
+    fight.t += dt;
+    for (const e of foes) if (!fight.foes.has(e)) fight.foes.set(e, e.maxHp);
+    for (const m of hpAll) {
+      const was = fight.last.get(m); if (was === undefined) { fight.last.set(m, m.hp); continue; }
+      if (m.hp < was) { if (m === p) fight.heroLost += was - m.hp; else fight.compLost += was - m.hp; }
+      fight.last.set(m, m.hp);
+      if (m !== p) { const d = m.state === 'down'; if (d && !fight.down.get(m)) fight.downs++; fight.down.set(m, d); }
+    }
+    fight.quiet = foes.length ? 0 : fight.quiet + dt;
+    if (fight.quiet > 2.5 || p.state === 'dead') endFight(p);
+  }
+  function endFight(p) {
+    const f = fight; fight = null; if (!f || !f.on || !learning() || f.t < 4) { learner().ep = []; return; }
+    let removed = 0, total = 0, alive = 0;
+    for (const [e, mx] of f.foes) { total += mx; removed += mx - Math.max(0, e.state === 'dead' ? 0 : e.hp); if (e.state !== 'dead' && usable(e)) alive++; }
+    const res = { frac: total ? Math.min(1, removed / total) : 1, cleared: alive === 0, time: f.t, downs: f.downs, heroDied: p.state === 'dead', heroLost: f.heroLost / f.heroMax, compLost: f.compLost / Math.max(1, f.compMax) };
+    const Ln = learner(); if (!Ln.ep.length) return;
+    Policy.Learner.end(Ln, Policy.Learner.score(res));
+    S().policyAdapt = Policy.Learner.dump(Ln); Items.save();
+  }
+  const forget = () => { const s = S(); if (s) s.policyAdapt = null; L = null; fight = null; };
+  const fights = () => (S() && S().policyAdapt ? S().policyAdapt.n : 0);
+
+  // ---------------- Deciding ----------------
+  // What a companion sees of the moment (see js/policy.js for the meaning of each number)
+  const frac = m => m.state === 'down' ? 0 : Math.max(0, m.hp / m.maxHp);
+  function stateOf(a, p) {
+    const t = a.target, party = Shots.party(a), near = party.filter(m => m !== a && Combat.dist(a.pos, m.pos) < 8), grp = [a].concat(near);
+    const foes = G.enemies.filter(usable), others = (G.allies || []).filter(m => m !== a);
+    let nearest = 99, ne = null, danger = 3, targeted = 0;
+    for (const e of foes) {
+      const d = Combat.dist(a.pos, e.pos); if (d < nearest) { nearest = d; ne = e; }
+      if (e.tgt !== a) continue;
+      targeted++;
+      if (e.state === 'attack' && e.phase === 'wind' && e.atk) danger = Math.min(danger, Math.max(0, e.atk.hits[e.hitIdx].wind - e.phaseT));
+    }
+    for (const ar of Enemy.arrows) {                                               // an arrow or orb on its way to this companion
+      if (ar.back) continue;
+      const dx = a.pos.x - ar.pos.x, dz = a.pos.z - ar.pos.z, d = Math.hypot(dx, dz);
+      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93) danger = Math.min(danger, d / ar.speed);
+    }
+    a.nearest = ne;
+    return {
+      cls: a.cls, hp: frac(a), hero: frac(p), other: others.length ? Math.min(...others.map(frac)) : 1, downed: others.filter(m => m.state === 'down').length,
+      dHero: Combat.dist(a.pos, p.pos), dEnemy: t ? D(a, t) : nearest, nNear: foes.filter(e => Combat.dist(a.pos, e.pos) < 7).length, nHero: foes.filter(e => Combat.dist(p.pos, e.pos) < 7).length,
+      targeted, danger, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
+      lowest: Math.min(...grp.filter(m => Combat.dist(a.pos, m.pos) < 8).map(frac)), hurtN: grp.filter(m => m.state === 'down' || frac(m) < 0.6).length, hasTarget: !!t,
+    };
+  }
+  // Doing the chosen move: starts a blow when it is ready, and returns a movement goal {x, z, run} (or null to stand)
+  function execute(a, act, p) {
+    const A = Policy.A, t = a.target, home = homeOf(a, p), toward = (e, run = true) => ({ x: e.pos.x, z: e.pos.z, run });
+    const goHome = () => (Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: Combat.dist(a.pos, p.pos) > 6 } : null);
+    if (act === A.guard) { a.guardT = 0.6; return null; }
+    if (act === A.regroup) return goHome();
+    if (act === A.kite) {
+      const e = a.nearest; if (!e) return goHome();
+      const d = Math.max(0.1, Combat.dist(a.pos, e.pos)), k = 3 / d;
+      return { x: a.pos.x + (a.pos.x - e.pos.x) * k, z: a.pos.z + (a.pos.z - e.pos.z) * k, run: true };
+    }
+    if (act === A.heal) { if (a.cd <= 0) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 2.2; } return null; }
+    if (act === A.area) { if (a.cd <= 0 && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; } return null; }
     if (!t) return goHome();
-    const d = D(a, t);
-    if (a.cls === 'warrior') {
-      if (d < 2.3 && a.cd <= 0) { begin(a, P.light[a.shots++ % 3]); a.cd = 0.55; return null; }
-      return d > 1.7 ? { x: t.pos.x, z: t.pos.z, run: true } : null;
-    }
-    // ranged: hold the middle distance, back away when crowded
-    const far = a.cls === 'archer' ? 9 : 10;
-    if (d < 4.2) {                                                              // crowded: shoot if ready (a foe chasing us never lets go), else back away
-      if (a.cd <= 0 && d > 1.6) { begin(a, a.cls === 'archer' ? P.combos.bow[0] : P.combos.staff[0]); a.cd = 1.0; return null; }
-      const k = 3 / Math.max(0.1, d); return { x: a.pos.x + (a.pos.x - t.pos.x) * k, z: a.pos.z + (a.pos.z - t.pos.z) * k, run: true, fire: true }; }
-    if (d > far) return { x: t.pos.x, z: t.pos.z, run: true };
-    if (a.cd <= 0) {
-      if (a.cls === 'archer') { if (a.heavyCd <= 0 && d < 7) { begin(a, P.heavies.bow); a.heavyCd = 6; } else begin(a, P.combos.bow[0]); a.cd = 1.0; }
-      else { if (a.heavyCd <= 0) { begin(a, P.heavies.staff); a.heavyCd = 9; } else begin(a, P.combos.staff[0]); a.cd = 1.3; }
+    const d = D(a, t), cls = a.cls, far = cls === 'archer' ? 9 : cls === 'cleric' ? 11 : 10;
+    if (act === A.heavy) {
+      if (cls === 'warrior' && d > 2.4) return toward(t);
+      if (a.cd <= 0 && a.heavyCd <= 0) {
+        const H = cls === 'warrior' ? P.heavy : cls === 'archer' ? P.heavies.bow : cls === 'mage' ? P.heavies.staff : P.heavies.scepter;
+        begin(a, H); a.heavyCd = cls === 'warrior' ? 5 : cls === 'archer' ? 6 : cls === 'mage' ? 9 : 8; a.cd = 1.0;
+      }
       return null;
     }
+    // attack
+    if (cls === 'warrior') { if (d < 2.3 && a.cd <= 0) { begin(a, P.light[a.shots++ % 3]); a.cd = 0.55; return null; } return d > 1.7 ? toward(t) : null; }
+    if (cls === 'cleric') { if (a.cd <= 0 && d < far) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; } return d > far ? toward(t) : null; }
+    if (d > far) return toward(t);
+    if (a.cd <= 0 && d > 1.6) { begin(a, cls === 'archer' ? P.combos.bow[0] : P.combos.staff[0]); a.cd = cls === 'archer' ? 1.0 : 1.3; }
     return null;
+  }
+  // Following comes first; in a fight the learned policy (or, with it off or missing, the rules) picks the move
+  function think(a, p, dt) {
+    const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
+    a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt; a.decT -= dt;
+    if (dp > CP.far || a.state === 'attack' || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
+    a.target = pickTarget(a, p);
+    if (a.decT <= 0 || a.act === undefined) {
+      a.decT = 0.3; const s = stateOf(a, p), legal = Policy.legal(s);
+      let act = Settings.get('learnedAI') !== false ? Policy.Learner.pick(learner(), s, undefined, !!(fight && fight.on)) : null;
+      if (act == null || !legal[act]) act = Policy.classic(s);
+      a.act = act;
+    }
+    return execute(a, a.act, p);
   }
 
   function update(dt) {
@@ -6403,6 +6616,7 @@ const Party = (() => {
     if (!G.allies || G.allies.length !== s.party.length) sync();
     if (!G.allies || !G.allies.length) return;
     const dead = p.state === 'dead';
+    trackFight(dt, p);
     for (const a of G.allies) {
       a.t += dt; a.hitT += dt;
       if (a.state === 'down') {                                                      // lies still until healed (or a while passes)
@@ -6442,7 +6656,7 @@ const Party = (() => {
       const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
       const atk = a.state === 'attack' ? a.atk : null;
       Rig.animate(r, {
-        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
+        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
         phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
         atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
       }, dt);
@@ -6450,7 +6664,7 @@ const Party = (() => {
     updateBars();
   }
 
-  return { status, recruit, hurt, revive, restore, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+  return { status, recruit, hurt, revive, restore, flask, forget, fights, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
 })();
 
 </script>
@@ -8304,7 +8518,9 @@ const UI = (() => {
         const b = st === 'in' ? btn('Dismiss', 'dismiss', d.id, !camp) : st === 'locked' ? '' : btn(st === 'hire' ? '◆ ' + d.hire : 'Recruit', 'recruit', d.id, !camp || full || (st === 'hire' && S.gold < d.hire), 'hot');
         h += `<div class="irow"><div class="iinfo"><b>${Party.GLYPH[d.cls]} ${esc(d.name)}</b> <small>${esc(CFG.classes[d.cls].name)} · ${esc(note)}</small><p class="dim">${esc(d.blurb)}</p></div><div class="ibtns">${b}</div></div>`;
       }
-      return h + btn('Back', 'open', 'bag');
+      const n = Party.fights();
+      h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
+      return h + (n ? btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
     classpick() {
@@ -8434,7 +8650,7 @@ const UI = (() => {
       const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('learnOnline', 'Companions keep learning from your fights', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
@@ -8550,6 +8766,7 @@ const UI = (() => {
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
     if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'forget') { Party.forget(); Items.save(); return render(); }
     if (a === 'dismiss') { Party.dismiss(arg); return render(); }
     if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }
     if (a === 'looksdone') { close(); return show('trainOffer'); }
@@ -8721,6 +8938,14 @@ const UI = (() => {
 // In the behind view it turns so that where you look is up. A gold chevron on its rim points the way to the next
 // uncleared area (or the lair), with the distance below. Tap it, or press N, for the whole stage.
 const MiniMap = (() => {
+  // The companions: a green dot (red ring when down; amber when hurt)
+  function allyDots(ctx) {
+    for (const a of G.allies || []) {
+      const down = a.state === 'down', f = down ? 0 : a.hp / a.maxHp;
+      ctx.fillStyle = down ? '#d8403a' : f < 0.4 ? '#e0a040' : '#58d878'; ctx.beginPath(); ctx.arc(a.pos.x, a.pos.z, 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.25; ctx.stroke();
+    }
+  }
   const cv = document.getElementById('minimap'), ctx = cv.getContext('2d'), info = document.getElementById('mapInfo');
   let big = false, size = 0, tick = 0;
   const C = { floor: 'rgba(120,112,100,0.55)', fight: 'rgba(200,60,40,0.65)', clear: 'rgba(110,120,110,0.45)', lair: 'rgba(150,40,40,0.75)', edge: 'rgba(255,230,190,0.35)' };
@@ -8778,6 +9003,7 @@ const MiniMap = (() => {
       if (e.state === 'dead') continue;
       ctx.fillStyle = e.guardian ? '#ff3020' : '#e86050'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.guardian ? 1.0 : 0.55, 0, Math.PI * 2); ctx.fill();
     }
+    allyDots(ctx);
     // The hero: an arrow the way they face
     // Rook's task: a gold diamond where it leads next
     const q = Items.S && Items.S.quest && Items.S.quest.rook;
@@ -8830,6 +9056,7 @@ const MiniMap = (() => {
     // A raid: a pulsing alarm ring at the gate, and the band marked red wherever it is
     if (G.raid && G.raid.on && G.raid.zone) { const z = G.raid.zone, k = 0.5 + 0.5 * Math.sin(performance.now() / 180); ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * k})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(z.x, z.z, z.r + 2 + k * 2, 0, Math.PI * 2); ctx.stroke(); }
     for (const e of G.enemies) { if (e.state === 'dead') continue; ctx.fillStyle = e.aggro || e.raid ? '#ff5040' : '#c8a060'; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, e.raid ? 0.9 : 0.7, 0, Math.PI * 2); ctx.fill(); }
+    allyDots(ctx);
     ctx.save(); ctx.translate(p.pos.x, p.pos.z); ctx.rotate(-p.facing + Math.PI);
     ctx.fillStyle = '#9ad8ff'; ctx.beginPath(); ctx.moveTo(0, -1.8); ctx.lineTo(1.1, 1.1); ctx.lineTo(0, 0.4); ctx.lineTo(-1.1, 1.1); ctx.closePath(); ctx.fill();
     ctx.restore(); ctx.restore();

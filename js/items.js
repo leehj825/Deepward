@@ -19,7 +19,7 @@ const Items = (() => {
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
-      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {},
+      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {}, policyAdapt: null,
       gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
     };
   }

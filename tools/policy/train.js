@@ -5,7 +5,7 @@
 // 2. Evolution strategies: the weights are nudged by random perturbations that scored better in the simulator (antithetic
 //    sampling, centred ranks, Adam), on fresh scenarios each generation. The best generation by a held-out set is kept.
 // 3. A fair test on scenarios never seen in training, against the rules, paired by scenario; the report goes to docs/policy-report.md.
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), os = require('os'), { Worker } = require('worker_threads');
 const { run, makeScenario, classicFn, Policy, rng } = require('./sim.js');
 const MIN = parseFloat(process.argv[2] || '6');
 const IN = Policy.N_IN, HID = 20, OUT = Policy.ACTIONS.length, NP = HID * IN + HID + OUT * HID + OUT;
@@ -15,6 +15,18 @@ const unpack = th => ({ in: IN, hid: HID, out: OUT, W1: th.slice(0, HID * IN), b
 const policyOf = th => { const w = unpack(Array.from(th)); return s => Policy.choose(s, w); };
 const evalSet = (th, seeds) => { const f = policyOf(th), out = []; for (const sd of seeds) out.push(run(makeScenario(sd), f)); return out; };
 const mean = (a, k) => a.reduce((s, x) => s + (typeof k === 'function' ? k(x) : x[k]), 0) / a.length;
+
+// A pool of workers scores candidates in parallel (one fewer than the cores)
+const pool = Array.from({ length: Math.max(1, os.cpus().length - 1) }, () => new Worker(path.join(__dirname, 'worker.js')));
+let jobId = 0;
+function scoreAll(cands, seeds) {
+  const per = Math.ceil(cands.length / pool.length), jobs = [];
+  pool.forEach((w, k) => {
+    const part = cands.slice(k * per, (k + 1) * per); if (!part.length) return;
+    jobs.push(new Promise(res => { const id = ++jobId, h = m => { if (m.id === id) { w.off('message', h); res(m.out); } }; w.on('message', h); w.postMessage({ id, cands: part.map(c => Array.from(c)), seeds }); }));
+  });
+  return Promise.all(jobs).then(parts => [].concat(...parts));
+}
 
 // ---------- 1. imitation ----------
 function dataset(n, seed0) {
@@ -49,27 +61,29 @@ function imitate(D, epochs) {
 }
 
 // ---------- 2. evolution strategies ----------
-function es(th0, minutes) {
+async function es(th0, minutes) {
   let th = Float64Array.from(th0); const m = new Float64Array(NP), v = new Float64Array(NP); let t = 0;
-  const K = 32, SIGMA = 0.06, LR = 0.04, B = 24, held = Array.from({ length: 60 }, (_, i) => 9000 + i);
-  let best = { th: Float64Array.from(th), score: mean(evalSet(th, held), 'reward'), gen: 0 };
+  const K = 40, SIGMA = 0.05, LR = 0.015, B = 40, DECAY = 0.003, held = Array.from({ length: 160 }, (_, i) => 9000 + i);
+  let best = { th: Float64Array.from(th), score: (await scoreAll([th], held))[0], gen: 0 };
   console.log(`  start: held-out reward ${best.score.toFixed(2)}  (rules: ${mean(held.map(sd => run(makeScenario(sd), classicFn)), 'reward').toFixed(2)})`);
   const t0 = Date.now(); let gen = 0;
   while ((Date.now() - t0) / 60000 < minutes) {
     gen++;
     const seeds = Array.from({ length: B }, () => 20000 + Math.floor(R() * 400000)), eps = [], rs = [];
+    const cs = [];
     for (let k = 0; k < K; k++) {
       const e = Float64Array.from({ length: NP }, () => gauss());
-      for (const sg of [1, -1]) { const c = Float64Array.from(th, (x, i) => x + sg * SIGMA * e[i]); rs.push(mean(evalSet(c, seeds), 'reward')); }
+      for (const sg of [1, -1]) cs.push(Float64Array.from(th, (x, i) => x + sg * SIGMA * e[i]));
       eps.push(e);
     }
+    (await scoreAll(cs, seeds)).forEach(r => rs.push(r));
     // centred ranks
     const order = rs.map((r, i) => [r, i]).sort((a, b) => a[0] - b[0]), rank = new Array(rs.length); order.forEach(([, i], r) => { rank[i] = r / (rs.length - 1) - 0.5; });
     const g = new Float64Array(NP);
     for (let k = 0; k < K; k++) { const d = rank[2 * k] - rank[2 * k + 1]; for (let i = 0; i < NP; i++) g[i] += d * eps[k][i]; }
-    t++; for (let i = 0; i < NP; i++) { const gi = -g[i] / (K * SIGMA); m[i] = 0.9 * m[i] + 0.1 * gi; v[i] = 0.999 * v[i] + 0.001 * gi * gi; th[i] -= LR * (m[i] / (1 - 0.9 ** t)) / (Math.sqrt(v[i] / (1 - 0.999 ** t)) + 1e-8); }
-    if (gen % 5 === 0) {
-      const sc = mean(evalSet(th, held), 'reward');
+    t++; for (let i = 0; i < NP; i++) { const gi = -g[i] / (K * SIGMA); m[i] = 0.9 * m[i] + 0.1 * gi; v[i] = 0.999 * v[i] + 0.001 * gi * gi; th[i] -= LR * (m[i] / (1 - 0.9 ** t)) / (Math.sqrt(v[i] / (1 - 0.999 ** t)) + 1e-8) + DECAY * (th[i] - th0[i]); }
+    if (gen % 8 === 0) {
+      const sc = (await scoreAll([th], held))[0];
       if (sc > best.score) best = { th: Float64Array.from(th), score: sc, gen };
       console.log(`  gen ${gen}: held-out reward ${sc.toFixed(2)} (best ${best.score.toFixed(2)} at ${best.gen}), ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     }
@@ -88,7 +102,7 @@ function compare(th, seeds) {
     diff: md, ci: 1.96 * se };
 }
 
-function main() {
+async function main() {
   console.log('1. imitation of the rules');
   const D = dataset(600, 100000); console.log(`  ${D.X.length} decisions`);
   const th0 = imitate(D, 25);
@@ -96,7 +110,7 @@ function main() {
   const afterImit = compare(th0, test);
   console.log(`  after imitation: reward ${afterImit.net.reward.toFixed(2)} vs rules ${afterImit.rules.reward.toFixed(2)} (difference ${afterImit.diff.toFixed(2)} ± ${afterImit.ci.toFixed(2)})`);
   console.log(`2. evolution strategies for ${MIN} minutes`);
-  const out = es(th0, MIN);
+  const out = await es(th0, MIN);
   const final = compare(out.th, test);
   console.log('3. test on 400 unseen scenarios');
   console.log(JSON.stringify(final, null, 1));
@@ -125,6 +139,7 @@ Right after imitation alone: ${afterImit.diff.toFixed(2)} ± ${afterImit.ci.toFi
 
 The simulator is a sketch of the game, so the real test is \`tools/policy_test.js\` (the same fights in the real game, rules against network).
 `);
+  require('./gap.js').update();                                   // meta.gap: the unit of the run-time learner
   console.log('wrote js/policy_weights.js and docs/policy-report.md');
 }
-main();
+main().then(() => process.exit(0));

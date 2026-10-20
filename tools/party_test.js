@@ -70,6 +70,10 @@ const path = require('path');
     Enemy.addThreat(sk3, al[0], 80); sk3.tgtT = 0; __dw.sim(0.6); o.threatPulls = sk3.tgt === al[0];
     // 6. A new stage stands them up
     al = room(['hobb']); al[0].hp = 0; al[0].state = 'down'; Party.restore(true); o.restoreStands = al[0].state === 'free' && al[0].hp === al[0].maxHp;
+    // The hero's flask spills over to the companions near (half its healing); the downed stay down
+    al = room(['hobb', 'mira']); const [fh, fa] = al; fh.hp = fh.maxHp * 0.4; fa.hp = 0; Party.hurt(fa, { mult: 1, pos: p.pos }, { dmg: 1 }); fa.state = 'down'; p.hp = p.maxHp * 0.5; p.flasks = 2; fh.pos.set(2, 0, 4); fa.pos.set(-2, 0, 4); p.pos.set(0, 0, 4);
+    const f0 = fh.hp; Player.drink(p); __dw.sim(1.2); o.flaskSpills = fh.hp > f0 + fh.maxHp * 0.1 && fa.state === 'down' && p.hp > p.maxHp * 0.7;
+    fh.hp = fh.maxHp * 0.4; fh.pos.set(0, 0, 14); const f1 = fh.hp; Party.flask(p, 0.4); o.flaskNeedsNearby = fh.hp === f1;
     // Training dummies are left alone (the lessons need them)
     p = fresh(); I.S.gold = 999; Party.recruit('hobb'); const dm = __dw.spawn('sparring', 0, -4); dm.state = 'hunt'; dm.cooldown = 99999; __dw.sim(4); o.leavesDummies = dm.hp === dm.maxHp;
     // The party survives the camp, the title round trip of a new warden clears it

@@ -1,6 +1,6 @@
 // Checks the companions' battle policy: the network file is sound (shape, no NaN, only legal moves, a policy that agrees with the
 // rules where it should), and in the real game the learned policy does no worse than the plain rules on the same fights
-// (a tank and a healer, and two shooters, against a wave; the warden stands still).
+// (a tank and a healer, and two shooters, against a wave; the warden fights too).
 // Run: node tools/policy_test.js [trials per case, default 5]   (needs Playwright; NODE_PATH=$(npm root -g) if installed globally)
 const { chromium } = require('playwright');
 const path = require('path');
@@ -32,23 +32,54 @@ const N = parseInt(process.argv[2] || '5', 10);
   });
   // The real fights
   const trial = async (ids, learned) => pg.evaluate(([ids, learned]) => {
-    const I = __dw.Items, G = __dw.G; Settings.set('learnedAI', learned);
+    const I = __dw.Items, G = __dw.G; Settings.set('learnedAI', learned); Settings.set('learnOnline', false);
     __dw.arena(0); __dw.World.halt(); G.queue = []; for (const e of G.enemies) e.cooldown = 99999;
     const p = G.player; p.pos.set(0, 0, 4); p.facing = Math.PI; p.hp = p.maxHp; I.S.gold = 9999; I.S.party = []; I.S.hired = {}; I.S.rescued = []; I.S.stage = 1; Party.clear();
     for (const id of ids) Party.recruit(id);
     __dw.sim(0.2);
-    const foes = [['skeleton', -4], ['skeleton', 0], ['knight', 4], ['wolf', 7]].map(([t, x]) => { const e = __dw.spawn(t, x, -12); e.state = 'hunt'; return e; });
+    const foes = [['skeleton', -4], ['skeleton', 0], ['knight', 4], ['wolf', 7], ['brute', -7], ['archer', 2]].map(([t, x]) => { const e = __dw.spawn(t, x, -12); e.state = 'hunt'; return e; });
     let downs = 0; const was = new Map(G.allies.map(a => [a, false]));
     const hp0 = p.maxHp, ally0 = G.allies.reduce((s, a) => s + a.maxHp, 0); let allyLost = 0, last = new Map(G.allies.map(a => [a, a.hp]));
     let t = 0;
-    __dw.sim(45, () => {
-      t += 1 / 60; p.st = p.maxSt;
+    // The warden fights like the simulator's scripted one: walks up to the nearest foe and swings
+    __dw.setView('top'); let swing = 0;
+    __dw.sim(60, () => {
+      t += 1 / 60; p.st = p.maxSt; swing -= 1 / 60;
+      let ne = null, nd = 99; for (const e of foes) if (e.state !== 'dead') { const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z); if (d < nd) { nd = d; ne = e; } }
+      if (ne && nd < 14 && p.state !== 'dead') {
+        const dx = ne.pos.x - p.pos.x, dz = ne.pos.z - p.pos.z;
+        __dw.Input.move.x = nd > 2.2 ? dx / nd * 0.8 : 0; __dw.Input.move.z = nd > 2.2 ? dz / nd * 0.8 : 0;
+        if (nd < 2.6 && swing <= 0) { __dw.press('light'); swing = 0.7; }
+      } else { __dw.Input.move.x = 0; __dw.Input.move.z = 0; }
       for (const a of G.allies) { const d = a.state === 'down'; if (d && !was.get(a)) downs++; was.set(a, d); if (a.hp < last.get(a)) allyLost += last.get(a) - a.hp; last.set(a, a.hp); }
       p.state === 'dead' || (p.hp = Math.max(p.hp, 0));
       return foes.every(e => e.state === 'dead') || p.state === 'dead';
     });
+    __dw.Input.move.x = 0; __dw.Input.move.z = 0;
     return { cleared: foes.every(e => e.state === 'dead'), time: t, heroLost: (hp0 - Math.max(0, p.hp)) / hp0, allyLost: allyLost / ally0, downs, heroDied: p.state === 'dead' };
   }, [ids, learned]);
+  // Learning while playing: a fight is scored and nudges the preferences, which are saved; forgetting clears them
+  const learn = await pg.evaluate(() => {
+    const o = {}, I = __dw.Items, G = __dw.G; Settings.set('learnedAI', true); Settings.set('learnOnline', true);
+    __dw.arena(0); __dw.World.halt(); G.queue = []; for (const e of G.enemies) e.cooldown = 99999;
+    const p = G.player; p.pos.set(0, 0, 4); p.facing = Math.PI; I.S.gold = 9999; I.S.party = []; Party.clear(); Party.recruit('hobb'); Party.recruit('aldo'); __dw.sim(0.2);
+    o.noneYet = Party.fights() === 0;
+    const foes = [-3, 3].map(x => { const e = __dw.spawn('skeleton', x, -9); e.state = 'hunt'; return e; });
+    __dw.sim(40, () => { p.st = p.maxSt; return foes.every(e => e.state === 'dead'); });
+    __dw.sim(4);                                                         // quiet for a moment: the fight ends
+    o.learned = Party.fights() === 1 && !!I.S.policyAdapt && Object.keys(I.S.policyAdapt.bias).length === 4;
+    o.biasMoved = Object.values(I.S.policyAdapt.bias).some(b => b.some(x => x !== 0)) || I.S.policyAdapt.n === 1;
+    // The saved table loads back, and stays inside its clip
+    const back = Policy.Learner.make(JSON.parse(JSON.stringify(I.S.policyAdapt)));
+    o.roundTrip = back.n === 1 && Object.values(back.bias).every(b => b.every(x => Math.abs(x) <= 2));
+    // With learning off nothing is recorded
+    Settings.set('learnOnline', false); const n0 = Party.fights();
+    const f2 = [-3].map(x => { const e = __dw.spawn('skeleton', x, -9); e.state = 'hunt'; return e; }); __dw.sim(40, () => { p.st = p.maxSt; return f2.every(e => e.state === 'dead'); }); __dw.sim(4);
+    o.offStaysPut = Party.fights() === n0;
+    Party.forget(); o.forgets = Party.fights() === 0;
+    Settings.set('learnOnline', true);
+    return o;
+  });
   const cases = { 'tank and healer': ['hobb', 'aldo'], 'two shooters': ['mira', 'pell'] };
   const res = {};
   for (const [name, ids] of Object.entries(cases)) {
@@ -58,7 +89,7 @@ const N = parseInt(process.argv[2] || '5', 10);
   const mean = (a, k) => a.reduce((s, x) => s + (typeof x[k] === 'boolean' ? +x[k] : x[k]), 0) / a.length;
   // A single score for a fight: lower is better
   const cost = r => (r.cleared ? 0 : 1) * 1.0 + r.heroLost * 0.6 + r.allyLost * 0.3 + r.downs * 0.3 + (r.heroDied ? 1 : 0) + r.time / 45 * 0.2;
-  const out = { unit, cases: {} };
+  const out = { unit, learn, cases: {} };
   let fine = true;
   for (const [name, r] of Object.entries(res)) {
     const c = { rules: +mean(r.rules.map(x => ({ c: cost(x) })), 'c').toFixed(3), net: +mean(r.net.map(x => ({ c: cost(x) })), 'c').toFixed(3) };
@@ -66,7 +97,7 @@ const N = parseInt(process.argv[2] || '5', 10);
     c.notWorse = c.net <= c.rules + 0.15;                       // the learned policy must not be clearly worse than the rules
     fine = fine && c.notWorse; out.cases[name] = c;
   }
-  const bad = Object.entries(unit).filter(([k, v]) => k !== 'agreement' && v !== true).map(([k]) => k);
+  const bad = Object.entries(unit).filter(([k, v]) => k !== 'agreement' && v !== true).map(([k]) => k).concat(Object.entries(learn).filter(([, v]) => v !== true).map(([k]) => 'learn.' + k));
   if (!fine) bad.push('learned policy worse than the rules in a real fight');
   if (errs.length) bad.push('pageerrors: ' + errs.slice(0, 3).join(' | '));
   console.log(bad.length ? 'FAIL ' + bad.join(', ') + '\n' + JSON.stringify(out, null, 1) : 'PASS ' + JSON.stringify(out));

@@ -242,7 +242,9 @@ const UI = (() => {
         const b = st === 'in' ? btn('Dismiss', 'dismiss', d.id, !camp) : st === 'locked' ? '' : btn(st === 'hire' ? '◆ ' + d.hire : 'Recruit', 'recruit', d.id, !camp || full || (st === 'hire' && S.gold < d.hire), 'hot');
         h += `<div class="irow"><div class="iinfo"><b>${Party.GLYPH[d.cls]} ${esc(d.name)}</b> <small>${esc(CFG.classes[d.cls].name)} · ${esc(note)}</small><p class="dim">${esc(d.blurb)}</p></div><div class="ibtns">${b}</div></div>`;
       }
-      return h + btn('Back', 'open', 'bag');
+      const n = Party.fights();
+      h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
+      return h + (n ? btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
     classpick() {
@@ -372,7 +374,7 @@ const UI = (() => {
       const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('learnOnline', 'Companions keep learning from your fights', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
@@ -488,6 +490,7 @@ const UI = (() => {
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
     if (a === 'recruit') { if (Party.recruit(arg)) { Snd.play('glint'); toast('Joined the party: ' + Party.defs.find(d => d.id === arg).name, '#9affc8'); } return render(); }
+    if (a === 'forget') { Party.forget(); Items.save(); return render(); }
     if (a === 'dismiss') { Party.dismiss(arg); return render(); }
     if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }
     if (a === 'looksdone') { close(); return show('trainOffer'); }
