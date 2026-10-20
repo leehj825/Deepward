@@ -57,7 +57,10 @@ const FIGHT = `(([seed, cb, mode]) => {
 
 async function main() {
   const t0 = Date.now(), elapsed = () => (Date.now() - t0) / 60000;
-  const cur = readW(), th0 = Float64Array.from(CLS.flatMap(c => (cur.cb && cur.cb[c]) || new Array(NA).fill(0)));
+  const cur = readW(), ckptFile = path.join(__dirname, 'real-checkpoint.json');
+  let th0 = Float64Array.from(CLS.flatMap(c => (cur.cb && cur.cb[c]) || new Array(NA).fill(0)));
+  // RESUME=1: start from the best preferences of an earlier run's checkpoint (a run on a hosted runner can be cut short)
+  if (process.env.RESUME && fs.existsSync(ckptFile)) { const c = JSON.parse(fs.readFileSync(ckptFile, 'utf8')); th0 = Float64Array.from(CLS.flatMap(cl => c.cb[cl])); console.log(`resuming from the checkpoint (generation ${c.gen}, validation ${c.score.toFixed(2)})`); }
   console.log(`launching ${W} headless browsers`);
   const launch = async () => {
     const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -105,6 +108,10 @@ async function main() {
   const base = rewards(await runAll(valSeeds.map(s => ['base', null, s])));
   let best = { th: Float64Array.from(th), score: rewards(await runAll(valSeeds.map(s => ['net', toCb(th), s]))), gen: 0 };
   console.log(`start: validation reward with the shipped preferences ${best.score.toFixed(2)} (network without preferences ${base.toFixed(2)}), ${fights} fights`);
+  // The best preferences so far, kept on disk after every validation (and when the process is told to stop)
+  const saveCkpt = () => { try { fs.writeFileSync(ckptFile, JSON.stringify({ cb: toCb(best.th.map(x => Math.round(x * 1e3) / 1e3)), gen: best.gen, score: best.score, fights, savedAt: new Date().toISOString() })); } catch (e) {} };
+  process.on('SIGTERM', () => { saveCkpt(); process.exit(143); });
+  saveCkpt();
   while (elapsed() < MIN) {
     gen++;
     const seeds = Array.from({ length: B }, () => 1 + Math.floor(R() * 8e8)), eps = [], cands = [];
@@ -116,7 +123,7 @@ async function main() {
     step++; for (let i = 0; i < NP; i++) { const gi = -g[i] / (K * SIGMA); m[i] = 0.9 * m[i] + 0.1 * gi; v[i] = 0.999 * v[i] + 0.001 * gi * gi; th[i] = Math.max(-CLIP, Math.min(CLIP, th[i] - LR * (m[i] / (1 - 0.9 ** step)) / (Math.sqrt(v[i] / (1 - 0.999 ** step)) + 1e-8) * SIGMA)); }
     if (gen % 3 === 0) {
       const sc = rewards(await runAll(valSeeds.map(s => ['net', toCb(th), s])));
-      if (sc > best.score) best = { th: Float64Array.from(th), score: sc, gen };
+      if (sc > best.score) { best = { th: Float64Array.from(th), score: sc, gen }; saveCkpt(); }
       console.log(`gen ${gen}: candidates ${Math.min(...rs).toFixed(1)}..${Math.max(...rs).toFixed(1)}, validation ${sc.toFixed(2)} (best ${best.score.toFixed(2)} at ${best.gen}), ${fights} fights, ${elapsed().toFixed(1)} min`);
     }
   }
