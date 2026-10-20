@@ -386,7 +386,17 @@ A new warden chooses a calling after the intro and before the looks screen (`CFG
 - **Animation:** the archer uses the bow clips. The mage and cleric use the Pro Magic Pack (Mixamo): a caster stance (idle, walk and run in four directions, block, hit reactions, deaths) and the spell moves (staff bolt, fireball, nova; scepter bolt, heal, blessing, sanctuary). `tools/extract_magic.js` turns the retargeted pack into `js/anims_magic.js`; each spell clip is cut to the second before its impact and half a second after, and the rig time-warps it onto the attack's own timings. Poses `shoot`, `overhead`, `nova`, `thrust`, `heal`, `bless`, `sanct` select the clips (`rig.set = 'mg'`).
 - **Tests:** `tools/class_test.js` (starting gear, class-only drops and affixes, arrows, pierce, splash and burn, holy bolt weaker than the mage's, heal modes and cooldowns, pictures, the class panel).
 
-## Party play (planned)
+## Talents for the classes (built)
+
+- **Same trees, same rules** for everyone: Guardian, Duelist, Berserker and Arcanist work through stat multipliers, so arrows, bolts, fireballs and heals use them like melee blows do. Up to two trees; an ultimate needs four points in its tree.
+- **A tree for each ranged class**, shown to that class only (`tree.cls`, `Items.treeFor`; a warrior sees four trees, an archer five): **Marksman** (Volley: +1 arrow in the heavy fan per rank; Long Shot: +8% damage beyond 8 m; Quick Draw: 6% faster shooting; ultimate Arrow Storm: for 6 s every arrow is a burst of three), **Spellweaver** (Conduit: +8% damage; Wildfire: burns 30% harder; Wide Blast: +0.4 m blast; ultimate Meteor Shower: five fireballs on the foes around you), **Devotion** (Mercy: +10% healing; Swift Prayer: heal cooldowns −10%; Radiance: whoever you heal takes 6% less damage for 4 s; ultimate Halo: mends everyone near for 45% and burns the foes in it).
+- **Weapon mastery rank 2** (the melee weapons' fourth finishing blow) is, for the ranged classes: two more arrows in the heavy fan (bow), +0.5 m fireball blast (staff), healing +10% (scepter). The mastery list shows only the class's own weapons.
+
+## Party play (first step built: recruit, follow, fight)
+
+*Built:* `js/party.js`, the Party panel (Gear screen, then Party) and the party chips under the purse. Recruit in the Hold only. Sergeant Hobb (warrior) is hired once for 150 gold; Mira (archer), Pell (mage) and Brother Aldo (cleric) join free once freed from the Deep. Two at most (`CFG.party.max`). Each companion follows (first priority: back to the warden's side beyond 8 m, a warp beyond 18 m), then attacks the nearest foe within 9 m (training dummies are left alone, and so is everything during the training lessons). The warrior closes in and swings; the archer and mage hold 4–10 m, shoot, and now and then use their heavy; the cleric mends the warden below 75% (an area heal below 45%) and smites when everyone is well. They hit for about half of what a warden of their level and depth would, they use the same moves and Shots as the classes, and kills are credited to the warden. **For now foes do not target them and they cannot fall**: the `e.target` refactor and the downed / revive rules below come next. Saved as `S.party` and `S.hired`. `tools/party_test.js` covers it.
+
+*Still planned, and the decisions behind it:*
 
 Team play with companions on top of the classes. Decisions so far:
 - **Optional:** companions are recruited in camp (the freed captives first) and join a run only if chosen. The hero stays the main character, and solo stays fully playable.
@@ -396,6 +406,14 @@ Team play with companions on top of the classes. Decisions so far:
 - **Scaling:** a companion adds about 40–60% of a hero's damage with less health; rewards are not split; bosses gain about 25% health per companion without changing their timings; the attack-token cap rises from 2 to 3 only with a full party. Checked with the balance bots, with and without companions.
 - **No multiplayer** for now, but combatants and targets are kept general (`Combatant`, a target for each foe) so it is not ruled out.
 - **Order:** (1) the refactor: enemies pick a target (`e.target`) instead of always `G.player`, with every test unchanged; (2) a tank companion; (3) downed and revive; (4) a healer companion; (5) ranged companions (they reuse `Shots`); (6) the recruit screen and party bar; (7) a balance pass.
+
+## Small AI in the app (ideas)
+
+Rule of thumb: models write words and tune numbers; the game's rules stay deterministic and tested. Three sizes, from the cheapest:
+1. **Tiny learned policies (a few KB, no download).** Train offline in the headless harness (the balance bots already play through `__dw`), export the weights as JSON, and run a small MLP or a utility table in JS at 4–5 Hz. First uses: companions picking an action (heal now? step back? which target?), enemy attack choice biased by the player's habits (`pickAttack`), and a skill estimate that nudges difficulty. Always keep the plain rules as the fallback and the safety clamp (a policy may reorder legal moves, never create an unreadable one).
+2. **A small language model for text (opt-in download).** Villager barks, companion chatter, notice-board flavour, a death recap. Candidates: SmolLM2-135M or 360M, Gemma 3 270M, Qwen2.5-0.5B (best for Korean, heaviest). Run in a Web Worker (wllama or Transformers.js on the web; the MediaPipe LLM Inference API or a llama.cpp plugin through Capacitor on Android), only when idle, 24 tokens at most, constrained output, a filter, and a cache of results in the save. Every call site keeps its static string, so the game is identical with the feature off.
+3. **Tools, not shipping weight.** Use a model at build time for translation drafts (P12) and an RL bot to balance party and class combinations.
+Packaging: never in the APK or the single-file build; a Settings toggle ("Living words, ~100 MB") downloads once into the Cache API or the app's files. One interface (`LM.say(kind, facts)` returning text or null; `Policy.choose(state)` returning an action or null) so callers never care whether a model exists.
 
 ## Roadmap
 

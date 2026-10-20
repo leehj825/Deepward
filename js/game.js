@@ -508,6 +508,7 @@ function startGame(how = 'new') {
   if (how === 'new' || !Items.load()) Items.newGame();
   if (G.player) { scene.remove(G.player.rig.root); scene.remove(G.player.trail.mesh); }
   G.player = Player.create(scene);
+  Party.clear();
   G.time = 0; G.seen = {};
   G.stats = { kills: 0, parries: 0, crits: 0, dodges: 0, hitsTaken: 0, rooms: 0 };
   $('title').classList.remove('show'); $('pause').classList.remove('show');
@@ -625,7 +626,8 @@ G.onHits = (n, crit) => {
   const p = G.player, r = Items.addMastery(p.S.weaponType, n * (crit ? 2 : 1));
   if (r) {
     const w = CFG.gear.weapons[p.S.weaponType].name, art = CFG.player.arts[p.S.weaponType];
-    const perk = ['', '+4% damage', 'a fourth, finishing blow in the light combo', `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
+    const ranged = CFG.gear.weapons[p.S.weaponType].ranged, perk2 = !ranged ? 'a fourth, finishing blow in the light combo' : p.S.weaponType === 'bow' ? 'two more arrows in the heavy fan' : p.S.weaponType === 'staff' ? 'a wider fireball blast' : 'healing 10% stronger';
+    const perk = ['', '+4% damage', perk2, `+8% posture damage and the art ${art ? art.name : ''} (hold block, press heavy)`][r];
     UI.toast(`${w} mastery rank ${r}: ${perk}`, '#9ad8ff'); Player.refit(p, scene, false);
   }
 };
@@ -1084,6 +1086,7 @@ function step(real) {
     const dt = FX.scaleDt(real);
     G.time += dt;
     Player.update(G.player, dt);
+    Party.update(dt);
     for (const e of G.enemies) Enemy.update(e, dt);
     resolveCollisions();
     World.update(dt, camera.position);

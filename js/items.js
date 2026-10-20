@@ -19,7 +19,7 @@ const Items = (() => {
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
       story: { intro: false, pre: {}, post: {} },
       tripGold: 0, stock: [], best: 0, deaths: 0,
-      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior',
+      level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {},
       gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
     };
   }
@@ -30,9 +30,11 @@ const Items = (() => {
   const treeOf = id => Object.keys(T).find(k => T[k].ult.id === id || T[k].talents.some(t => t.id === id));
   const spentIn = tree => T[tree].talents.reduce((n, t) => n + rank(t.id), 0) + rank(T[tree].ult.id);
   const treesUsed = () => Object.keys(T).filter(k => spentIn(k) > 0);
+  const treeFor = k => !T[k].cls || T[k].cls === (S && S.cls);                  // a class's own tree is shown (and learned) by that class only
   // Why a talent cannot be learned right now ('' when it can)
   function blocked(id) {
     const tree = treeOf(id), isUlt = T[tree].ult.id === id;
+    if (!treeFor(tree)) return 'Another calling';
     if (S.points < 1) return 'No talent points';
     if (rank(id) >= (isUlt ? 1 : 3)) return 'Mastered';
     if (!treesUsed().includes(tree) && treesUsed().length >= PR.maxTrees) return 'Two trees already chosen';
@@ -196,7 +198,7 @@ const Items = (() => {
       maxHp: Math.round((CFG.player.hp + cp.yard * 12 + arm.hp + hel.hp + bts.hp + A.hp + lv * L.hp) * CL.hp),
       maxSt: Math.round((CFG.player.stamina + cp.yard * 8 + hel.stamina + bts.stamina + A.stamina + lv * L.stamina) * CL.st),
       dmg: (w ? main(w).dmg : 0.85) * wt.dmg * (1 + lv * L.power) * (1 + (mr >= 1 ? PR.masteryDmg : 0)) * (1 + glv.dmg),
-      posture: wt.posture * (1 + A.posture / 100 + glv.posture) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed, range: wt.range,
+      posture: wt.posture * (1 + A.posture / 100 + glv.posture) * (1 + 0.1 * R('breaker')) * (mr >= 3 ? 1.08 : 1), speed: wt.speed * (1 + 0.06 * R('quick')), range: wt.range,
       load: +load.toFixed(1), loadClass: load <= LD.light ? 0 : load <= LD.heavy ? 1 : 2,
       dashDist: Math.min(1.06, Math.max(0.88, 1 - LD.dashDist * over)), move: Math.min(1.03, Math.max(0.94, 1 - LD.move * over)),
       burn: A.fire / 100, chill: A.frost / 100, shock: A.shock / 100,
@@ -207,9 +209,9 @@ const Items = (() => {
       flasks: CFG.camp.flasks + cp.apothecary, flaskHeal: CFG.camp.flaskHeal + 0.08 * cp.apothecary,
       // talents the fight reads directly
       critMult: CFG.player.critMult * (1 + 0.25 * R('riposte')), dashCost: (1 - 0.15 * R('feet')) * (wt.dash || 1) * (CL.dash || 1) * Math.min(1.3, Math.max(0.85, 1 + LD.dashCost * over)), counter: 0.3 * R('counter'),
-      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2 && !rangedW, ranged: rangedW, cls: cls(), mend: 1 + A.mend / 100 + (shm && shm.mend || 0), art: mr >= 3 && CFG.player.arts[type] ? type : null, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
+      fury: 0.04 * R('fury'), fire: 0.06 * R('ember'), finisher: mr >= 2 && !rangedW, ranged: rangedW, cls: cls(), mend: 1 + A.mend / 100 + (shm && shm.mend || 0) + 0.1 * R('mercy') + (mr >= 2 && type === 'scepter' ? 0.1 : 0), fan: R('volley') + (mr >= 2 && type === 'bow' ? 2 : 0), blast: 0.4 * R('blast') + (mr >= 2 && type === 'staff' ? 0.5 : 0), longshot: 0.08 * R('longshot'), wildfire: R('wildfire'), healCd: 1 - 0.1 * R('prayer'), radiance: 0.06 * R('radiance'), art: mr >= 3 && CFG.player.arts[type] ? type : null, weaponType: type, ult: S.ult, combo: wt.combo || null, dual: !!wt.dual, u,
     };
-    out.dmg *= (1 + A.power / 100) * (1 + (shm && shm.dmg || 0));
+    out.dmg *= (1 + A.power / 100) * (1 + (shm && shm.dmg || 0)) * (1 + 0.08 * R('conduit'));
     out.dmg *= 1 + 0.06 * G2.ruby; out.maxSt += 10 * G2.sapphire; out.maxHp += 15 * G2.emerald; out.crit += 0.04 * G2.topaz; out.dr += 0.025 * G2.onyx;
     if (u.aegis) out.parry += 0.04;
     if (u.dawnlight) { out.mend += 0.3; out.lifesteal += 0.03; }
@@ -350,6 +352,6 @@ const Items = (() => {
   return {
     get S() { return S; }, rescued, rescue, addMat, hasMats, spendMats, craft, generate, generateUnique, isUnique, colorOf, randomGem, addGem, setGem, pryGems, addSocket, main, describe, value, fullName, stats, statsWith, look, itemLook, add, equip, unequip, remove, addGold,
     upgradeCost, maxPlus, rerollCost, reroll, wcOf, useSlot, slotInfo, deleteSlot, exportSlot, importSlot, get slot() { return slot; }, SLOTS, save, load, hasSave, newGame, setClass, cls, classDef, slotName, offhandOf, wipe, rollRarity,
-    rank, blocked, learn, respec, addXp, masteryRank, addMastery, spentIn, treesUsed,
+    rank, blocked, learn, respec, treeFor, addXp, masteryRank, addMastery, spentIn, treesUsed,
   };
 })();

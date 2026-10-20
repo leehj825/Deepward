@@ -29,7 +29,8 @@ const Shots = (() => {
 
   // The swing landed: send the blow's projectiles
   function fire(p, atk) {
-    const S = atk.shot, parent = p.rig.root.parent, n = S.count || 1;
+    const S0 = atk.shot, parent = p.rig.root.parent, storm = p.stormT > 0 && S0.kind === 'arrow' && !S0.count;          // Arrow Storm: bursts of three
+    const S = storm ? Object.assign({}, S0, { count: 3, spread: 0.3 }) : S0, n = S.count ? S.count + (p.S.fan || 0) * (storm ? 0 : 1) : 1;
     if (S.kind === 'meteor') return meteor(p, atk);
     const base = p.target && Enemy.targetable(p.target) ? Combat.yawTo(p.pos, p.target.pos) : p.facing;
     for (let i = 0; i < n; i++) {
@@ -47,13 +48,36 @@ const Shots = (() => {
   // The mage's heavy: a fireball comes down on the target. The ring on the floor shows where; the blast lands a moment later.
   const blasts = [];
   function meteor(p, atk) {
-    const S = atk.shot, t = p.target && Enemy.targetable(p.target) ? p.target : null, f = p.facing;
+    const S = Object.assign({}, atk.shot, { splash: atk.shot.splash + (p.S.blast || 0) }), t = p.target && Enemy.targetable(p.target) ? p.target : null, f = p.facing;
     const x = t ? t.pos.x : p.pos.x + Math.sin(f) * Math.min(atk.range, 7), z = t ? t.pos.z : p.pos.z + Math.cos(f) * Math.min(atk.range, 7);
     const g = body('fireball', S.color, 2.6); g.position.set(x, 9, z); p.rig.root.parent.add(g);
     FX.ring(new THREE.Vector3(x, 0.05, z), S.splash, S.color || 0xff7a30, S.delay, { r0: 0.3, fill: true, fade: false });
     Snd.play('cast');
     blasts.push({ g, x, z, t: 0, S, atk, p });
     return 0;
+  }
+  // A fireball on a chosen spot, falling after `delay` (Meteor Shower)
+  function meteorAt(p, x, z, atk, delay) {
+    const S = Object.assign({}, atk.shot, { delay });
+    const g = body('fireball', S.color, 2.6); g.position.set(x, 9, z); p.rig.root.parent.add(g);
+    FX.ring(new THREE.Vector3(x, 0.05, z), S.splash, S.color || 0xff7a30, delay, { r0: 0.3, fill: true, fade: false });
+    blasts.push({ g, x, z, t: 0, S, atk: Object.assign({}, atk, { shot: S }), p });
+  }
+  // Meteor Shower: five fireballs on the foes near the hero (random ground nearby when there are fewer foes)
+  function shower(p) {
+    const near = G.enemies.filter(e => Enemy.targetable(e) && Combat.dist(p.pos, e.pos) < 14).sort((a, b) => Combat.dist(p.pos, a.pos) - Combat.dist(p.pos, b.pos));
+    const atk = { dmg: 28 * p.S.dmg, posture: 20, critMult: p.S.critMult, burn: p.S.burn, fire: p.S.fire, shot: { kind: 'meteor', splash: 2.4 + (p.S.blast || 0), ignite: true, color: 0xff7a30 } };
+    for (let i = 0; i < 5; i++) {
+      const e = near[i % Math.max(1, near.length)], a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 4;
+      meteorAt(p, e ? e.pos.x : p.pos.x + Math.sin(a) * r, e ? e.pos.z : p.pos.z + Math.cos(a) * r, atk, 0.45 + i * 0.3);
+    }
+    Snd.play('cast');
+  }
+  // Halo: a great light that mends everyone near and burns the foes in it
+  function halo(p) {
+    heal(p, { heal: { amount: 0.45, self: 1, radius: 7, cd: 0, ring: 7, color: 0xfff0b0 } });
+    for (const e of G.enemies) if (Enemy.targetable(e) && Combat.dist(p.pos, e.pos) < 7 + e.def.radius) Enemy.receive(e, { dmg: 25 * p.S.dmg, posture: 30, breaksGuard: true, critMult: p.S.critMult }, p);
+    FX.shake(0.3);
   }
   function updateBlasts(dt) {
     for (let i = blasts.length - 1; i >= 0; i--) {
@@ -65,7 +89,8 @@ const Shots = (() => {
   // One enemy takes the shot. Returns what Enemy.receive said.
   function strikeOne(s, e, scale = 1) {
     let atk = s.atk;
-    if (s.S.ignite) atk = Object.assign({}, atk, { burn: (atk.burn || 0) + 0.6 });          // the enemy's own burn: 60% of the blow, over 2 s
+    if (s.S.ignite) atk = Object.assign({}, atk, { burn: (atk.burn || 0) + 0.6 + 0.18 * (s.p.S.wildfire || 0) });   // the enemy's own burn: 60% of the blow, over 2 s
+    if (s.p.S.longshot && Combat.dist(s.p.pos, e.pos) > 8) atk = Object.assign({}, atk, { dmg: atk.dmg * (1 + s.p.S.longshot) });
     const holy = s.S.undead && UNDEAD[e.type] ? s.S.undead : 1;
     if (scale !== 1 || holy !== 1) atk = Object.assign({}, atk, { dmg: atk.dmg * scale * holy });
     return Enemy.receive(e, atk, s.p);
@@ -90,7 +115,7 @@ const Shots = (() => {
       const r = strikeOne(s, e);
       if (r && r !== 'blocked' && r !== 'ward') { landed++; if (r === 'crit') crit = true; }
     }
-    if (landed) Combat.landed(s.p, s.atk, landed, crit);
+    if (landed && !s.p.ally) Combat.landed(s.p, s.atk, landed, crit);
     if (typeof Props !== 'undefined') Props.strike({ pos: { x, z }, facing: 0 }, { range: R, arc: 360 });
   }
   function remove(i) { const s = live[i]; s.g.parent && s.g.parent.remove(s.g); live.splice(i, 1); }
@@ -112,7 +137,7 @@ const Shots = (() => {
           else if (r) { landed++; if (r === 'crit') crit = true; if (s.S.kind === 'bolt' && s.p.S.u && s.p.S.u.storm) landed += chain(s, e); if (s.p.S.u && s.p.S.u.dawnlight && s.S.kind === 'holy') mendSelf(s.p, 0.01); }
           if (!s.S.pierce) { stopped = true; break; }
         }
-        if (landed) Combat.landed(s.p, s.atk, landed, crit);
+        if (landed && !s.p.ally) Combat.landed(s.p, s.atk, landed, crit);
         if (stopped) { done = true; FX.burst(new THREE.Vector3(s.x, MUZZLE, s.z), s.S.color || 0xd8d0b8, 6, 3, 0.25); }
       }
       s.g.position.set(s.x, MUZZLE, s.z);
@@ -124,18 +149,19 @@ const Shots = (() => {
 
   // ---------------- Healing ----------------
   // Everyone who can be healed: the hero first, then any allies
-  const party = p => [p].concat((G.allies || []).filter(a => a.hp > 0));
+  const party = p => [G.player].concat(G.allies || []).filter(a => a && a.hp > 0);
   function mend(t, p, amount, selfShare) {
     const gain = Math.min(t.maxHp - t.hp, t.maxHp * amount * (t === p ? selfShare : 1));
     if (gain <= 0) return 0;
     t.hp += gain;
+    if (t === G.player && p.S.radiance) { t.wardT = 4; t.wardDr = p.S.radiance; }          // Radiance
     FX.text(Combat.chestPos(t.pos, 2.1), '+' + Math.round(gain), 'heal'); FX.burst(Combat.chestPos(t.pos, 1.3), 0x7aff9a, 10, 3);
     return gain;
   }
   // The cast lands. heal.radius mends everyone within it; otherwise the hurt-most ally within reach (the hero if no one else is hurt more)
   function heal(p, atk) {
     const H = atk.heal, power = (p.S.mend || 1), amount = H.amount * power;
-    p.healCd = H.cd || 0;
+    p.healCd = (H.cd || 0) * (p.S.healCd || 1);
     const col = H.color || 0x9affc0;
     if (H.radius) {
       FX.ring(p.pos, H.ring || H.radius, col, 0.7, { r0: 0.4 }); FX.burst(Combat.chestPos(p.pos, 1.0), col, 24, 5, 0.6); Snd.play('cast');
@@ -150,5 +176,5 @@ const Shots = (() => {
   }
 
   function clear() { for (let i = live.length - 1; i >= 0; i--) remove(i); for (const b of blasts) b.g.parent && b.g.parent.remove(b.g); blasts.length = 0; }
-  return { fire, heal, update, clear, get live() { return live; }, get blasts() { return blasts; }, party };
+  return { fire, heal, shower, halo, meteorAt, update, clear, get live() { return live; }, get blasts() { return blasts; }, party };
 })();

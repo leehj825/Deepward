@@ -173,7 +173,7 @@ const Player = (() => {
   function update(p, dt) {
     p.t += dt; p.comboT += dt;
     updateFires(p, dt);
-    for (const k of ['ultCd', 'artCd', 'healCd', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
+    for (const k of ['ultCd', 'artCd', 'healCd', 'stormT', 'wardT', 'bulwarkT', 'rageT', 'counterT']) if (p[k] > 0) p[k] = Math.max(0, p[k] - dt);
     if (p.rageT > 0 && Math.random() < dt * 8) FX.burst(Combat.chestPos(p.pos, 0.6 + Math.random()), 0xff4a2a, 1, 1.5, 0.4);
     if (p.state === 'dance') { danceStep(p, dt); return; }
     if (p.buffer) { p.buffer.t += dt; if (p.buffer.t > P.bufferTime) p.buffer = null; }
@@ -292,7 +292,7 @@ const Player = (() => {
 
   function flash(p, c) { p.flashT = 0.2; p.flashC = c; }
   function damage(p, n, from) {
-    n *= (1 - p.S.dr) * Settings.diff.dmg;                                // armour, then the difficulty
+    n *= (1 - p.S.dr) * Settings.diff.dmg * (p.wardT > 0 ? 1 - p.wardDr : 1);                                // armour, then the difficulty
     p.hp = Math.max(0, p.hp - n);
     FX.text(Combat.chestPos(p.pos, 2.0), '-' + Math.round(n), 'hurt');
     if (p.hp <= 0) { p.rig.dieVar = Math.random() < 0.5; setState(p, 'dead'); p.blocking = false; G.onPlayerDeath(); return true; }
@@ -408,6 +408,9 @@ const Player = (() => {
         const a = Combat.yawTo(p.pos, e.pos); e.pos.x += Math.sin(a) * 1.6; e.pos.z += Math.cos(a) * 1.6;
       }
     }
+    if (id === 'storm') { p.stormT = 6; Snd.play('warn'); FX.ring(p.pos, 1.6, 0xffd27a, 1, { r0: 1.6 }); FX.burst(at, 0xffd27a, 24, 6); }
+    if (id === 'meteors') Shots.shower(p);
+    if (id === 'halo') Shots.halo(p);
     if (id === 'dance') { setState(p, 'dance'); p.danceN = 0; p.danceNext = 0; p.blocking = false; Snd.play('swing'); }
     return true;
   }

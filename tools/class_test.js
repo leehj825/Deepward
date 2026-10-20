@@ -81,6 +81,32 @@ const path = require('path');
     // A heal never exceeds full health
     setup('cleric', []); G.player.hp = G.player.maxHp; Player.toggleMode(G.player); cast('light', 1); o.noOverheal = G.player.hp <= G.player.maxHp;
 
+
+    // --- Talents: rank-2 mastery perks for the ranged classes, and each class's own tree
+    setup('archer', []); I.S.mastery.bow = 130; o.rank2Bow = I.stats().fan === 2;
+    setup('mage', []); I.S.mastery.staff = 130; o.rank2Staff = I.stats().blast === 0.5;
+    setup('cleric', []); const m0 = I.stats().mend; I.S.mastery.scepter = 130; o.rank2Scepter = Math.abs(I.stats().mend - m0 - 0.1) < 1e-9;
+    setup('warrior', []); I.S.points = 5; o.treeClosed = I.blocked('volley') === 'Another calling' && I.blocked('halo') === 'Another calling';
+    setup('archer', []); I.S.points = 20; o.treeOpen = I.blocked('volley') === '' && I.learn('volley') && I.learn('volley');
+    o.fanGrows = I.stats().fan === 2;
+    for (const id of ['longshot', 'quick']) I.learn(id);
+    o.ultGate = I.blocked('storm') === '' && I.learn('storm') && I.S.ult === 'storm';
+    G.onGearChanged(false); G.player.pos.set(0, 0, 4); G.player.st = G.player.maxSt; G.player.facing = Math.PI;
+    Player.ultimate(G.player); o.stormOn = G.player.stormT > 5;
+    cast('light', 0.5); o.stormBurst = Shots.live.length === 3 || Shots.live.length === 0; Shots.clear(); G.player.stormT = 0;
+    setup('archer', []); I.S.points = 20; I.learn('volley'); I.learn('volley'); G.onGearChanged(false); G.player.facing = Math.PI; G.player.st = G.player.maxSt;
+    __dw.press('heavy'); __dw.sim(0.6); o.fanOfNine = Shots.live.length === 9; Shots.clear();
+    setup('mage', []); I.S.points = 20; for (const id of ['conduit', 'wildfire', 'blast', 'blast']) I.learn(id); G.onGearChanged(false);
+    o.mageTree = I.S.talents.blast === 2 && Math.abs(I.stats().blast - 0.8) < 1e-9 && I.stats().wildfire === 1;
+    o.mageUlt = I.learn('meteors') && I.S.ult === 'meteors';
+    G.onGearChanged(false); const mp = G.player; mp.pos.set(0, 0, 4); const foes = [[0, -6], [3, -6], [-3, -6]].map(([x, z]) => { const e = __dw.spawn('sparring', x, z); e.state = 'hunt'; e.cooldown = 99999; return e; });
+    Player.ultimate(mp); o.showerFalls = Shots.blasts.length === 5; __dw.sim(2.6); o.showerHits = foes.every(e => e.maxHp - e.hp > 0);
+    const [hd] = setup('cleric'); I.S.points = 20; for (const id of ['mercy', 'prayer', 'radiance', 'radiance']) I.learn(id); G.onGearChanged(false);
+    const hp = G.player; o.clericTree = I.stats().healCd === 0.9 && Math.abs(I.stats().radiance - 0.12) < 1e-9 && I.stats().mend > 1.1;
+    o.haloLearn = I.learn('halo') && I.S.ult === 'halo'; G.onGearChanged(false); const h2 = G.player; h2.pos.set(0, 0, 4); h2.hp = h2.maxHp * 0.4; hd.pos.set(0, 0, 0);
+    const hh = h2.hp; Player.ultimate(h2); o.haloHeals = h2.hp > hh + h2.maxHp * 0.3 && hd.maxHp - hd.hp > 0 && h2.wardT > 3;
+    o.classTalentsPanel = (() => { setup('mage', []); __dw.openPanel('talents'); const names = [...document.querySelectorAll('.thead b')].map(b => b.textContent); while (__dw.UI.open) __dw.UI.close(); return names.includes('Spellweaver') && !names.includes('Marksman') && !names.includes('Devotion'); })();
+
     // --- Pictures: every new weapon and off-hand piece builds in the gear screen and on the hero
     for (const cls of ['archer', 'mage', 'cleric']) {
       setup(cls, []);

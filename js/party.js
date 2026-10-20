@@ -1,0 +1,193 @@
+// Deepward - the party: companions who walk with the warden. They follow (that comes first), and attack, shoot or heal what
+// is near: a warrior closes in and swings, an archer keeps her distance and shoots (a fan of arrows now and then), a mage
+// casts bolts and a fireball, a cleric mends whoever is hurt and smites when no one is. No planning yet: each is a few plain
+// rules (see `think`). Foes do not target them and they cannot fall, so for now they are helpers (G.allies).
+// Who is in the party is S.party (ids from CFG.companions); S.hired remembers whom the warden paid.
+const Party = (() => {
+  const CP = CFG.party, DEFS = CFG.companions, P = CFG.player;
+  const def = id => DEFS.find(d => d.id === id);
+  const S = () => Items.S;
+  const GLYPH = { warrior: '⚔', archer: '🏹', mage: '✦', cleric: '✚' };
+  const OFFHAND = { archer: 'quiver', mage: 'orb', cleric: 'tome' };
+
+  // ---------------- Recruiting ----------------
+  // 'in' (in the party), 'locked' (a captive still to be freed), 'hire' (costs gold the first time), 'ready'
+  function status(id) {
+    const d = def(id), s = S();
+    if (!d || !s) return 'locked';
+    if (s.party.includes(id)) return 'in';
+    if (d.rescue && !Items.rescued(d.rescue)) return 'locked';
+    if (d.hire && !s.hired[id]) return 'hire';
+    return 'ready';
+  }
+  function recruit(id) {
+    const d = def(id), s = S(), st = status(id);
+    if (!d || (st !== 'ready' && st !== 'hire') || s.party.length >= CP.max) return false;
+    if (st === 'hire') { if (s.gold < d.hire) return false; s.gold -= d.hire; s.hired[id] = true; }
+    s.party.push(id); Items.save(); sync(); return true;
+  }
+  function dismiss(id) {
+    const s = S(); if (!s || !s.party.includes(id)) return false;
+    s.party = s.party.filter(x => x !== id); Items.save(); sync(); return true;
+  }
+
+  // ---------------- Bodies ----------------
+  function lookFor(d) {
+    const w = CFG.gear.weapons[d.weapon], L = Object.assign({}, Items.look(), {
+      weapon: d.weapon, weaponLen: w.len, caster: !!w.caster, twoHanded: false, dual: false, blade: 0x9ac8ff, glow: 0,
+      shield: d.cls === 'warrior', shieldFace: 0x4a2a2a, offhand: OFFHAND[d.cls] || '', armor: d.cloth, plate: d.cls === 'warrior', mail: false,
+      helm: -1, gloves: -1, boots: -1, trinket: false, ring: false,
+    }, d.look);
+    return L;
+  }
+  // What a companion hits for: a share of the warden's own strength, growing with level and depth (they carry no gear)
+  function power() {
+    const s = S(), tier = Math.min(s.stage, CFG.gear.tierNames.length - 1);
+    return { dmg: CP.dmg * (1 + CFG.progress.perLevel.power * (s.level - 1)) * (1 + 0.16 * tier), mend: 1 + 0.05 * tier };
+  }
+  function spawn(d) {
+    const p = G.player, rig = Rig.build('hero', { look: lookFor(d) }), pw = power();
+    p.rig.root.parent.add(rig.root);
+    const a = {
+      id: d.id, def: d, cls: d.cls, ally: true, rig, pos: p.pos.clone(), facing: p.facing, hp: 100, maxHp: 100, state: 'free', t: 0,
+      phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, shots: 0, speedK: 0, cycle: 0,
+      S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
+    };
+    a.pos.x += Math.sin(p.facing + 1.5) * 1.5; a.pos.z += Math.cos(p.facing + 1.5) * 1.5;
+    FX.ring(a.pos, 1.2, 0x9affc8, 0.6, { r0: 0.2 }); FX.burst(new THREE.Vector3(a.pos.x, 0.2, a.pos.z), 0x9affc8, 12, 3, 0.5);
+    return a;
+  }
+  function removeBody(a) { a.rig.root.parent && a.rig.root.parent.remove(a.rig.root); }
+  // Make the bodies match S.party (called when the party changes, and every frame it is cheap to check)
+  function sync() {
+    const s = S(), p = G.player; if (!s || !p) return;
+    G.allies = G.allies || [];
+    for (let i = G.allies.length - 1; i >= 0; i--) if (!s.party.includes(G.allies[i].id)) { removeBody(G.allies[i]); G.allies.splice(i, 1); }
+    for (const id of s.party) if (!G.allies.some(a => a.id === id)) G.allies.push(spawn(def(id)));
+    G.allies.forEach((a, i) => { a.slot = i; });
+    chips();
+  }
+  function clear() { for (const a of G.allies || []) removeBody(a); G.allies = []; chips(); }
+  // Refit after the warden's looks or gear change (their own look is taken from Items.look for the shared parts)
+  function refit() { const keep = (G.allies || []).map(a => a.id); clear(); G.allies = []; sync(); return keep; }
+
+  // The names under the purse: who walks with you
+  function chips() {
+    const el = document.getElementById('party'); if (!el) return;
+    el.innerHTML = (G.allies || []).map(a => `<span class="pchip" title="${a.def.name}">${GLYPH[a.cls]} ${a.def.short}</span>`).join('');
+    el.style.display = (G.allies || []).length ? '' : 'none';
+  }
+
+  // ---------------- What they do ----------------
+  const usable = e => Enemy.targetable(e) && e.type !== 'sparring';
+  function pickTarget(a, p) {
+    if (a.target && usable(a.target) && Combat.dist(a.pos, a.target.pos) < CP.aggro + 3 && Combat.dist(p.pos, a.target.pos) < CP.aggro + 6) return a.target;
+    let best = null, bd = CP.aggro;
+    for (const e of G.enemies) {
+      if (!usable(e)) continue;
+      const d = Combat.dist(a.pos, e.pos); if (d < bd && Combat.dist(p.pos, e.pos) < CP.aggro + 6) { bd = d; best = e; }
+    }
+    return best;
+  }
+  // Where a companion likes to stand: beside and behind the warden, the second one on the other side
+  function homeOf(a, p) {
+    const ang = p.facing + Math.PI + (a.slot % 2 ? 0.8 : -0.8);
+    return { x: p.pos.x + Math.sin(ang) * CP.follow, z: p.pos.z + Math.cos(ang) * CP.follow };
+  }
+  const D = (a, tgt) => Combat.dist(a.pos, tgt.pos);
+  // Starting a blow: `data` is a copy of the hero's own move for the class, scaled down to the companion's strength
+  function begin(a, data, extra = {}) {
+    a.atk = Object.assign({}, data, { dmg: data.dmg * a.S.dmg, critMult: P.critMult }, extra);
+    a.phase = 'wind'; a.phaseT = 0; a.struck = false; a.state = 'attack';
+    if (a.target) a.facing = Combat.yawTo(a.pos, a.target.pos);
+  }
+  function strike(a) {
+    const atk = a.atk;
+    if (atk.shot) { Shots.fire(a, atk); return; }
+    if (atk.heal) { Shots.heal(a, atk); return; }
+    let hit = 0;
+    for (const e of G.enemies) {
+      if (!usable(e) || !Combat.inArc(a.pos, a.facing, e.pos, atk.range, atk.arc, e.def.radius)) continue;
+      const r = Enemy.receive(e, atk, a); if (r && r !== 'blocked' && r !== 'ward') hit++;
+    }
+    if (hit) { Snd.play('hit'); }
+  }
+  // The few rules. Returns a movement goal {x, z, run} or null to stand.
+  function think(a, p, dt) {
+    const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
+    a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt;
+    const goHome = () => Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
+    if (dp > CP.far || a.state === 'attack' || noFight) return goHome();          // following comes first
+    a.target = pickTarget(a, p);
+    const t = a.target;
+    if (a.cls === 'cleric') {
+      // Heal the hurt first; smite when everyone is well
+      const hurt = p.hp / p.maxHp;
+      if (a.cd <= 0 && hurt < 0.45 && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; return null; }
+      if (a.cd <= 0 && hurt < 0.75) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 3; return null; }
+      if (t && a.cd <= 0 && D(a, t) < 11) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; }
+      return goHome();
+    }
+    if (!t) return goHome();
+    const d = D(a, t);
+    if (a.cls === 'warrior') {
+      if (d < 2.3 && a.cd <= 0) { begin(a, P.light[a.shots++ % 3]); a.cd = 0.55; return null; }
+      return d > 1.7 ? { x: t.pos.x, z: t.pos.z, run: true } : null;
+    }
+    // ranged: hold the middle distance, back away when crowded
+    const far = a.cls === 'archer' ? 9 : 10;
+    if (d < 4.2) { const k = 3 / Math.max(0.1, d); return { x: a.pos.x + (a.pos.x - t.pos.x) * k, z: a.pos.z + (a.pos.z - t.pos.z) * k, run: true, fire: true }; }
+    if (d > far) return { x: t.pos.x, z: t.pos.z, run: true };
+    if (a.cd <= 0) {
+      if (a.cls === 'archer') { if (a.heavyCd <= 0 && d < 7) { begin(a, P.heavies.bow); a.heavyCd = 6; } else begin(a, P.combos.bow[0]); a.cd = 1.0; }
+      else { if (a.heavyCd <= 0) { begin(a, P.heavies.staff); a.heavyCd = 9; } else begin(a, P.combos.staff[0]); a.cd = 1.3; }
+      return null;
+    }
+    return null;
+  }
+
+  function update(dt) {
+    const s = S(), p = G.player; if (!s || !p) return;
+    if (!G.allies || G.allies.length !== s.party.length) sync();
+    if (!G.allies || !G.allies.length) return;
+    const dead = p.state === 'dead';
+    for (const a of G.allies) {
+      a.t += dt;
+      if (Combat.dist(a.pos, p.pos) > CP.leash) {                                  // left behind (a gate, a fall): catch up
+        const h = homeOf(a, p); a.pos.set(h.x, 0, h.z); FX.burst(new THREE.Vector3(a.pos.x, 0.3, a.pos.z), 0x9affc8, 10, 3, 0.4);
+      }
+      let goal = null, moving = 0;
+      if (a.state === 'attack') {
+        const k = a.atk; a.phaseT += dt;
+        if (a.phase === 'wind' && a.phaseT >= k.wind) { a.phase = 'active'; a.phaseT = 0; }
+        if (a.phase === 'active' && !a.struck && a.phaseT >= k.active * 0.5) { a.struck = true; strike(a); }
+        if (a.phase === 'active' && a.phaseT >= k.active) { a.phase = 'recover'; a.phaseT = 0; }
+        if (a.phase === 'recover' && a.phaseT >= k.recover) { a.state = 'free'; a.phase = null; a.atk = null; }
+        if (a.target && Enemy.targetable(a.target) && a.phase === 'wind') a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 14 * dt);
+      } else if (!dead) goal = think(a, p, dt);
+      if (goal) {
+        const dx = goal.x - a.pos.x, dz = goal.z - a.pos.z, dist = Math.hypot(dx, dz);
+        if (dist > 0.05) {
+          const sp = goal.run ? P.speed * 1.05 : P.speed * 0.8, step = Math.min(dist, sp * dt);
+          a.pos.x += dx / dist * step; a.pos.z += dz / dist * step; moving = Math.min(1, sp / P.speed);
+          a.facing += Combat.wrap(Math.atan2(dx, dz) - a.facing) * Math.min(1, 12 * dt);
+          a.cycle += dt * (goal.run ? 10.5 : 7);
+        }
+      }
+      // a little room around the warden, and inside the walls
+      const sx = a.pos.x - p.pos.x, sz = a.pos.z - p.pos.z, sd = Math.hypot(sx, sz);
+      if (sd < 1.0 && sd > 1e-4) { a.pos.x += sx / sd * (1.0 - sd) * 0.5; a.pos.z += sz / sd * (1.0 - sd) * 0.5; }
+      World.constrain(a.pos, P.radius);
+      a.speedK += (moving - a.speedK) * Math.min(1, 10 * dt);
+      const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
+      const atk = a.state === 'attack' ? a.atk : null;
+      Rig.animate(r, {
+        mode: atk ? 'attack' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
+        phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
+        atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
+      }, dt);
+    }
+  }
+
+  return { status, recruit, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+})();

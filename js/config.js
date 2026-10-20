@@ -618,10 +618,10 @@ const CFG = {
   rescues: {
     chance: 0.4, gold: 0.02, goldMax: 0.1,
     people: [
-      { id: 'pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
+      { id: 'pell', short: 'Pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
       { id: 'ilsa', name: 'Ilsa the cook', perk: 'Flasks heal 10% more', look: { cloth: 0x8a5a4a, hair: 0x3a2a1a, apron: true } },
-      { id: 'aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
-      { id: 'mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
+      { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
+      { id: 'mira', short: 'Mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
     ],
     names: ['Tomas', 'Edda', 'Rolf', 'Greta', 'Hal', 'Wynn', 'Oswin', 'Bera'],
   },
@@ -685,6 +685,17 @@ const CFG = {
     brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
+
+  // ---------------- Party ----------------
+  // Companions walk with the warden (see js/party.js): they follow, and attack, shoot or heal what is near. For now they are
+  // helpers: foes do not target them and they cannot fall. Rescued captives join free; the others are hired once.
+  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5 },
+  companions: [
+    { id: 'hobb', short: 'Hobb', name: 'Sergeant Hobb', cls: 'warrior', weapon: 'sword', hire: 150, blurb: 'Keeps the line. A sword, a shield and thirty years of bad knees.', cloth: 0x7a3a2a, look: { skin: 0xd8a07a, hair: 0x6a6a6a, hairStyle: 'short', beard: 'long' } },
+    { id: 'mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
+    { id: 'pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
+    { id: 'aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
+  ],
 
   // ---------------- Classes ----------------
   // Chosen once, when a new warden takes up the watch (S.cls). A class sets the weapons it finds, its off-hand piece and a few
@@ -886,6 +897,22 @@ const CFG = {
       { id: 'ward', name: 'Frost Ward', desc: '+5% damage reduction per rank' },
       { id: 'focus', name: 'Focus', desc: 'Stamina regenerates 10% faster per rank' },
     ], ult: { id: 'nova', name: 'Nova', desc: 'A blast of force around you: heavy damage and posture, throws foes back', cd: 25 } },
+    // One tree for each ranged class, shown to that class only (cls); it counts toward the two trees a warden may learn
+    marksman: { name: 'Marksman', cls: 'archer', color: '#ffd27a', talents: [
+      { id: 'volley', name: 'Volley', desc: 'One more arrow in the heavy fan per rank' },
+      { id: 'longshot', name: 'Long Shot', desc: '+8% damage per rank to foes more than 8 m away' },
+      { id: 'quick', name: 'Quick Draw', desc: 'Shoot 6% faster per rank' },
+    ], ult: { id: 'storm', name: 'Arrow Storm', desc: 'For 6 s every arrow is a burst of three', cd: 30 } },
+    spellweaver: { name: 'Spellweaver', cls: 'mage', color: '#ff9a5a', talents: [
+      { id: 'conduit', name: 'Conduit', desc: '+8% damage per rank' },
+      { id: 'wildfire', name: 'Wildfire', desc: 'Fireballs burn 30% harder per rank' },
+      { id: 'blast', name: 'Wide Blast', desc: 'The fireball blast is 0.4 m wider per rank' },
+    ], ult: { id: 'meteors', name: 'Meteor Shower', desc: 'Five fireballs fall on the foes around you', cd: 35 } },
+    devotion: { name: 'Devotion', cls: 'cleric', color: '#9affc0', talents: [
+      { id: 'mercy', name: 'Mercy', desc: 'Healing is 10% stronger per rank' },
+      { id: 'prayer', name: 'Swift Prayer', desc: 'Heal cooldowns are 10% shorter per rank' },
+      { id: 'radiance', name: 'Radiance', desc: 'Whoever you heal takes 6% less damage per rank for 4 s' },
+    ], ult: { id: 'halo', name: 'Halo', desc: 'A great light: mends everyone near for 45% and burns the foes in it', cd: 40 } },
   },
 
   // ---------------- Story ----------------
