@@ -82,12 +82,12 @@ const Policy = (() => {
   const Learner = (() => {
     const params = { LR: 0.25, CLIP: 2, EXPLORE: 0.25 };
     const make = saved => {
-      const L = { bias: {}, base: 0, sd: 12, n: 0, ep: [] };
+      const L = { bias: {}, base: 25, sd: 12, n: 0, ep: [], log: [] };
       for (const c of CLS) L.bias[c] = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice() : new Array(ACTIONS.length).fill(0);
-      if (saved) { L.base = saved.base || 0; L.sd = saved.sd || 12; L.n = saved.n || 0; }
+      if (saved) { L.base = Math.max(-60, Math.min(90, saved.base === undefined ? 25 : saved.base)); L.sd = Math.min(30, saved.sd || 12); L.n = saved.n || 0; L.log = Array.isArray(saved.log) ? saved.log.slice(-30) : []; }
       return L;
     };
-    const dump = L => ({ bias: L.bias, base: L.base, sd: L.sd, n: L.n });
+    const dump = L => ({ bias: L.bias, base: L.base, sd: L.sd, n: L.n, log: L.log });
     const gapOf = w => (w && w.meta && w.meta.gap) || 4;
     // One decision: the chosen move (null if none is legal). With learn, moves are sampled and remembered for the fight's update.
     function pick(L, s, w = W(), learn = false, rand = Math.random) {
@@ -106,8 +106,8 @@ const Policy = (() => {
     }
     // The fight is over with this reward: learn from it
     function end(L, reward) {
-      const adv = Math.max(-2, Math.min(2, (reward - L.base) / Math.max(8, L.sd)));
-      if (L.n > 0) {
+      const adv = Math.max(-2, Math.min(2, (reward - L.base) / Math.min(30, Math.max(8, L.sd))));
+      {
         const per = {};
         for (const d of L.ep) (per[d.cls] = per[d.cls] || []).push(d);
         for (const c in per) {
@@ -117,11 +117,15 @@ const Policy = (() => {
         }
       }
       L.sd = 0.85 * L.sd + 0.15 * Math.abs(reward - L.base);
-      L.base = L.n === 0 ? reward : 0.85 * L.base + 0.15 * reward;
+      L.base = 0.85 * L.base + 0.15 * reward;
       L.n++; L.ep = [];
     }
     // The fight's score: the same as the trainer's simulator uses
-    function score(f) { return 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * f.downs - (f.heroDied ? 60 : 0) - 20 * f.heroLost - 8 * f.compLost; }
+    // (a long fight can take several times a health bar in damage, so each part is capped; the whole is kept in -100..100)
+    function score(f) {
+      const s = 40 * f.frac + (f.cleared ? 30 + 0.3 * Math.max(0, 70 - f.time) : 0) - 25 * Math.min(3, f.downs) - (f.heroDied ? 60 : 0) - 20 * Math.min(1.5, f.heroLost) - 8 * Math.min(1.5, f.compLost);
+      return Math.max(-100, Math.min(100, s));
+    }
     return { make, dump, pick, end, score, params };
   })();
   const api = { Learner, logits, ACTIONS, A, CLS, N_IN, encode, legal, classic, forward, choose, get ready() { return !!W(); }, get info() { const w = W(); return w ? w.meta || {} : null; } };

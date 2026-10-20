@@ -69,6 +69,9 @@ const N = parseInt(process.argv[2] || '8', 10);
     __dw.sim(4);                                                         // quiet for a moment: the fight ends
     o.learned = Party.fights() === 1 && !!I.S.policyAdapt && Object.keys(I.S.policyAdapt.bias).length === 4;
     o.biasMoved = Object.values(I.S.policyAdapt.bias).some(b => b.some(x => x !== 0)) || I.S.policyAdapt.n === 1;
+    o.fightLog = I.S.policyAdapt.log.length === 1 && typeof I.S.policyAdapt.log[0].r === 'number' && I.S.policyAdapt.log[0].party === 'hobb+aldo';
+    // A bad long fight cannot swamp the score
+    o.scoreCapped = Policy.Learner.score({ frac: 0, cleared: false, time: 75, downs: 9, heroDied: true, heroLost: 9, compLost: 9 }) >= -100 && Policy.Learner.score({ frac: 1, cleared: true, time: 5, downs: 0, heroDied: false, heroLost: 0, compLost: 0 }) <= 100;
     // The saved table loads back, and stays inside its clip
     const back = Policy.Learner.make(JSON.parse(JSON.stringify(I.S.policyAdapt)));
     o.roundTrip = back.n === 1 && Object.values(back.bias).every(b => b.every(x => Math.abs(x) <= 2));

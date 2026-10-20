@@ -206,7 +206,9 @@ const Party = (() => {
     for (const [e, mx] of f.foes) { total += mx; removed += mx - Math.max(0, e.state === 'dead' ? 0 : e.hp); if (e.state !== 'dead' && usable(e)) alive++; }
     const res = { frac: total ? Math.min(1, removed / total) : 1, cleared: alive === 0, time: f.t, downs: f.downs, heroDied: p.state === 'dead', heroLost: f.heroLost / f.heroMax, compLost: f.compLost / Math.max(1, f.compMax) };
     const Ln = learner(); if (!Ln.ep.length) return;
-    Policy.Learner.end(Ln, Policy.Learner.score(res));
+    const r = Policy.Learner.score(res), q = x => Math.round(x * 100) / 100;
+    Ln.log.push({ r: q(r), frac: q(res.frac), cl: res.cleared ? 1 : 0, t: Math.round(res.time), dn: res.downs, hd: res.heroDied ? 1 : 0, hl: q(res.heroLost), cl2: q(res.compLost), foes: f.foes.size, party: (G.allies || []).map(a => a.id).join('+'), mode: G.mode }); if (Ln.log.length > 30) Ln.log.shift();
+    Policy.Learner.end(Ln, r);
     S().policyAdapt = Policy.Learner.dump(Ln); Items.save();
   }
   // The learned preferences as text to copy out (tools/policy/bake.js folds them into the shipped network)
