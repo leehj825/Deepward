@@ -20,7 +20,7 @@ on:
         default: '45'
 jobs:
   train:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04            # not ubuntu-latest: Playwright 1.56 does not support its newest Ubuntu (26.04)
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5
