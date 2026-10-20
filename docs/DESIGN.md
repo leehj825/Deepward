@@ -201,11 +201,6 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - Settings → Language (`lang`, Korean by default on Korean devices). Switching back to English reloads the page. `translate="no"` keeps an element as written (the language names).
 - `tools/i18n_harvest.js` opens every screen headless and collects every text (plus CFG's strings, fixed strings in the code, and the parts of each line); `--missing ko` writes what the table lacks. `tools/i18n_merge.py` merges translated parts into the table and drops entries whose placeholders do not match. CSS-drawn texts (`::after`) have their own `html[lang]` rules. A Korean font stack and `word-break: keep-all`.
 
-## Photo mode (built)
-
-- `G.state = 'photo'`: `step` runs only `photoCam`, so nothing in the world moves. The camera orbits `PH.at` (yaw, pitch, distance) from mouse drags, the wheel, pinch, arrow keys, Q / E, the pad's sticks and triggers; WASD moves the point (kept within 25 m of the hero). `body.photo` hides the HUD.
-- Filters are CSS filters on the canvas while looking; `G.photoSave` renders a frame and draws it through the same filter onto a 2D canvas, then downloads it as `deepward-date-time.png`. Bound as the `photo` action (H, D-pad left).
-
 ## Appearance (built)
 
 - `S.looks` holds indices into `CFG.appearance` (skins, hair colours, styles, beards); `Items.look()` adds `skin`, `hair`, `hairStyle` and `beard` to the hero's look, so the rig, the gear screen's turning hero and refits all follow it. Hair styles are a few boxes on the head (a helm leaves only a tuft, or a longer fall for long hair); beards show under helms.
@@ -433,6 +428,10 @@ Rule of thumb: models write words and tune numbers; the game's rules stay determ
 3. **Tools, not shipping weight.** Use a model at build time for translation drafts (P12) and an RL bot to balance party and class combinations.
 Packaging: never in the APK or the single-file build; a Settings toggle ("Living words, ~100 MB") downloads once into the Cache API or the app's files. One interface (`LM.say(kind, facts)` returning text or null; `Policy.choose(state)` returning an action or null) so callers never care whether a model exists.
 
+## Photo mode (removed)
+
+Photo mode (the frozen free camera, filters and Save picture) was removed from the game: the pause button, the H / D-pad-left binding, `G.photo` and its camera, the bar and its styles, the Korean texts and `tools/photo_test.js` are gone.
+
 ## Roadmap
 
 Each step is sized like the earlier S, T and V steps: one commit, its own test, and a debug APK.
@@ -441,7 +440,7 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 
 - **V1–V6.** Phone overlay and dynamic resolution (V1; the check on a real phone is still open, see P1), gear depth, save safety, controls everywhere, Endless curses, weapon arts.
 - **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
-- **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, photo mode, the gauntlet and the rune vault, and Korean.
+- **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, the gauntlet and the rune vault, and Korean.
 
 ### Next: check what is built
 
@@ -449,7 +448,7 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 - Frame rate, touch reach, text size, safe areas, and the Korean font.
 - Exit criterion: 50+ FPS on Medium in the Hold, the Fen and an Act II stage.
 
-**P2. Photo saving in the app.** Save picture is a browser download, which the Android WebView may not allow. Save to the gallery or open the share sheet there (Capacitor Filesystem / Share).
+**P2.** (Photo mode was removed from the game, so there is no photo saving to do.)
 
 **P3. Korean polish.**
 - Texts built from pieces in code (key hints, tutorial lines, "Go deeper · floor 3") become whole sentences with numbered slots, so Korean word order comes out right.
