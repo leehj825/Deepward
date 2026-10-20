@@ -45,6 +45,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     if (has('interact')) interact();
     if (has('flask')) Player.drink(G.player);
     if (has('ult')) Player.ultimate(G.player);
+    if (has('mode')) Player.toggleMode(G.player);
     if (has('talents')) openPanel('talents');
     if (has('gear')) { openPanel('bag'); ev.preventDefault(); }
     for (const a of ['light', 'heavy', 'dodge']) if (has(a)) { Player.press(G.player, a); ev.preventDefault(); }
@@ -110,6 +111,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       if (act === 'light' && G.spot) interact();
       else if (act === 'flask') Player.drink(G.player);
       else if (act === 'ult') Player.ultimate(G.player);
+      else if (act === 'mode') Player.toggleMode(G.player);
       else if (act === 'bag') openPanel('bag');
       else if (act === 'lock') toggleLock();
       else if (act === 'block') Input.touchBlock = true; else Player.press(G.player, act);
@@ -160,6 +162,7 @@ function pollPad(real) {
   if (pressed('light')) Player.press(G.player, 'light');
   if (pressed('heavy')) Player.press(G.player, 'heavy');
   if (pressed('ult')) Player.ultimate(G.player);
+  if (pressed('mode')) Player.toggleMode(G.player);
   if (pressed('interact') && G.spot) interact();
   else if (pressed('dodge')) Player.press(G.player, 'dodge');
   if (pressed('flask')) Player.drink(G.player);
@@ -351,6 +354,9 @@ function updateHud() {
     const u = $('ultBox'); u.style.display = p.S.ult ? '' : 'none';
     if (p.S.ult) { const ready = !(p.ultCd > 0); u.classList.toggle('ready', ready); u.textContent = ready ? '✦' : Math.ceil(p.ultCd); }
     document.querySelector('.b-ult').style.display = p.S.ult ? '' : 'none';
+    const cleric = p.S.weaponType === 'scepter', mb = document.querySelector('.b-mode'), mo = $('modeBox');
+    mb.style.display = cleric ? '' : 'none'; mo.style.display = cleric ? '' : 'none';
+    if (cleric) { const t = p.healMode ? '✚ Heal' : '✦ Smite'; if (mb.textContent !== t) { mb.textContent = t; mo.textContent = t; } mo.classList.toggle('heal', !!p.healMode); mb.classList.toggle('heal', !!p.healMode); }
   }
   $('flaskN').textContent = p.flasks;
   // In camp, the nearest person or place you can use; in the dungeon, a shrine (none while training)
@@ -458,7 +464,7 @@ function updateLock(dt) {
 }
 G.onBroken = () => { if (!G.seen.exec) { G.seen.exec = true; showTip(CFG.tips.execute); } };
 function clearEnemies() {
-  G.raid = null; G.lock = null; Enemy.clearArrows(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
+  G.raid = null; G.lock = null; Enemy.clearArrows(); Shots.clear(); for (const e of G.enemies) Enemy.dispose(e, scene); G.enemies = []; G.queue = []; G.boss = null; G.timers = []; FX.clear(); }
 function placeHero(at) {
   const p = G.player; p.pos.set(at.x, 0, at.z); p.facing = at.facing; p.kb.set(0, 0, 0);
   View.yaw = at.facing + Math.PI; View.pitch = 0.42; camTarget.copy(p.pos);
@@ -497,7 +503,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('looks', { first: true })); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('classpick')); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -1073,7 +1079,7 @@ function step(real) {
     if (World.inCamp()) checkRim();
     updateDay(dt);
     updateSpawns(); updateRaid(dt);
-    Enemy.updateArrows(dt);
+    Enemy.updateArrows(dt); Shots.update(dt);
     runTimers();
     FX.update(dt);
     updateHud();

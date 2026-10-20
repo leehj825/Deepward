@@ -16,9 +16,10 @@ const path = require('path');
     const wear = it => { S.equip[it.slot] = it; G.onGearChanged(); p().state = 'free'; };
     const foe = (dz, dx = 0, type = 'skeleton') => { const e = __dw.spawn(type, at.x + dx, at.z + dz); e.state = 'hunt'; e.cooldown = 99; e.rig.root.position.y = 0; e.maxHp = e.hp = 500; return e; };
     const reset = () => { for (const e of G.enemies) { e.state = 'dead'; e.hp = 0; } __dw.sim(0.1); p().pos.copy(at); p().facing = Math.PI; __dw.View.yaw = 0; p().state = 'free'; };
-    // Every unique drops once before any repeats
-    const ids = new Set(); for (let k = 0; k < CFG.gear.uniques.length; k++) ids.add(I.generateUnique(2).uniq);
-    out.allUniques = ids.size === CFG.gear.uniques.length && S.uniques.length === CFG.gear.uniques.length;
+    // Every unique this class can find drops once before any repeats (the ranged classes' own weapons are theirs alone)
+    const mine = CFG.gear.uniques.filter(u => !u.cls);
+    const ids = new Set(); for (let k = 0; k < mine.length; k++) ids.add(I.generateUnique(2).uniq);
+    out.allUniques = ids.size === mine.length && S.uniques.length === mine.length;
     const U = id => I.generateUnique(2, { id });
     // Gambler's Coin and Heart of the Deep change the numbers
     const fl0 = p().S.flasks;

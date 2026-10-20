@@ -12,7 +12,7 @@ const UI = (() => {
   const pic = (it, cls = 'ipic') => { const u = typeof GearView !== 'undefined' ? GearView.icon(it) : ''; return u ? `<img class="${cls}" src="${u}" alt="">` : `<span class="${cls} glyph">${GLYPH[it.slot]}</span>`; };
   function itemRow(it, buttons, note = '') {
     const r = R[it.rarity];
-    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${CFG.gear.slotNames[it.slot]} · ${it.uniq ? 'Unique' : r.name}${note}</small>
+    return `<div class="irow${it.uniq ? ' uniq' : ''}">${pic(it, 'ithumb')}<div class="iinfo"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b> <small>${Items.slotName(it.slot)} · ${it.uniq ? 'Unique' : r.name}${note}</small>
       <div class="istats">${Items.describe(it).map(esc).join(' · ')}</div></div><div class="ibtns">${buttons}</div></div>`;
   }
   const btn = (label, act, arg = '', disabled = false, cls = '') => `<button class="pb ${cls}" data-act="${act}" data-arg="${arg}"${disabled ? ' disabled' : ''}>${label}</button>`;
@@ -95,10 +95,10 @@ const UI = (() => {
   }
   function gearDetail(st) {
     const g = gearSel(), C = CFG.gear;
-    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${C.slotNames[g ? g.slot : 'weapon']}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
+    if (!g || !g.it) return `<div class="gdetail empty"><span class="ipic glyph">${GLYPH[g ? g.slot : 'weapon']}</span><div><b>${Items.slotName(g ? g.slot : 'weapon')}</b><p class="dim">Nothing worn here. Pick a piece from the bag below.</p></div></div>`;
     const it = g.it, cur = g.equipped ? null : Items.S.equip[it.slot];
     let h = `<div class="gdetail${it.uniq ? ' uq' : ''}" style="--rc:${Items.colorOf(it)}">${pic(it, 'ipic big')}<div class="gdtext"><b style="color:${Items.colorOf(it)}">${esc(Items.fullName(it))}</b>`;
-    h += `<small>${C.slotNames[it.slot]} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
+    h += `<small>${Items.slotName(it.slot)} · ${it.uniq ? 'Unique' : R[it.rarity].name} · ${C.tierNames[it.tier]}${g.equipped ? ' · worn' : ''}</small>`;
     h += `<div class="istats">${Items.describe(it).map(esc).join('<br>')}</div>`;
     if (g.equipped && it.slot === 'shield' && (st.twoHanded || st.dual)) h += '<div class="warnc">Unused while both hands are full</div>';
     if (!g.equipped) h += `<div class="gcmp">${cur ? `Instead of <b style="color:${Items.colorOf(cur)}">${esc(Items.fullName(cur))}</b>:` : 'Wearing it:'}${compare(st, Items.statsWith(it.slot, it))}</div>`;
@@ -146,8 +146,8 @@ const UI = (() => {
         const cost = CFG.camp.forgeCost[tier];
         h += `<p>Bram forges a new piece at your depth (${CFG.gear.tierNames[tier]}). A better forge raises the odds of rare work.</p>`;
         for (const slot of CFG.gear.slots) {
-          h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.slotNames[slot]}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
-          if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']])
+          h += `<div class="irow"><div class="iinfo"><b>${Items.slotName(slot)}</b> <small>random ${slot === 'weapon' ? 'weapon of any kind' : 'piece'}</small></div><div class="ibtns">${btn('◆ ' + cost, 'forge', slot, S.gold < cost)}</div></div>`;
+          if (slot === 'weapon') for (const [type, note] of [['greatsword', 'two-handed: big hits and reach, no shield'], ['spear', 'long thrusts and a wide sweep, with a shield'], ['daggers', 'a fast five-cut combo and cheap dashes, no shield']].filter(([t]) => CFG.classes[Items.cls()].weapons.includes(t)))
             h += `<div class="irow"><div class="iinfo"><b>${CFG.gear.weapons[type].name}</b> <small>${note}</small></div><div class="ibtns">${btn('◆ ' + Math.round(cost * 1.3), 'forge', type, S.gold < cost * 1.3)}</div></div>`;
         }
       } else if (t === 'reroll') {
@@ -163,7 +163,7 @@ const UI = (() => {
         for (const r of CFG.crafts) {
           const ok = Items.hasMats(r.need) && S.gold >= r.gold && S.inv.length < CFG.gear.invSize, Rr = CFG.gear.rarities[r.rarity];
           const need = Object.entries(r.need).map(([k, n]) => `${CFG.materials[k].icon}${n}`).join(' ');
-          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${CFG.gear.slotNames[r.slot]}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
+          h += `<div class="irow"><div class="iinfo"><b style="color:${Rr.color}">${esc(r.name)}</b> <small>${Items.slotName(r.slot)}${r.wc !== undefined ? ' · ' + CFG.gear.weightNames[r.wc] : ''} · ${Rr.name}</small><div class="istats">${r.aff.map(k => CFG.gear.affixes[k].name).join(', ')}</div></div><div class="ibtns">${btn(`${need} · ◆${r.gold}`, 'craft', r.id, !ok)}</div></div>`;
         }
       } else if (t === 'gems') {
         h += gemsBody(`"A stone in the steel. I'll set it, pry it, or cut you a new socket."`);
@@ -218,7 +218,7 @@ const UI = (() => {
         for (const B of CFG.bosses) { const k = l.guardians[B.name] || 0; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(B.name) : '???'}</b> <small>${k ? 'defeated ' + k + '×' : 'a guardian of the Deep'}</small>${k ? `<div class="istats">${B.phases.map(ph => Math.round(ph.at * 100) + '%: ' + esc(ph.shout.toLowerCase())).join(' · ')}</div>` : ''}</div></div>`; }
         for (const st of CFG.stages) { const c = st.champion, k = l.champs[c.name]; h += `<div class="irow${k ? '' : ' empty'}"><div class="iinfo"><b>${k ? esc(c.name) : '???'}</b> <small>champion of ${esc(st.name)}</small>${k ? `<div class="istats">${c.mods.map(m => CFG.elites.mods[m].name + ': ' + CFG.elites.mods[m].desc).map(esc).join(' · ')}</div>` : ''}</div></div>`; }
       } else if (t === 'uniques') {
-        for (const u of CFG.gear.uniques) { const got = S.uniques.includes(u.id); h += `<div class="irow${got ? ' uniq' : ' empty'}"><div class="iinfo"><b style="color:${got ? CFG.gear.uniqueColor : ''}">${got ? esc(u.name) : '???'}</b> <small>${CFG.gear.slotNames[u.slot]}${u.type ? ' · ' + CFG.gear.weapons[u.type].name : ''}</small>${got ? `<div class="istats">★ ${esc(u.desc)}</div>` : ''}</div></div>`; }
+        for (const u of CFG.gear.uniques.filter(x => !x.cls || x.cls === Items.cls())) { const got = S.uniques.includes(u.id); h += `<div class="irow${got ? ' uniq' : ' empty'}"><div class="iinfo"><b style="color:${got ? CFG.gear.uniqueColor : ''}">${got ? esc(u.name) : '???'}</b> <small>${CFG.gear.slotNames[u.slot]}${u.type ? ' · ' + CFG.gear.weapons[u.type].name : ''}</small>${got ? `<div class="istats">★ ${esc(u.desc)}</div>` : ''}</div></div>`; }
       } else if (t === 'ach') {
         for (const a of Codex.list) h += `<div class="irow${ach[a.id] ? ' got' : ' empty'}"><div class="iinfo"><b>${ach[a.id] ? '🏆 ' : ''}${esc(a.name)}</b> <small>${ach[a.id] ? 'earned' : '+' + a.gold + ' ◆'}</small><div class="istats">${esc(a.desc)}</div></div></div>`;
       } else {
@@ -231,6 +231,15 @@ const UI = (() => {
       const S = Items.S;
       return `<h2>Training yard</h2><p class="sub">Sergeant Hobb leans on his wooden sword. "Again, warden?"</p>
         ${btn(S.trained ? 'Spar with Hobb (six lessons)' : 'Train with Hobb (six lessons, 150 gold the first time)', 'train', '', false, 'hot')}${btn('Expertise: talents and respec', 'open', 'talents')}${btn('Leave', 'close', '', false, 'leave')}`;
+    },
+    // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
+    classpick() {
+      let h = `<h2>Choose your calling</h2><p class="sub">The Deep takes all kinds. This choice stays with this warden.</p>`;
+      for (const [id, c] of Object.entries(CFG.classes)) {
+        const w = CFG.gear.weapons[c.start].name, o = CFG.gear.offhands[c.offhand].label;
+        h += `<div class="irow"><div class="iinfo"><b>${esc(c.name)}</b> <small>${esc(c.role)} · ${esc(w)} and ${esc(o)}</small><p class="dim">${esc(c.desc)}</p></div><div class="ibtns">${btn('Choose', 'pickclass', id, false, id === 'warrior' ? 'hot' : '')}</div></div>`;
+      }
+      return h;
     },
     // The warden's looks: skin, hair colour, hair, beard, with the turning hero beside them
     looks(o = {}) {
@@ -261,8 +270,8 @@ const UI = (() => {
       if (!tab.gsel || !gearSel()) tab.gsel = S.inv.length ? 'i:' + S.inv[0].id : 'e:weapon';
       const sel = tab.gsel;
       const slot = s => { const it = S.equip[s], unused = s === 'shield' && it && (st.twoHanded || st.dual);
-        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${C.slotNames[s]}">`
-          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${C.slotNames[s]}</span></button>`; };
+        return `<button class="pb gslot${it ? ' r' + it.rarity + (it.uniq ? ' uq' : '') : ' empty'}${sel === 'e:' + s ? ' sel' : ''}${unused ? ' unused' : ''}" data-act="gsel" data-arg="e:${s}" title="${Items.slotName(s)}">`
+          + (it ? pic(it) + (it.plus ? `<span class="plus">+${it.plus}</span>` : '') + gemDots(it) : `<span class="ipic glyph">${GLYPH[s]}</span>`) + `<span class="slab">${Items.slotName(s)}</span></button>`; };
       let h = `<h2>Gear</h2>${money()}<div class="gwrap"><div class="gleft"><div class="gear"><div class="gcol">${slot('helm')}${slot('armor')}${slot('gloves')}${slot('boots')}</div><div class="gdoll"></div><div class="gcol">${slot('weapon')}${slot('shield')}${slot('trinket')}${slot('ring')}`;
       h += `<div class="gnums"><span>❤ ${st.maxHp}</span><span>⚡ ${st.maxSt}</span><span>⚔ ×${st.dmg.toFixed(2)}</span><span>◈ ×${st.posture.toFixed(2)}</span><span>🛡 ${Math.round(st.block * 100)}%</span><span>⛨ ${Math.round(st.dr * 100)}%</span>${st.crit ? `<span>✦ ${Math.round(st.crit * 100)}%</span>` : ''}<span>⚗ ${st.flasks}</span></div></div></div><div class="gload l${st.loadClass}">⚖ ${CFG.gear.weightNames[st.loadClass]} load ${st.load} · dash ${Math.round(st.dashDist * 100)}% reach, ${Math.round(st.dashCost * 100)}% stamina · walk ${Math.round(st.move * 100)}%</div></div><div class="gright">`;
       const SORTS = { new: 'Newest', rarity: 'Rarity', slot: 'Slot', power: 'Best first' }, sort = tab.bagSort || 'new', filt = tab.bagFilter || 'all';
@@ -465,6 +474,7 @@ const UI = (() => {
     if (a === 'wgem') { const W = S.wander; if (W && W.gem && S.gold >= CFG.wanderer.gem) { S.gold -= CFG.wanderer.gem; Items.addGem(W.gem); toast('Gem: ' + CFG.gear.gems[W.gem].name, '#9ad8ff'); W.gem = null; Snd.play('glint'); Items.save(); } return render(); }
     if (a === 'wsell') { if ((S.mats[arg] || 0) > 0) { S.mats[arg]--; S.gold += CFG.wanderer.buys; Items.save(); } return render(); }
     if (a === 'look') { const [k, i] = arg.split(':'); S.looks = S.looks || {}; S.looks[k] = +i; Items.save(); G.onGearChanged(false); render(); focus = buttons().findIndex(b => b.dataset.arg === arg); return highlight(); }
+    if (a === 'pickclass') { if (Items.setClass(arg)) { G.onGearChanged(false); close(); return show('looks', { first: true }); } return; }
     if (a === 'looksdone') { close(); return show('trainOffer'); }
     if (a === 'jobin') { const r = Jobs.turnIn(+arg); if (r) { Snd.play('glint'); toast(`Job done: ◆ ${r.gold}` + (r.gem ? ` and ${CFG.gear.gems[r.gem].icon} ${CFG.gear.gems[r.gem].name}` : ''), '#ffd040'); changed(); } return render(); }
     if (a === 'jobdrop') { Jobs.drop(+arg); Items.save(); return render(); }

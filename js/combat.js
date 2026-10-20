@@ -16,8 +16,20 @@ const Combat = (() => {
   const tmp = new THREE.Vector3();
   function chestPos(pos, h = 1.2) { return tmp.set(pos.x, h, pos.z).clone(); }
 
+  // Hit-stop, shake, sound, life on hit and mastery for blows that landed (a swing's, or a shot's)
+  function landedFeel(p, atk, landed, crit) {
+    FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
+    FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
+    Snd.play(crit ? 'crit' : 'hit');
+    G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
+    if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
+    if (G.onHits) G.onHits(landed, crit);
+  }
+
   // The player's swing lands: every enemy in the cone takes it
   function playerStrike(p, atk) {
+    if (atk.shot) return Shots.fire(p, atk);                                      // a ranged class's blow flies off instead
+    if (atk.heal) return Shots.heal(p, atk);
     if (atk.exec) { Enemy.execute(atk.exec, atk, p); G.onHits && G.onHits(1, true); return 1; }
     let landed = 0, blocked = 0, crit = false;
     for (const e of G.enemies) {
@@ -29,14 +41,8 @@ const Combat = (() => {
     }
     const broke = typeof Props !== 'undefined' ? Props.strike(p, atk) : 0;
     if (broke && !landed) FX.hitStop(0.03);
-    if (landed) {
-      FX.hitStop(crit ? 0.16 : atk.breaksGuard ? CFG.feel.heavyHitStop : CFG.feel.hitStop);
-      FX.shake(crit || atk.breaksGuard ? CFG.feel.shake.heavy : CFG.feel.shake.hit);
-      Snd.play(crit ? 'crit' : 'hit');
-      G.rumble(crit ? 0.8 : atk.breaksGuard ? 0.5 : 0.15, crit ? 0.6 : 0.3, crit ? 220 : 70);
-      if (p.S && p.S.lifesteal) p.hp = Math.min(p.maxHp, p.hp + atk.dmg * landed * p.S.lifesteal);
-      if (G.onHits) G.onHits(landed, crit);
-    } else if (blocked) {
+    if (landed) landedFeel(p, atk, landed, crit);
+    else if (blocked) {
       Player.recoil(p);
     }
     return landed;
@@ -66,5 +72,5 @@ const Combat = (() => {
     else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
 
-  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, enemyStrike, wave };
+  return { wrap, yawTo, dist, inArc, facingCheck, chestPos, playerStrike, landed: landedFeel, enemyStrike, wave };
 })();

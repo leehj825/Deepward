@@ -15,7 +15,7 @@
 <div id="hud">
   <div id="hpBar" class="bar"><i id="hpFill"></i><span id="hpTxt"></span></div>
   <div id="stBar" class="bar"><i id="stFill"></i></div>
-  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span></div>
+  <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span><span id="modeBox" style="display:none" title="Cleric mode (V)">✦ Smite</span></div>
   <div id="bless"></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
@@ -39,6 +39,7 @@
   <button data-act="flask" class="b-flask">⚗</button>
   <button data-act="bag" class="b-bag">GEAR</button>
   <button data-act="ult" class="b-ult" style="display:none">ULT</button>
+  <button data-act="mode" class="b-mode" style="display:none">✦ Smite</button>
   <button data-act="lock" class="b-lock">🎯</button>
   <button data-act="heavy" class="b-heavy">HEAVY</button>
   <button data-act="block" class="b-block">BLOCK</button>
@@ -76,12 +77,14 @@
 <script src="js/audio.js"></script>
 <script src="js/anims.js"></script>
 <script src="js/anims_mutant.js"></script>
+<script src="js/anims_magic.js"></script>
 <script src="js/mocap.js"></script>
 <script src="js/rig.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/player.js"></script>
 <script src="js/enemies.js"></script>
+<script src="js/shots.js"></script>
 <script src="js/props.js"></script>
 <script src="js/camp.js"></script>
 <script src="js/field.js"></script>

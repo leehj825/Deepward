@@ -368,6 +368,35 @@ A Ring rematch pays about a seventh of a stage for a one-minute fight (and a gem
 - **Selection:** `tab.gsel` is `e:<slot>` or `i:<id>`. Confirming the selected piece equips it or takes it off, so a controller needs only the d-pad and A.
 - **Helms:** the hero's head is a box whose top corners reach 0.19 m from its middle, so the old round helms (0.15–0.16 m) let them poke through. `helmet()` now builds three squared helms to match the blocky heads: a fitted leather cap, an open steel helm (box shell, brim above the eyes, nasal guard, cheek plates and neck guard), and a closed great helm whose front clears the nose. Under a helm only a short tuft of hair is built. Domes are double-sided so their insides show from below. `gear_test` casts rays at the head's corners to check each helm covers them.
 
+## Classes (built: archer, mage, cleric)
+
+A new warden chooses a calling after the intro and before the looks screen (`CFG.classes`, `Items.setClass`, saved as `S.cls`; older saves are warriors). The choice is final for that save. Every class keeps the dash, stamina, posture, telegraph reading, gear slots, mastery and talents; a class changes the weapons it finds, its off-hand piece, a few base numbers and what the light and heavy attacks do. Light and heavy attacks of the ranged classes cost stamina like any swing.
+
+| Class | Weapon | Off hand | Light | Heavy | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Warrior | sword, axe, mace, spear... | Shield | the melee combos | the melee heavy | as before |
+| Archer | Bow | Quiver (+damage, +crit) | arrow, 22 m, rapid | power shot: pierces everything in line | health ×0.9, stamina ×1.1, dash −10% |
+| Mage | Staff | Orb (+damage, +stamina regen) | arcane bolt, 16 m | fireball: splash 2.4 m, burns for 60% of the blow over 2 s | health ×0.8; the hardest hitter |
+| Cleric | Scepter | Tome (+healing power) | **mode**: holy bolt (8 damage, ×1.4 against skeletons, archers and necromancers) or a single heal | area heal (22%, 5.5 m, 9 s cooldown) | weaker than the mage in a fight |
+
+- **Cleric toggle:** `V` (controller LS, touch MODE button) switches the light attack between SMITE (holy bolt) and HEAL. The heavy cast is the area heal in either mode. The HUD shows the mode beside the XP bar. A heal on yourself is worth half (`heal.self`), and each heal has a cooldown (`healCd`: 1.6 s light, 9 s heavy), so a lone cleric sustains itself without out-healing the damage. Allies (`G.allies`: anything with `pos`, `hp`, `maxHp`) are healed at full value, the lowest health first.
+- **Projectiles** (`js/shots.js`): a blow with a `shot` fires when its swing lands. Shots fly flat, stop at walls, and hit through `Enemy.receive`, so guards, wards, posture, criticals, elements and life on hit work as in melee. `pierce` continues through foes, `splash` bursts, `count` and `spread` fan out. A blow with `heal` mends instead. Arts exist for each class at weapon mastery 3: Rain of Arrows (seven arrows), Arcane Nova (a blast all around), Sanctuary (a 40% mend within 7 m).
+- **Ranged rules:** no finishing blow at mastery 2 and no executions (the ranged classes do not step in), a Windrunner bow makes arrows a quarter cheaper, Stormcaller bolts leap to a second foe for 40%, Dawnlight makes healing 30% stronger.
+- **Gear for the classes:** weapon drops (chests, shops, Bram) roll only the class's own types. The off-hand slot (still `shield` internally, with `it.kind`) is a shield, quiver, orb or tome and is named so in every screen. New bonuses `power` (arrow and spell damage, all three ranged classes) and `mend` (healing power, cleric) roll only for those classes; each has one named unique weapon (Windrunner, Stormcaller, Dawnlight) found only by its class. Armour is shared: the light pieces suit casters and archers.
+- **Animation:** the archer uses the bow clips. The mage and cleric use the Pro Magic Pack (Mixamo): a caster stance (idle, walk and run in four directions, block, hit reactions, deaths) and the spell moves (staff bolt, fireball, nova; scepter bolt, heal, blessing, sanctuary). `tools/extract_magic.js` turns the retargeted pack into `js/anims_magic.js`; each spell clip is cut to the second before its impact and half a second after, and the rig time-warps it onto the attack's own timings. Poses `shoot`, `overhead`, `nova`, `thrust`, `heal`, `bless`, `sanct` select the clips (`rig.set = 'mg'`).
+- **Tests:** `tools/class_test.js` (starting gear, class-only drops and affixes, arrows, pierce, splash and burn, holy bolt weaker than the mage's, heal modes and cooldowns, pictures, the class panel).
+
+## Party play (planned)
+
+Team play with companions on top of the classes. Decisions so far:
+- **Optional:** companions are recruited in camp (the freed captives first) and join a run only if chosen. The hero stays the main character, and solo stays fully playable.
+- **Size:** the hero and up to two companions, built for N but balanced for three.
+- **Control:** fully automatic. Staying close to the hero is the top priority; healing, taunting and shooting score below it (utility AI per role).
+- **Downed, not dead:** a companion who falls is downed until revived (a heal-channel by the cleric, hero or companion) and is back at camp after the run.
+- **Scaling:** a companion adds about 40–60% of a hero's damage with less health; rewards are not split; bosses gain about 25% health per companion without changing their timings; the attack-token cap rises from 2 to 3 only with a full party. Checked with the balance bots, with and without companions.
+- **No multiplayer** for now, but combatants and targets are kept general (`Combatant`, a target for each foe) so it is not ruled out.
+- **Order:** (1) the refactor: enemies pick a target (`e.target`) instead of always `G.player`, with every test unchanged; (2) a tank companion; (3) downed and revive; (4) a healer companion; (5) ranged companions (they reuse `Shots`); (6) the recruit screen and party bar; (7) a balance pass.
+
 ## Roadmap
 
 Each step is sized like the earlier S, T and V steps: one commit, its own test, and a debug APK.
@@ -393,6 +422,8 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 
 **P4. Balance bot on the new content.** Run tools/balance.js (casual and skilled) through the Fen, the gauntlet, the Ring monsters and raids; tune health and damage where it dies too often or never.
 
+**P14. Class pass.** Balance the three new classes with the bots (solo clears of the stages, the Fen, the Ring and raids); give the archer and mage their own caster-friendly gear in Bram's craft tab; look over the class-picker and mode-toggle text with a native reader for Korean (the new strings are not in `lang_ko.js` yet).
+
 ### Then: feel
 
 **P5. Sound pass.** Ambient loops for the Hold (fire, chatter), the Rim (wind, birds) and the Fen (frogs, dripping water); footsteps on different ground; a boss theme for field bosses.
@@ -407,7 +438,7 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 
 **P9. More side quests like Rook's.** Maren's (the story), Bram's (a legendary forge recipe) and Ysolde's (rare herbs in the Fen at night).
 
-**P10. Companions.** A freed captive can follow the warden below as a light helper (Mira with a bow, Brother Aldo healing).
+**P10. Companions.** A freed captive can follow the warden below as a light helper (Mira with a bow, Brother Aldo healing): see Party play above. Needs the target refactor first.
 
 **P11. Set items.** A few gear sets with bonuses for wearing two and four pieces, dropped by field bosses and Ring fights.
 

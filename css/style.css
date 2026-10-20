@@ -164,6 +164,10 @@ body:not(.playing) #padKeys { display: none !important; }
 #ultBox.ready { color: #ffd040; border-color: #ffd040; box-shadow: 0 0 10px rgba(255, 208, 64, 0.6); }
 .ftxt.xp { color: #9ad8ff; font-size: 13px; }
 .b-lock { width: 44px; height: 44px; right: 132px; bottom: 236px; font-size: 18px !important; }
+.b-mode { width: 58px; height: 58px; right: 70px; bottom: 236px; font-size: 11px !important; color: #ffe9a0 !important; border-color: #ffe9a0 !important; }
+.b-mode.heal { color: #9affc0 !important; border-color: #9affc0 !important; }
+#modeBox { margin-left: 8px; padding: 1px 8px; border-radius: 10px; border: 1px solid #ffe9a0; color: #ffe9a0; font-size: 12px; background: rgba(10, 8, 12, 0.7); pointer-events: none; }
+#modeBox.heal { color: #9affc0; border-color: #9affc0; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
 .warnc { color: #ff9a5a; }
 .ftxt.amber { color: #ffa010; font-size: 30px; }
