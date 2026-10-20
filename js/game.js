@@ -14,6 +14,11 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
+// Capture the mouse for looking around, without the operating system's pointer acceleration where the browser allows it
+function lockMouse(el) {
+  if (!el.requestPointerLock) return;
+  try { const r = el.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(() => { try { el.requestPointerLock(); } catch (e) {} }); } catch (e) { try { el.requestPointerLock(); } catch (e2) {} }
+}
 (function setupInput() {
   addEventListener('keydown', ev => {
     Snd.init();
@@ -56,7 +61,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     Snd.init();
     if (G.state !== 'play') return;
     // In the behind view the first click captures the mouse for looking around; it does not attack
-    if (View.mode === 'behind' && document.pointerLockElement !== cv && cv.requestPointerLock) { cv.requestPointerLock(); return; }
+    if (View.mode === 'behind' && document.pointerLockElement !== cv && cv.requestPointerLock) { lockMouse(cv); return; }
     if (ev.button === 0) Player.press(G.player, 'light');
     if (ev.button === 2) Input.mouseBlock = true;
     if (ev.button === 1) { Player.press(G.player, 'heavy'); ev.preventDefault(); }
@@ -71,7 +76,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     let mx = ev.movementX, my = ev.movementY;
     if (Math.abs(mx) > 250 || Math.abs(my) > 250) return;
     mx = Math.max(-60, Math.min(60, mx)); my = Math.max(-60, Math.min(60, my));
-    turnView(mx * 0.0032, my * 0.0026);
+    turnView(mx * 0.0017, my * 0.0014);       // a mouse covers many more counts per hand movement than a trackpad: gentler than the touch scale
   });
   cv.addEventListener('wheel', ev => { ev.preventDefault(); View.dist = Math.min(12, Math.max(3.5, View.dist * Math.exp(ev.deltaY * 0.001))); }, { passive: false });
   // Esc releases the captured mouse before the page sees the key, so losing the capture mid-fight pauses
@@ -416,7 +421,7 @@ function musicMood() {
   if (G.enemies.some(e => e.state !== 'dead' && (!e.zone || e.aggro)) || G.queue.some(q => !q.zone)) G.calmAt = G.time;
   return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
 }
-$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
+$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); lockMouse(cv); } });
 // ---------------- Game flow ----------------
 // Title -> (story) -> camp -> descend into a stage -> rooms -> guardian -> back to camp or press on. Falling wakes you in camp.
 function fadeTo(fn) {
