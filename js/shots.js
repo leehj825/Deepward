@@ -19,10 +19,10 @@ const Shots = (() => {
     };
     return geos;
   }
-  function body(kind, color) {
+  function body(kind, color, size) {
     const g = new THREE.Group(), B = G3();
     if (kind === 'arrow') { g.add(new THREE.Mesh(B.shaft, mat(0x8a6a40)), new THREE.Mesh(B.head, mat(0xe0e0e8))); return g; }
-    const s = kind === 'fireball' ? 1.9 : kind === 'holy' ? 0.8 : 1;
+    const s = size || (kind === 'fireball' ? 1.9 : kind === 'holy' ? 0.8 : 1);
     const core = new THREE.Mesh(B.core, mat(0xffffff)), halo = new THREE.Mesh(B.halo, mat(color || 0x7ae8ff, true));
     core.scale.setScalar(s); halo.scale.setScalar(s); g.add(core, halo); return g;
   }
@@ -30,10 +30,11 @@ const Shots = (() => {
   // The swing landed: send the blow's projectiles
   function fire(p, atk) {
     const S = atk.shot, parent = p.rig.root.parent, n = S.count || 1;
+    if (S.kind === 'meteor') return meteor(p, atk);
     const base = p.target && Enemy.targetable(p.target) ? Combat.yawTo(p.pos, p.target.pos) : p.facing;
     for (let i = 0; i < n; i++) {
       const a = base + (n > 1 ? (i / (n - 1) - 0.5) * (S.spread || 0.6) : 0);
-      const g = body(S.kind, S.color); g.rotation.y = a;
+      const g = body(S.kind, S.color, S.size); g.rotation.y = a;
       const x = p.pos.x + Math.sin(a) * 0.7, z = p.pos.z + Math.cos(a) * 0.7;
       g.position.set(x, MUZZLE, z); parent.add(g);
       live.push({ g, x, z, dx: Math.sin(a), dz: Math.cos(a), speed: S.speed, dist: 0, max: atk.range, atk, S, hit: new Set(), p, t: 0 });
@@ -43,6 +44,24 @@ const Shots = (() => {
     return 0;
   }
 
+  // The mage's heavy: a fireball comes down on the target. The ring on the floor shows where; the blast lands a moment later.
+  const blasts = [];
+  function meteor(p, atk) {
+    const S = atk.shot, t = p.target && Enemy.targetable(p.target) ? p.target : null, f = p.facing;
+    const x = t ? t.pos.x : p.pos.x + Math.sin(f) * Math.min(atk.range, 7), z = t ? t.pos.z : p.pos.z + Math.cos(f) * Math.min(atk.range, 7);
+    const g = body('fireball', S.color, 2.6); g.position.set(x, 9, z); p.rig.root.parent.add(g);
+    FX.ring(new THREE.Vector3(x, 0.05, z), S.splash, S.color || 0xff7a30, S.delay, { r0: 0.3, fill: true, fade: false });
+    Snd.play('cast');
+    blasts.push({ g, x, z, t: 0, S, atk, p });
+    return 0;
+  }
+  function updateBlasts(dt) {
+    for (let i = blasts.length - 1; i >= 0; i--) {
+      const b = blasts[i]; b.t += dt;
+      const k = Math.min(1, b.t / b.S.delay); b.g.position.y = 9 * (1 - k * k) + 0.4;
+      if (b.t >= b.S.delay) { b.g.parent && b.g.parent.remove(b.g); blasts.splice(i, 1); explode(b, b.x, b.z); }
+    }
+  }
   // One enemy takes the shot. Returns what Enemy.receive said.
   function strikeOne(s, e, scale = 1) {
     let atk = s.atk;
@@ -76,6 +95,7 @@ const Shots = (() => {
   }
   function remove(i) { const s = live[i]; s.g.parent && s.g.parent.remove(s.g); live.splice(i, 1); }
   function update(dt) {
+    updateBlasts(dt);
     for (let i = live.length - 1; i >= 0; i--) {
       const s = live[i]; let done = false, steps = Math.max(1, Math.ceil(s.speed * dt / 0.35)), sd = s.speed * dt / steps;
       s.t += dt;
@@ -129,6 +149,6 @@ const Shots = (() => {
     return 0;
   }
 
-  function clear() { for (let i = live.length - 1; i >= 0; i--) remove(i); }
-  return { fire, heal, update, clear, get live() { return live; }, party };
+  function clear() { for (let i = live.length - 1; i >= 0; i--) remove(i); for (const b of blasts) b.g.parent && b.g.parent.remove(b.g); blasts.length = 0; }
+  return { fire, heal, update, clear, get live() { return live; }, get blasts() { return blasts; }, party };
 })();

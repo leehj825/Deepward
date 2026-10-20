@@ -393,6 +393,17 @@ function openSettings() {
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 $('photoBtn').addEventListener('click', () => { if (G.state !== 'pause') return; togglePause(); G.photo(true); });
+// Main menu: back to the title (to start a new game or continue) without closing the app. Everything that is kept is already
+// saved, so the page simply starts over; a run in the dungeon is lost, as it would be on closing the app, so ask twice there.
+let titleAsk = 0;
+$('titleBtn').addEventListener('click', () => {
+  if (G.state !== 'pause') return;
+  const b = $('titleBtn'), inRun = G.mode !== 'camp';
+  if (inRun && !titleAsk) { titleAsk = setTimeout(() => { titleAsk = 0; b.textContent = 'Main menu'; }, 4000); b.textContent = 'Tap again: leave this run'; return; }
+  clearTimeout(titleAsk); titleAsk = 0;
+  if (Items.S) Items.save();
+  location.reload();
+});
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian

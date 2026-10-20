@@ -648,6 +648,8 @@ const LANG_KO = {
 "Paused": "일시정지됨",
 "Pell the cartographer": "지도 제작자 펠",
 "Pelt": "가죽",
+"Main menu": "메인 메뉴",
+"Tap again: leave this run": "한 번 더 누르면 이번 탐험을 떠납니다",
 "Photo mode": "사진 모드",
 "Pick a key or button, then press the new one. Esc or Menu cancels. Menus, Esc and Menu always work as they are.": "키나 버튼을 선택한 다음 새 키를 누르세요. Esc나 Menu로 취소합니다. 메뉴, Esc, Menu는 항상 기존대로 작동합니다.",
 "Picture saved": "사진 저장됨",

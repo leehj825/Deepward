@@ -44,16 +44,20 @@ const path = require('path');
 
     // --- The archer: an arrow lands at range; the heavy shot pierces a line
     let [d] = setup('archer'); cast('light'); o.arrow = d.maxHp - d.hp > 0;
-    const lineA = setup('archer', [[0, -6], [0, -10]]); cast('heavy', 2); o.pierce = lineA.every(e => e.maxHp - e.hp > 0);
     const lineB = setup('archer', [[0, -6], [0, -10]]); cast('light'); o.arrowStops = lineB[0].maxHp - lineB[0].hp > 0 && lineB[1].maxHp - lineB[1].hp === 0;
-    const heavyA = (() => { const [e] = setup('archer'); cast('heavy', 2); return e.maxHp - e.hp; })();
     const lightA = (() => { const [e] = setup('archer'); cast('light'); return e.maxHp - e.hp; })();
-    o.archerHeavyMore = heavyA > lightA * 2;
-    // Rain of Arrows (the art) needs mastery rank 3
-    o.archerArt = !!CFG.player.arts.bow;
+    // The heavy is a fan of arrows: close up they all strike one foe, far off they spread over several
+    const near = (() => { const [e] = setup('archer', [[0, 1]]); cast('heavy', 1.6); return e.maxHp - e.hp; })();
+    const far = (() => { const [e] = setup('archer', [[0, -9]]); cast('heavy', 2.2); return e.maxHp - e.hp; })();
+    o.spreadCloseStronger = near > far * 2 && near > lightA * 3;
+    const wide = setup('archer', [[0, -8], [1.8, -8]]); cast('heavy', 2.2); o.spreadHitsMany = wide.every(e => e.maxHp - e.hp > 0);
+    o.archerArt = CFG.player.arts.bow.hits[0].shot.pierce === true;
 
     // --- The mage: bolt; fireball splashes a pair and sets them burning
     const [mb] = setup('mage'); cast('light'); const bolt = mb.maxHp - mb.hp; o.bolt = bolt > 0;
+    // The heavy comes down on the locked target even with another foe in the line of fire
+    const [tgt, blocker] = setup('mage', [[0, -10], [0, -4]]); G.lock = tgt; cast('heavy', 2.4); G.lock = null;
+    o.meteorOnTarget = tgt.maxHp - tgt.hp > 0 && blocker.maxHp - blocker.hp === 0 && G.player.hp >= G.player.maxHp * 0.5;
     const pair = setup('mage', [[0, -9], [1.2, -9]]); cast('heavy', 2.4);
     o.splash = pair.every(e => e.maxHp - e.hp > 0);
     const blast = hits(pair); __dw.sim(2.2); o.burns = hits(pair) > blast;
@@ -61,6 +65,7 @@ const path = require('path');
 
     // --- The cleric: weaker than the mage, strong against the dead, toggles to healing
     const [cb] = setup('cleric'); cast('light'); const holy = cb.maxHp - cb.hp; o.holyWeaker = holy > 0 && holy < bolt * 0.8;
+    const [cs] = setup('cleric'); cast('heavy', 2); o.smiteHeavy = cs.maxHp - cs.hp > holy * 1.8 && !(G.player.healCd > 0);
     setup('cleric', []); const sk = __dw.spawn('skeleton', 0, -8); sk.state = 'hunt'; sk.cooldown = 99999; const sk0 = sk.hp; cast('light'); const holySk = sk0 - sk.hp;
     const [cd2] = setup('cleric'); // same attack on a living dummy for comparison
     cast('light'); const holyLive = cd2.maxHp - cd2.hp;

@@ -45,17 +45,21 @@ const CFG = {
     },
     heavies: {
       // Ranged classes: `shot` makes the blow a projectile (see js/shots.js); `heal` makes it a healing spell. range is how far it flies / reaches.
-      bow: { pose: 'shoot', wind: 0.5, active: 0.1, recover: 0.42, dmg: 34, posture: 40, cost: 24, range: 26, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'arrow', speed: 46, pierce: true, power: true } },
-      staff: { pose: 'overhead', wind: 0.55, active: 0.12, recover: 0.5, dmg: 30, posture: 30, cost: 28, range: 15, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'fireball', speed: 17, splash: 2.4, ignite: true, color: 0xff7a30 } },
-      scepter: { pose: 'bless', wind: 0.5, active: 0.12, recover: 0.5, dmg: 0, posture: 0, cost: 28, range: 0, arc: 0, lunge: 0, heal: { amount: 0.22, self: 0.5, radius: 5.5, cd: 9, color: 0x9affc0 } },
+      // The archer's heavy is a fan of seven arrows: point blank they all strike one foe, far off they spread over several
+      bow: { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.45, dmg: 10, posture: 10, cost: 26, range: 14, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34, count: 7, spread: 0.7 } },
+      // The mage's heavy calls a fireball down on the target (the locked or nearest foe, else a spot ahead): the blast and the burn are there, not at the hero
+      staff: { pose: 'overhead', wind: 0.5, active: 0.12, recover: 0.5, dmg: 32, posture: 30, cost: 28, range: 15, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'meteor', splash: 3, ignite: true, color: 0xff7a30, delay: 0.45 } },
+      // The cleric's heavy follows her mode: a stronger smite (a bright orb that bursts), or in heal mode the area heal below
+      scepter: { pose: 'overhead', wind: 0.45, active: 0.12, recover: 0.5, dmg: 22, posture: 30, cost: 24, range: 14, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'holy', speed: 20, splash: 1.8, size: 1.5, color: 0xfff0b0, undead: 1.5 } },
+      scepterHeal: { pose: 'bless', wind: 0.5, active: 0.12, recover: 0.5, dmg: 0, posture: 0, cost: 28, range: 0, arc: 0, lunge: 0, heal: { amount: 0.22, self: 0.5, radius: 5.5, cd: 9, color: 0x9affc0 } },
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
     },
     // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
     // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
     arts: {
-      bow: { name: 'Rain of Arrows', cost: 30, cd: 9, desc: 'A fan of seven arrows', hits: [
-        { pose: 'shoot', wind: 0.4, active: 0.1, recover: 0.5, dmg: 15, posture: 12, range: 20, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34, count: 7, spread: 0.75 } }] },
+      bow: { name: 'Piercing Shot', cost: 30, cd: 9, desc: 'One heavy arrow that pierces everything in line', hits: [
+        { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.5, dmg: 46, posture: 40, range: 28, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'arrow', speed: 46, pierce: true } }] },
       staff: { name: 'Arcane Nova', cost: 32, cd: 9, desc: 'A blast of raw magic all around you', hits: [
         { pose: 'nova', wind: 0.5, active: 0.14, recover: 0.55, dmg: 36, posture: 60, range: 4.2, arc: 360, lunge: 0, breaksGuard: true, ring: 4.2 }] },
       scepter: { name: 'Sanctuary', cost: 34, cd: 14, desc: 'A great light that mends everyone near', hits: [

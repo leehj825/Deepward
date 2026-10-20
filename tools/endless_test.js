@@ -12,7 +12,7 @@ const path = require('path');
   const wait = () => pg.waitForFunction(() => !document.getElementById('fade').classList.contains('on') && __dw.G.mode === (window.__want || __dw.G.mode) && (!window.__floor || (__dw.World.active && __dw.World.active.inf.stage.name.endsWith('Floor ' + window.__floor))), null, { timeout: 8000 }).then(() => pg.waitForTimeout(150));
   const out = {};
   Object.assign(out, await pg.evaluate(() => {
-    const o = {}; __dw.start('new'); while (__dw.UI.open) document.querySelector('#pcard .pb').click();
+    const o = {}; __dw.start('new'); while (__dw.UI.open) { const q = s => document.querySelector(s); (q('[data-act="pickclass"]') || q('[data-act="looksdone"]') || q('#pcard .pb')).click(); }
     __dw.openPanel('gate'); o.locked = !document.querySelector('[data-act="endless"]'); __dw.UI.close();
     __dw.Items.S.stage = CFG.stages.length; __dw.openPanel('gate'); o.unlocked = document.querySelectorAll('[data-act="endless"]').length === 1 && !!document.querySelector('[data-act="open"][data-arg="curses"]');
     // The daily floors are the same from one build to the next

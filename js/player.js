@@ -107,7 +107,7 @@ const Player = (() => {
 
   // The cleric's light blow follows the mode (holy bolt or a heal); everything else follows the weapon
   const lightOf = p => (p.S.combo && P.combos[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.light;
-  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo]) || P.heavy;
+  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.heavy;
   const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
   // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
   function executable(p) {
@@ -380,7 +380,7 @@ const Player = (() => {
     p.rig = Rig.build('hero', { look: gearLook() }); scene.add(p.rig.root);
     p.rig.root.position.copy(p.pos); p.rig.root.rotation.y = p.facing;
   }
-  // The cleric's toggle: holy bolts or healing for the light attack (the heavy cast always heals the area)
+  // The cleric's toggle: holy bolts or healing, for the light and the heavy attack (heavy: a stronger smite, or the area heal)
   function toggleMode(p) {
     if (!p || p.S.weaponType !== 'scepter' || p.state === 'dead') return false;
     p.healMode = !p.healMode; p.combo = 0;

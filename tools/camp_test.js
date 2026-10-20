@@ -15,7 +15,7 @@ const path = require('path');
   const ev = async (k, code) => { r[k] = await pg.evaluate(code); };
   await ev('intro', `(() => { __dw.Items.wipe(); __dw.start('new'); __dw.sim(0.3); return __dw.G.state === 'menu' && document.querySelector('.dlg') !== null; })()`);
   await shot('1_intro');
-  await ev('introDone', `(() => { while (document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click(); if (document.querySelector('[data-act="looksdone"]')) document.querySelector('[data-act="looksdone"]').click(); const offer = !!document.querySelector('.pcard.trainOffer'); document.querySelector('.pcard.trainOffer [data-act="close"]').click(); __dw.sim(0.2); return offer && __dw.G.state === 'play' && __dw.G.mode === 'camp'; })()`);
+  await ev('introDone', `(() => { while (document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click(); if (document.querySelector('[data-act="pickclass"]')) document.querySelector('[data-act="pickclass"][data-arg="warrior"]').click(); if (document.querySelector('[data-act="looksdone"]')) document.querySelector('[data-act="looksdone"]').click(); const offer = !!document.querySelector('.pcard.trainOffer'); document.querySelector('.pcard.trainOffer [data-act="close"]').click(); __dw.sim(0.2); return offer && __dw.G.state === 'play' && __dw.G.mode === 'camp'; })()`);
   await shot('2_camp');
   // Walk to Bram and open the smithy
   await ev('smithPrompt', `(() => { const p = __dw.G.player; p.pos.set(-12.6, 0, -1.8); __dw.sim(0.3); return !!__dw.G.spot && __dw.G.spot.id; })()`);

@@ -433,7 +433,7 @@ html[lang="ko"] body.pad #photoBar small::after { content: ' · Ⓐ 저장 · �
   <p class="ctl mob">Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera</p>
   <div class="tbtns"><button id="contBtn" style="display:none">Continue</button><button id="startBtn">Begin</button><button id="titleSetBtn" class="quiet">Settings</button></div>
 </div></div>
-<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button><button id="photoBtn" class="quiet">Photo mode</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
+<div id="pause" class="screen"><div class="card"><h2>Paused</h2><div class="tbtns"><button id="resumeBtn">Resume</button><button id="setBtn" class="quiet">Settings</button><button id="codexBtn" class="quiet">Codex</button><button id="photoBtn" class="quiet">Photo mode</button><button id="titleBtn" class="quiet">Main menu</button></div><p class="ctl padc">Ⓐ resume · Ⓨ settings</p></div></div>
 <div id="panel" class="screen"><div id="pcard" class="pcard"></div></div>
 <div id="fade"></div>
 <div id="letterbox"></div>
@@ -497,17 +497,21 @@ const CFG = {
     },
     heavies: {
       // Ranged classes: `shot` makes the blow a projectile (see js/shots.js); `heal` makes it a healing spell. range is how far it flies / reaches.
-      bow: { pose: 'shoot', wind: 0.5, active: 0.1, recover: 0.42, dmg: 34, posture: 40, cost: 24, range: 26, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'arrow', speed: 46, pierce: true, power: true } },
-      staff: { pose: 'overhead', wind: 0.55, active: 0.12, recover: 0.5, dmg: 30, posture: 30, cost: 28, range: 15, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'fireball', speed: 17, splash: 2.4, ignite: true, color: 0xff7a30 } },
-      scepter: { pose: 'bless', wind: 0.5, active: 0.12, recover: 0.5, dmg: 0, posture: 0, cost: 28, range: 0, arc: 0, lunge: 0, heal: { amount: 0.22, self: 0.5, radius: 5.5, cd: 9, color: 0x9affc0 } },
+      // The archer's heavy is a fan of seven arrows: point blank they all strike one foe, far off they spread over several
+      bow: { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.45, dmg: 10, posture: 10, cost: 26, range: 14, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34, count: 7, spread: 0.7 } },
+      // The mage's heavy calls a fireball down on the target (the locked or nearest foe, else a spot ahead): the blast and the burn are there, not at the hero
+      staff: { pose: 'overhead', wind: 0.5, active: 0.12, recover: 0.5, dmg: 32, posture: 30, cost: 28, range: 15, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'meteor', splash: 3, ignite: true, color: 0xff7a30, delay: 0.45 } },
+      // The cleric's heavy follows her mode: a stronger smite (a bright orb that bursts), or in heal mode the area heal below
+      scepter: { pose: 'overhead', wind: 0.45, active: 0.12, recover: 0.5, dmg: 22, posture: 30, cost: 24, range: 14, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'holy', speed: 20, splash: 1.8, size: 1.5, color: 0xfff0b0, undead: 1.5 } },
+      scepterHeal: { pose: 'bless', wind: 0.5, active: 0.12, recover: 0.5, dmg: 0, posture: 0, cost: 28, range: 0, arc: 0, lunge: 0, heal: { amount: 0.22, self: 0.5, radius: 5.5, cd: 9, color: 0x9affc0 } },
       spear: { pose: 'thrust', wind: 0.38, active: 0.14, recover: 0.5, dmg: 30, posture: 42, cost: 24, range: 3.6, arc: 35, lunge: 3.2, breaksGuard: true },
       daggers: { pose: 'heavy', wind: 0.3, active: 0.12, recover: 0.42, dmg: 24, posture: 34, cost: 22, range: 2.2, arc: 220, lunge: 1.8, breaksGuard: true },
     },
     // Weapon arts: a special move for each weapon type once its mastery reaches rank 3. Hold block and press heavy.
     // Each is a list of hits played one after another; ring draws a shockwave of that radius when a hit lands.
     arts: {
-      bow: { name: 'Rain of Arrows', cost: 30, cd: 9, desc: 'A fan of seven arrows', hits: [
-        { pose: 'shoot', wind: 0.4, active: 0.1, recover: 0.5, dmg: 15, posture: 12, range: 20, arc: 0, lunge: 0, shot: { kind: 'arrow', speed: 34, count: 7, spread: 0.75 } }] },
+      bow: { name: 'Piercing Shot', cost: 30, cd: 9, desc: 'One heavy arrow that pierces everything in line', hits: [
+        { pose: 'shoot', wind: 0.45, active: 0.1, recover: 0.5, dmg: 46, posture: 40, range: 28, arc: 0, lunge: 0, breaksGuard: true, shot: { kind: 'arrow', speed: 46, pierce: true } }] },
       staff: { name: 'Arcane Nova', cost: 32, cd: 9, desc: 'A blast of raw magic all around you', hits: [
         { pose: 'nova', wind: 0.5, active: 0.14, recover: 0.55, dmg: 36, posture: 60, range: 4.2, arc: 360, lunge: 0, breaksGuard: true, ring: 4.2 }] },
       scepter: { name: 'Sanctuary', cost: 34, cd: 14, desc: 'A great light that mends everyone near', hits: [
@@ -2048,6 +2052,8 @@ const LANG_KO = {
 "Paused": "일시정지됨",
 "Pell the cartographer": "지도 제작자 펠",
 "Pelt": "가죽",
+"Main menu": "메인 메뉴",
+"Tap again: leave this run": "한 번 더 누르면 이번 탐험을 떠납니다",
 "Photo mode": "사진 모드",
 "Pick a key or button, then press the new one. Esc or Menu cancels. Menus, Esc and Menu always work as they are.": "키나 버튼을 선택한 다음 새 키를 누르세요. Esc나 Menu로 취소합니다. 메뉴, Esc, Menu는 항상 기존대로 작동합니다.",
 "Picture saved": "사진 저장됨",
@@ -5010,7 +5016,7 @@ const Player = (() => {
 
   // The cleric's light blow follows the mode (holy bolt or a heal); everything else follows the weapon
   const lightOf = p => (p.S.combo && P.combos[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.light;
-  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo]) || P.heavy;
+  const heavyOf = p => (p.S.combo && P.heavies[p.S.combo + (p.S.combo === 'scepter' && p.healMode ? 'Heal' : '')]) || P.heavy;
   const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
   // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
   function executable(p) {
@@ -5283,7 +5289,7 @@ const Player = (() => {
     p.rig = Rig.build('hero', { look: gearLook() }); scene.add(p.rig.root);
     p.rig.root.position.copy(p.pos); p.rig.root.rotation.y = p.facing;
   }
-  // The cleric's toggle: holy bolts or healing for the light attack (the heavy cast always heals the area)
+  // The cleric's toggle: holy bolts or healing, for the light and the heavy attack (heavy: a stronger smite, or the area heal)
   function toggleMode(p) {
     if (!p || p.S.weaponType !== 'scepter' || p.state === 'dead') return false;
     p.healMode = !p.healMode; p.combo = 0;
@@ -5939,10 +5945,10 @@ const Shots = (() => {
     };
     return geos;
   }
-  function body(kind, color) {
+  function body(kind, color, size) {
     const g = new THREE.Group(), B = G3();
     if (kind === 'arrow') { g.add(new THREE.Mesh(B.shaft, mat(0x8a6a40)), new THREE.Mesh(B.head, mat(0xe0e0e8))); return g; }
-    const s = kind === 'fireball' ? 1.9 : kind === 'holy' ? 0.8 : 1;
+    const s = size || (kind === 'fireball' ? 1.9 : kind === 'holy' ? 0.8 : 1);
     const core = new THREE.Mesh(B.core, mat(0xffffff)), halo = new THREE.Mesh(B.halo, mat(color || 0x7ae8ff, true));
     core.scale.setScalar(s); halo.scale.setScalar(s); g.add(core, halo); return g;
   }
@@ -5950,10 +5956,11 @@ const Shots = (() => {
   // The swing landed: send the blow's projectiles
   function fire(p, atk) {
     const S = atk.shot, parent = p.rig.root.parent, n = S.count || 1;
+    if (S.kind === 'meteor') return meteor(p, atk);
     const base = p.target && Enemy.targetable(p.target) ? Combat.yawTo(p.pos, p.target.pos) : p.facing;
     for (let i = 0; i < n; i++) {
       const a = base + (n > 1 ? (i / (n - 1) - 0.5) * (S.spread || 0.6) : 0);
-      const g = body(S.kind, S.color); g.rotation.y = a;
+      const g = body(S.kind, S.color, S.size); g.rotation.y = a;
       const x = p.pos.x + Math.sin(a) * 0.7, z = p.pos.z + Math.cos(a) * 0.7;
       g.position.set(x, MUZZLE, z); parent.add(g);
       live.push({ g, x, z, dx: Math.sin(a), dz: Math.cos(a), speed: S.speed, dist: 0, max: atk.range, atk, S, hit: new Set(), p, t: 0 });
@@ -5963,6 +5970,24 @@ const Shots = (() => {
     return 0;
   }
 
+  // The mage's heavy: a fireball comes down on the target. The ring on the floor shows where; the blast lands a moment later.
+  const blasts = [];
+  function meteor(p, atk) {
+    const S = atk.shot, t = p.target && Enemy.targetable(p.target) ? p.target : null, f = p.facing;
+    const x = t ? t.pos.x : p.pos.x + Math.sin(f) * Math.min(atk.range, 7), z = t ? t.pos.z : p.pos.z + Math.cos(f) * Math.min(atk.range, 7);
+    const g = body('fireball', S.color, 2.6); g.position.set(x, 9, z); p.rig.root.parent.add(g);
+    FX.ring(new THREE.Vector3(x, 0.05, z), S.splash, S.color || 0xff7a30, S.delay, { r0: 0.3, fill: true, fade: false });
+    Snd.play('cast');
+    blasts.push({ g, x, z, t: 0, S, atk, p });
+    return 0;
+  }
+  function updateBlasts(dt) {
+    for (let i = blasts.length - 1; i >= 0; i--) {
+      const b = blasts[i]; b.t += dt;
+      const k = Math.min(1, b.t / b.S.delay); b.g.position.y = 9 * (1 - k * k) + 0.4;
+      if (b.t >= b.S.delay) { b.g.parent && b.g.parent.remove(b.g); blasts.splice(i, 1); explode(b, b.x, b.z); }
+    }
+  }
   // One enemy takes the shot. Returns what Enemy.receive said.
   function strikeOne(s, e, scale = 1) {
     let atk = s.atk;
@@ -5996,6 +6021,7 @@ const Shots = (() => {
   }
   function remove(i) { const s = live[i]; s.g.parent && s.g.parent.remove(s.g); live.splice(i, 1); }
   function update(dt) {
+    updateBlasts(dt);
     for (let i = live.length - 1; i >= 0; i--) {
       const s = live[i]; let done = false, steps = Math.max(1, Math.ceil(s.speed * dt / 0.35)), sd = s.speed * dt / steps;
       s.t += dt;
@@ -6049,8 +6075,8 @@ const Shots = (() => {
     return 0;
   }
 
-  function clear() { for (let i = live.length - 1; i >= 0; i--) remove(i); }
-  return { fire, heal, update, clear, get live() { return live; }, party };
+  function clear() { for (let i = live.length - 1; i >= 0; i--) remove(i); for (const b of blasts) b.g.parent && b.g.parent.remove(b.g); blasts.length = 0; }
+  return { fire, heal, update, clear, get live() { return live; }, get blasts() { return blasts; }, party };
 })();
 
 </script>
@@ -9194,6 +9220,17 @@ function openSettings() {
 }
 $('setBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 $('photoBtn').addEventListener('click', () => { if (G.state !== 'pause') return; togglePause(); G.photo(true); });
+// Main menu: back to the title (to start a new game or continue) without closing the app. Everything that is kept is already
+// saved, so the page simply starts over; a run in the dungeon is lost, as it would be on closing the app, so ask twice there.
+let titleAsk = 0;
+$('titleBtn').addEventListener('click', () => {
+  if (G.state !== 'pause') return;
+  const b = $('titleBtn'), inRun = G.mode !== 'camp';
+  if (inRun && !titleAsk) { titleAsk = setTimeout(() => { titleAsk = 0; b.textContent = 'Main menu'; }, 4000); b.textContent = 'Tap again: leave this run'; return; }
+  clearTimeout(titleAsk); titleAsk = 0;
+  if (Items.S) Items.save();
+  location.reload();
+});
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian

@@ -13,6 +13,7 @@ const path = require('path');
     const out = {}, G = __dw.G, I = __dw.Items;
     __dw.setView('top'); __dw.start('new');
     while (__dw.UI.open && document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click();
+    if (document.querySelector('[data-act="pickclass"]')) document.querySelector('[data-act="pickclass"][data-arg="warrior"]').click();                      // the calling, then
     document.querySelector('[data-act="looksdone"]').click();                    // the warden's looks come between
     out.offer = !!document.querySelector('.pcard.trainOffer');
     document.querySelector('[data-act="train"]').click();
