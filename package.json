@@ -6,7 +6,11 @@
   "scripts": {
     "www": "node tools/make_www.js",
     "android:sync": "npm run www && npx cap sync android",
-    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "policy:train": "node tools/policy/train.js",
+    "policy:train:real": "node tools/policy/real_train.js",
+    "policy:test": "node tools/policy_test.js",
+    "policy:learn-check": "node tools/policy/learn_check.js"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

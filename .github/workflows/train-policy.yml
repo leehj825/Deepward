@@ -1,0 +1,46 @@
+# Trains the companions' battle policy on a GitHub runner (headless) and uploads the weights and the reports as an artifact.
+# Run it from GitHub: Actions -> "Train companion policy" -> Run workflow. Nothing is committed: download the artifact, read the
+# report, and commit js/policy_weights.js yourself if you accept it (see docs/TRAINING.md).
+name: Train companion policy
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'real = against the real game (move preferences); simulator = the fast simulator, continuing the shipped weights'
+        type: choice
+        options: [real, simulator]
+        default: real
+      minutes:
+        description: 'Minutes of training (the tests after it take another 5 to 10)'
+        default: '45'
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install a headless browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Train
+        run: |
+          if [ "${{ inputs.kind }}" = "real" ]; then
+            node tools/policy/real_train.js "${{ inputs.minutes }}" 3
+          else
+            node tools/policy/train.js "${{ inputs.minutes }}" --continue
+          fi
+      - name: Check the result in the real game
+        run: node tools/policy_test.js 8 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-policy
+          path: |
+            js/policy_weights.js
+            docs/policy-report.md
+            docs/real-training-report.md
