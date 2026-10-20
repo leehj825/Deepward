@@ -87,7 +87,7 @@ const Party = (() => {
   }
   function down(a) {
     a.state = 'down'; a.downT = 0; a.hp = 0; a.atk = null; a.phase = null; a.target = null;
-    FX.text(Combat.chestPos(a.pos, 2.4), a.def.short + ' DOWN', 'warn'); Snd.play('lose');
+    FX.text(Combat.chestPos(a.pos, 2.4), 'DOWN', 'warn'); Snd.play('lose');
   }
   // Back on their feet at this share of health
   function revive(a, frac = 0.3) {

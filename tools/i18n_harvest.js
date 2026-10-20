@@ -41,7 +41,7 @@ const key = s => { s = s.trim(); if (!/[A-Za-z]{2}/.test(s)) return null; let i 
     for (let k = 0; k < 3; k++) I.add(I.generateUnique(4));
     for (const k of Object.keys(CFG.enemies)) { const l = Codex.life(); l.kinds[k] = 3; }
     G.onGearChanged(true);
-    for (const id of ['smith', 'trader', 'ledger', 'gate', 'gemcutter', 'herbalist', 'curio', 'board', 'arena', 'looks', 'trainOffer', 'trainer', 'settings', 'controls', 'saves', 'curses', 'talents', 'codex']) await panel(id);
+    for (const id of ['smith', 'trader', 'ledger', 'gate', 'gemcutter', 'herbalist', 'curio', 'board', 'arena', 'looks', 'trainOffer', 'trainer', 'settings', 'controls', 'saves', 'curses', 'talents', 'codex', 'classpick', 'party']) await panel(id);
     I.S.wander = { left: 1, items: [I.generate(3, { minRarity: 2 }), I.generate(3, { minRarity: 2 })], bundles: CFG.wanderer.bundles.slice(0, 3).map(x => Object.assign({}, x)), gem: 'ruby' }; await panel('wanderer');
     await panel('bag'); await clickAll('.icell, [data-act="sel"], [data-act="pick"]');
     await panel('talents'); await clickAll('[data-act="tsel"]');

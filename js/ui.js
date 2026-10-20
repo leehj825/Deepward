@@ -244,7 +244,7 @@ const UI = (() => {
       }
       const n = Party.fights();
       h += `<p class="dim">${n ? `They have learned from ${n} fight${n === 1 ? '' : 's'}.` : 'They have not learned from your fights yet.'}</p>`;
-      if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text: tools/policy/bake.js folds it into the shipped companion network.</p>`;
+      if (n && tab.policyShow) h += `<div class="savecode"><textarea readonly rows="3" onfocus="this.select()">${esc(Party.exportData())}</textarea></div><p class="dim">Copy this text and send it to the developer: it can be folded into the shipped companion network.</p>`;
       return h + (n ? btn('Share learned data', 'policyshare', '', false, 'hot') + ' ' + btn('Copy', 'policycopy', '') + ' ' + btn(tab.policyShow ? 'Hide the text' : 'Show the text', 'policyshow', '') + ' ' + btn('Forget what they learned', 'forget', '') + ' ' : '') + btn('Back', 'open', 'bag');
     },
     // A new warden picks a class (weapons, off-hand piece and play style; the choice is final for this save)
