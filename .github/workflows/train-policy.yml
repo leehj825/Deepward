@@ -16,8 +16,8 @@ on:
         options: [real, simulator]
         default: real
       minutes:
-        description: 'Minutes of training (the tests after it take another 5 to 10)'
-        default: '45'
+        description: 'Minutes of training (the tests after it take another 10 to 15). Short runs (20) are safer: hosted runners can be cut short'
+        default: '20'
 jobs:
   train:
     runs-on: ubuntu-24.04            # not ubuntu-latest: Playwright 1.56 does not support its newest Ubuntu (26.04)
@@ -48,16 +48,19 @@ jobs:
       - name: Train
         run: |
           if [ "${{ steps.req.outputs.kind }}" = "real" ]; then
-            node tools/policy/real_train.js "${{ steps.req.outputs.minutes }}" 3
+            RESUME=1 node tools/policy/real_train.js "${{ steps.req.outputs.minutes }}" 2
           else
             node tools/policy/train.js "${{ steps.req.outputs.minutes }}" --continue
           fi
       - name: Check the result in the real game
         run: node tools/policy_test.js 8 || true
       - uses: actions/upload-artifact@v4
+        if: always()                     # also when the runner was cut short: the checkpoint is the best preferences so far
         with:
           name: companion-policy
+          if-no-files-found: warn
           path: |
             js/policy_weights.js
             docs/policy-report.md
             docs/real-training-report.md
+            tools/policy/real-checkpoint.json

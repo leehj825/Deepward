@@ -48,3 +48,9 @@ weights yourself if you accept them. Two ways to start it:
 2. **From a work branch, before any merge.** On GitHub open the branch, Add file, Create new file, name it
    `tools/policy/train-request.json`, put `{"kind": "real", "minutes": 45}` in it and commit to that same branch. The commit starts a run
    (Actions, All workflows, **Train companion policy**). To train again, edit the file (change the minutes) and commit. Minutes are capped at 110.
+
+Hosted runners can be cut short (a first 45-minute run was stopped by GitHub after 26 minutes: "The runner has received a shutdown signal"),
+so prefer runs of about 20 minutes. The real-game trainer keeps its best preferences so far in `tools/policy/real-checkpoint.json`, which the
+workflow uploads even when the run is cut short (use the artifact `companion-policy`). To continue from a checkpoint, commit that file to the
+branch (or main) and start another run: with `RESUME=1`, which the workflow sets, the trainer starts from it. On the runner it uses 2 browsers
+(3 on a machine with 4 or more cores: `npm run policy:train:real -- 60 3`).
