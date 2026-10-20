@@ -56,18 +56,20 @@ const Combat = (() => {
     for (const e of G.enemies) if (Enemy.targetable(e) && inArc(p.pos, f, e.pos, L, 22, e.def.radius)) Enemy.receive(e, { dmg: 16 * (p.S ? p.S.dmg : 1), posture: 18 }, p);
   }
 
-  // An enemy's swing lands: check the player is inside its reach and resolve block / parry / dodge
+  // An enemy's swing lands: everyone inside its reach (the warden, and any companion) takes it. The warden resolves block, parry
+  // and dodge; a companion simply takes the damage (Party.hurt).
   function enemyStrike(e, hit) {
-    const p = G.player; if (!p || p.state === 'dead') return;
-    let reached;
+    const hero = G.player, R = CFG.player.radius;
+    let c = null;
     if (hit.aoe) {
-      const c = e.aoeAt || Enemy.aoeCenter(e, hit);
-      reached = Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= hit.aoe.r + CFG.player.radius;
+      c = e.aoeAt || Enemy.aoeCenter(e, hit);
       Snd.play('slam'); FX.shake(0.35); FX.ring(c, hit.aoe.r * 1.2, 0xff6a3a, 0.4, { r0: 0.3 });
       FX.burst(new THREE.Vector3(c.x, 0.2, c.z), 0xb09070, 22, 7, 0.5);
-    } else reached = inArc(e.pos, e.facing, p.pos, hit.range, hit.arc, CFG.player.radius);
-    if (!reached) return;
-    const res = Player.receive(p, e, hit);
+    }
+    const reaches = t => hit.aoe ? Math.hypot(t.pos.x - c.x, t.pos.z - c.z) <= hit.aoe.r + R : inArc(e.pos, e.facing, t.pos, hit.range, hit.arc, R);
+    for (const al of G.allies || []) if (al.state !== 'down' && reaches(al)) Party.hurt(al, e, hit);
+    if (!hero || hero.state === 'dead' || !reaches(hero)) return;
+    const res = Player.receive(hero, e, hit);
     if (res === 'parry') Enemy.parried(e);
     else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }

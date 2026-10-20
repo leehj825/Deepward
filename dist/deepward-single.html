@@ -176,8 +176,19 @@ body:not(.playing) #padKeys { display: none !important; }
 .b-lock { width: 44px; height: 44px; right: 132px; bottom: 236px; font-size: 18px !important; }
 .b-mode { width: 58px; height: 58px; right: 70px; bottom: 236px; font-size: 11px !important; color: #ffe9a0 !important; border-color: #ffe9a0 !important; }
 .b-mode.heal { color: #9affc0 !important; border-color: #9affc0 !important; }
-#party { position: absolute; left: 16px; top: 112px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; }
-.pchip { font-size: 12px; color: #cfe8d8; background: rgba(10, 8, 12, 0.6); border: 1px solid rgba(154, 255, 200, 0.35); border-radius: 10px; padding: 1px 8px; width: fit-content; }
+#party { position: absolute; left: 16px; top: 112px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; width: 150px; }
+.pm { background: rgba(10, 8, 12, 0.62); border: 1px solid rgba(154, 255, 200, 0.3); border-radius: 6px; padding: 3px 7px 4px; font-size: 12px; color: #cfe8d8; }
+.pm b { font-weight: 600; }
+.pm .pbar { height: 6px; background: rgba(0, 0, 0, 0.6); border-radius: 3px; overflow: hidden; margin: 2px 0; }
+.pm .pbar i { display: block; height: 100%; background: #58c878; transition: width 0.15s; }
+.pm .pn { font-size: 10px; color: #9ab8a8; }
+.pm.low .pbar i, .abar.low .hp i { background: #e0a040; }
+.pm.down { border-color: #d8403a; } .pm.down .pn { color: #ff8a80; } .pm.down b { color: #ff8a80; }
+.abar { position: absolute; left: 0; top: 0; width: 48px; pointer-events: none; }
+.abar span { display: block; font-size: 10px; color: #cfe8d8; text-align: center; text-shadow: 0 1px 2px #000; }
+.abar .hp { height: 4px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.abar .hp i { display: block; height: 100%; background: #58c878; }
+.abar.down .hp i { background: #d8403a; }
 #modeBox { margin-left: 8px; padding: 1px 8px; border-radius: 10px; border: 1px solid #ffe9a0; color: #ffe9a0; font-size: 12px; background: rgba(10, 8, 12, 0.7); pointer-events: none; }
 #modeBox.heal { color: #9affc0; border-color: #9affc0; }
 .b-ult { width: 54px; height: 54px; right: 70px; bottom: 168px; color: #ffd040 !important; border-color: #ffd040 !important; }
@@ -1073,10 +1084,10 @@ const CFG = {
   rescues: {
     chance: 0.4, gold: 0.02, goldMax: 0.1,
     people: [
-      { id: 'pell', short: 'Pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
+      { id: 'pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
       { id: 'ilsa', name: 'Ilsa the cook', perk: 'Flasks heal 10% more', look: { cloth: 0x8a5a4a, hair: 0x3a2a1a, apron: true } },
-      { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
-      { id: 'mira', short: 'Mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
+      { id: 'aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
+      { id: 'mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
     ],
     names: ['Tomas', 'Edda', 'Rolf', 'Greta', 'Hal', 'Wynn', 'Oswin', 'Bera'],
   },
@@ -1144,12 +1155,12 @@ const CFG = {
   // ---------------- Party ----------------
   // Companions walk with the warden (see js/party.js): they follow, and attack, shoot or heal what is near. For now they are
   // helpers: foes do not target them and they cannot fall. Rescued captives join free; the others are hired once.
-  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5 },
+  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5, downFor: 25 },
   companions: [
     { id: 'hobb', short: 'Hobb', name: 'Sergeant Hobb', cls: 'warrior', weapon: 'sword', hire: 150, blurb: 'Keeps the line. A sword, a shield and thirty years of bad knees.', cloth: 0x7a3a2a, look: { skin: 0xd8a07a, hair: 0x6a6a6a, hairStyle: 'short', beard: 'long' } },
-    { id: 'mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
-    { id: 'pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
-    { id: 'aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
+    { id: 'mira', short: 'Mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
+    { id: 'pell', short: 'Pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
+    { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
   ],
 
   // ---------------- Classes ----------------
@@ -4918,18 +4929,20 @@ const Combat = (() => {
     for (const e of G.enemies) if (Enemy.targetable(e) && inArc(p.pos, f, e.pos, L, 22, e.def.radius)) Enemy.receive(e, { dmg: 16 * (p.S ? p.S.dmg : 1), posture: 18 }, p);
   }
 
-  // An enemy's swing lands: check the player is inside its reach and resolve block / parry / dodge
+  // An enemy's swing lands: everyone inside its reach (the warden, and any companion) takes it. The warden resolves block, parry
+  // and dodge; a companion simply takes the damage (Party.hurt).
   function enemyStrike(e, hit) {
-    const p = G.player; if (!p || p.state === 'dead') return;
-    let reached;
+    const hero = G.player, R = CFG.player.radius;
+    let c = null;
     if (hit.aoe) {
-      const c = e.aoeAt || Enemy.aoeCenter(e, hit);
-      reached = Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= hit.aoe.r + CFG.player.radius;
+      c = e.aoeAt || Enemy.aoeCenter(e, hit);
       Snd.play('slam'); FX.shake(0.35); FX.ring(c, hit.aoe.r * 1.2, 0xff6a3a, 0.4, { r0: 0.3 });
       FX.burst(new THREE.Vector3(c.x, 0.2, c.z), 0xb09070, 22, 7, 0.5);
-    } else reached = inArc(e.pos, e.facing, p.pos, hit.range, hit.arc, CFG.player.radius);
-    if (!reached) return;
-    const res = Player.receive(p, e, hit);
+    }
+    const reaches = t => hit.aoe ? Math.hypot(t.pos.x - c.x, t.pos.z - c.z) <= hit.aoe.r + R : inArc(e.pos, e.facing, t.pos, hit.range, hit.arc, R);
+    for (const al of G.allies || []) if (al.state !== 'down' && reaches(al)) Party.hurt(al, e, hit);
+    if (!hero || hero.state === 'dead' || !reaches(hero)) return;
+    const res = Player.receive(hero, e, hit);
     if (res === 'parry') Enemy.parried(e);
     else if (res === 'hit' && e.leech) Enemy.leech(e, hit.dmg * e.mult);
   }
@@ -5468,7 +5481,7 @@ const Enemy = (() => {
     // leap. The ring stays put and the blow lands on it, so a dash out of it works whatever the body does next.
     e.aoeAt = e.aoeTo = null;
     if (h.aoe) {
-      const p = G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const p = e.tgt || G.player, yaw = Combat.yawTo(e.pos, p.pos), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const go = Math.min(h.lunge, Math.max(0, Combat.dist(e.pos, p.pos) - e.def.radius - 0.8));
       e.aoeTo = e.pos.clone().addScaledVector(dir, go); e.aoeTo.y = 0;
       e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
@@ -5476,9 +5489,32 @@ const Enemy = (() => {
     if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
   }
 
+  // ---------------- Aggro ----------------
+  // A foe goes for whoever scores best: the nearer, the more damage (or healing) they have done to it lately (threat, which fades),
+  // and a tank is hard to ignore. It sticks to its pick for a moment, and does not change its mind in the middle of a blow.
+  // The warden and the companions (G.allies) are all candidates; those who are down are not.
+  const alive = c => c === G.player ? c.state !== 'dead' : c.state !== 'down';
+  function addThreat(e, who, n) { if (!who || !(n > 0)) return; e.threat = e.threat || new Map(); e.threat.set(who, (e.threat.get(who) || 0) + n); }
+  function pickTarget(e, dt) {
+    const hero = G.player;
+    if (e.threat) for (const [k, v] of e.threat) { const nv = v * Math.exp(-0.3 * dt); if (nv < 1 || !alive(k)) e.threat.delete(k); else e.threat.set(k, nv); }
+    if (!G.allies || !G.allies.length) return (e.tgt = hero);
+    e.tgtT = (e.tgtT || 0) - dt;
+    if (e.tgt && alive(e.tgt) && (e.tgtT > 0 || e.state === 'attack')) return e.tgt;
+    e.tgtT = 0.45;
+    let best = null, bs = -Infinity;
+    for (const c of [hero].concat(G.allies)) {
+      if (!alive(c)) continue;
+      const d = Combat.dist(e.pos, c.pos);
+      const s = Math.min(60, (e.threat && e.threat.get(c)) || 0) + (14 - Math.min(14, d)) * 1.5 + (c.tank ? 9 : 0) + (c === e.tgt ? 5 : 0);
+      if (s > bs) { bs = s; best = c; }
+    }
+    return (e.tgt = best || hero);
+  }
+
   function update(e, dt) {
     e.t += dt; e.postureT += dt;
-    const p = G.player, d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
+    const p = pickTarget(e, dt), d = Combat.dist(e.pos, p.pos), toP = Combat.yawTo(e.pos, p.pos), def = e.def;
     const before = e.pos.clone();
     if (e.state !== 'broken' && e.postureT > 1.2) e.posture = Math.max(0, e.posture - def.postureRegen * dt);
     if (def.regen && e.state !== 'dead' && e.postureT > 3 && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regen * dt); updateBar(e); }   // a troll knits back together when left alone
@@ -5638,6 +5674,7 @@ const Enemy = (() => {
   function receive(e, atk, p) {
     if (!targetable(e) || e.state === 'roar') return null;
     if (e.zone) rouse(e);
+    addThreat(e, p, atk.dmg);
     // A ward soaks the blow (heavy attacks crack it twice as fast)
     if (e.ward > 0) {
       e.ward = Math.max(0, e.ward - (atk.breaksGuard ? 2 : 1)); e.wardT = 0;
@@ -5881,6 +5918,7 @@ const Enemy = (() => {
     const B = e.blast, p = G.player, at = new THREE.Vector3(e.pos.x, 0, e.pos.z);
     FX.ring(at, B.r, 0xff7a20, 0.5, { r0: 0.3 }); FX.burst(Combat.chestPos(e.pos, 0.8), 0xff8a30, 40, 9, 0.8); FX.shake(0.45); Snd.play('slam');
     e.rig.root.visible = false;
+    for (const al of G.allies || []) if (al.state !== 'down' && Combat.dist(al.pos, at) < B.r + CFG.player.radius) Party.hurt(al, e, { dmg: B.dmg });
     if (p && p.state !== 'dead' && Combat.dist(p.pos, at) < B.r + CFG.player.radius) Player.receive(p, { pos: at, mult: e.mult }, { dmg: B.dmg, posture: 0, unblockable: true, aoe: true });
   }
   // A vampiric elite's blow landed
@@ -5907,7 +5945,7 @@ const Enemy = (() => {
       arrowGeo = [shaft, head];
     }
     const from = e.rig.weapon.group.getWorldPosition(new THREE.Vector3()); from.y = Math.max(1.1, from.y);
-    const p = G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
+    const p = e.tgt || G.player, to = new THREE.Vector3(p.pos.x, 1.15, p.pos.z), dir = to.sub(from).normalize();
     const g = new THREE.Group(), P = h.projectile;
     let mats;
     if (P.orb) {
@@ -5922,6 +5960,12 @@ const Enemy = (() => {
     g.position.copy(from); g.lookAt(from.clone().add(dir)); e.rig.root.parent.add(g);
     arrows.push({ g, pos: from.clone(), origin: from.clone(), dir, speed: P.speed, hit: h, mult: e.mult, gone: 0, mats, owner: e, orb: P.orb });
   }
+  // An enemy arrow or orb that meets a companion hurts them (the first one it touches)
+  function hitAlly(a) {
+    if (a.back) return false;
+    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit); return true; }
+    return false;
+  }
   function updateArrows(dt) {
     const p = G.player;
     for (let i = arrows.length - 1; i >= 0; i--) {
@@ -5935,6 +5979,8 @@ const Enemy = (() => {
           if (e.state === 'dead' && typeof Codex !== 'undefined' && Items.S) Codex.add('reflectKills');
           break;
         }
+      } else if (hitAlly(a)) {
+        done = true;
       } else if (p && p.state !== 'dead' && Math.hypot(a.pos.x - p.pos.x, a.pos.z - p.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) {
         const res = Player.receive(p, { pos: a.origin, mult: a.mult }, a.hit);
         if (res === 'parry' && a.hit.projectile.reflect) {
@@ -5954,7 +6000,7 @@ const Enemy = (() => {
   }
   function clearArrows() { for (const a of arrows) { a.g.parent && a.g.parent.remove(a.g); a.mats.forEach(m => m.dispose()); } arrows.length = 0; }
 
-  return { get arrows() { return arrows; }, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
+  return { get arrows() { return arrows; }, addThreat, spawn, rouse, startAttack, makeBoss, makeElite, rollElite, leech, execute, burn, update, receive, parried, targetable, aoeCenter, updateBar, dispose, updateArrows, clearArrows };
 })();
 
 </script>
@@ -6110,8 +6156,10 @@ const Shots = (() => {
 
   // ---------------- Healing ----------------
   // Everyone who can be healed: the hero first, then any allies
-  const party = p => [G.player].concat(G.allies || []).filter(a => a && a.hp > 0);
+  // The warden (while standing) and every companion, down or not (a heal gets a downed one up)
+  const party = p => [G.player].concat(G.allies || []).filter(a => a && (a.hp > 0 || a.state === 'down'));
   function mend(t, p, amount, selfShare) {
+    if (t.state === 'down') { Party.revive(t, Math.max(0.3, amount)); return t.maxHp * 0.3; }
     const gain = Math.min(t.maxHp - t.hp, t.maxHp * amount * (t === p ? selfShare : 1));
     if (gain <= 0) return 0;
     t.hp += gain;
@@ -6119,6 +6167,8 @@ const Shots = (() => {
     FX.text(Combat.chestPos(t.pos, 2.1), '+' + Math.round(gain), 'heal'); FX.burst(Combat.chestPos(t.pos, 1.3), 0x7aff9a, 10, 3);
     return gain;
   }
+  // Healing draws the attention of the foes nearby (a share of what was healed)
+  function aggro(p, healed) { if (healed > 0) for (const e of G.enemies) if (Enemy.targetable(e) && Combat.dist(e.pos, p.pos) < 14) Enemy.addThreat(e, p, healed * 0.8); }
   // The cast lands. heal.radius mends everyone within it; otherwise the hurt-most ally within reach (the hero if no one else is hurt more)
   function heal(p, atk) {
     const H = atk.heal, power = (p.S.mend || 1), amount = H.amount * power;
@@ -6126,12 +6176,15 @@ const Shots = (() => {
     const col = H.color || 0x9affc0;
     if (H.radius) {
       FX.ring(p.pos, H.ring || H.radius, col, 0.7, { r0: 0.4 }); FX.burst(Combat.chestPos(p.pos, 1.0), col, 24, 5, 0.6); Snd.play('cast');
-      for (const t of party(p)) if (Combat.dist(p.pos, t.pos) <= H.radius) mend(t, p, amount, H.self);
+      let sum = 0;
+      for (const t of party(p)) if (Combat.dist(p.pos, t.pos) <= H.radius) sum += mend(t, p, amount, H.self);
+      aggro(p, sum);
     } else {
-      let best = p, bf = p.hp / p.maxHp * (1 / (H.self || 1));         // the hero's own wounds count for less: it heals itself at a discount
-      for (const a of party(p)) if (a !== p && Combat.dist(p.pos, a.pos) <= H.reach && a.hp / a.maxHp < bf) { best = a; bf = a.hp / a.maxHp; }
+      // a downed friend first, then whoever is hurt most (the healer's own wounds count for less: it heals itself at a discount)
+      let best = p, bf = p.hp / p.maxHp * (1 / (H.self || 1));
+      for (const a of party(p)) { if (a === p || Combat.dist(p.pos, a.pos) > H.reach) continue; const f = a.state === 'down' ? -1 : a.hp / a.maxHp; if (f < bf) { best = a; bf = f; } }
       FX.glint(Combat.chestPos(best.pos, 1.5), col, 1.6, 0.35); Snd.play('cast');
-      mend(best, p, amount, H.self);
+      aggro(p, mend(best, p, amount, H.self));
     }
     return 0;
   }
@@ -6145,7 +6198,8 @@ const Shots = (() => {
 // Deepward - the party: companions who walk with the warden. They follow (that comes first), and attack, shoot or heal what
 // is near: a warrior closes in and swings, an archer keeps her distance and shoots (a fan of arrows now and then), a mage
 // casts bolts and a fireball, a cleric mends whoever is hurt and smites when no one is. No planning yet: each is a few plain
-// rules (see `think`). Foes do not target them and they cannot fall, so for now they are helpers (G.allies).
+// rules (see `think`). Foes pick them as targets like the warden (see Enemy aggro), so they take damage, can be downed, and are
+// mended by the cleric (the warden or a companion). A downed companion gets up by itself after a while, or at once when healed.
 // Who is in the party is S.party (ids from CFG.companions); S.hired remembers whom the warden paid.
 const Party = (() => {
   const CP = CFG.party, DEFS = CFG.companions, P = CFG.player;
@@ -6185,15 +6239,16 @@ const Party = (() => {
     return L;
   }
   // What a companion hits for: a share of the warden's own strength, growing with level and depth (they carry no gear)
+  const HP = { warrior: 1.5, archer: 0.85, mage: 0.75, cleric: 0.95 }, DR = { warrior: 0.25, archer: 0.05, mage: 0.05, cleric: 0.08 };
   function power() {
     const s = S(), tier = Math.min(s.stage, CFG.gear.tierNames.length - 1);
-    return { dmg: CP.dmg * (1 + CFG.progress.perLevel.power * (s.level - 1)) * (1 + 0.16 * tier), mend: 1 + 0.05 * tier };
+    return { dmg: CP.dmg * (1 + CFG.progress.perLevel.power * (s.level - 1)) * (1 + 0.16 * tier), mend: 1 + 0.05 * tier, hp: 80 + 6 * (s.level - 1) + 14 * tier };
   }
   function spawn(d) {
     const p = G.player, rig = Rig.build('hero', { look: lookFor(d) }), pw = power();
     p.rig.root.parent.add(rig.root);
     const a = {
-      id: d.id, def: d, cls: d.cls, ally: true, rig, pos: p.pos.clone(), facing: p.facing, hp: 100, maxHp: 100, state: 'free', t: 0,
+      id: d.id, def: d, cls: d.cls, ally: true, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
       phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, shots: 0, speedK: 0, cycle: 0,
       S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
     };
@@ -6201,7 +6256,7 @@ const Party = (() => {
     FX.ring(a.pos, 1.2, 0x9affc8, 0.6, { r0: 0.2 }); FX.burst(new THREE.Vector3(a.pos.x, 0.2, a.pos.z), 0x9affc8, 12, 3, 0.5);
     return a;
   }
-  function removeBody(a) { a.rig.root.parent && a.rig.root.parent.remove(a.rig.root); }
+  function removeBody(a) { a.rig.root.parent && a.rig.root.parent.remove(a.rig.root); if (a.bar) { a.bar.remove(); a.bar = null; } }
   // Make the bodies match S.party (called when the party changes, and every frame it is cheap to check)
   function sync() {
     const s = S(), p = G.player; if (!s || !p) return;
@@ -6215,11 +6270,61 @@ const Party = (() => {
   // Refit after the warden's looks or gear change (their own look is taken from Items.look for the shared parts)
   function refit() { const keep = (G.allies || []).map(a => a.id); clear(); G.allies = []; sync(); return keep; }
 
+  // ---------------- Taking damage ----------------
+  function hurt(a, e, hit) {
+    if (a.state === 'down') return;
+    const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * Settings.diff.dmg;
+    a.hp = Math.max(0, a.hp - n); a.hitT = 0;
+    FX.text(Combat.chestPos(a.pos, 2.0), '-' + Math.round(n), 'hurt'); Snd.play('hit');
+    FX.burst(Combat.chestPos(a.pos, 1.2), 0xc0201a, 6, 3, 0.3);
+    if (a.hp <= 0) { down(a); return; }
+    if (hit.dmg * (e.mult || 1) > a.maxHp * 0.12) { a.state = 'hurt'; a.hurtT = 0.28; a.atk = null; a.phase = null; }          // a hard blow staggers
+    if (e.pos) { const ang = Combat.yawTo(e.pos, a.pos); a.pos.x += Math.sin(ang) * 0.25; a.pos.z += Math.cos(ang) * 0.25; }
+  }
+  function down(a) {
+    a.state = 'down'; a.downT = 0; a.hp = 0; a.atk = null; a.phase = null; a.target = null;
+    FX.text(Combat.chestPos(a.pos, 2.4), a.def.short + ' DOWN', 'warn'); Snd.play('lose');
+  }
+  // Back on their feet at this share of health
+  function revive(a, frac = 0.3) {
+    if (a.state !== 'down') return false;
+    a.state = 'free'; a.hp = Math.max(1, Math.round(a.maxHp * frac)); a.hitT = 0; a.cd = 1;
+    FX.ring(a.pos, 1.4, 0x9affc0, 0.7, { r0: 0.3 }); FX.burst(Combat.chestPos(a.pos, 1.0), 0x9affc0, 20, 4, 0.6); FX.text(Combat.chestPos(a.pos, 2.4), 'UP', 'heal'); Snd.play('glint');
+    return true;
+  }
+  // Camp, a new stage: everyone stands, rested (full), or a stage's first steps on a climb (add: a share of health)
+  function restore(full = true, add = 0.3) {
+    for (const a of G.allies || []) {
+      if (a.state === 'down') revive(a, full ? 1 : add);
+      else a.hp = Math.min(a.maxHp, full ? a.maxHp : a.hp + a.maxHp * add);
+      a.state = a.state === 'hurt' ? 'free' : a.state;
+    }
+  }
+
   // The names under the purse: who walks with you
   function chips() {
     const el = document.getElementById('party'); if (!el) return;
-    el.innerHTML = (G.allies || []).map(a => `<span class="pchip" title="${a.def.name}">${GLYPH[a.cls]} ${a.def.short}</span>`).join('');
+    el.innerHTML = (G.allies || []).map(a => `<div class="pm" data-id="${a.id}"><b>${GLYPH[a.cls]} ${a.def.short}</b><div class="pbar"><i></i></div><span class="pn"></span></div>`).join('');
     el.style.display = (G.allies || []).length ? '' : 'none';
+    const bars = document.getElementById('bars');
+    for (const a of G.allies || []) if (!a.bar && bars) { a.bar = document.createElement('div'); a.bar.className = 'abar'; a.bar.innerHTML = '<span></span><div class="hp"><i></i></div>'; a.bar.firstChild.textContent = a.def.short; bars.appendChild(a.bar); }
+  }
+  // Their health, in the party list and over their heads (where you aim your heals)
+  function updateBars() {
+    for (const a of G.allies || []) {
+      const f = Math.max(0, a.hp / a.maxHp), down = a.state === 'down';
+      const row = document.querySelector(`#party .pm[data-id="${a.id}"]`);
+      if (row) {
+        row.querySelector('.pbar i').style.width = f * 100 + '%';
+        const t = down ? 'DOWN · heal to revive' : `${Math.ceil(a.hp)} / ${a.maxHp}`; const n = row.querySelector('.pn'); if (n.textContent !== t) n.textContent = t;
+        row.classList.toggle('down', down); row.classList.toggle('low', !down && f < 0.4);
+      }
+      if (a.bar) {
+        const s = FX.project(Combat.chestPos(a.pos, 2.3));
+        a.bar.style.transform = `translate(${s.x - 24}px, ${s.y}px)`; a.bar.style.display = s.vis ? '' : 'none';
+        a.bar.querySelector('.hp i').style.width = f * 100 + '%'; a.bar.classList.toggle('down', down); a.bar.classList.toggle('low', !down && f < 0.4);
+      }
+    }
   }
 
   // ---------------- What they do ----------------
@@ -6266,9 +6371,9 @@ const Party = (() => {
     const t = a.target;
     if (a.cls === 'cleric') {
       // Heal the hurt first; smite when everyone is well
-      const hurt = p.hp / p.maxHp;
-      if (a.cd <= 0 && hurt < 0.45 && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; return null; }
-      if (a.cd <= 0 && hurt < 0.75) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 3; return null; }
+      const group = Shots.party(a).filter(m => Combat.dist(a.pos, m.pos) < 8), low = Math.min(...group.map(m => m.state === 'down' ? 0 : m.hp / m.maxHp)), hurtN = group.filter(m => m.state === 'down' || m.hp / m.maxHp < 0.6).length;
+      if (a.cd <= 0 && (low < 0.4 || hurtN >= 2) && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; return null; }
+      if (a.cd <= 0 && low < 0.75) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 2.2; return null; }
       if (t && a.cd <= 0 && D(a, t) < 11) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; }
       return goHome();
     }
@@ -6280,7 +6385,9 @@ const Party = (() => {
     }
     // ranged: hold the middle distance, back away when crowded
     const far = a.cls === 'archer' ? 9 : 10;
-    if (d < 4.2) { const k = 3 / Math.max(0.1, d); return { x: a.pos.x + (a.pos.x - t.pos.x) * k, z: a.pos.z + (a.pos.z - t.pos.z) * k, run: true, fire: true }; }
+    if (d < 4.2) {                                                              // crowded: shoot if ready (a foe chasing us never lets go), else back away
+      if (a.cd <= 0 && d > 1.6) { begin(a, a.cls === 'archer' ? P.combos.bow[0] : P.combos.staff[0]); a.cd = 1.0; return null; }
+      const k = 3 / Math.max(0.1, d); return { x: a.pos.x + (a.pos.x - t.pos.x) * k, z: a.pos.z + (a.pos.z - t.pos.z) * k, run: true, fire: true }; }
     if (d > far) return { x: t.pos.x, z: t.pos.z, run: true };
     if (a.cd <= 0) {
       if (a.cls === 'archer') { if (a.heavyCd <= 0 && d < 7) { begin(a, P.heavies.bow); a.heavyCd = 6; } else begin(a, P.combos.bow[0]); a.cd = 1.0; }
@@ -6296,7 +6403,14 @@ const Party = (() => {
     if (!G.allies || !G.allies.length) return;
     const dead = p.state === 'dead';
     for (const a of G.allies) {
-      a.t += dt;
+      a.t += dt; a.hitT += dt;
+      if (a.state === 'down') {                                                      // lies still until healed (or a while passes)
+        a.downT += dt; if (a.downT > CP.downFor) revive(a, 0.25);
+        a.rig.root.position.copy(a.pos); a.rig.root.rotation.y = a.facing;
+        Rig.animate(a.rig, { mode: 'dead', t: a.downT, speed: 0, mps: 0, dirF: 1, dirS: 0, calm: false }, dt);
+        continue;
+      }
+      if (a.state === 'free' && a.hitT > 5 && a.hp < a.maxHp) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * 0.015 * dt);   // they catch their breath out of a fight
       if (Combat.dist(a.pos, p.pos) > CP.leash) {                                  // left behind (a gate, a fall): catch up
         const h = homeOf(a, p); a.pos.set(h.x, 0, h.z); FX.burst(new THREE.Vector3(a.pos.x, 0.3, a.pos.z), 0x9affc8, 10, 3, 0.4);
       }
@@ -6308,7 +6422,8 @@ const Party = (() => {
         if (a.phase === 'active' && a.phaseT >= k.active) { a.phase = 'recover'; a.phaseT = 0; }
         if (a.phase === 'recover' && a.phaseT >= k.recover) { a.state = 'free'; a.phase = null; a.atk = null; }
         if (a.target && Enemy.targetable(a.target) && a.phase === 'wind') a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 14 * dt);
-      } else if (!dead) goal = think(a, p, dt);
+      } else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
+      else if (!dead) goal = think(a, p, dt);
       if (goal) {
         const dx = goal.x - a.pos.x, dz = goal.z - a.pos.z, dist = Math.hypot(dx, dz);
         if (dist > 0.05) {
@@ -6326,14 +6441,15 @@ const Party = (() => {
       const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
       const atk = a.state === 'attack' ? a.atk : null;
       Rig.animate(r, {
-        mode: atk ? 'attack' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
+        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
         phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
         atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
       }, dt);
     }
+    updateBars();
   }
 
-  return { status, recruit, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
+  return { status, recruit, hurt, revive, restore, dismiss, sync, clear, refit, update, chips, GLYPH, defs: DEFS, get max() { return CP.max; } };
 })();
 
 </script>
@@ -9597,7 +9713,7 @@ function enterCamp(atSpawn = true) {
     }
   }
   Items.save();
-  Player.refit(G.player, scene, true); Player.revive(G.player);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore();
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
@@ -9670,7 +9786,7 @@ G.descend = (k, onward) => fadeTo(() => {
   clearEnemies(); G.blessings = []; G.run = null; G.arena = null; if (!onward) drinkTonics();
   const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
   const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
   if (!S.story.pre[k]) {
@@ -9833,7 +9949,7 @@ G.enterArena = A => fadeTo(() => {
   G.arena = A;
   const at = World.startCustom(def, { si: A.si || 0, k: A.lvl, mult: 1 + CFG.stageScale * A.lvl, hpMult: 1 + CFG.stageHp * A.lvl });
   G.mode = 'dungeon'; G.stageK = A.lvl; curseWorld();
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
 });
 G.arenaGold = arenaGold;
@@ -9853,7 +9969,7 @@ G.goFloor = () => fadeTo(() => {
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
-  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
+  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player); Party.restore(G.run.floor === 1, 0.3);
   if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
   placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
   if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');

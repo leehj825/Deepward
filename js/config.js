@@ -618,10 +618,10 @@ const CFG = {
   rescues: {
     chance: 0.4, gold: 0.02, goldMax: 0.1,
     people: [
-      { id: 'pell', short: 'Pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
+      { id: 'pell', name: 'Pell the cartographer', perk: 'Every stage is mapped from the start', look: { cloth: 0x5a5a3a, hair: 0x8a6a3a } },
       { id: 'ilsa', name: 'Ilsa the cook', perk: 'Flasks heal 10% more', look: { cloth: 0x8a5a4a, hair: 0x3a2a1a, apron: true } },
-      { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
-      { id: 'mira', short: 'Mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
+      { id: 'aldo', name: 'Brother Aldo', perk: '+5% health', look: { cloth: 0x4a4a6a, hair: 0x9a9a9a, elder: true } },
+      { id: 'mira', name: 'Mira the scout', perk: 'Beasts of the Rim notice you later', look: { cloth: 0x3a5a3a, hair: 0x6a3a1a } },
     ],
     names: ['Tomas', 'Edda', 'Rolf', 'Greta', 'Hal', 'Wynn', 'Oswin', 'Bera'],
   },
@@ -689,12 +689,12 @@ const CFG = {
   // ---------------- Party ----------------
   // Companions walk with the warden (see js/party.js): they follow, and attack, shoot or heal what is near. For now they are
   // helpers: foes do not target them and they cannot fall. Rescued captives join free; the others are hired once.
-  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5 },
+  party: { max: 2, follow: 2.6, far: 8, leash: 18, aggro: 9, dmg: 0.5, downFor: 25 },
   companions: [
     { id: 'hobb', short: 'Hobb', name: 'Sergeant Hobb', cls: 'warrior', weapon: 'sword', hire: 150, blurb: 'Keeps the line. A sword, a shield and thirty years of bad knees.', cloth: 0x7a3a2a, look: { skin: 0xd8a07a, hair: 0x6a6a6a, hairStyle: 'short', beard: 'long' } },
-    { id: 'mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
-    { id: 'pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
-    { id: 'aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
+    { id: 'mira', short: 'Mira', name: 'Mira the scout', cls: 'archer', weapon: 'bow', rescue: 'mira', blurb: 'Quick arrows from the back, and a fan of them when a foe gets close.', cloth: 0x3a5a3a, look: { skin: 0xe2b088, hair: 0x6a3a1a, hairStyle: 'tail', beard: 'none' } },
+    { id: 'pell', short: 'Pell', name: 'Pell the cartographer', cls: 'mage', weapon: 'staff', rescue: 'pell', blurb: 'Bolts, and now and then a fireball on the biggest foe.', cloth: 0x5a5a8a, look: { skin: 0xe8c9a8, hair: 0x8a6a3a, hairStyle: 'short', beard: 'none' } },
+    { id: 'aldo', short: 'Aldo', name: 'Brother Aldo', cls: 'cleric', weapon: 'scepter', rescue: 'aldo', blurb: 'Mends you when you are hurt; smites when you are not.', cloth: 0xc8c0a8, look: { skin: 0xd8a07a, hair: 0x9a9a9a, hairStyle: 'shaved', beard: 'long' } },
   ],
 
   // ---------------- Classes ----------------

@@ -149,8 +149,10 @@ const Shots = (() => {
 
   // ---------------- Healing ----------------
   // Everyone who can be healed: the hero first, then any allies
-  const party = p => [G.player].concat(G.allies || []).filter(a => a && a.hp > 0);
+  // The warden (while standing) and every companion, down or not (a heal gets a downed one up)
+  const party = p => [G.player].concat(G.allies || []).filter(a => a && (a.hp > 0 || a.state === 'down'));
   function mend(t, p, amount, selfShare) {
+    if (t.state === 'down') { Party.revive(t, Math.max(0.3, amount)); return t.maxHp * 0.3; }
     const gain = Math.min(t.maxHp - t.hp, t.maxHp * amount * (t === p ? selfShare : 1));
     if (gain <= 0) return 0;
     t.hp += gain;
@@ -158,6 +160,8 @@ const Shots = (() => {
     FX.text(Combat.chestPos(t.pos, 2.1), '+' + Math.round(gain), 'heal'); FX.burst(Combat.chestPos(t.pos, 1.3), 0x7aff9a, 10, 3);
     return gain;
   }
+  // Healing draws the attention of the foes nearby (a share of what was healed)
+  function aggro(p, healed) { if (healed > 0) for (const e of G.enemies) if (Enemy.targetable(e) && Combat.dist(e.pos, p.pos) < 14) Enemy.addThreat(e, p, healed * 0.8); }
   // The cast lands. heal.radius mends everyone within it; otherwise the hurt-most ally within reach (the hero if no one else is hurt more)
   function heal(p, atk) {
     const H = atk.heal, power = (p.S.mend || 1), amount = H.amount * power;
@@ -165,12 +169,15 @@ const Shots = (() => {
     const col = H.color || 0x9affc0;
     if (H.radius) {
       FX.ring(p.pos, H.ring || H.radius, col, 0.7, { r0: 0.4 }); FX.burst(Combat.chestPos(p.pos, 1.0), col, 24, 5, 0.6); Snd.play('cast');
-      for (const t of party(p)) if (Combat.dist(p.pos, t.pos) <= H.radius) mend(t, p, amount, H.self);
+      let sum = 0;
+      for (const t of party(p)) if (Combat.dist(p.pos, t.pos) <= H.radius) sum += mend(t, p, amount, H.self);
+      aggro(p, sum);
     } else {
-      let best = p, bf = p.hp / p.maxHp * (1 / (H.self || 1));         // the hero's own wounds count for less: it heals itself at a discount
-      for (const a of party(p)) if (a !== p && Combat.dist(p.pos, a.pos) <= H.reach && a.hp / a.maxHp < bf) { best = a; bf = a.hp / a.maxHp; }
+      // a downed friend first, then whoever is hurt most (the healer's own wounds count for less: it heals itself at a discount)
+      let best = p, bf = p.hp / p.maxHp * (1 / (H.self || 1));
+      for (const a of party(p)) { if (a === p || Combat.dist(p.pos, a.pos) > H.reach) continue; const f = a.state === 'down' ? -1 : a.hp / a.maxHp; if (f < bf) { best = a; bf = f; } }
       FX.glint(Combat.chestPos(best.pos, 1.5), col, 1.6, 0.35); Snd.play('cast');
-      mend(best, p, amount, H.self);
+      aggro(p, mend(best, p, amount, H.self));
     }
     return 0;
   }

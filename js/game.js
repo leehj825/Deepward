@@ -498,7 +498,7 @@ function enterCamp(atSpawn = true) {
     }
   }
   Items.save();
-  Player.refit(G.player, scene, true); Player.revive(G.player);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore();
   if (atSpawn) placeHero(at);
   $('waveN').textContent = World.label(); $('foesN').textContent = '';
 }
@@ -571,7 +571,7 @@ G.descend = (k, onward) => fadeTo(() => {
   clearEnemies(); G.blessings = []; G.run = null; G.arena = null; if (!onward) drinkTonics();
   const at = World.startStage(k); curseWorld();
   G.mode = 'dungeon'; G.stageK = k; if (!onward) Items.S.tripGold = 0;
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
   const S = Items.S, st = CFG.story, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
   if (!S.story.pre[k]) {
@@ -734,7 +734,7 @@ G.enterArena = A => fadeTo(() => {
   G.arena = A;
   const at = World.startCustom(def, { si: A.si || 0, k: A.lvl, mult: 1 + CFG.stageScale * A.lvl, hpMult: 1 + CFG.stageHp * A.lvl });
   G.mode = 'dungeon'; G.stageK = A.lvl; curseWorld();
-  Player.refit(G.player, scene, true); Player.revive(G.player); placeHero(at);
+  Player.refit(G.player, scene, true); Player.revive(G.player); Party.restore(); placeHero(at);
   G.state = 'play'; $('waveN').textContent = World.label();
 });
 G.arenaGold = arenaGold;
@@ -754,7 +754,7 @@ G.goFloor = () => fadeTo(() => {
   const at = Endless.start(G.run);
   G.mode = 'dungeon'; G.stageK = CFG.stages.length - 1 + G.run.floor;
   Endless.record(G.run); Items.save();
-  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player);
+  Player.refit(G.player, scene, G.run.floor === 1); Player.revive(G.player); Party.restore(G.run.floor === 1, 0.3);
   if (G.run.floor > 1) { const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); if (!G.cursed('dry')) p.flasks = Math.max(p.flasks, 1); }
   placeHero(at); G.state = 'play'; $('waveN').textContent = World.label(); curseWorld();
   if (G.run.curses.length) UI.toast('Cursed: ' + G.run.curses.map(id => { const c = CFG.curses.find(x => x.id === id); return c.icon + ' ' + c.name; }).join(', ') + ` · +${Math.round(Endless.curseGold(G.run.curses) * 100)}% gold`, '#c06aff');
