@@ -59,13 +59,14 @@ async function main() {
   const t0 = Date.now(), elapsed = () => (Date.now() - t0) / 60000;
   const cur = readW(), th0 = Float64Array.from(CLS.flatMap(c => (cur.cb && cur.cb[c]) || new Array(NA).fill(0)));
   console.log(`launching ${W} headless browsers`);
-  const pages = [];
-  for (let i = 0; i < W; i++) {
+  const launch = async () => {
     const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
     const pg = await b.newPage({ viewport: { width: 400, height: 300 } });
     await pg.goto('file://' + path.resolve(__dirname, '../../index.html')); await pg.evaluate(() => localStorage.clear()); await pg.reload(); await pg.waitForTimeout(300);
-    pages.push({ b, pg });
-  }
+    return { b, pg };
+  };
+  const pages = [];
+  for (let i = 0; i < W; i++) pages.push(await launch());
   let fights = 0;
   if (process.env.CALIBRATE) {
     const seeds = Array.from({ length: 60 }, (_, i) => 1000 + i), run = async mode => { const out = []; let nx = 0; await Promise.all(pages.map(async ({ pg }) => { while (nx < seeds.length) { const sd = seeds[nx++]; out.push(await pg.evaluate(`(${FIGHT})(${JSON.stringify([sd, null, mode])})`)); } })); return out; };
@@ -75,16 +76,27 @@ async function main() {
   // Run a list of (mode, cb, seed) fights over the workers; returns the results in order
   async function runAll(tasks) {
     const out = new Array(tasks.length); let next = 0;
-    await Promise.all(pages.map(async ({ pg }) => {
+    await Promise.all(pages.map(async slot => {
       while (next < tasks.length) {
         const i = next++, [mode, cb, seed] = tasks[i];
-        try { out[i] = await pg.evaluate(`(${FIGHT})(${JSON.stringify([seed, cb, mode])})`); fights++; }
-        catch (e) { out[i] = { r: 0, cleared: false, downs: 0, died: false, heroLost: 0, compLost: 0, time: 0, err: String(e.message).slice(0, 80) }; }
+        // A fight that does not come back in 100 s (a stuck browser) is abandoned: the browser is replaced and the fight skipped (null)
+        for (let tryN = 0; tryN < 2 && out[i] === undefined; tryN++) {
+          let timer;
+          try {
+            out[i] = await Promise.race([slot.pg.evaluate(`(${FIGHT})(${JSON.stringify([seed, cb, mode])})`), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), 100000); })]); fights++;
+          } catch (e) {
+            console.log('  a fight failed (' + String(e.message).slice(0, 60) + '): replacing a browser');
+            try { await Promise.race([slot.b.close(), new Promise(r => setTimeout(r, 5000))]); } catch (e2) {}
+            try { Object.assign(slot, await launch()); } catch (e3) { console.log('  could not relaunch', e3.message); }
+          } finally { clearTimeout(timer); }
+        }
+        if (out[i] === undefined) out[i] = null;
       }
     }));
     return out;
   }
-  const rewards = rs => mean(rs.map(x => x.r));
+  const valid = rs => rs.filter(x => x);
+  const rewards = rs => mean(valid(rs).map(x => x.r));
 
   // ---------- evolution strategies on the 28 preferences ----------
   const K = 14, SIGMA = 2.0, LR = 0.25, B = 8, CLIP = 6;
@@ -114,8 +126,8 @@ async function main() {
   const A = await runAll(testSeeds.map(s => ['base', null, s]));              // the network as shipped without preferences
   const Bn = await runAll(testSeeds.map(s => ['net', toCb(best.th), s]));     // with the trained preferences
   const Cr = await runAll(testSeeds.map(s => ['rules', null, s]));            // the plain rules
-  const diff = (X, Y) => { const d = X.map((x, i) => x.r - Y[i].r), md = mean(d), sd = Math.sqrt(mean(d.map(x => (x - md) ** 2))); return { md, ci: 1.96 * sd / Math.sqrt(d.length) }; };
-  const row = (n, X) => `${n.padEnd(34)} reward ${rewards(X).toFixed(1).padStart(6)}  cleared ${(mean(X.map(x => x.cleared ? 1 : 0)) * 100).toFixed(0).padStart(3)}%  downs/fight ${mean(X.map(x => x.downs)).toFixed(2)}  warden died ${(mean(X.map(x => x.died ? 1 : 0)) * 100).toFixed(0)}%`;
+  const diff = (X, Y) => { const d = X.map((x, i) => x && Y[i] ? x.r - Y[i].r : null).filter(x => x !== null), md = mean(d), sd = Math.sqrt(mean(d.map(x => (x - md) ** 2))); return { md, ci: 1.96 * sd / Math.sqrt(d.length) }; };
+  const row = (n, X0) => { const X = valid(X0); return `${n.padEnd(34)} reward ${rewards(X).toFixed(1).padStart(6)}  cleared ${(mean(X.map(x => x.cleared ? 1 : 0)) * 100).toFixed(0).padStart(3)}%  downs/fight ${mean(X.map(x => x.downs)).toFixed(2)}  warden died ${(mean(X.map(x => x.died ? 1 : 0)) * 100).toFixed(0)}%`; };
   console.log(row('network, no preferences', A)); console.log(row('network + trained preferences', Bn)); console.log(row('plain rules', Cr));
   const dBA = diff(Bn, A), dBC = diff(Bn, Cr), dAC = diff(A, Cr);
   console.log(`trained minus no preferences: ${dBA.md.toFixed(2)} ± ${dBA.ci.toFixed(2)};  trained minus rules: ${dBC.md.toFixed(2)} ± ${dBC.ci.toFixed(2)};  network minus rules: ${dAC.md.toFixed(2)} ± ${dAC.ci.toFixed(2)}`);
@@ -128,9 +140,9 @@ Test: ${N} fresh randomized fights, the same scenarios three ways.
 
 | | Reward | Fights won | Companions downed per fight | Warden died |
 | --- | --- | --- | --- | --- |
-| Plain rules | ${rewards(Cr).toFixed(1)} | ${(mean(Cr.map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(Cr.map(x => x.downs)).toFixed(2)} | ${(mean(Cr.map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
-| Network as shipped (no preferences) | ${rewards(A).toFixed(1)} | ${(mean(A.map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(A.map(x => x.downs)).toFixed(2)} | ${(mean(A.map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
-| Network + trained preferences | ${rewards(Bn).toFixed(1)} | ${(mean(Bn.map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(Bn.map(x => x.downs)).toFixed(2)} | ${(mean(Bn.map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
+| Plain rules | ${rewards(Cr).toFixed(1)} | ${(mean(valid(Cr).map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(valid(Cr).map(x => x.downs)).toFixed(2)} | ${(mean(valid(Cr).map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
+| Network as shipped (no preferences) | ${rewards(A).toFixed(1)} | ${(mean(valid(A).map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(valid(A).map(x => x.downs)).toFixed(2)} | ${(mean(valid(A).map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
+| Network + trained preferences | ${rewards(Bn).toFixed(1)} | ${(mean(valid(Bn).map(x => x.cleared ? 1 : 0)) * 100).toFixed(0)}% | ${mean(valid(Bn).map(x => x.downs)).toFixed(2)} | ${(mean(valid(Bn).map(x => x.died ? 1 : 0)) * 100).toFixed(0)}% |
 
 Paired differences in reward: trained minus no preferences ${dBA.md.toFixed(2)} ± ${dBA.ci.toFixed(2)}; trained minus rules ${dBC.md.toFixed(2)} ± ${dBC.ci.toFixed(2)}; network minus rules ${dAC.md.toFixed(2)} ± ${dAC.ci.toFixed(2)} (95%).
 ${ok ? 'Written to js/policy_weights.js (weights.cb).' : 'Not written: the trained preferences were not better than the network without them, or clearly worse than the rules.'}
