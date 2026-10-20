@@ -37,7 +37,14 @@ Run `npm run policy:test -- 8`. It must pass (the network no worse than the plai
 simulator but fails here is not shipped: that is what happened with the 20-minute simulator continuation (see the design doc). Then
 commit `js/policy_weights.js`; the debug APK build starts on its own when `js/**` changes.
 
-## Without your own machine
+## Without your own machine (GitHub Actions)
 
-Actions, **Train companion policy**, Run workflow (inputs: kind and minutes). It runs the same commands on a GitHub runner and
-uploads `js/policy_weights.js` and the reports as an artifact; download it, check the report, and commit the weights if you accept them.
+The workflow `.github/workflows/train-policy.yml` runs the same commands on a GitHub runner and uploads `js/policy_weights.js` and the
+reports as an artifact (Actions, the run, **companion-policy** at the bottom). It commits nothing: read the report, and commit the
+weights yourself if you accept them. Two ways to start it:
+
+1. **From the Actions tab.** Actions, **Train companion policy**, Run workflow, pick the kind (`real` or `simulator`) and the minutes.
+   GitHub only shows that button for workflows on the default branch, so this works once the branch with the workflow is merged into `main`.
+2. **From a work branch, before any merge.** On GitHub open the branch, Add file, Create new file, name it
+   `tools/policy/train-request.json`, put `{"kind": "real", "minutes": 45}` in it and commit to that same branch. The commit starts a run
+   (Actions, All workflows, **Train companion policy**). To train again, edit the file (change the minutes) and commit. Minutes are capped at 110.

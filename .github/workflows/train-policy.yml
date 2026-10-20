@@ -1,8 +1,13 @@
 # Trains the companions' battle policy on a GitHub runner (headless) and uploads the weights and the reports as an artifact.
-# Run it from GitHub: Actions -> "Train companion policy" -> Run workflow. Nothing is committed: download the artifact, read the
-# report, and commit js/policy_weights.js yourself if you accept it (see docs/TRAINING.md).
+# Two ways to start it (see docs/TRAINING.md):
+#   - Actions -> "Train companion policy" -> Run workflow (the button appears once this file is on the default branch);
+#   - from a work branch (ccr-*): create or edit tools/policy/train-request.json, e.g. {"kind": "real", "minutes": 45}, and commit it.
+# Nothing is committed back: download the artifact, read the report, and commit js/policy_weights.js yourself if you accept it.
 name: Train companion policy
 on:
+  push:
+    branches: ['ccr-*']
+    paths: ['tools/policy/train-request.json']
   workflow_dispatch:
     inputs:
       kind:
@@ -15,7 +20,7 @@ on:
         default: '45'
 jobs:
   train:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04            # not ubuntu-latest: Playwright 1.56 does not support its newest Ubuntu (26.04)
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5
@@ -28,12 +33,24 @@ jobs:
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
+      - name: Read the request
+        id: req
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            kind="${{ inputs.kind }}"; minutes="${{ inputs.minutes }}"
+          else
+            kind=$(node -p "require('./tools/policy/train-request.json').kind || 'real'")
+            minutes=$(node -p "require('./tools/policy/train-request.json').minutes || 45")
+          fi
+          [ "$minutes" -gt 110 ] && minutes=110
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"; echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+          echo "Training: $kind for $minutes minutes"
       - name: Train
         run: |
-          if [ "${{ inputs.kind }}" = "real" ]; then
-            node tools/policy/real_train.js "${{ inputs.minutes }}" 3
+          if [ "${{ steps.req.outputs.kind }}" = "real" ]; then
+            node tools/policy/real_train.js "${{ steps.req.outputs.minutes }}" 3
           else
-            node tools/policy/train.js "${{ inputs.minutes }}" --continue
+            node tools/policy/train.js "${{ steps.req.outputs.minutes }}" --continue
           fi
       - name: Check the result in the real game
         run: node tools/policy_test.js 8 || true
