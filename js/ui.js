@@ -372,7 +372,7 @@ const UI = (() => {
       const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')

@@ -53,7 +53,7 @@ const Party = (() => {
     p.rig.root.parent.add(rig.root);
     const a = {
       id: d.id, def: d, cls: d.cls, ally: true, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
-      phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, shots: 0, speedK: 0, cycle: 0,
+      phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, guardT: 0, decT: 0, shots: 0, speedK: 0, cycle: 0,
       S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
     };
     a.pos.x += Math.sin(p.facing + 1.5) * 1.5; a.pos.z += Math.cos(p.facing + 1.5) * 1.5;
@@ -77,7 +77,7 @@ const Party = (() => {
   // ---------------- Taking damage ----------------
   function hurt(a, e, hit) {
     if (a.state === 'down') return;
-    const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * Settings.diff.dmg;
+    const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * (a.guardT > 0 ? 0.5 : 1) * Settings.diff.dmg;           // a guarding warrior takes half
     a.hp = Math.max(0, a.hp - n); a.hitT = 0;
     FX.text(Combat.chestPos(a.pos, 2.0), '-' + Math.round(n), 'hurt'); Snd.play('hit');
     FX.burst(Combat.chestPos(a.pos, 1.2), 0xc0201a, 6, 3, 0.3);
@@ -165,40 +165,75 @@ const Party = (() => {
     }
     if (hit) { Snd.play('hit'); }
   }
-  // The few rules. Returns a movement goal {x, z, run} or null to stand.
-  function think(a, p, dt) {
-    const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
-    a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt;
-    const goHome = () => Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
-    if (dp > CP.far || a.state === 'attack' || noFight) return goHome();          // following comes first
-    a.target = pickTarget(a, p);
-    const t = a.target;
-    if (a.cls === 'cleric') {
-      // Heal the hurt first; smite when everyone is well
-      const group = Shots.party(a).filter(m => Combat.dist(a.pos, m.pos) < 8), low = Math.min(...group.map(m => m.state === 'down' ? 0 : m.hp / m.maxHp)), hurtN = group.filter(m => m.state === 'down' || m.hp / m.maxHp < 0.6).length;
-      if (a.cd <= 0 && (low < 0.4 || hurtN >= 2) && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; return null; }
-      if (a.cd <= 0 && low < 0.75) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 2.2; return null; }
-      if (t && a.cd <= 0 && D(a, t) < 11) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; }
-      return goHome();
+  // ---------------- Deciding ----------------
+  // What a companion sees of the moment (see js/policy.js for the meaning of each number)
+  const frac = m => m.state === 'down' ? 0 : Math.max(0, m.hp / m.maxHp);
+  function stateOf(a, p) {
+    const t = a.target, party = Shots.party(a), near = party.filter(m => m !== a && Combat.dist(a.pos, m.pos) < 8), grp = [a].concat(near);
+    const foes = G.enemies.filter(usable), others = (G.allies || []).filter(m => m !== a);
+    let nearest = 99, ne = null, danger = 3, targeted = 0;
+    for (const e of foes) {
+      const d = Combat.dist(a.pos, e.pos); if (d < nearest) { nearest = d; ne = e; }
+      if (e.tgt !== a) continue;
+      targeted++;
+      if (e.state === 'attack' && e.phase === 'wind' && e.atk) danger = Math.min(danger, Math.max(0, e.atk.hits[e.hitIdx].wind - e.phaseT));
     }
+    for (const ar of Enemy.arrows) {                                               // an arrow or orb on its way to this companion
+      if (ar.back) continue;
+      const dx = a.pos.x - ar.pos.x, dz = a.pos.z - ar.pos.z, d = Math.hypot(dx, dz);
+      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93) danger = Math.min(danger, d / ar.speed);
+    }
+    a.nearest = ne;
+    return {
+      cls: a.cls, hp: frac(a), hero: frac(p), other: others.length ? Math.min(...others.map(frac)) : 1, downed: others.filter(m => m.state === 'down').length,
+      dHero: Combat.dist(a.pos, p.pos), dEnemy: t ? D(a, t) : nearest, nNear: foes.filter(e => Combat.dist(a.pos, e.pos) < 7).length, nHero: foes.filter(e => Combat.dist(p.pos, e.pos) < 7).length,
+      targeted, danger, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
+      lowest: Math.min(...grp.filter(m => Combat.dist(a.pos, m.pos) < 8).map(frac)), hurtN: grp.filter(m => m.state === 'down' || frac(m) < 0.6).length, hasTarget: !!t,
+    };
+  }
+  // Doing the chosen move: starts a blow when it is ready, and returns a movement goal {x, z, run} (or null to stand)
+  function execute(a, act, p) {
+    const A = Policy.A, t = a.target, home = homeOf(a, p), toward = (e, run = true) => ({ x: e.pos.x, z: e.pos.z, run });
+    const goHome = () => (Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: Combat.dist(a.pos, p.pos) > 6 } : null);
+    if (act === A.guard) { a.guardT = 0.6; return null; }
+    if (act === A.regroup) return goHome();
+    if (act === A.kite) {
+      const e = a.nearest; if (!e) return goHome();
+      const d = Math.max(0.1, Combat.dist(a.pos, e.pos)), k = 3 / d;
+      return { x: a.pos.x + (a.pos.x - e.pos.x) * k, z: a.pos.z + (a.pos.z - e.pos.z) * k, run: true };
+    }
+    if (act === A.heal) { if (a.cd <= 0) { begin(a, P.combos.scepterHeal[0], { dmg: 0 }); a.cd = 2.2; } return null; }
+    if (act === A.area) { if (a.cd <= 0 && a.healCd <= 0) { begin(a, P.heavies.scepterHeal, { dmg: 0 }); a.cd = 1.2; a.healCd = 7; } return null; }
     if (!t) return goHome();
-    const d = D(a, t);
-    if (a.cls === 'warrior') {
-      if (d < 2.3 && a.cd <= 0) { begin(a, P.light[a.shots++ % 3]); a.cd = 0.55; return null; }
-      return d > 1.7 ? { x: t.pos.x, z: t.pos.z, run: true } : null;
-    }
-    // ranged: hold the middle distance, back away when crowded
-    const far = a.cls === 'archer' ? 9 : 10;
-    if (d < 4.2) {                                                              // crowded: shoot if ready (a foe chasing us never lets go), else back away
-      if (a.cd <= 0 && d > 1.6) { begin(a, a.cls === 'archer' ? P.combos.bow[0] : P.combos.staff[0]); a.cd = 1.0; return null; }
-      const k = 3 / Math.max(0.1, d); return { x: a.pos.x + (a.pos.x - t.pos.x) * k, z: a.pos.z + (a.pos.z - t.pos.z) * k, run: true, fire: true }; }
-    if (d > far) return { x: t.pos.x, z: t.pos.z, run: true };
-    if (a.cd <= 0) {
-      if (a.cls === 'archer') { if (a.heavyCd <= 0 && d < 7) { begin(a, P.heavies.bow); a.heavyCd = 6; } else begin(a, P.combos.bow[0]); a.cd = 1.0; }
-      else { if (a.heavyCd <= 0) { begin(a, P.heavies.staff); a.heavyCd = 9; } else begin(a, P.combos.staff[0]); a.cd = 1.3; }
+    const d = D(a, t), cls = a.cls, far = cls === 'archer' ? 9 : cls === 'cleric' ? 11 : 10;
+    if (act === A.heavy) {
+      if (cls === 'warrior' && d > 2.4) return toward(t);
+      if (a.cd <= 0 && a.heavyCd <= 0) {
+        const H = cls === 'warrior' ? P.heavy : cls === 'archer' ? P.heavies.bow : cls === 'mage' ? P.heavies.staff : P.heavies.scepter;
+        begin(a, H); a.heavyCd = cls === 'warrior' ? 5 : cls === 'archer' ? 6 : cls === 'mage' ? 9 : 8; a.cd = 1.0;
+      }
       return null;
     }
+    // attack
+    if (cls === 'warrior') { if (d < 2.3 && a.cd <= 0) { begin(a, P.light[a.shots++ % 3]); a.cd = 0.55; return null; } return d > 1.7 ? toward(t) : null; }
+    if (cls === 'cleric') { if (a.cd <= 0 && d < far) { begin(a, P.combos.scepter[0]); a.cd = 1.6; return null; } return d > far ? toward(t) : null; }
+    if (d > far) return toward(t);
+    if (a.cd <= 0 && d > 1.6) { begin(a, cls === 'archer' ? P.combos.bow[0] : P.combos.staff[0]); a.cd = cls === 'archer' ? 1.0 : 1.3; }
     return null;
+  }
+  // Following comes first; in a fight the learned policy (or, with it off or missing, the rules) picks the move
+  function think(a, p, dt) {
+    const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
+    a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt; a.decT -= dt;
+    if (dp > CP.far || a.state === 'attack' || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
+    a.target = pickTarget(a, p);
+    if (a.decT <= 0 || a.act === undefined) {
+      a.decT = 0.3; const s = stateOf(a, p), legal = Policy.legal(s);
+      let act = Settings.get('learnedAI') !== false ? Policy.choose(s) : null;
+      if (act == null || !legal[act]) act = Policy.classic(s);
+      a.act = act;
+    }
+    return execute(a, a.act, p);
   }
 
   function update(dt) {
@@ -245,7 +280,7 @@ const Party = (() => {
       const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
       const atk = a.state === 'attack' ? a.atk : null;
       Rig.animate(r, {
-        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
+        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
         phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
         atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
       }, dt);
