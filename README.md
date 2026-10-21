@@ -263,7 +263,7 @@ Next, in order (details in `docs/DESIGN.md` → Roadmap):
 ## Ads
 
 A small banner (320 x 50, top centre, not the whole top) sits above the place name; the HUD makes room for it only once an ad has loaded, so with no ad the place name keeps its spot.
-- **Android app:** a Google AdMob banner through `@capacitor-community/admob`. It ships with Google's public **test** ids (test ads, no earnings). To go live: create the app and a banner unit in AdMob, put the unit id in `CONF.admob.banner` and set `testing: false` in `js/ads.js`, and set the app id as the `ADMOB_APP_ID` environment variable in the build (`tools/android_patch.js` writes it into the manifest).
+- **Android app:** a Google AdMob banner through `@capacitor-community/admob`, with Deepward's own AdMob app id (in the manifest, written by `tools/android_patch.js`) and banner unit id (`CONF.admob.banner` in `js/ads.js`). `CONF.admob.testing` is **on**: the banner asks for Google's test ads from that unit, so you can run the game without clicking your own live ads (AdMob bans accounts for that). Set it to `false` for the build you publish.
 - **Web:** an AdSense slot, off until `CONF.client` and `CONF.slot` in `js/ads.js` are filled in (AdSense does not serve inside an app WebView).
 
 ## Run

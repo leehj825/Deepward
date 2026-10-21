@@ -1,13 +1,13 @@
 // Deepward - the ad banner. In the Android app it is a Google AdMob banner (the Capacitor plugin @capacitor-community/admob) at the top
-// centre: 320 x 50, not the whole width, drawn over the game by the system. By default it shows Google's TEST ads (their public test
-// ids), so nothing is earned yet: put your AdMob banner unit id in CONF.admob.banner and turn CONF.admob.testing off to go live (and
-// your AdMob app id in the build as ADMOB_APP_ID, see tools/android_patch.js). On the web it is an AdSense slot (below).
+// centre: 320 x 50, not the whole width, drawn over the game by the system. The banner unit is Deepward's own. `testing` makes
+// it ask for Google's TEST ads from that unit (the safe way to develop: AdMob bans accounts that click their own live ads); turn it
+// off for the build that goes to the store. The app id is in the manifest (tools/android_patch.js). On the web it is an AdSense slot (below).
 // The web slot: a small banner at the top centre, above the name of the place. It is hidden until an ad has really
 // arrived, so without a publisher id, without a network, or when no ad is filled, nothing shows and the place name keeps its spot.
 // Fill in client (ca-pub-...) and slot (the ad unit's id) from the AdSense account to switch it on. AdSense serves web pages; the
 // Android app's WebView needs AdMob (a native plugin) instead - this slot only reacts to what ends up inside it.
 const Ads = (() => {
-  const CONF = { client: '', slot: '', width: 320, height: 50, admob: { banner: 'ca-app-pub-3940256099942544/6300978111', testing: true } };
+  const CONF = { client: '', slot: '', width: 320, height: 50, admob: { banner: 'ca-app-pub-4400173019354346/4461123131', testing: true } };
   let el = null;
   const show = on => { document.body.classList.toggle('has-ad', !!on); if (el) el.style.display = on ? 'block' : 'none'; };
   const native = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.AdMob);
