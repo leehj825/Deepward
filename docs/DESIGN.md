@@ -448,8 +448,9 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 
 Ordinary blows no longer stagger the warden (built: only unblockable, area, boss and heavy blows do, and not during the warden's own heavy swing; `CFG.player.staggerPosture`). The steps below build on that.
 
-**H1. Hordes.** Bigger packs (5 to 8 foes: many light ones, one or two strong), more foes attacking at once (`maxAttackers` 2 to about 4 on Normal, the rest circling), waves that chain when the last is nearly cleared, a kill-streak that feeds the ultimate and drops health orbs, a cap on live foes for phones.
-- Exit: the bot clears the stages with the horde on, a test of the attacker limit, 50+ FPS with the cap on.
+**H1. Hordes (built).** Bigger packs (5 to 8 foes: many light ones, one or two strong), more foes attacking at once (`maxAttackers` 2 to about 4 on Normal, the rest circling), waves that chain when the last is nearly cleared, a kill-streak that feeds the ultimate and drops health orbs, a cap on live foes for phones.
+- Built (`CFG.horde`, `tools/horde_test.js`): a wave gains one extra light foe per foe (plus one every two sections; half on Story, 1.3x on Hard) of its own light kinds, at most 14 alive from one section; the next wave comes when 2 are left (not in side rooms); attackers at once 3 + 1 on Normal (2 Story, 5 Hard); every 5 kills within 4 s of each other: 3% health and 3 s off the ultimate; extras pay 40% xp and gold so a stage pays about what it did. The balance bot clears stages 1-4 with 0-6 deaths (casual), as before.
+- Still open: 50+ FPS on a real phone with a full horde (P1).
 
 **H2. Natural spaces: caves.** Walkable space becomes shapes (circles, blobs, tunnels of varying width) instead of rectangles: `World.inSpace`, the camera's wall push, the movement limits of heroes, foes and companions, and the walls follow the shape. First theme: caves (chambers, winding tunnels, stalactites, glowing crystals, pools). Rectangular rooms stay as they are; a stage can mix styles.
 - Exit: a cave stage that plays end to end, no stuck spots, the old rooms unchanged (all room tests pass).

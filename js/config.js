@@ -271,13 +271,23 @@ const CFG = {
       ],
     },
   },
-  maxAttackers: 2,
+  maxAttackers: 3,
+  // Hordes: a section's waves grow by extra light foes (the wave's own kinds that are in the fodder list), the next wave comes as the
+  // last few fall, and a run of kills in quick succession pays back (a streak step every `step` kills: health and a shorter ultimate cooldown)
+  horde: {
+    fodder: ['skeleton', 'goblin', 'wolf', 'scout', 'spider'],
+    extra: 1.0,               // extra foes per foe in the wave (times the difficulty's `horde`), plus one more every two sections
+    extraPay: 0.4,            // the extras pay this share of the usual experience and gold (the stage's pay stays about the same)
+    cap: 14,                  // most foes alive and waiting from one section at once (phones)
+    chainAt: 2,               // the next wave starts when this many or fewer of the last are left
+    streakGap: 4, streakStep: 5, streakHeal: 0.03, streakUlt: 3,
+  },
   // Difficulty (Settings): damage the hero takes, enemy health, how long enemies wait between attacks, extra enemies
   // allowed to attack at once, and a change to the parry window
   difficulty: {
-    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: 0, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
-    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, parry: 0, desc: 'As intended' },
-    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, parry: -0.03, desc: 'Harder hits, tougher foes, three may attack at once, a tight parry window' },
+    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: -1, horde: 0.5, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
+    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 1, horde: 1, parry: 0, desc: 'As intended' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 2, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, five may attack at once, a tight parry window' },
   },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages

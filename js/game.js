@@ -313,6 +313,7 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.extra) e.extra = true;                                           // a horde extra: pays less
     if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
       const B = q.fieldBoss;
       if (B.boss) Enemy.makeBoss(e, CFG.monsterBosses[B.boss]);             // a big monster: grown, with phases
@@ -595,12 +596,21 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  // A run of kills close together: every few steps a little health back and the ultimate sooner
+  if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
+    const H = CFG.horde;
+    G.streak = G.time - (G.streakAt || -99) < H.streakGap ? (G.streak || 0) + 1 : 1; G.streakAt = G.time;
+    if (G.streak >= H.streakStep && G.streak % H.streakStep === 0) {
+      const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * H.streakHeal); if (p.ultCd > 0) p.ultCd = Math.max(0, p.ultCd - H.streakUlt);
+      FX.text(Combat.chestPos(p.pos, 2.6), '×' + G.streak + ' STREAK', 'gold');
+    }
+  }
   if (G.boss === e) G.boss = null;
   if (!Items.S || G.mode === 'camp') return;
-  const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
+  const xp = e.def.xp * e.mult * (e.extra ? CFG.horde.extraPay : 1) * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
-  const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
+  const g = Items.addGold(e.def.gold * e.mult * (e.extra ? CFG.horde.extraPay : 1) * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
   // A field boss: its spoils, and when it comes back

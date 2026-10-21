@@ -419,7 +419,16 @@ const World = (() => {
   }
   // ---------------- Encounters ----------------
   function spawnWave(room) {
-    const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
+    let list = (room.waves || room.inf.room.waves)[room.wave].slice(); const p = G.player, baseN = list.length;
+    // The horde: a section's wave gains extra light foes of the kinds it already holds (or its stage's), up to the cap
+    if (room.kind !== 'side' && !room.inf.stage.monster && !room.noHorde) {
+      const H = CFG.horde, light = t => H.fodder.includes(t);
+      let pool = [...new Set(list.filter(light))];
+      if (!pool.length) pool = [...new Set(room.inf.stage.rooms.flatMap(r => r.waves.flat()).filter(light))];
+      const live = G.enemies.filter(e => e.room === room && e.state !== 'dead').length + G.queue.filter(q => q.room === room).length;
+      const n = Math.min(Math.max(0, H.cap - live - list.length), Math.round((list.length * H.extra + Math.floor(room.j / 2)) * (Settings.diff.horde || 1)));
+      if (pool.length) for (let i = 0; i < n; i++) list.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
     const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale + (room.inf.si || 0) * CFG.stageScale;
     const hpMult = room.inf.hpMult || 1 + (room.inf.si || 0) * CFG.stageHp;
     // Spawn spots: across the section, away from the hero and the pillars
@@ -436,7 +445,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ extra: k >= baseN, type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
@@ -554,9 +563,10 @@ const World = (() => {
         a.t += dt;
         if (a.state === 'start' && a.t > (a.inf.room.guardian && a.kind !== 'side' ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
         else if (a.state === 'fight') {
-          const alive = G.enemies.some(e => e.room === a && e.state !== 'dead') || G.queue.some(q => q.room === a);
+          const left = G.enemies.filter(e => e.room === a && e.state !== 'dead').length + G.queue.filter(q => q.room === a).length, more = a.wave < (a.waves || a.inf.room.waves).length - 1;
+          const alive = more && a.kind !== 'side' ? left > CFG.horde.chainAt : left > 0;          // the next wave comes as the last few fall
           if (!alive) {
-            if (a.wave < (a.waves || a.inf.room.waves).length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            if (more) { a.waveDelay += dt; if (a.waveDelay > (left ? 0.5 : 1.2)) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
             else if (p.state !== 'dead') clearRoom(a);
           }
         }
