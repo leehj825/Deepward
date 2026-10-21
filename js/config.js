@@ -87,6 +87,7 @@ const CFG = {
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
     hurtStun: 0.32,
+    staggerPosture: 30,          // a blow with at least this much posture (or an unblockable, area or boss blow) staggers the warden; lighter ones do not
   },
   feel: {
     hitStop: 0.06, heavyHitStop: 0.11, parrySlowmo: 0.35, parrySlowScale: 0.25,
