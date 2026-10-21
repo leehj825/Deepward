@@ -10,7 +10,13 @@ const Story = (() => {
   const has = f => (f.charAt(0) === '!' ? !flags()[f.slice(1)] : !!flags()[f]);
   const set = f => { if (f) flags()[f] = true; };
   const cur = () => (Items.S ? M().steps[state().i] || null : null);
-  const objective = () => { const c = cur(); return c ? c.obj : ''; };
+  // A guardian step is done once that stage has been cleared (Items.S.stage is the highest unlocked), even if the warden pressed on
+  // without going home or spoke to someone later than the story expected
+  function sync() {
+    const S = Items.S; if (!S) return;
+    for (let c = cur(); c && c.on && c.on[0] === 'guardian' && S.stage > c.on[1]; c = cur()) { state().i++; set('done_' + c.id); Items.save(); }
+  }
+  const objective = () => { sync(); const c = cur(); return c ? c.obj : ''; };
   const toast = t => { if (typeof UI !== 'undefined') UI.toast(t, '#f2d27a'); };
 
   // Play a scene; `after` runs when it ends (at once if one cannot play now). Returns true when a scene took over
@@ -28,6 +34,7 @@ const Story = (() => {
   function event(kind, arg, done) {
     if (!Items.S) return false;
     if (kind === 'find') set('found_' + arg);
+    sync();
     const c = cur();
     if (c && c.on && c.on[0] === kind && c.on[1] === arg) {
       state().i++; set('done_' + c.id); Items.save();

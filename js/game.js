@@ -681,6 +681,7 @@ G.onChest = room => {
   else if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
   else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
+    if (k < CFG.stages.length) Story.event('guardian', k);                 // (the story notes it at once, not only at home)
     G.after(1.3, () => {
       if (G.mode !== 'dungeon') return;
       const done = () => openPanel('cleared', { k, guardian: room.inf.stage.guardian });

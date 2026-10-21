@@ -298,6 +298,22 @@ Result on Normal:
 
 Real players are slower to react than the bot, so expect more deaths.
 
+### Full playthrough and balance pass (hordes, natural spaces, the story)
+
+`node tools/balance.js story [casual|skilled] [class]` plays a whole campaign in the headless game with the scripted warden: a new warden, the camp round (Maren, Hobb's yard, Rook, Tilda, Bram, every scene read and every choice answered at random), then for each of the ten stages the gear and level of a typical player, the dungeon with its relics examined, the guardian, its chest (and the ending after the Hollow King), the way home and the epilogue. `PARTY=1` brings Hobb and Aldo along.
+
+| Run | Stages cleared | Deaths | Ending | Notes |
+| --- | --- | --- | --- | --- |
+| Skilled, alone | 10 / 10 | 6 | the Watch | every beat seen except Rook's no-banner line (the banner was found); 11 relics; the final boss 110 s |
+| Casual, alone | 10 / 10 | 10 | the Relief | the last stage takes 419 s, the Hollow King 144 s and one death |
+| Skilled, with Hobb and Aldo | 10 / 10 | 1 | the Watch | companions soak up damage; stages are 30 to 40% quicker |
+
+What the runs found and what changed:
+- A relic placed behind rocks could trap the bot for the whole run (a hang of 900 s in the Spider Depths): the bot gives up on a relic after 25 s now; `tools/cave_test.js` also checks by a grid flood that every relic can be reached (all ten styled and plain stages, four layouts each).
+- The bot never opened the last guardian's chest, so the ending never played: the playthrough walks to the chest as the warden would.
+- **A real bug:** the story only noted a guardian when the warden went home, so pressing on to the next stage, or talking to Maren later than the story expected, could leave the chain waiting for an event that never came again. A guardian step now completes whenever that stage has been cleared (`Story.sync`, from `Items.S.stage`), and the event also fires when the guardian's chest is opened.
+- Balance stands as tuned (extras at 70%, three attackers at once): the skilled warrior dies 0 to 4 times in a stage (the Iron Keep's town was the roughest in Act I), the casual one a little more in the first three stages and the last two.
+
 ### The world above (tuned against stage gold)
 
 A full stage pays about 490 gold at the Crypt and 3200 at the Throne (enemies, chests, a vault, the guardian). Against that:
