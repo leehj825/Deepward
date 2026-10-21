@@ -14,6 +14,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; col
 @keyframes blink { to { border-color: transparent; } }
 
 #waveBox { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 2px 4px #000; }
+#adSlot { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5; max-width: 100vw; line-height: 0; overflow: hidden; border-radius: 4px; }
+body:not(.playing) #adSlot { display: none !important; }
+body.has-ad #waveBox { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
 #waveBox b { display: block; font-size: 18px; letter-spacing: 0.12em; color: #f2d27a; }
 #waveBox small { font-size: 12px; opacity: 0.75; }
 #questLine { display: block; margin-top: 2px; color: #f2d27a; opacity: 0.9 !important; }
@@ -86,6 +89,13 @@ body:not(.playing) #hud, body:not(.playing) #minimap, body:not(.playing) #mapInf
   #hud { width: min(260px, 52vw); }
   #waveBox { left: auto; right: max(12px, env(safe-area-inset-right)); top: calc(56px + env(safe-area-inset-top)); transform: none; text-align: right; }
   #waveBox b { font-size: 15px; }
+    /* a narrow screen has no room beside the ad: it takes the top row and the rest moves down */
+  body.has-ad #hud { top: calc(60px + env(safe-area-inset-top)); }
+  body.has-ad #corner { top: calc(58px + env(safe-area-inset-top)); }
+  body.has-ad #minimap { top: calc(106px + env(safe-area-inset-top)); }
+  body.has-ad #mapInfo { top: calc(262px + env(safe-area-inset-top)); }
+  body.has-ad #waveBox { top: calc(106px + env(safe-area-inset-top)); }
+  body.has-ad #tip { top: 158px; }
   body.touch #tip { top: 110px; font-size: 13px; }
 }
 #keys .vb { display: none; }
@@ -374,3 +384,18 @@ body.lightless #minimap, body.lightless #mapInfo { display: none !important; }
 html[lang="ko"] body { word-break: keep-all; }
 html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }
 html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
+
+/* Scenes: the speaker's words typed at the bottom of the screen, choices under them */
+#sceneBox { position: fixed; left: 50%; bottom: calc(14vh + env(safe-area-inset-bottom)); transform: translate(-50%, 10px); width: min(720px, calc(100vw - 32px)); padding: 12px 18px 10px; background: rgba(8, 6, 10, 0.82); border: 1px solid rgba(255, 230, 190, 0.25); border-radius: 10px; opacity: 0; pointer-events: none; z-index: 6; transition: opacity 0.25s, transform 0.25s; }
+#sceneBox.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
+#sceneBox .sn { color: #f2d27a; font-weight: 700; letter-spacing: 0.1em; font-size: 14px; margin-bottom: 4px; }
+#sceneBox .st { font-size: 17px; line-height: 1.5; min-height: 3em; text-shadow: 0 1px 3px #000; }
+#sceneBox .sc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+#sceneBox .sc button { text-align: left; padding: 8px 12px; background: rgba(255, 230, 190, 0.08); border: 1px solid rgba(255, 230, 190, 0.25); color: #eee; border-radius: 6px; font: inherit; cursor: pointer; }
+#sceneBox .sc button.on, #sceneBox .sc button:hover { background: rgba(242, 210, 122, 0.22); border-color: #f2d27a; }
+#sceneBox .sh { text-align: right; opacity: 0; font-size: 13px; color: #f2d27a; }
+#sceneBox.done .sh { opacity: 0.8; } #sceneBox.done .sc:not(:empty) + .sh { display: none; }
+#sceneBox .sh small { opacity: 0.6; font-size: 11px; margin-left: 6px; }
+body.scene #hud, body.scene #minimap, body.scene #mapInfo, body.scene #waveBox, body.scene #corner, body.scene #adSlot, body.scene #prompt, body.scene #party { opacity: 0; pointer-events: none; }
+#objective { font-size: 12px; color: #f2d27a; text-shadow: 0 1px 3px #000; margin: 4px 0 2px; opacity: 0.9; } #objective:empty { display: none; } #objective::before { content: '◈ '; }
+body.scene #pad, body.scene #stick, body.scene #padKeys, body.scene #keys, body.scene #lesson, body.scene #tip { display: none !important; }

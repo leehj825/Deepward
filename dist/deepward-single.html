@@ -24,6 +24,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; col
 @keyframes blink { to { border-color: transparent; } }
 
 #waveBox { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 2px 4px #000; }
+#adSlot { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5; max-width: 100vw; line-height: 0; overflow: hidden; border-radius: 4px; }
+body:not(.playing) #adSlot { display: none !important; }
+body.has-ad #waveBox { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
 #waveBox b { display: block; font-size: 18px; letter-spacing: 0.12em; color: #f2d27a; }
 #waveBox small { font-size: 12px; opacity: 0.75; }
 #questLine { display: block; margin-top: 2px; color: #f2d27a; opacity: 0.9 !important; }
@@ -96,6 +99,13 @@ body:not(.playing) #hud, body:not(.playing) #minimap, body:not(.playing) #mapInf
   #hud { width: min(260px, 52vw); }
   #waveBox { left: auto; right: max(12px, env(safe-area-inset-right)); top: calc(56px + env(safe-area-inset-top)); transform: none; text-align: right; }
   #waveBox b { font-size: 15px; }
+    /* a narrow screen has no room beside the ad: it takes the top row and the rest moves down */
+  body.has-ad #hud { top: calc(60px + env(safe-area-inset-top)); }
+  body.has-ad #corner { top: calc(58px + env(safe-area-inset-top)); }
+  body.has-ad #minimap { top: calc(106px + env(safe-area-inset-top)); }
+  body.has-ad #mapInfo { top: calc(262px + env(safe-area-inset-top)); }
+  body.has-ad #waveBox { top: calc(106px + env(safe-area-inset-top)); }
+  body.has-ad #tip { top: 158px; }
   body.touch #tip { top: 110px; font-size: 13px; }
 }
 #keys .vb { display: none; }
@@ -385,6 +395,20 @@ html[lang="ko"] body { word-break: keep-all; }
 html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }
 html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
 
+/* Scenes: the speaker's words typed at the bottom of the screen, choices under them */
+#sceneBox { position: fixed; left: 50%; bottom: calc(14vh + env(safe-area-inset-bottom)); transform: translate(-50%, 10px); width: min(720px, calc(100vw - 32px)); padding: 12px 18px 10px; background: rgba(8, 6, 10, 0.82); border: 1px solid rgba(255, 230, 190, 0.25); border-radius: 10px; opacity: 0; pointer-events: none; z-index: 6; transition: opacity 0.25s, transform 0.25s; }
+#sceneBox.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
+#sceneBox .sn { color: #f2d27a; font-weight: 700; letter-spacing: 0.1em; font-size: 14px; margin-bottom: 4px; }
+#sceneBox .st { font-size: 17px; line-height: 1.5; min-height: 3em; text-shadow: 0 1px 3px #000; }
+#sceneBox .sc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+#sceneBox .sc button { text-align: left; padding: 8px 12px; background: rgba(255, 230, 190, 0.08); border: 1px solid rgba(255, 230, 190, 0.25); color: #eee; border-radius: 6px; font: inherit; cursor: pointer; }
+#sceneBox .sc button.on, #sceneBox .sc button:hover { background: rgba(242, 210, 122, 0.22); border-color: #f2d27a; }
+#sceneBox .sh { text-align: right; opacity: 0; font-size: 13px; color: #f2d27a; }
+#sceneBox.done .sh { opacity: 0.8; } #sceneBox.done .sc:not(:empty) + .sh { display: none; }
+#sceneBox .sh small { opacity: 0.6; font-size: 11px; margin-left: 6px; }
+body.scene #hud, body.scene #minimap, body.scene #mapInfo, body.scene #waveBox, body.scene #corner, body.scene #adSlot, body.scene #prompt, body.scene #party { opacity: 0; pointer-events: none; }
+#objective { font-size: 12px; color: #f2d27a; text-shadow: 0 1px 3px #000; margin: 4px 0 2px; opacity: 0.9; } #objective:empty { display: none; } #objective::before { content: '◈ '; }
+
 </style>
 </head>
 <body>
@@ -396,17 +420,20 @@ html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
   <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span><span id="modeBox" style="display:none" title="Cleric mode (V)">✦ Smite</span></div>
   <div id="bless"></div>
   <div id="party" style="display:none"></div>
+  <div id="objective"></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
 <div id="prompt"></div>
 <div id="toast"></div>
+<div id="adSlot" style="display:none"></div>
 <div id="waveBox"><b id="waveN">Wave 1</b><small id="foesN"></small><small id="questLine"></small></div>
 <div id="corner"><button id="viewBtn" title="Switch camera (B)">🎥</button><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Mute (M)">🔊</button></div>
 <canvas id="minimap" title="Map (N)"></canvas><div id="mapInfo"></div>
 <div id="bars"></div>
 <div id="floaters"></div>
 <div id="banner"></div>
+<div id="sceneBox"><div class="sn"></div><div class="st"></div><div class="sc"></div><div class="sh">▶ <small>Enter / click · Esc skips</small></div></div>
 <div id="tip"></div>
 <div id="lesson"></div>
 <div id="padKeys"><b>LS</b> move · <b>RS</b> camera (click: lock on) · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
@@ -544,6 +571,7 @@ const CFG = {
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
     hurtStun: 0.32,
+    staggerPosture: 30,          // a blow with at least this much posture (or an unblockable, area or boss blow) staggers the warden; lighter ones do not
   },
   feel: {
     hitStop: 0.06, heavyHitStop: 0.11, parrySlowmo: 0.35, parrySlowScale: 0.25,
@@ -727,13 +755,67 @@ const CFG = {
       ],
     },
   },
-  maxAttackers: 2,
+  maxAttackers: 3,
+
+  // The main story: a chain of objectives (shown in the HUD) that move on with what the warden does (`on`: [event, argument]);
+  // a step can play a scene when it completes. Scenes are scripts for js/scene.js (a person, lines, choices that jump to labels).
+  mainStory: {
+    steps: [
+      { id: 'greet', obj: 'Speak with Maren by the fire', on: ['talk', 'elder'], scene: 'greet' },
+      { id: 'yard', obj: "Visit Hobb's training yard, east of the camp", on: ['talk', 'trainer'], scene: 'yard' },
+      { id: 'crypt', obj: 'Go down the gate and defeat the Bone Warden', on: ['guardian', 0] },
+      { id: 'report', obj: 'Tell Maren what you found in the Crypt', on: ['talk', 'elder'], scene: 'report' },
+      { id: 'aldric', obj: 'Defeat Sir Aldric in the Iron Keep', on: ['guardian', 1] },
+      { id: 'king', obj: 'Tell Maren what Sir Aldric said', on: ['talk', 'elder'], scene: 'king' },
+      { id: 'more', obj: 'The story goes on below the Keep' },
+    ],
+    scenes: {
+      greet: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.' },
+        { label: 'menu', text: 'Ask what you will. I have no long answers, only true ones.', choices: [{ text: 'What is down there?', go: 'what' }, { text: 'Louder how?', go: 'louder' }, { text: 'Where do I start?', go: 'start' }] },
+        { label: 'what', text: 'Dead things that will not lie down. Knights who sealed the gate and kept their post past death. And at the bottom, something that wears a crown.', go: 'menu' },
+        { label: 'louder', text: 'The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.', go: 'menu' },
+        { label: 'start', text: 'Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.' },
+        { text: 'Come back and tell me you are alive. That is all I ask of any warden.' },
+      ] },
+      yard: { who: null, name: 'Hobb', steps: [
+        { text: 'Maren sent you. She always does, when she is worried.' },
+        { text: 'Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.' },
+        { text: 'Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.' },
+      ] },
+      report: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You are back. That is the Warden\'s bone on your cloak. Sit, before you fall.' },
+        { text: 'Tell me: did it speak?', choices: [{ text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { label: 'wait', text: 'They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.', go: 'tail' },
+        { label: 'nothing', text: 'Nothing is a kind of answer, down there. Remember it.', go: 'tail' },
+        { label: 'tail', text: 'The Iron Keep is next. Take a shield you trust, and come back whole.' },
+      ] },
+      king: { who: 'elder', name: 'Maren', steps: [
+        { text: 'Aldric. They sent a knight to pull the oath out of him, and you did it.' },
+        { text: 'What did he say at the end?', choices: [{ text: 'A name: the Hollow King.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
+        { label: 'name', text: '...So it has a name now. I had hoped it would not. Names are how things get their hold on us.', go: 'tail' },
+        { label: 'nothing', text: 'Then it was not meant for you to follow. Not yet.', go: 'tail' },
+        { label: 'tail', text: 'The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.' },
+      ] },
+    },
+  },
+  // Hordes: a section's waves grow by extra light foes (the wave's own kinds that are in the fodder list), the next wave comes as the
+  // last few fall, and a run of kills in quick succession pays back (a streak step every `step` kills: health and a shorter ultimate cooldown)
+  horde: {
+    fodder: ['skeleton', 'goblin', 'wolf', 'scout', 'spider'],
+    extra: 0.6,               // extra foes per foe in the wave (times the difficulty's `horde`), plus one more every two sections
+    extraDmg: 0.7, extraHp: 0.7,     // the extras are weaker than the wave proper: a crowd to cut through, not a wall
+    extraPay: 0.4,            // the extras pay this share of the usual experience and gold (the stage's pay stays about the same)
+    cap: 12,                  // most foes alive and waiting from one section at once (phones)
+    chainAt: 2,               // the next wave starts when this many or fewer of the last are left
+    streakGap: 4, streakStep: 5, streakHeal: 0.03, streakUlt: 3,
+  },
   // Difficulty (Settings): damage the hero takes, enemy health, how long enemies wait between attacks, extra enemies
   // allowed to attack at once, and a change to the parry window
   difficulty: {
-    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: 0, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
-    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, parry: 0, desc: 'As intended' },
-    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, parry: -0.03, desc: 'Harder hits, tougher foes, three may attack at once, a tight parry window' },
+    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: -1, horde: 0.5, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
+    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, horde: 1, parry: 0, desc: 'As intended' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, four may attack at once, a tight parry window' },
   },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages
@@ -909,15 +991,15 @@ const CFG = {
   // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
   themes: {
     crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
-    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
-    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks' },
+    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates', style: 'town' },
+    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks', style: 'cave' },
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
-    depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs' },
+    depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs', style: 'cave' },
     court: { stone: [72, 68, 76], wall: [42, 38, 48], torch: 0xe8e0ff, fog: 0x07060c, hemi: 0x9090b0, decor: 'court' },
     temple: { stone: [40, 66, 64], wall: [34, 56, 56], torch: 0x5affd0, fog: 0x03080a, hemi: 0x5a9a9a, decor: 'water' },
-    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice' },
+    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice', style: 'cave' },
     forge: { stone: [52, 40, 36], wall: [44, 32, 28], torch: 0xff5a1a, fog: 0x0e0503, hemi: 0xc06a40, decor: 'forge' },
-    orchard: { stone: [62, 58, 50], wall: [52, 48, 42], torch: 0xd8ff9a, fog: 0x080806, hemi: 0x9aa080, decor: 'orchard' },
+    orchard: { stone: [52, 60, 42], wall: [36, 46, 30], torch: 0xd8ff9a, fog: 0x070a06, hemi: 0x90a880, decor: 'orchard', style: 'forest' },
     throne: { stone: [30, 26, 34], wall: [24, 20, 28], torch: 0xffc040, fog: 0x050307, hemi: 0x8a7aa0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
@@ -1414,7 +1496,7 @@ const CFG = {
 <script>
 // Deepward - player settings (volume, camera, screen shake), kept in the browser apart from the saved game.
 const Settings = (() => {
-  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, learnedAI: true, learnOnline: true, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true, keys: {}, padKeys: {}, lang: /^ko/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'ko' : 'en' };
+  const D = { master: 0.8, music: 0.6, sfx: 0.9, sens: 1, invertY: false, mouse: false, shake: true, quality: 'auto', difficulty: 'normal', cues: false, learnedAI: true, learnOnline: true, companionDodge: true, timingRing: true, hitstop: true, slowmo: true, haptics: true, padScale: 1, padOpacity: 0.9, lefty: false, padLayout: {}, perf: false, autoRes: true, keys: {}, padKeys: {}, lang: /^ko/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'ko' : 'en' };
   const s = { ...D }, subs = [];
   try { Object.assign(s, JSON.parse(localStorage.getItem('dw_settings') || '{}')); } catch (e) {}
   return {
@@ -1468,6 +1550,7 @@ const LANG_KO = {
 ", half the gold gathered on this trip.": ", 이번 원정에서 모은 골드의 절반입니다.",
 "- block it, or block right at impact to": "- 막거나, 맞는 순간에 막아서",
 "- unblockable:": "- 막기 불가:",
+"...So it has a name now. I had hoped it would not. Names are how things get their hold on us.": "...그럼 이제 이름이 생겼구나. 그러지 않길 바랐는데. 이름이야말로 그것들이 우리를 붙잡는 방법이니까.",
 "/click attack ·": "/클릭 공격 ·",
 "/right-click block ·": "/우클릭 막기 ·",
 "A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.": "붉은 빛은 막을 수 없습니다. 대시(@dodge)로 뚫고 지나가세요. 대시 중에는 무적입니다.",
@@ -1491,6 +1574,7 @@ const LANG_KO = {
 "A leaping overhead that breaks guards · {0} s": "방어를 부수는 도약 내려찍기 · {0}초",
 "A long dashing thrust that strikes from afar": "멀리서 파고드는 긴 돌진 찌르기",
 "A long dashing thrust that strikes from afar · {0} s": "멀리서 파고드는 긴 돌진 찌르기 · {0}초",
+"A name: the Hollow King.": "이름 하나요. 텅 빈 왕이라고.",
 "A parry looses a blade of light down the line": "패링하면 빛의 칼날이 일직선으로 날아갑니다",
 "A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast is a stronger smite or an area heal. Weaker than the mage in a fight.": "홀과 성서. 성스러운 화살, 또는 전환하여 치유. 강공격은 더 강한 응징 또는 범위 치유입니다. 전투력은 마법사보다 약합니다.",
 "A staff and an orb. Arcane bolts and a fireball that burns a crowd. The hardest hitter and the frailest.": "지팡이와 보주. 비전 화살, 그리고 무리를 태우는 불덩이. 가장 강력하지만 가장 약합니다.",
@@ -1505,6 +1589,7 @@ const LANG_KO = {
 "Aegis of the Pale": "창백한 자의 아이기스",
 "After a dash through an attack, your next blow deals {0}% per rank": "공격을 대시로 뚫고 지나간 뒤, 다음 일격이 랭크당 {0}% 피해를 줍니다",
 "Aldo": "알도",
+"Aldric. They sent a knight to pull the oath out of him, and you did it.": "알드릭이라. 그에게서 맹세를 끌어내려고 기사까지 보냈는데, 네가 해냈구나.",
 "All": "전체",
 "All the Banners": "모든 깃발",
 "Amulet": "목걸이",
@@ -1537,6 +1622,7 @@ const LANG_KO = {
 "ArrowUp": "ArrowUp",
 "Arrows cost a quarter less stamina": "화살의 기력 소모가 4분의 1 줄어듭니다",
 "As intended": "의도된 난이도",
+"Ask what you will. I have no long answers, only true ones.": "묻고 싶은 걸 물어봐. 긴 대답은 없지만 거짓 없는 대답만 해주지.",
 "Attack": "공격",
 "Attack, Heavy, Block (hold), Dash": "공격, 강공격, 막기(누르기), 대시",
 "Auto (High)": "자동(높음)",
@@ -1674,7 +1760,9 @@ const LANG_KO = {
 "Close": "닫기",
 "Codex": "기록집",
 "Cold": "차가움",
+"Come back and tell me you are alive. That is all I ask of any warden.": "돌아와서 살아 있다고 말해줘. 어느 감시자에게든 내가 바라는 건 그것뿐이야.",
 "Common": "일반",
+"Companions dash out of telegraphed blows": "동료가 예고된 공격을 대시로 피합니다",
 "Companions keep learning from your fights": "동료가 전투에서 계속 배웁니다",
 "Companions use the learned battle policy (Off: the plain rules)": "동료가 학습된 전투 방침을 사용 (끄면 기본 규칙)",
 "Conduit": "전도체",
@@ -1724,6 +1812,7 @@ const LANG_KO = {
 "Dawnbreaker": "새벽을 가르는 자",
 "Dawnlight": "새벽빛",
 "Day": "낮",
+"Dead things that will not lie down. Knights who sealed the gate and kept their post past death. And at the bottom, something that wears a crown.": "누워 쉬지 못하는 죽은 것들. 문을 봉인하고 죽어서도 자리를 지키는 기사들. 그리고 맨 밑바닥에는 왕관을 쓴 무언가가 있지.",
 "Deep Abomination": "심연의 흉물",
 "Deep Golem": "심연 골렘",
 "Deep Mutant": "심연 변종",
@@ -1735,6 +1824,7 @@ const LANG_KO = {
 "Deepward Hold · Day": "딥워드 요새 · 낮",
 "Deepward Stands": "딥워드는 건재하다",
 "Deepward is the last camp on the rim. Its wardens go down to push the dark back. Most do not come up.": "딥워드는 변두리 들판의 마지막 야영지입니다. 이곳의 파수꾼들은 어둠을 밀어내러 내려갑니다. 대부분은 돌아오지 못합니다.",
+"Defeat Sir Aldric in the Iron Keep": "강철 요새에서 알드릭 경 쓰러뜨리기",
 "Defeat Sir Aldric the Hollow": "공허한 알드릭 경 처치",
 "Defeat a guardian on Hard": "어려움 난이도에서 수호자 처치",
 "Defeat a guardian without taking a hit": "피격 없이 수호자 처치",
@@ -1780,6 +1870,7 @@ const LANG_KO = {
 "Empty": "비어 있음",
 "English": "English",
 "Enter": "Enter",
+"Enter / click · Esc skips": "Enter / 클릭 · Esc 건너뛰기",
 "Epic": "영웅",
 "Equip": "장착",
 "Equip (swap)": "장착 (교체)",
@@ -1872,6 +1963,7 @@ const LANG_KO = {
 "Go deeper": "더 깊이",
 "Go deeper · floor": "더 깊이 · 층",
 "Go deeper · floor {0}": "더 깊이 · {0}층",
+"Go down the gate and defeat the Bone Warden": "문을 내려가 뼈의 감시자 쓰러뜨리기",
 "Goblin": "고블린",
 "Goblin Scout": "고블린 정찰병",
 "Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.": "고블린 무리가 이따금 길을 따라 올라와 내 성문을 두들겨 댑니다. 뿔나팔이 울리면 달려오세요, 파수꾼.",
@@ -1914,6 +2006,8 @@ const LANG_KO = {
 "Half your health": "체력 절반",
 "Halo": "후광",
 "Hard": "어려움",
+"Harder hits, tougher foes, five may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 다섯이 동시에 공격, 좁은 패링 구간",
+"Harder hits, tougher foes, four may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 넷이 동시에 공격, 좁은 패링 구간",
 "Harder hits, tougher foes, three may attack at once, a tight parry window": "더 강한 공격, 더 질긴 적, 최대 세 명이 동시에 공격, 빠듯한 패링 판정 시간",
 "Hauberk": "사슬 갑옷",
 "Headsman": "처형인",
@@ -1943,6 +2037,7 @@ const LANG_KO = {
 "Hit-stop on impact": "타격 시 히트 스톱",
 "Hoard": "보물 더미",
 "Hobb": "홉",
+"Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.": "홉은 모닥불 동쪽에서 훈련장을 맡고 있어. 저 문에 가까이 가기 전에 그부터 만나. 돈을 받지 않을 거야. 그게 너를 마음에 들어 한다는 뜻이지.",
 "Hobb's Pupil": "홉의 제자",
 "Hold {0} gold": "골드 {0} 보유",
 "Hollow Duelist": "공허의 결투가",
@@ -1974,6 +2069,8 @@ const LANG_KO = {
 "Iron Will": "강철 의지",
 "Iron ore": "철광석",
 "It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.": "끝났습니다. 공허왕은 안식에 들었고, 심연은 사십 년 만에 처음으로 고요합니다.",
+"It said nothing.": "아무 말도 하지 않았어요.",
+"It was waiting for something.": "무언가를 기다리고 있었어요.",
 "Its acolytes throw light that hurts. Parry it at the last moment and it goes back the way it came.": "그 시종들은 해로운 빛을 던진다. 마지막 순간에 패링하면 빛이 온 길로 되돌아간다.",
 "J / left-click attack": "J / 왼쪽 클릭 공격",
 "Jerkin": "가죽 조끼",
@@ -2053,6 +2150,7 @@ const LANG_KO = {
 "Look sensitivity": "시점 감도",
 "Loop": "고리",
 "Lost": "패배",
+"Louder how?": "어떻게 더 시끄러워졌다는 거죠?",
 "Low turns shadows off and draws fewer pixels.": "낮음은 그림자를 끄고 화소를 줄여 그립니다.",
 "Lower it if the game stutters": "게임이 끊기면 낮추세요",
 "Lower it if the game stutters: Low turns shadows off and draws fewer pixels.": "게임이 끊기면 낮추세요. '낮음'은 그림자를 끄고 더 적은 픽셀을 그립니다.",
@@ -2065,6 +2163,7 @@ const LANG_KO = {
 "Main menu": "메인 메뉴",
 "Map (N)": "지도 (N)",
 "Maren": "마렌",
+"Maren sent you. She always does, when she is worried.": "마렌이 보냈군. 걱정될 때마다 늘 그러지.",
 "Maren: \"Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense.\"": "마렌: \"홉이 동쪽 울타리 옆 훈련장을 맡고 있어요. 수업은 여섯 가지예요. 공격, 막기, 패링, 대시, 그리고 비틀거리는 적을 마무리하는 법이죠. 분별이 있다면 그에게 먼저 가 보세요.\"",
 "Marked Men": "표적이 된 자들",
 "Marksman": "명사수",
@@ -2108,6 +2207,7 @@ const LANG_KO = {
 "Nell the gem cutter": "보석 세공사 넬",
 "Nell's Bench": "넬의 작업대",
 "New game": "새 게임",
+"New objective:": "새 목표:",
 "No Bottom": "바닥 없음",
 "No curses": "저주 없음",
 "No curses: the plain climb.": "저주 없음: 평범한 등반.",
@@ -2118,6 +2218,8 @@ const LANG_KO = {
 "Normal": "보통",
 "Not Left Behind": "남겨 두지 않는다",
 "Not a Chest": "상자가 아니다",
+"Nothing I could follow.": "알아들을 수 있는 말은 없었어요.",
+"Nothing is a kind of answer, down there. Remember it.": "저 아래에선 침묵도 대답이야. 기억해 둬.",
 "Nothing packed yet.": "아직 챙긴 것이 없습니다.",
 "Nothing you wear has a bonus to rework.": "착용 중인 장비 중 재조정할 보너스가 있는 것이 없습니다.",
 "Notice Board": "게시판",
@@ -2162,6 +2264,7 @@ const LANG_KO = {
 "Pinned by the fire": "모닥불 옆에 붙은 의뢰",
 "Pinned by the fire: work for anyone with a blade.": "모닥불 옆에 붙어 있다: 칼 든 자라면 누구나 할 수 있는 일거리.",
 "Play": "플레이",
+"Pointing device": "포인팅 장치",
 "Posture damage": "자세 피해",
 "Posture damage {0}": "자세 피해 {0}",
 "Posture damage, Health": "자세 피해, 체력",
@@ -2308,6 +2411,7 @@ const LANG_KO = {
 "Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.": "아드릭 경... 그를 알았어요. 전선을 지키겠다고 맹세했죠. 실제로 지켜냈어요. 다만 엉뚱한 쪽을 향한 채로요.",
 "Six cuts faster than the eye": "눈보다 빠른 여섯 번의 베기",
 "Six cuts faster than the eye · {0} s": "눈보다 빠른 여섯 번의 베기 · {0}초",
+"Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.": "여섯 가지 훈련이다. 베기, 막기, 패링, 대시, 그리고 무너뜨린 적을 마무리하는 법. 순서대로 하고, 지루한 것도 건너뛰지 마라. 지루한 것들이 너를 살려준다.",
 "Skeleton": "해골",
 "Skeleton Archer": "해골 궁수",
 "Skewer": "꿰뚫기",
@@ -2338,6 +2442,7 @@ const LANG_KO = {
 "Space": "Space",
 "Space dash": "Space 대시",
 "Spare Flask": "여분의 물약",
+"Speak with Maren by the fire": "모닥불 곁의 마렌과 이야기하기",
 "Spear": "창",
 "Spear: Skewer": "창: 꿰뚫기",
 "Spear: long thrusts and a wide sweep; heavy is a lunging thrust": "창: 긴 찌르기와 넓은 휩쓸기, 강공격은 돌진 찌르기",
@@ -2425,6 +2530,9 @@ const LANG_KO = {
 "Tear down": "철거",
 "Telegraph words (DASH! / PARRY! over special attacks)": "경고 문구 (특수 공격 위에 대시! / 패링! 표시)",
 "Tell Captain Rook what you found": "루크 대장에게 발견한 것을 보고하기",
+"Tell Maren what Sir Aldric said": "알드릭 경이 한 말을 마렌에게 전하기",
+"Tell Maren what you found in the Crypt": "지하묘지에서 본 것을 마렌에게 알리기",
+"Tell me: did it speak?": "말해줘, 그것이 말을 했나?",
 "Temper": "담금질",
 "Temper · ⛏{0} ⚙{1}": "단련 · ⛏{0} ⚙{1}",
 "Tempered:": "단련됨:",
@@ -2453,6 +2561,7 @@ const LANG_KO = {
 "The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.": "소굴의 어미는 죽었는데, 심연은 여전히 숨을 쉬어요. 아래쪽 바위가 있어선 안 될 만큼 따뜻해요.",
 "The Den Mother was a woodwife once, before the Deep took her children. She keeps the goblins now.": "소굴의 어미는 한때 숲의 아낙이었다. 심연이 그녀의 아이들을 앗아가기 전까지는. 이제 그녀는 고블린들을 거느린다.",
 "The Den Mother's Hand": "소굴의 어미의 손",
+"The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.": "소굴은 요새 아래에 있어. 돌아오면 더 이야기해 주지. 이 이야기는 하룻밤으로 끝나지 않아.",
 "The Drowned Bishop": "익사한 주교",
 "The Drowned Hollow": "물에 잠긴 골짜기",
 "The Drowned Prophet": "익사한 예언자",
@@ -2476,6 +2585,7 @@ const LANG_KO = {
 "The Hollow Sentinel": "공허의 파수병",
 "The Ice Bulwark": "얼음 방벽",
 "The Iron Keep": "강철 성채",
+"The Iron Keep is next. Take a shield you trust, and come back whole.": "다음은 강철 요새야. 믿을 만한 방패를 챙기고, 온전히 돌아와.",
 "The King's Hand": "왕의 손",
 "The Meadow": "초원",
 "The Mire Queen": "수렁의 여왕",
@@ -2502,6 +2612,7 @@ const LANG_KO = {
 "The Tidecaller": "물결을 부르는 자",
 "The War Camp": "전쟁 야영지",
 "The Widow": "과부",
+"The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.": "요새의 종이 밤마다 저절로 울려. 나흘 전엔 그 소리에 가락이 있었어. 누군가의 이름을 부르는 것처럼.",
 "The dark closes in, and no map": "어둠이 조여 오는데, 지도는 없다",
 "The deepest ring we know of": "우리가 아는 가장 깊은 고리",
 "The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.": "우리가 아는 가장 깊은 고리는 그림자 궁정이에요. 그곳의 결투가들은 한때 귀족이었죠. 지금도 귀족처럼 싸워요.",
@@ -2522,10 +2633,14 @@ const LANG_KO = {
 "The stair goes down into the dark. Where will you go?": "계단은 어둠 속으로 이어집니다. 어디로 가시겠습니까?",
 "The stair keeps going. Floor {0} is {1}% tougher. Go home now and the gold is safe; fall and you lose half of this trip's.": "계단은 계속 이어집니다. {0}층은 {1}% 더 강합니다. 지금 돌아가면 골드는 안전하지만, 쓰러지면 이번 원정에서 얻은 골드의 절반을 잃습니다.",
 "The stone hums. Choose one blessing; it holds until you leave this stage.": "돌이 웅웅거립니다. 축복 하나를 고르세요. 이 구역을 떠날 때까지 유지됩니다.",
+"The story goes on below the Keep": "이야기는 요새 아래에서 계속된다",
 "Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.": "놈들이 덮치면 방패도 튕겨 나간다. 마지막 순간에 패링으로 받아치거나, 아예 그 자리에 없어야 해.",
 "Their shields still hold. A heavy blow breaks a guard, or get behind them.": "놈들의 방패는 아직 버티고 있다. 강한 일격으로 방어를 깨거나, 뒤로 돌아가라.",
 "Then heat again. A forge, still burning, with no one to feed it but the Deep itself.": "그리고 다시 열기. 아직 타오르는 대장간인데, 불을 지피는 건 심연뿐이다.",
+"Then it was not meant for you to follow. Not yet.": "그렇다면 네가 따라갈 일이 아니었던 거야. 아직은.",
+"Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.": "그다음엔 문이다. 지하묘지부터 시작해라. 느리고 정직한 죽은 자들이지. 그 밑바닥은 뼈의 감시자가 지키고 있다.",
 "There is fire below the ice. Strange, the Deep.": "얼음 아래에 불이 있다. 기이한 곳이지, 심연은.",
+"They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.": "모두 그렇지. 알드릭도 기다리고 있을 거야. 심연이 이미 집어삼킨 왕에게 맹세했으니까.",
 "They have learned from {0} fight.": "{0}번의 전투에서 배웠습니다.",
 "They have learned from {0} fights.": "{0}번의 전투에서 배웠습니다.",
 "They have not learned from your fights yet.": "아직 당신의 전투에서 배운 것이 없습니다.",
@@ -2538,11 +2653,13 @@ const LANG_KO = {
 "Tilda the quartermaster": "보급관 틸다",
 "Tilda's Stall": "틸다의 가판대",
 "Tilda's people drag you back up the stair.": "틸다의 사람들이 당신을 계단 위로 끌어올립니다.",
+"Timing circle on enemy blows (shrinks to the moment of impact)": "적의 공격에 타이밍 원 표시 (타격 순간까지 줄어듭니다)",
 "Tomas": "토마스",
 "Tome": "성서",
 "Tonics": "강장제",
 "Tonics:": "강장제:",
 "Topaz": "토파즈",
+"Trackpad": "트랙패드",
 "Trade": "거래",
 "Train now": "지금 훈련",
 "Train with Hobb (six lessons, {0} gold the first time)": "홉과 훈련 (수업 6회, 첫 회 {0} 골드)",
@@ -2588,6 +2705,7 @@ const LANG_KO = {
 "View camera": "View 카메라",
 "Vigor": "활력",
 "Villager": "마을 주민",
+"Visit Hobb's training yard, east of the camp": "야영지 동쪽 홉의 훈련장 찾아가기",
 "Vivid": "선명",
 "Volatile": "불안정",
 "Volatile Drowned Acolyte": "불안정한 익사한 시종",
@@ -2631,11 +2749,14 @@ const LANG_KO = {
 "Welcome back, warden!": "돌아온 걸 환영해, 파수꾼!",
 "Wenna the bard": "음유시인 웬나",
 "What Deepward could be, with enough gold.": "골드만 충분하다면, 딥워드는 이렇게 될 수 있습니다.",
+"What did he say at the end?": "마지막에 그가 뭐라고 했지?",
+"What is down there?": "저 아래에는 무엇이 있나요?",
 "What the Deep has taught you.": "심연이 당신에게 가르쳐 준 것.",
 "What the Deep swallows, it sends back up": "심연이 삼킨 것은 다시 올려 보낸다",
 "What the Deep swallows, it sends back up: bones that walk, knights who forgot their oaths, beasts grown fat in the dark.": "심연은 삼킨 것을 다시 토해 낸다. 걸어 다니는 뼈, 맹세를 잊은 기사, 어둠 속에서 살찐 짐승들.",
 "When its weapon burns red, do not block. Dash through it.": "무기가 붉게 타오르면 막지 마라. 대시로 뚫고 지나가.",
 "When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.": "칼날이 하얗게 번뜩이면 방패를 들어라. 마지막 순간에 들면 놈의 자세를 무너뜨릴 수 있다.",
+"Where do I start?": "어디서부터 시작하죠?",
 "Whetstone Oil": "숫돌 기름",
 "Whirlwind": "회오리바람",
 "White glint": "흰색 번뜩임",
@@ -2653,9 +2774,11 @@ const LANG_KO = {
 "Wrath": "분노",
 "Wynn": "윈",
 "Y ultimate": "Y 궁극기",
+"You are back. That is the Warden's bone on your cloak. Sit, before you fall.": "돌아왔구나. 망토에 묻은 건 감시자의 뼈로군. 쓰러지기 전에 앉아.",
 "You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.": "돌아왔구나, 파수꾼. 그게 유일한 규칙이었지. 끝없는 심연은 여전히 아래로 이어진다. 언젠가 들여다보고 싶다면.",
 "You carry gold. The ledger by the fire turns gold into a stronger camp.": "골드를 가지고 있군. 모닥불 옆 장부가 골드를 더 강한 야영지로 바꿔 준다.",
 "You have fallen": "쓰러졌습니다",
+"You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.": "이야기를 들어본 적 없는 얼굴이군. 좋아. 이야기는 심연보다 더 지독하니까.",
 "Your bag is full": "가방이 가득 찼습니다",
 "Your gems": "내 보석",
 "Your weapon burns": "무기가 불탄다",
@@ -3145,7 +3268,7 @@ const Items = (() => {
       gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1, looks: { skin: 0, hair: 0, style: 0, beard: 0 },
       camp: { forge: 0, apothecary: 0, yard: 0 },
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
-      story: { intro: false, pre: {}, post: {} },
+      story: { intro: false, pre: {}, post: {} }, main: { i: 0 }, flags: {},
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {}, policyAdapt: null,
       gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
@@ -4878,7 +5001,7 @@ const Rig = (() => {
 // Deepward - combat feedback: sparks, glints, ground rings, floating text, screen shake, hit-stop and slow motion.
 const FX = (() => {
   let scene, camera, layer;
-  const sparks = [], rings = [], glints = [], texts = [];
+  const sparks = [], rings = [], glints = [], texts = [], timings = [];
   const sparkGeo = new THREE.BoxGeometry(0.05, 0.05, 0.22);
   const time = { stop: 0, slow: 0, slowScale: 1 }, cam = { shake: 0 };
 
@@ -4887,6 +5010,13 @@ const FX = (() => {
     const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.6)'); g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, 64, 64);
     c.fillStyle = 'rgba(255,255,255,0.9)'; c.fillRect(30, 0, 4, 64); c.fillRect(0, 30, 64, 4);
+    return new THREE.CanvasTexture(cv);
+  })();
+
+  // A plain circle outline, for the closing timing circle
+  const circleTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+    c.strokeStyle = '#fff'; c.lineWidth = 9; c.beginPath(); c.arc(64, 64, 55, 0, Math.PI * 2); c.stroke();
     return new THREE.CanvasTexture(cv);
   })();
 
@@ -4906,6 +5036,18 @@ const FX = (() => {
     s.position.copy(pos); s.scale.setScalar(size); scene.add(s);
     glints.push({ s, life, max: life, size, follow });
     return s;
+  }
+  // The timing circle of an enemy blow: a ring that shrinks onto a small fixed circle and arrives exactly when the blow lands
+  // (`time` seconds from now). The last `parryWin` seconds are the parry window: the ring turns gold and bright (raise the block now).
+  // follow() gives where to draw it (the enemy keeps moving). Returns a handle with kill().
+  function timing(follow, color, time, r0, r1, parryWin) {
+    const mk = (op) => new THREE.Sprite(new THREE.SpriteMaterial({ map: circleTex, color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const outer = mk(0.85), inner = mk(0.55);
+    outer.renderOrder = inner.renderOrder = 999;
+    const at = follow(); outer.position.copy(at); inner.position.copy(at); outer.scale.setScalar(r0 * 2); inner.scale.setScalar(r1 * 2);
+    scene.add(outer, inner);
+    const o = { outer, inner, t: 0, time: Math.max(0.05, time), r0, r1, parryWin: Math.min(parryWin, time), follow, color, hit: 0, dead: false, kill() { this.dead = true; } };
+    timings.push(o); return o;
   }
   // A flat ring on the floor. grow: radius animates from r0 to r over the lifetime (used to telegraph area attacks).
   function ring(pos, r, color, life, opts = {}) {
@@ -4949,6 +5091,21 @@ const FX = (() => {
       s.o.scale.setScalar(Math.max(0.01, s.life / s.max));
       if (s.life <= 0) { scene.remove(s.o); sparks.splice(i, 1); }
     }
+    for (let i = timings.length - 1; i >= 0; i--) {
+      const o = timings[i]; let done = o.dead;
+      if (!done && o.hit <= 0) {
+        o.t += dt; const k = Math.min(1, o.t / o.time), win = o.time - o.t <= o.parryWin;
+        o.outer.scale.setScalar((o.r0 + (o.r1 - o.r0) * k) * 2);
+        o.outer.material.color.setHex(win ? 0xffe060 : o.color); o.outer.material.opacity = win ? 1 : 0.8; o.inner.material.color.setHex(win ? 0xffe060 : o.color);
+        const at = o.follow(); o.outer.position.copy(at); o.inner.position.copy(at);
+        if (o.t >= o.time) o.hit = 0.14;                                         // the blow lands: a flash that fades
+      } else if (o.hit > 0) {
+        o.hit -= dt; const f = Math.max(0, o.hit / 0.14);
+        o.outer.scale.setScalar(o.r1 * 2 * (1 + (1 - f) * 0.9)); o.outer.material.opacity = f; o.inner.material.opacity = f * 0.6;
+        if (o.hit <= 0) done = true;
+      }
+      if (done) { scene.remove(o.outer, o.inner); o.outer.material.dispose(); o.inner.material.dispose(); timings.splice(i, 1); }
+    }
     for (let i = glints.length - 1; i >= 0; i--) {
       const g = glints[i]; g.life -= dt; const k = g.life / g.max;
       g.s.scale.setScalar(g.size * (0.4 + Math.sin(k * Math.PI) * 0.9)); g.s.material.opacity = Math.min(1, k * 2);
@@ -4984,7 +5141,7 @@ const FX = (() => {
   }
 
   return {
-    init, burst, glint, ring, killRing, ghost, text, update, scaleDt, project,
+    init, burst, glint, ring, timing, killRing, ghost, text, update, scaleDt, project, get timings() { return timings; },
     shake(a) { if (!Settings.get('shake')) return; cam.shake = Math.min(0.6, Math.max(cam.shake, a)); },
     hitStop(t) { if (Settings.get('hitstop')) time.stop = Math.max(time.stop, t); },
     slowmo(t, s) { if (Settings.get('slowmo')) { time.slow = t; time.slowScale = s; } },
@@ -4993,6 +5150,7 @@ const FX = (() => {
       for (const s of sparks) scene.remove(s.o); sparks.length = 0;
       for (const r of rings) { scene.remove(r.m); if (r.fill) scene.remove(r.fill); } rings.length = 0;
       for (const g of glints) scene.remove(g.s); glints.length = 0;
+      for (const o of timings) scene.remove(o.outer, o.inner); timings.length = 0;
       for (const t of texts) t.d.remove(); texts.length = 0;
       for (const h of ghosts) { scene.remove(h.g); h.m.dispose(); } ghosts.length = 0;
       time.stop = time.slow = 0;
@@ -5437,9 +5595,15 @@ const Player = (() => {
     }
     Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt); G.rumble(hit.aoe ? 1 : 0.7, 0.5, hit.aoe ? 350 : 200);
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
-    knock(p, e.pos, hit.aoe ? 9 : 5);
+    // Hack and slash: an ordinary blow hurts but does not stop the warden (a little push, the combo goes on). Only a major one does:
+    // unblockable, an area blow, a boss's, or a heavy swing (posture at least P.staggerPosture). During the warden's own heavy swing even
+    // those but the unblockable and area ones are shrugged off.
+    const major = !!(hit.unblockable || hit.aoe || e.boss || (hit.posture || 0) >= P.staggerPosture);
+    const armoured = p.state === 'attack' && p.atkKind === 'heavy' && !hit.unblockable && !hit.aoe;
+    const flinch = major && !armoured;
+    knock(p, e.pos, hit.aoe ? 9 : flinch ? 5 : 1.6);
     G.stats.hitsTaken++;
-    if (!damage(p, dmg, e.pos) && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
+    if (!damage(p, dmg, e.pos) && flinch && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
     return 'hit';
   }
 
@@ -5582,6 +5746,7 @@ const Enemy = (() => {
   function endTelegraph(e) {
     Rig.glow(e.rig, 0, 0);
     if (e.ring) { FX.killRing(e.ring); e.ring = null; }
+    if (e.tmark) { if (!e.struck) e.tmark.kill(); e.tmark = null; }                  // a blow that never lands (stunned, parried, dead): the circle goes; one that landed finishes its flash
   }
 
   function pickAttack(e) {
@@ -5618,6 +5783,13 @@ const Enemy = (() => {
       e.aoeAt = e.aoeTo.clone().addScaledVector(dir, h.aoe.fwd); e.aimYaw = yaw;
     }
     if (h.aoe) e.ring = FX.ring(e.aoeAt, h.aoe.r, GLOW_RED, h.wind + h.active, { r0: 0.2, fill: true, fade: false });
+    // The timing circle: shrinks onto a small circle and arrives exactly when the blow lands (not for a feint, which never lands, nor
+    // for a shot, which has its own flight). Only for blows meant for the warden.
+    const hero = G.player;
+    if (!h.feint && !h.projectile && Settings.get('timingRing') !== false && hero && hero.state !== 'dead' && (e.tgt === hero || Combat.dist(e.pos, hero.pos) < (h.range || 2.5) + 2.5)) {
+      const sc = e.def.scale, hitT = h.wind + h.active * (h.leap ? 0.8 : 0.5), col = h.unblockable ? GLOW_RED : h.parryOnly ? GLOW_AMBER : GLOW_OK;
+      e.tmark = FX.timing(() => new THREE.Vector3(e.pos.x + Math.sin(e.facing) * e.def.radius * 0.5, 1.5 * sc + 0.25, e.pos.z + Math.cos(e.facing) * e.def.radius * 0.5), col, hitT, 0.7 + 0.45 * sc, 0.22 + 0.1 * sc, hero.S ? hero.S.parry : 0.2);
+    }
   }
 
   // ---------------- Aggro ----------------
@@ -6094,7 +6266,7 @@ const Enemy = (() => {
   // An enemy arrow or orb that meets a companion hurts them (the first one it touches)
   function hitAlly(a) {
     if (a.back) return false;
-    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit); return true; }
+    for (const al of G.allies || []) if (al.state !== 'down' && Math.hypot(a.pos.x - al.pos.x, a.pos.z - al.pos.z) < 0.55 && Math.abs(a.pos.y - 1.1) < 0.9) { return Party.hurt(al, { pos: a.origin, mult: a.mult, owner: a.owner }, a.hit) !== 'dodge'; }
     return false;
   }
   function updateArrows(dt) {
@@ -6326,21 +6498,22 @@ const Shots = (() => {
 
 </script>
 <script>
-// Deepward - the companions' battle policy: which of seven moves a companion makes next. The game and the offline trainer
+// Deepward - the companions' battle policy: which of eight moves a companion makes next. The game and the offline trainer
 // (tools/policy/) share this file, so what the network sees and chooses from is identical in both.
 //   state s   a small description of the moment (health of the companion, warden and others, distances, danger, cooldowns)
 //   classic   the hand-written rules (the companions' behaviour before there was a network, and the fallback)
-//   choose    the learned network (weights in js/policy_weights.js, made by tools/policy/train.js): a 21 -> 20 -> 7 MLP,
+//   choose    the learned network (weights in js/policy_weights.js, made by tools/policy/train.js): a 23 -> 20 -> 8 MLP,
 //             a few hundred numbers, run a few times a second. Illegal moves are masked out, so it can only reorder legal ones.
 // Following the warden comes before all of this (Party.think handles it); the policy decides what to do in a fight.
 const Policy = (() => {
-  const ACTIONS = ['attack', 'heavy', 'kite', 'regroup', 'heal', 'area', 'guard'];
+  const ACTIONS = ['attack', 'heavy', 'kite', 'regroup', 'heal', 'area', 'guard', 'dodge'];
   const CLS = ['warrior', 'archer', 'mage', 'cleric'];
   const A = Object.fromEntries(ACTIONS.map((n, i) => [n, i]));
-  const N_IN = 21;
+  const N_IN = 23;
   const cl = (v, m) => Math.max(0, Math.min(1, v / m));
   // The state is plain numbers: hp, hero, other, lowest are shares of health (0..1); distances in metres; danger is the seconds
-  // until the next blow aimed at this companion lands (3 when none); *Rdy are 0 or 1.
+  // until the next blow that would hit this companion strikes (a wind-up aimed at it or a ring on the floor around it, or an arrow on its
+  // way; 3 when none); *Rdy are 0 or 1; aoe is 1 when that blow is a ring (the way out is away from its middle).
   function encode(s) {
     const v = new Array(N_IN).fill(0);
     v[CLS.indexOf(s.cls)] = 1;
@@ -6348,6 +6521,7 @@ const Policy = (() => {
     v[i++] = s.hp; v[i++] = s.hero; v[i++] = s.other; v[i++] = cl(s.downed, 2); v[i++] = cl(s.dHero, 20); v[i++] = cl(s.dEnemy, 20);
     v[i++] = cl(s.nNear, 5); v[i++] = cl(s.nHero, 5); v[i++] = cl(s.targeted, 3); v[i++] = cl(s.danger, 3);
     v[i++] = s.atkRdy; v[i++] = s.heavyRdy; v[i++] = s.healRdy; v[i++] = s.lowest; v[i++] = cl(s.hurtN, 3); v[i++] = s.hasTarget ? 1 : 0;
+    v[i++] = s.dodgeRdy ? 1 : 0; v[i++] = s.aoe ? 1 : 0;
     return v;
   }
   // Which moves are possible right now
@@ -6360,10 +6534,13 @@ const Policy = (() => {
     m[A.heal] = s.cls === 'cleric' && !!s.atkRdy;
     m[A.area] = s.cls === 'cleric' && !!s.healRdy;
     m[A.guard] = s.cls === 'warrior';
+    m[A.dodge] = !!s.dodgeRdy && s.danger < 1.0;                 // only when a blow is coming
     return m;
   }
   // The hand-written rules: the behaviour the companions had before the network
   function classic(s) {
+    // The reflex: a dash through the last quarter second before a blow lands (the dash is untouchable for most of it)
+    if (s.dodgeRdy && s.danger >= 0.03 && s.danger <= 0.26) return A.dodge;
     if (s.cls === 'cleric') {
       if (s.healRdy && (s.lowest < 0.4 || s.hurtN >= 2)) return A.area;
       if (s.atkRdy && s.lowest < 0.75) return A.heal;
@@ -6378,7 +6555,8 @@ const Policy = (() => {
   }
 
   // ---------------- The network ----------------
-  const W = () => (typeof DW_POLICY !== 'undefined' && DW_POLICY && DW_POLICY.W1) ? DW_POLICY : null;
+  // The shipped weights, if they fit this file's inputs and moves (weights made for another shape are ignored: the rules play)
+  const W = () => (typeof DW_POLICY !== 'undefined' && DW_POLICY && DW_POLICY.W1 && DW_POLICY.in === N_IN && DW_POLICY.out === ACTIONS.length) ? DW_POLICY : null;
   function forward(w, x) {
     const h = new Array(w.hid);
     for (let j = 0; j < w.hid; j++) { let a = w.b1[j]; for (let i = 0; i < w.in; i++) a += w.W1[j * w.in + i] * x[i]; h[j] = Math.tanh(a); }
@@ -6411,7 +6589,7 @@ const Policy = (() => {
     const params = { LR: 0.25, CLIP: 2, EXPLORE: 0.25 };
     const make = saved => {
       const L = { bias: {}, base: 25, sd: 12, n: 0, ep: [], log: [] };
-      for (const c of CLS) L.bias[c] = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice() : new Array(ACTIONS.length).fill(0);
+      for (const c of CLS) { const b = (saved && saved.bias && saved.bias[c]) ? saved.bias[c].slice(0, ACTIONS.length) : []; while (b.length < ACTIONS.length) b.push(0); L.bias[c] = b; }      // (older saves have fewer moves: new ones start at 0)
       if (saved) { L.base = Math.max(-60, Math.min(90, saved.base === undefined ? 25 : saved.base)); L.sd = Math.min(30, saved.sd || 12); L.n = saved.n || 0; L.log = Array.isArray(saved.log) ? saved.log.slice(-30) : []; }
       return L;
     };
@@ -6464,7 +6642,7 @@ if (typeof module !== 'undefined') module.exports = Policy;
 </script>
 <script>
 // Generated by tools/policy/train.js (imitation of the rules, then evolution strategies in tools/policy/sim.js). Do not edit by hand.
-const DW_POLICY = {"in":21,"hid":20,"out":7,"W1":[3.3176,0.0316,0.6723,-3.1278,-0.4204,-0.2762,-0.2946,-0.1177,0.1678,6.902,-0.1119,0.0786,-0.6107,-0.4045,3.8074,2.8489,2.6426,-0.6562,-0.7085,-0.5644,0.1028,0.3504,-0.7814,-0.4034,2.4763,-0.7643,0.3278,0.5286,-0.9209,1.2882,2.053,-1.8451,1.1255,3.664,-0.4026,0.4874,0.5188,0.6406,-0.109,-1.1376,-0.168,0.4706,1.7006,-0.1769,-1.3679,-0.6075,-0.0055,0.8028,0.1615,1.4493,0.4279,1.8052,-0.5355,0.2584,0.1016,0.3924,-0.5749,1.0195,-0.6164,2.9754,-0.9267,-0.9407,0.3406,-0.7005,-0.298,-0.1281,0.8936,0.3947,-0.7079,0.1415,-0.4648,1.031,3.1737,0.0741,-1.4505,0.148,-0.1829,-0.1291,0.5809,-0.5372,-2.8889,0.7683,-0.4456,0.0588,1.2129,0.7589,-4.3238,-0.1784,-0.3309,0.2119,-0.2074,1.365,-1.226,3.4057,-11.6982,-0.3292,-0.661,-0.0438,-0.6051,-0.0131,-0.1579,-0.3982,-0.0101,-0.3656,0.856,1.5543,1.3889,1.7478,-1.4333,0.0334,-0.1399,0.3148,1.2361,0.143,0.9742,-0.2924,-0.9642,0.1169,-0.1836,2.0216,0.2327,0.3958,2.1696,-2.5263,-0.7588,-0.0095,0.563,-0.8102,-0.117,-0.2641,0.7768,0.0633,0.4166,-0.0624,-1.2008,0.4406,0.6086,0.1673,0.009,0.1066,-0.8893,-0.7257,-0.6478,3.0823,-1.1817,-0.2446,0.4638,0.7172,-0.6726,-1.3019,2.781,-0.4587,-0.4355,1.1844,1.5047,1.9839,-0.9141,-1.5669,-0.0997,3.9959,-0.6821,0.5863,0.3175,0.063,-0.9065,0.2889,0.1264,-0.2372,-2.4772,-0.8913,-0.7383,2.8918,-0.204,-0.166,0.3697,-0.3499,-0.2423,9.7624,0.1734,-0.1493,-0.299,0.1372,0.4319,0.1634,0.5482,-0.4816,-0.2244,-1.313,0.0054,0.3224,-0.0377,0.303,0.1426,0.1122,-0.1277,0.1056,1.1949,0.3357,1.7446,0.5728,0.8179,0.6,0.3537,0.248,0.9907,0.2224,0.2218,1.3637,1.3202,-0.2548,0.8152,1.0581,1.5218,-0.1502,-0.8155,-0.5209,-0.1029,1.4605,0.8619,0.5734,0.2708,0.3595,0.3227,0.2881,0.8169,0.1775,0.5593,-4.4469,3.9156,0.3176,-0.0254,-4.1601,0.3424,1.3844,-3.3161,0.0359,-0.0409,-0.0132,-0.368,0.0254,-6.5277,2.2505,-0.8775,0.21,0.07,0.6102,1.2217,1.1975,-0.381,-0.387,0.5721,0.0807,2.8265,0.0838,0.1451,-1.577,0.2714,-0.6373,-0.3386,0.499,-0.0638,8.2505,-0.2575,-0.0985,-0.3294,0.1819,0.9179,-0.0405,0.0196,0.1744,-0.4269,-1.3005,0.4395,-0.4576,0.5955,1.4354,0.065,0.6205,0.1424,0.2334,-0.5121,1.3701,-4.0614,0.2612,-0.5778,-0.9895,-0.0342,0.6931,0.5124,0.583,-0.2753,-1.8642,0.659,0.0263,-2.3344,0.5411,2.7545,0.6633,-0.146,-0.6312,0.2681,-2.1339,0.1239,-0.1887,1.2558,-0.5118,-0.0015,0.2955,0.7328,0.8968,-0.5226,-3.9905,-0.346,0.3818,-0.0035,1.5444,-2.6174,-0.0372,0.2114,-0.3353,-0.0116,0.4669,-0.6983,0.1917,-0.0176,1.6713,-0.3837,0.6035,0.2,-1.1934,-0.8041,-0.1311,3.4788,1.5017,-0.4409,0.652,-0.468,-4.1604,-0.5098,-0.579,0.6126,0.6967,0.3501,0.7181,0.0814,-0.7725,0.3297,0.1777,-0.1668,-0.1687,-0.717,-0.8742,0.1609,4.9017,-4.4325,-0.2166,0.0545,-0.0773,1.9807,1.2265,-1.4562,-1.4182,1.5651,0.0295,1.5431,1.1843,-0.3393,0.8746,2.1357,-0.3084,-0.1285,1.5164,0.2717,0.3164,-1.7438,-3.0627,1.4714,0.1127,0.0623,0.4218,0.2813,-0.4507,0.1466,0.3641,0.543,1.7425,1.0767,1.0668,0.8012,1.2026,2.0896,0.3222,1.2176,0.7123,0.1433,-0.6125,0.5242,0.8126,0.3918,-2.7786,0.8008,3.0404,-0.0805,0.6006,-0.5804,0.0643,-0.277,-0.3091,-0.189,2.8964,0.1551,-0.0847,0.5248,0.5211,0.7813,-0.1445,-2.7535,0.2917,-0.3275,-0.6134],"b1":[-0.4893,0.3311,-0.6652,0.8868,-0.0488,-0.2617,-0.6821,0.7334,-0.3059,0.1721,0.664,0.0138,-0.6181,0.3876,0.9258,-0.8235,-0.7051,-0.3098,0.6416,0.4239],"W2":[2.952,0.161,1.9918,-1.0629,1.3675,1.8302,0.3933,-0.0281,-0.4204,1.0972,-0.2024,-1.0766,0.9937,0.0146,-1.0759,0.6019,2.5387,0.0974,0.3718,-1.4203,-0.4134,-1.584,1.6471,0.0264,-3.808,0.163,1.7214,-2.5948,6.7906,-0.7729,-0.545,3.1593,5.2389,-0.0214,-0.4145,-0.7495,1.8485,-0.4571,-0.5722,0.2931,-2.8154,-0.9548,0.1967,-2.1452,0.5053,0.5984,0.4224,-0.3878,-9.9475,-0.7985,-1.5172,0.7946,-6.5927,1.2167,-0.7082,0.6103,1.7772,-0.0129,-0.5389,-1.642,-1.8672,0.8297,-0.1557,1.5167,0.651,-2.8756,1.0489,0.3437,0.7106,-0.8176,-1.0497,-0.3456,-1.2094,-1.072,-3.5063,1.6371,7.0382,-1.6563,-0.4215,-1.1132,0.639,0.6038,-0.6743,0.1681,0.4437,0.6591,-0.9065,1.3304,0.5958,0.1336,-0.8287,-0.8881,0.248,1.1656,4.107,-2.0497,-7.0997,0.6091,0.7369,1.1652,0.8232,0.4943,-3.0367,1.8765,1.0833,-0.041,-3.7794,0.4847,0.3877,0.6213,9.8576,-0.6167,-1.0526,-1.2094,2.5501,-3.4742,-2.4847,-0.2398,0.9888,3.4161,-0.1428,-0.351,-1.2356,-1.0814,-1.52,-1.5707,-0.4836,-1.6296,-1.2495,-0.2523,-2.2835,0.4375,-1.6275,0.297,0.4883,-0.5777,3.0446,-0.3202,-0.8895,-0.1858],"b2":[0.2947,-0.8914,-0.6428,-0.2671,0.8022,0.5795,-0.491],"meta":{"actions":["attack","heavy","kite","regroup","heal","area","guard"],"trained":"2026-10-20","generations":401,"simRewardRules":32.59,"simRewardNet":36.05,"params":587,"gap":14.42}};
+const DW_POLICY = {"in":23,"hid":20,"out":8,"W1":[6.0228,-0.9086,-6.1737,4.7297,-0.1552,-0.254,-0.1611,0.212,0.7752,7.443,-7.3239,0.2677,0.1042,-0.209,-0.2842,-0.1684,-0.3061,0.148,-0.2446,-0.588,-0.1578,0.6618,0.2754,2.9754,0.0972,0.2704,-3.8863,-0.061,0.2289,0.3435,-1.6709,-1.04,9.6443,-0.3756,0.0365,-0.4231,-0.4952,3.6423,2.0603,4.1683,0.068,0.0462,-0.7082,0.2054,0.3479,-0.2328,2.6005,-1.0132,-0.1979,-1.3966,-0.0291,1.0324,-0.303,-0.1118,-0.0632,0.6437,-1.8091,0.5909,-0.3452,0.169,-0.9187,-0.5613,0.6879,3.5908,-1.0539,-0.6706,-0.2784,-1.9443,-0.199,0.5329,0.2453,0.0172,0.2613,0.1156,0.199,0.2033,-2.354,-0.2407,0.1829,-0.2229,-0.1127,-0.0847,-21.4398,0.1662,0.1029,-0.0767,0.183,-0.0341,0.2769,0.7358,-0.2849,0.2128,-1.4755,0.8248,-0.3454,-0.645,-0.1578,1.1454,-0.4997,-1.7994,0.3736,0.4307,-0.0832,-0.7295,-0.8628,-1.8066,0.578,1.1286,-0.3844,2.4682,-2.7965,0.3878,0.3479,-0.0214,-0.5844,1.5829,2.3552,0.6551,-0.9146,-0.0912,-0.8184,-0.0503,-0.4891,-0.179,0.1514,-0.274,0.5105,-0.6591,1.6877,1.1785,0.6563,-0.6916,-3.0369,-1.7263,1.0461,-0.1343,-0.2773,-0.0881,2.746,-0.3628,1.9728,-0.3525,-0.4731,-0.6433,-0.0783,-0.9424,0.1142,0.5232,-0.8628,0.3933,0.348,-0.2018,1.368,1.6808,-0.1278,-4.5222,-0.093,1.1284,-0.1367,0.3559,-0.6292,-0.2693,-0.1984,0.2449,0.3954,-0.3781,-0.9386,-0.4197,0.7891,-0.6815,-1.3392,-0.5432,-0.4646,-0.6122,-0.0994,-0.0569,-1.3951,-0.1054,-0.3981,0.0699,-0.791,-1.2276,0.5195,-0.0589,-2.3346,0.5026,4.7397,-1.4077,0.0981,0.3702,-0.1165,-0.7134,-0.9059,-5.1071,5.1592,0.0252,-0.4063,-0.5089,0.0696,0.4854,0.5674,0.2528,0.4525,0.3231,-0.0833,-0.0437,-0.0291,-1.3562,1.772,0.415,-4.0191,0.3486,0.2132,0.1667,0.2218,-0.8628,-8.0045,0.1576,-0.2115,-0.2581,0.7933,-0.7361,1.0064,-0.3921,0.0927,-0.8425,0.5238,-0.143,0.6826,0.0865,-2.0466,-1.2806,-1.069,0.4623,-0.3717,-0.4569,-0.3655,1.7701,-0.0598,-5.9637,-0.003,0.5609,0.3578,2.2045,-2.7255,-2.108,-1.3406,-0.0479,-0.7892,-0.0064,0.1211,-0.1544,-0.0206,2.8184,-0.9497,-3.2122,0.5446,0.0742,-0.2491,0.519,0.2285,0.9941,0.7233,1.3087,0.3527,-0.0089,1.9012,-1.0308,-0.2708,0.5566,0.0591,-3.9513,-0.2022,-0.0275,-0.5203,0.006,-2.8643,-0.7237,-0.3514,4.1997,0.2526,-0.0217,-0.4825,-0.4913,-1.5269,6.5305,0.1465,-0.1102,-0.6667,0.2401,0.767,-0.0313,1.9944,-0.6908,-0.7322,-1.2808,0.2754,-0.1974,0.0401,-2.2625,1.6015,1.081,0.5009,-0.811,-2.4104,0.3875,0.4729,-0.103,0.1451,0.0376,-0.2075,0.2445,-0.2973,0.7744,0.8299,0.9692,-4.5827,4.5744,0.1136,-0.0671,0.0767,0.5684,-0.5998,0.2193,0.2088,-0.0365,-0.2432,-0.1349,0.1102,1.3678,0.4414,-0.4432,-0.4204,-0.0885,-0.1949,13.922,-0.9002,0.0729,0.1741,-0.4846,0.0966,-0.0137,-0.7332,0.0632,-0.0076,-0.635,-1.8671,1.3214,-1.2403,0.1666,0.0123,0.3316,0.3842,-0.7252,-0.4395,-0.2626,-0.4483,-1.1041,1.1804,-0.9918,-0.1025,-0.518,4.0796,-0.9886,-0.4708,0.2723,0.4922,0.189,1.4995,1.5369,-1.6867,-1.0795,0.3193,0.8751,0.4838,-1.0722,0.0122,-0.1631,-0.3104,0.4459,1.3587,-2.0927,-0.5363,0.4007,-0.0352,4.2973,2.8446,-0.1936,0.3911,-0.3363,0.458,0.4597,-0.4545,0.3563,1.9293,-0.2821,-0.1062,0.3705,-0.0444,1.8837,-8.0226,1.7736,-0.2954,0.3143,-0.5971,0.3534,-0.1459,-0.3744,-1.2537,-0.0103,1.0384,-0.2394,0.1082,-0.0454,1.0707,-0.8441,-0.7371,1.7451,-0.3568,-0.1994,-0.0556,0.1425,-0.444,12.3019,0.1192,0.1108,-0.0965,0.5288,0.2862,-0.0702,0.5838,-0.2233,-0.0754,-0.9344,-0.1902,0.6314,-0.045,-0.1884,1.2823,1.5765,-0.4801,0.0712,0.3902,0.1517,-0.5734,-0.2038,-5.7305,-0.6565,0.4132,0.2937,-2.4876,0.6282,0.1578,0.0922,0.0724,0.255,1.6642,0.3367,0.7427,-0.5175],"b1":[-0.408,-0.7955,-1.0246,0.6586,-0.7986,0.1836,0.3705,-0.7297,0.1825,-0.1464,-0.0992,-0.0675,0.0096,0.6245,-0.5912,-0.7167,-0.8841,0.9522,-0.3028,0.3483],"W2":[1.1037,3.801,1.345,-2.1628,0.488,0.6033,-0.4362,-0.6087,0.1557,-0.6856,-1.7043,0.0838,-1.2971,-0.0766,0.5796,0.7534,2.4865,-0.324,-0.8263,-1.2215,-4.4627,-0.4007,1.2133,0.0071,0.316,-0.4362,0.6228,0.6872,2.4058,2.0786,0.064,-0.267,-0.0128,-0.2877,-0.4528,2.2513,0.1514,-4.2042,5.3753,0.4716,-0.4999,-0.5985,0.4779,-1.8128,0.6733,-0.0217,-1.1684,1.1227,0.0988,2.1695,2.2797,-0.0305,-2.9434,0.3059,1.2151,1.4312,1.4352,1.4468,-7.8806,1.0048,0.7149,-2.9394,0.9753,-1.0602,0.2312,-2.2019,-1.8917,0.1736,-0.7766,-1.8578,0.9473,-0.2607,1.5849,0.2103,0.1893,0.7567,2.251,0.3304,0.5553,0.1551,0.9589,0.5738,-3.9825,-1.4371,-0.5287,1.6831,4.0861,-0.7853,-0.2132,-0.4182,-0.2222,0.4513,0.2911,-1.9969,1.2453,-4.1372,-4.9289,0.5728,0.7275,-0.4853,0.3703,0.1267,-2.2193,-1.6553,-2.3445,1.9986,3.5576,-0.4036,-0.434,-0.6236,-0.311,-0.5945,0.3427,6.2583,1.7199,-2.5699,-6.5254,0.8097,1.2031,-0.3057,-1.1436,-1.0057,-0.9772,0.2315,-0.4392,-0.771,-1.0957,2.337,0.338,1.3984,1.4447,-0.691,-0.8153,1.0092,0.2378,0.9579,-1.955,0.3752,-0.7607,1.5301,0.6217,-1.9121,0.6991,7.8029,0.8985,-0.1319,-0.1503,-0.2523,0.1488,-0.2793,-0.5533,-0.5862,0.155,0.0171,-4.0999,0.3688,0.6039,0.6917,-0.3093,0.5563],"b2":[0.8429,-0.8021,-0.2496,0.0658,0.4138,0.2381,-0.8337,-0.3922],"meta":{"actions":["attack","heavy","kite","regroup","heal","area","guard","dodge"],"trained":"2026-10-20","generations":344,"simRewardRules":45.34,"simRewardNet":44.65,"params":648,"gap":13.27}};
 
 </script>
 <script>
@@ -6522,7 +6700,7 @@ const Party = (() => {
     const p = G.player, rig = Rig.build('hero', { look: lookFor(d) }), pw = power();
     p.rig.root.parent.add(rig.root);
     const a = {
-      id: d.id, def: d, cls: d.cls, ally: true, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
+      id: d.id, def: d, cls: d.cls, ally: true, dodgeCd: 0, rollT: 0, rollDir: 0, threat: null, tank: d.cls === 'warrior', rig, pos: p.pos.clone(), facing: p.facing, hp: Math.round(pw.hp * HP[d.cls]), maxHp: Math.round(pw.hp * HP[d.cls]), dr: DR[d.cls], state: 'free', t: 0, hitT: 9, downT: 0, hurtT: 0,
       phase: null, phaseT: 0, atk: null, struck: false, target: null, cd: 1, heavyCd: 3, healCd: 0, guardT: 0, decT: 0, shots: 0, speedK: 0, cycle: 0,
       S: { dmg: pw.dmg, mend: pw.mend, u: {}, healCd: 1, critMult: P.critMult, burn: 0, fire: 0 }, slot: 0,
     };
@@ -6547,6 +6725,7 @@ const Party = (() => {
   // ---------------- Taking damage ----------------
   function hurt(a, e, hit) {
     if (a.state === 'down') return;
+    if (a.state === 'roll' && a.rollT >= P.dodge.iStart && a.rollT <= P.dodge.iEnd) { FX.text(Combat.chestPos(a.pos, 2.1), 'DODGE', 'dodge'); return 'dodge'; }          // the dash is untouchable for most of it
     const n = hit.dmg * (e.mult || 1) * (1 - a.dr) * (a.guardT > 0 ? 0.5 : 1) * Settings.diff.dmg;           // a guarding warrior takes half
     a.hp = Math.max(0, a.hp - n); a.hitT = 0;
     FX.text(Combat.chestPos(a.pos, 2.0), '-' + Math.round(n), 'hurt'); Snd.play('hit');
@@ -6692,31 +6871,61 @@ const Party = (() => {
   function stateOf(a, p) {
     const t = a.target, party = Shots.party(a), near = party.filter(m => m !== a && Combat.dist(a.pos, m.pos) < 8), grp = [a].concat(near);
     const foes = G.enemies.filter(usable), others = (G.allies || []).filter(m => m !== a);
-    let nearest = 99, ne = null, danger = 3, targeted = 0;
+    let nearest = 99, ne = null, danger = 3, targeted = 0, aoe = 0; a.threat = null;
     for (const e of foes) {
       const d = Combat.dist(a.pos, e.pos); if (d < nearest) { nearest = d; ne = e; }
-      if (e.tgt !== a) continue;
-      targeted++;
-      if (e.state === 'attack' && e.phase === 'wind' && e.atk) danger = Math.min(danger, Math.max(0, e.atk.hits[e.hitIdx].wind - e.phaseT));
+      if (e.tgt === a) targeted++;
+      // The next blow that would strike this companion, and in how long: a wind-up aimed at it, or a ring on the floor around it
+      if (e.state !== 'attack' || !e.atk || e.struck || (e.phase !== 'wind' && e.phase !== 'active')) continue;
+      const h = e.atk.hits[e.hitIdx], strikeAt = h.active * (h.leap ? 0.8 : 0.5), t = e.phase === 'wind' ? Math.max(0, h.wind - e.phaseT) + strikeAt : Math.max(0, strikeAt - e.phaseT);
+      if (h.projectile) continue;
+      let hits = false, ring = false, c = null;
+      if (h.aoe) { c = e.aoeAt || Enemy.aoeCenter(e, h); ring = true; hits = Math.hypot(a.pos.x - c.x, a.pos.z - c.z) <= h.aoe.r + 0.9; }
+      else hits = e.tgt === a && d <= h.range + 1.0 + e.def.radius;
+      if (hits && t < danger) { danger = t; aoe = ring ? 1 : 0; a.threat = { kind: ring ? 'aoe' : 'melee', e, cx: c ? c.x : 0, cz: c ? c.z : 0 }; }
     }
     for (const ar of Enemy.arrows) {                                               // an arrow or orb on its way to this companion
       if (ar.back) continue;
       const dx = a.pos.x - ar.pos.x, dz = a.pos.z - ar.pos.z, d = Math.hypot(dx, dz);
-      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93) danger = Math.min(danger, d / ar.speed);
+      if (d < 16 && (dx * ar.dir.x + dz * ar.dir.z) / Math.max(d, 0.01) > 0.93 && d / ar.speed < danger) { danger = d / ar.speed; aoe = 0; a.threat = { kind: 'shot', dx: ar.dir.x, dz: ar.dir.z }; }
     }
     a.nearest = ne;
+    const rollable = (a.state === 'free' || (a.state === 'attack' && a.phase === 'recover')) && a.dodgeCd <= 0 && Settings.get('companionDodge') !== false;
     return {
       cls: a.cls, hp: frac(a), hero: frac(p), other: others.length ? Math.min(...others.map(frac)) : 1, downed: others.filter(m => m.state === 'down').length,
       dHero: Combat.dist(a.pos, p.pos), dEnemy: t ? D(a, t) : nearest, nNear: foes.filter(e => Combat.dist(a.pos, e.pos) < 7).length, nHero: foes.filter(e => Combat.dist(p.pos, e.pos) < 7).length,
-      targeted, danger, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
+      targeted, danger, aoe, dodgeRdy: rollable ? 1 : 0, atkRdy: a.cd <= 0 ? 1 : 0, heavyRdy: a.heavyCd <= 0 && a.cd <= 0 ? 1 : 0, healRdy: a.healCd <= 0 && a.cd <= 0 ? 1 : 0,
       lowest: Math.min(...grp.filter(m => Combat.dist(a.pos, m.pos) < 8).map(frac)), hurtN: grp.filter(m => m.state === 'down' || frac(m) < 0.6).length, hasTarget: !!t,
     };
+  }
+  // The dash (the hero's own: 2.6 m in 0.3 s, untouchable for most of it). Which way: out of a ring (away from its middle), or to the
+  // side of a swing or a shot, to whichever side is clear of other foes and inside the walls.
+  function startRoll(a) {
+    const T = a.threat, foes = G.enemies.filter(usable);
+    let ang;
+    const side = (fromX, fromZ) => {                                               // perpendicular to the line from (fromX, fromZ) to the companion
+      const base = Math.atan2(a.pos.x - fromX, a.pos.z - fromZ);
+      let best = base + Math.PI / 2, bs = -1e9;
+      for (const sg of [1, -1]) {
+        const ang2 = base + sg * Math.PI / 2, x = a.pos.x + Math.sin(ang2) * P.dodge.dist, z = a.pos.z + Math.cos(ang2) * P.dodge.dist;
+        let s = World.inSpace(x, z, 0.5) ? 0 : -50; for (const e of foes) s += Math.min(6, Math.hypot(e.pos.x - x, e.pos.z - z));
+        if (s > bs) { bs = s; best = ang2; }
+      }
+      return best;
+    };
+    if (T && T.kind === 'aoe') { const dx = a.pos.x - T.cx, dz = a.pos.z - T.cz; ang = Math.hypot(dx, dz) > 0.3 ? Math.atan2(dx, dz) : side(T.e.pos.x, T.e.pos.z); }
+    else if (T && T.kind === 'melee') ang = side(T.e.pos.x, T.e.pos.z);
+    else if (T && T.kind === 'shot') ang = side(a.pos.x - T.dx, a.pos.z - T.dz);
+    else ang = a.facing + Math.PI / 2;
+    a.state = 'roll'; a.rollT = 0; a.rollDir = ang; a.rollFrom = a.pos.clone(); a.atk = null; a.phase = null; a.dodgeCd = 1.8;
+    Snd.play('roll'); FX.burst(new THREE.Vector3(a.pos.x, 0.1, a.pos.z), 0x9a8e7a, 8, 3, 0.3);
   }
   // Doing the chosen move: starts a blow when it is ready, and returns a movement goal {x, z, run} (or null to stand)
   function execute(a, act, p) {
     const A = Policy.A, t = a.target, home = homeOf(a, p), toward = (e, run = true) => ({ x: e.pos.x, z: e.pos.z, run });
     const goHome = () => (Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: Combat.dist(a.pos, p.pos) > 6 } : null);
     if (act === A.guard) { a.guardT = 0.6; return null; }
+    if (act === A.dodge) { startRoll(a); return null; }
     if (act === A.regroup) return goHome();
     if (act === A.kite) {
       const e = a.nearest; if (!e) return goHome();
@@ -6746,14 +6955,17 @@ const Party = (() => {
   function think(a, p, dt) {
     const dp = Combat.dist(a.pos, p.pos), home = homeOf(a, p), noFight = Tutorial.active;
     a.cd -= dt; a.heavyCd -= dt; a.healCd -= dt; a.guardT -= dt; a.decT -= dt;
-    if (dp > CP.far || a.state === 'attack' || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
+    const recovering = a.state === 'attack' && a.phase === 'recover';              // a dash may cut short the end of a blow
+    if (dp > CP.far || (a.state === 'attack' && !recovering) || noFight) return Combat.dist(a.pos, home) > 1.0 ? { x: home.x, z: home.z, run: dp > 6 } : null;
     a.target = pickTarget(a, p);
     if (a.decT <= 0 || a.act === undefined) {
-      a.decT = 0.3; const s = stateOf(a, p), legal = Policy.legal(s);
+      const s = stateOf(a, p), legal = Policy.legal(s);
+      a.decT = s.danger < 0.9 ? 0.06 : 0.3;                                      // decide faster while a blow is coming: the dash must start in the last quarter second
       let act = Settings.get('learnedAI') !== false ? Policy.Learner.pick(learner(), s, undefined, !!(fight && fight.on)) : null;
       if (act == null || !legal[act]) act = Policy.classic(s);
       a.act = act;
     }
+    if (recovering && a.act !== Policy.A.dodge) return null;                        // otherwise the recovery runs its course
     return execute(a, a.act, p);
   }
 
@@ -6764,7 +6976,7 @@ const Party = (() => {
     const dead = p.state === 'dead';
     trackFight(dt, p);
     for (const a of G.allies) {
-      a.t += dt; a.hitT += dt;
+      a.t += dt; a.hitT += dt; a.dodgeCd -= dt;
       if (a.state === 'down') {                                                      // lies still until healed (or a while passes)
         a.downT += dt; if (a.downT > CP.downFor) revive(a, 0.25);
         a.rig.root.position.copy(a.pos); a.rig.root.rotation.y = a.facing;
@@ -6783,7 +6995,16 @@ const Party = (() => {
         if (a.phase === 'active' && a.phaseT >= k.active) { a.phase = 'recover'; a.phaseT = 0; }
         if (a.phase === 'recover' && a.phaseT >= k.recover) { a.state = 'free'; a.phase = null; a.atk = null; }
         if (a.target && Enemy.targetable(a.target) && a.phase === 'wind') a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 14 * dt);
-      } else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
+        if (a.state === 'attack' && a.phase === 'recover' && !dead) think(a, p, dt);          // in the recovery a dash can still be chosen
+      } else if (a.state === 'roll') {                                             // the dash: along rollDir, 2.6 m in 0.3 s
+        a.rollT += dt;
+        const D = P.dodge, k = Math.min(1, a.rollT / D.time), ease = 1 - Math.pow(1 - k, 2.2);
+        a.pos.x = a.rollFrom.x + Math.sin(a.rollDir) * D.dist * ease; a.pos.z = a.rollFrom.z + Math.cos(a.rollDir) * D.dist * ease;
+        moving = 1;
+        if (a.target && Enemy.targetable(a.target)) a.facing += Combat.wrap(Combat.yawTo(a.pos, a.target.pos) - a.facing) * Math.min(1, 10 * dt);
+        if (a.rollT >= D.time) { a.state = 'free'; a.cd = Math.max(a.cd, 0.2); }
+      }
+      else if (a.state === 'hurt') { a.hurtT -= dt; if (a.hurtT <= 0) a.state = 'free'; }
       else if (!dead) goal = think(a, p, dt);
       if (goal) {
         const dx = goal.x - a.pos.x, dz = goal.z - a.pos.z, dist = Math.hypot(dx, dz);
@@ -6802,8 +7023,8 @@ const Party = (() => {
       const r = a.rig; r.root.position.copy(a.pos); r.root.rotation.y = a.facing;
       const atk = a.state === 'attack' ? a.atk : null;
       Rig.animate(r, {
-        mode: a.state === 'hurt' ? 'hurt' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: 1, dirS: 0,
-        phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
+        mode: a.state === 'hurt' ? 'hurt' : a.state === 'roll' ? 'dash' : atk ? 'attack' : a.guardT > 0 && a.state === 'free' ? 'block' : a.speedK > 0.08 ? 'move' : 'idle', t: a.t, speed: a.speedK, mps: a.speedK * P.speed, calm: G.mode === 'camp', cycle: a.cycle, blockT: 9, dirF: a.state === 'roll' ? Math.cos(a.rollDir - a.facing) : 1, dirS: a.state === 'roll' ? Math.sin(a.rollDir - a.facing) : 0,
+        phaseT: a.phaseT, wind: atk && atk.wind, active: atk && atk.active, recover: atk && atk.recover, p: a.state === 'roll' ? a.rollT / P.dodge.time : atk && a.phase === 'recover' ? a.phaseT / atk.recover : 0,
         atk: atk && atk.pose, phase: a.phase, windRate: atk ? 3.2 / atk.wind : 12,
       }, dt);
     }
@@ -7716,6 +7937,25 @@ const World = (() => {
   function themeTex(name) {
     if (texCache[name]) return texCache[name];
     const th = CFG.themes[name];
+    // A cave: mottled earth and rock with no masonry
+    if (th.style === 'cave' || th.style === 'forest') {
+      const mottle = (c, base, spread, n, size) => {
+        c.fillStyle = rgb(base, -16); c.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < n; i++) {
+          const x = Math.random() * 256, y = Math.random() * 256, r = size * (0.4 + Math.random());
+          c.fillStyle = rgb(base, (Math.random() - 0.5) * spread); c.beginPath(); c.ellipse(x, y, r, r * (0.5 + Math.random() * 0.6), Math.random() * 3, 0, 7); c.fill();
+          if (x < r) { c.beginPath(); c.ellipse(x + 256, y, r, r * 0.7, 0, 0, 7); c.fill(); }
+          if (y < r) { c.beginPath(); c.ellipse(x, y + 256, r, r * 0.7, 0, 0, 7); c.fill(); }
+        }
+      };
+      const floor = canvasTex(c => { mottle(c, th.stone, 40, 140, 22); c.fillStyle = 'rgba(0,0,0,0.3)'; for (let i = 0; i < 40; i++) c.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 3, 2 + Math.random() * 2); });
+      const wall = canvasTex(c => {
+        mottle(c, th.wall, 46, 90, 34);
+        c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 2;
+        for (let i = 0; i < 9; i++) { c.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; c.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (Math.random() - 0.3) * 40; py += (Math.random() - 0.5) * 14; c.lineTo(px, py); } c.stroke(); }
+      });
+      return (texCache[name] = { floor, wall });
+    }
     // Flagstones: irregular slabs, dark grout, a few cracks
     const floor = canvasTex(c => {
       c.fillStyle = rgb(th.stone, -36); c.fillRect(0, 0, 256, 256);
@@ -7843,7 +8083,7 @@ const World = (() => {
     }
 
     // Pillar stumps
-    if (def.pillars) {
+    if (def.pillars && !th.style) {
       const stone = M(rgbHex(th.wall, 14));
       for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const x = px * hw * 0.55, z = cz + pz * hd * 0.45, h = 1.2 + Math.random() * 0.8;
@@ -7866,11 +8106,11 @@ const World = (() => {
       const pos = new THREE.Vector3(cx + x + Math.sin(ry) * 0.6, 2.6, z + Math.cos(ry) * 0.6);
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
-    for (const s of [-1, 1]) {
+    if (!th.style) for (const s of [-1, 1]) {
       for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
-    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
+    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);          // (a cave's light is its crystals)
 
     // Scattered decor in the theme of the stage, kept off the path between the doorways
     const pathA = [ds === null ? (dn === null ? 0 : dn) : ds, southZ], pathB = [dn === null ? 0 : dn, northZ];
@@ -7930,6 +8170,163 @@ const World = (() => {
       }
     }
     room.offPath = offPath;
+
+    // Styled spaces (th.style): obstacles are blockers (the same circles the pillars use), so the walkable space is no longer a plain
+    // rectangle; a lane along the way through stays open. cave: rock bulges out of the walls, formations stand in the open, crystals
+    // give the light. forest: trees and bushes, wisp lanterns. town: ruined houses along the walls, a fountain, carts, lamp posts.
+    if (th.style) {
+      const rockM = M(rgbHex(th.wall, 10), { roughness: 1 }), rockM2 = M(rgbHex(th.wall, -2), { roughness: 1 });
+      const jit = (x, y, z) => 0.8 + 0.4 * (((Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1 + 1) % 1);
+      const rock = (x, z, r, hMul, m = rockM) => {                               // a lumpy boulder; x is local to the section
+        const g = new THREE.IcosahedronGeometry(r, 1), pa = g.attributes.position;
+        for (let i = 0; i < pa.count; i++) { const k = jit(pa.getX(i) + x, pa.getY(i), pa.getZ(i) + z); pa.setXYZ(i, pa.getX(i) * k, pa.getY(i) * k, pa.getZ(i) * k); }
+        g.computeVertexNormals();
+        hMul = Math.max(0.5, Math.min(hMul, (1.3 + Math.random() * 1.0) / (2 * r)));          // never taller than about 2.3 m: the camera looks over them
+        const o = add(g, m, x, r * hMul * 0.55, z); o.scale.y = hMul; o.rotation.y = Math.random() * 3; return o;
+      };
+      const block = (x, z, r) => room.pillars.push([x + cx, z, r * 0.8]);
+      const nearDoor = (x, z, r) => (ds !== null && z > southZ - r - 3 && Math.abs(x - ds) < DOOR + r + 1.4) || (dn !== null && z < northZ + r + 3 && Math.abs(x - dn) < DOOR + r + 1.4)
+        || (P.side && Math.abs(z - cz) < SIDE_DOOR + r + 1.2 && Math.sign(x) === P.side.dir && Math.abs(x) > hw - r - 3) || (last && Math.abs(x) < 4.5 && z < northZ + 5.5);
+      if (th.style === 'cave') {
+        // The wall's own edge: a rim of half-buried rock so no straight line shows (low along the south wall, which the camera looks over)
+        for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.5 + Math.random() * 1.2) { const r = 0.7 + Math.random() * 0.8; if (!nearDoor(sd * hw, z, 0.4)) rock(sd * (hw - 0.1), z, r, 1.2 + Math.random() * 1.1, Math.random() < 0.5 ? rockM : rockM2); }
+        for (let x = -hw + 1; x < hw; x += 1.5 + Math.random() * 1.2) {
+          const r = 0.7 + Math.random() * 0.8;
+          if (!nearDoor(x, northZ + 0.2, 0.4)) rock(x, northZ + 0.2, r, 1.4 + Math.random() * 1.2, rockM2);
+          if (!nearDoor(x, southZ + 0.2, 0.4)) rock(x, southZ + 0.1, r * 0.6, 0.6, rockM);
+        }
+        // Bulges into the section (blockers) along the side walls and the far wall
+        for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 2.8 + Math.random() * 2.2) {
+          if (Math.random() < 0.2) continue;
+          const r = 1.0 + Math.random() * 1.4, d = 0.5 + Math.random() * 1.6, x = sd * (hw - d + r * 0.3);
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        for (let x = -hw + 3; x < hw - 2; x += 3 + Math.random() * 3) {
+          if (Math.random() < 0.3) continue;
+          const r = 0.9 + Math.random() * 1.1, z = northZ + 0.5 + Math.random() * 1.4;
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        // Formations in the open, with room to walk between them
+        const want = Math.max(2, Math.round(hw * hd * 0.04)) + (def.pillars ? 2 : 0);
+        for (let n = 0, tries = 0; n < want && tries < 60; tries++) {
+          const r = 0.8 + Math.random() * 1.0, x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+          if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+          if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+          rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
+          if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
+        }
+        // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
+        const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
+        const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        for (const [sd, f] of spots) {
+          let x = sd * (hw - 1.1), z = cz + hd * f + (Math.random() - 0.5) * 2;
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          let tall = null;
+          for (let q = 0; q < 4; q++) {
+            const h = 0.5 + Math.random() * 1.0, geo = new THREE.OctahedronGeometry(0.16 + Math.random() * 0.1, 0), m = new THREE.Mesh(geo, crystalM);
+            m.scale.set(0.8, h / 0.2, 0.8); m.position.set((Math.random() - 0.5) * 0.7, h * 0.5, (Math.random() - 0.5) * 0.7); m.rotation.set((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4);
+            g.add(m); room.geos.push(geo); if (!tall || h > tall.h) tall = { m, h };
+          }
+          room.torches.push({ pos: new THREE.Vector3(cx + x, 1.4, z), fl: tall.m, seed: Math.random() * 10, color: th.torch });
+        }
+      } else {
+        // Places to stand obstacles in the open: random spots off the lane with room to walk between them
+        const scatter = (want, rMin, rMax, make) => {
+          for (let n = 0, tries = 0; n < want && tries < 80; tries++) {
+            const r = rMin + Math.random() * (rMax - rMin), x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+            if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+            if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+            make(x, z, r); n++;
+          }
+        };
+        // A lamp that stands in for a torch (its light follows it like a torch's)
+        const lamp = (x, z, glowM, tall) => {
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, tall, 6), M(0x2a2420)), bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), glowM);
+          post.position.y = tall / 2; bulb.position.y = tall + 0.1; g.add(post, bulb); room.geos.push(post.geometry, bulb.geometry);
+          room.torches.push({ pos: new THREE.Vector3(cx + x, tall, z), fl: bulb, seed: Math.random() * 10, color: th.torch });
+        };
+        const lampSpots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        const glowM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(glowM);
+        if (th.style === 'forest') {
+          const bark = [M(0x3a2c20), M(0x2c2218)], leaf = [M(0x24402a), M(0x2f5030)], bushM = M(0x2a4a2a);
+          const tree = (x, z, r, crown) => {                                         // a trunk, and either a dark crown (the rim) or bare branches
+            const h = 3.2 + Math.random() * 1.6;
+            add(new THREE.CylinderGeometry(r * 0.55, r, h, 7), bark[Math.random() * 2 | 0], x, h / 2, z);
+            if (crown) add(new THREE.ConeGeometry(r * 3.2 + Math.random() * 0.8, h * 0.85, 7), leaf[Math.random() * 2 | 0], x, h * 0.9 + 0.6, z);
+            else for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.03, 0.07, 1.2, 5), bark[1], x, h * (0.6 + q * 0.14), z).rotation.set((Math.random() - 0.5) * 1.6, Math.random() * 3, 0.9 + Math.random() * 0.4);
+          };
+          const bush = (x, z, r) => { const o = add(new THREE.IcosahedronGeometry(r, 0), bushM, x, r * 0.5, z); o.scale.y = 0.7; o.rotation.y = Math.random() * 3; };
+          // The wall's edge: a dense stand of trees (low bushes along the south wall, which the camera looks over)
+          for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.6 + Math.random() * 1.2) if (!nearDoor(sd * hw, z, 0.4)) tree(sd * (hw - 0.3 + Math.random() * 0.2), z, 0.35 + Math.random() * 0.25, true);
+          for (let x = -hw + 1; x < hw; x += 1.6 + Math.random() * 1.2) {
+            if (!nearDoor(x, northZ + 0.3, 0.4)) tree(x, northZ + 0.3 + Math.random() * 0.4, 0.35 + Math.random() * 0.25, true);
+            if (!nearDoor(x, southZ + 0.2, 0.4)) bush(x, southZ + 0.2, 0.4 + Math.random() * 0.3);
+          }
+          // Thickets in from the walls (blockers)
+          for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 3 + Math.random() * 2.4) {
+            if (Math.random() < 0.25) continue;
+            const x = sd * (hw - 0.8 - Math.random() * 1.6);
+            if (nearDoor(x, z, 1.6)) continue;
+            tree(x, z, 0.5, true); tree(x - sd * 0.9, z + 0.8, 0.4, false); bush(x - sd * 1.2, z - 0.7, 0.8); block(x, z, 1.6);
+          }
+          // In the open: bare trees, fallen logs, thickets
+          scatter(Math.max(2, Math.round(hw * hd * 0.035)), 0.55, 0.9, (x, z, r) => {
+            const t = Math.random();
+            if (t < 0.5) { tree(x, z, 0.5, false); block(x, z, 0.75); }
+            else if (t < 0.75) { const a = Math.random() * Math.PI; const o = add(new THREE.CylinderGeometry(0.32, 0.38, 2.8, 7), bark[0], x, 0.32, z); o.rotation.set(Math.PI / 2, 0, a); block(x + Math.sin(a) * 0.9, z + Math.cos(a) * 0.9, 0.62); block(x - Math.sin(a) * 0.9, z - Math.cos(a) * 0.9, 0.62); }
+            else { bush(x, z, 0.9); bush(x + 0.6, z + 0.4, 0.6); block(x, z, 1.1); }
+          });
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 1.4), cz + hd * f + (Math.random() - 0.5) * 2, glowM, 1.5);       // wisp lanterns on posts
+        } else {
+          // town: ruined houses along both walls, then the square's furniture
+          const plaster = M(rgbHex(th.wall, 8)), roofM = M(0x3a2a20), darkM = M(0x0a0806), woodM = M(0x4a3422), rubbleM = M(rgbHex(th.wall, -4));
+          const house = (sd, z, len, dep, h) => {
+            const x = sd * (hw - dep / 2 + 0.1);
+            wallBox(dep, h, len, x, h / 2, z, plaster);
+            add(new THREE.BoxGeometry(dep * 1.1, 0.22, len * 1.05), roofM, x, h + 0.1, z).rotation.z = sd * (0.12 + Math.random() * 0.22);   // a sagging roof
+            for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.05, 0.07, 1.1 + Math.random() * 0.6, 5), woodM, x + (Math.random() - 0.5) * dep, h + 0.5, z + (Math.random() - 0.5) * len).rotation.set(Math.random(), 0, Math.random());   // broken beams
+            const face = x - sd * (dep / 2 + 0.03), ry = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
+            for (let w = 0; w < Math.floor(len / 2.2); w++) add(new THREE.PlaneGeometry(0.7, 0.9), darkM, face, 1.6, z - len / 2 + 1.1 + w * 2.2, false).rotation.y = ry;       // empty windows
+            add(new THREE.PlaneGeometry(1.0, 1.9), darkM, face, 0.95, z + (Math.random() - 0.5) * (len - 2), false).rotation.y = ry;                                     // a doorway
+            const n = Math.ceil(len / (dep * 0.9));
+            for (let k = 0; k < n; k++) block(sd * (hw - dep / 2), z - len / 2 + (k + 0.5) * len / n, dep * 0.62);
+          };
+          for (const sd of [-1, 1]) for (let z = southZ - 2.5; z > northZ + 5;) {
+            const len = 3.6 + Math.random() * 2.6, dep = 2.4 + Math.random() * 0.8, zc = z - len / 2;
+            if (zc - len / 2 < northZ + 2) break;
+            if (Math.random() > 0.2 && !nearDoor(sd * (hw - dep), zc, dep + len / 4)) house(sd, zc, len, dep, 2.6 + Math.random() * 0.6);
+            z -= len + 1.6 + Math.random() * 2.6;
+          }
+          // Rubble heaps along the far wall
+          for (let x = -hw + 2; x < hw - 1; x += 2.5 + Math.random() * 2.5) if (!nearDoor(x, northZ + 1, 1.2)) { const r = 0.6 + Math.random() * 0.7; const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, northZ + 0.8 + Math.random() * 0.6); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); if (Math.random() < 0.6) block(x, northZ + 0.9, r); }
+          // The square: a fountain, wells, carts, crates and rubble
+          let fountain = Math.random() < 0.6;
+          scatter(Math.max(2, Math.round(hw * hd * 0.03)), 0.7, 1.1, (x, z, r) => {
+            const t = Math.random();
+            if (fountain && hw * hd > 60) {
+              fountain = false;
+              add(new THREE.CylinderGeometry(1.2, 1.3, 0.5, 12), plaster, x, 0.25, z); add(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 12), M(0x2a5a5a, { transparent: true, opacity: 0.6 }), x, 0.46, z, false);
+              add(new THREE.CylinderGeometry(0.16, 0.22, 1.5, 8), plaster, x, 1.0, z); add(new THREE.CylinderGeometry(0.4, 0.2, 0.2, 8), plaster, x + 0.25, 1.7, z).rotation.z = 0.3;     // a broken basin
+              block(x, z, 1.5);
+            } else if (t < 0.4) {                                                    // a cart on its side
+              const a = Math.random() * Math.PI; add(new THREE.BoxGeometry(2.0, 0.7, 1.0), woodM, x, 0.45, z).rotation.set(0, a, 0.15);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 10), woodM, x + Math.cos(a) * 0.3, 0.4, z - Math.sin(a) * 0.3 + sg * 0.55 * Math.cos(a)).rotation.x = Math.PI / 2;
+              block(x + Math.sin(a) * 0.5, z + Math.cos(a) * 0.5, 0.7); block(x - Math.sin(a) * 0.5, z - Math.cos(a) * 0.5, 0.7);
+            } else if (t < 0.6) {                                                    // a well
+              add(new THREE.CylinderGeometry(0.7, 0.75, 0.8, 10), plaster, x, 0.4, z); add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 10), darkM, x, 0.8, z, false);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5), woodM, x + sg * 0.6, 1.2, z); add(new THREE.BoxGeometry(1.5, 0.08, 0.5), roofM, x, 2.05, z);
+              block(x, z, 1.0);
+            } else if (t < 0.8) { for (let q = 0; q < 3; q++) add(new THREE.BoxGeometry(0.7, 0.7, 0.7), woodM, x + (q - 1) * 0.55, 0.35 + (q === 1 ? 0.7 : 0), z + (q === 1 ? 0 : 0.2)).rotation.y = Math.random(); block(x, z, 1.0); }
+            else { const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, z); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); block(x, z, r * 1.1); }
+          });
+          const amber = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(amber);
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 3.4), cz + hd * f + (Math.random() - 0.5) * 2, amber, 2.4);          // lamp posts in front of the houses
+        }
+      }
+    }
 
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     // Props stay separate meshes: pots break, traps move, the shrine glows
@@ -8107,7 +8504,16 @@ const World = (() => {
   }
   // ---------------- Encounters ----------------
   function spawnWave(room) {
-    const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
+    let list = (room.waves || room.inf.room.waves)[room.wave].slice(); const p = G.player, baseN = list.length;
+    // The horde: a section's wave gains extra light foes of the kinds it already holds (or its stage's), up to the cap
+    if (room.kind !== 'side' && !room.inf.stage.monster && !room.noHorde) {
+      const H = CFG.horde, light = t => H.fodder.includes(t);
+      let pool = [...new Set(list.filter(light))];
+      if (!pool.length) pool = [...new Set(room.inf.stage.rooms.flatMap(r => r.waves.flat()).filter(light))];
+      const live = G.enemies.filter(e => e.room === room && e.state !== 'dead').length + G.queue.filter(q => q.room === room).length;
+      const n = Math.min(Math.max(0, H.cap - live - list.length), Math.round((list.length * H.extra + Math.floor(room.j / 2)) * (Settings.diff.horde || 1)));
+      if (pool.length) for (let i = 0; i < n; i++) list.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
     const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale + (room.inf.si || 0) * CFG.stageScale;
     const hpMult = room.inf.hpMult || 1 + (room.inf.si || 0) * CFG.stageHp;
     // Spawn spots: across the section, away from the hero and the pillars
@@ -8115,7 +8521,7 @@ const World = (() => {
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
       const x = room.cx + gx / 2 * (room.hw - 1.8), z = room.northZ + 1.8 + gz * (room.hd * 2 - 3.6) / 3;
       if (Math.hypot(x - p.pos.x, z - p.pos.z) < 5) continue;
-      if (room.pillars.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue;
+      if (room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (pr || 0.8) + 1.0)) continue;
       spots.push(new THREE.Vector3(x, 0, z));
     }
     spots.sort(() => Math.random() - 0.5);
@@ -8124,7 +8530,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ extra: k >= baseN, type, at: far || at, mult: mult * (k >= baseN ? CFG.horde.extraDmg : 1) * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult: k >= baseN ? hpMult * CFG.horde.extraHp : hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
@@ -8242,9 +8648,10 @@ const World = (() => {
         a.t += dt;
         if (a.state === 'start' && a.t > (a.inf.room.guardian && a.kind !== 'side' ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
         else if (a.state === 'fight') {
-          const alive = G.enemies.some(e => e.room === a && e.state !== 'dead') || G.queue.some(q => q.room === a);
+          const left = G.enemies.filter(e => e.room === a && e.state !== 'dead').length + G.queue.filter(q => q.room === a).length, more = a.wave < (a.waves || a.inf.room.waves).length - 1;
+          const alive = more && a.kind !== 'side' ? left > CFG.horde.chainAt : left > 0;          // the next wave comes as the last few fall
           if (!alive) {
-            if (a.wave < (a.waves || a.inf.room.waves).length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            if (more) { a.waveDelay += dt; if (a.waveDelay > (left ? 0.5 : 1.2)) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
             else if (p.state !== 'dead') clearRoom(a);
           }
         }
@@ -8797,14 +9204,14 @@ const UI = (() => {
       const langs = I18N.NAMES.filter(([l]) => I18N.has(l)).map(([l, n]) => `<button class="pb${I18N.lang === l ? ' on' : ''}" data-act="lang" data-arg="${l}" translate="no">${n}</button>`).join('');
       return `<h2>Settings</h2><p class="sub">Kept on this device.</p><h3>Language</h3><div class="tact">${langs}</div><h3>Sound</h3>` + row('master', 'Master volume', pct) + row('music', 'Music', pct) + row('sfx', 'Effects', pct)
         + `<h3>Gameplay</h3><div class="irow srow"><div class="iinfo"><b>Difficulty</b><div class="istats">${esc(Settings.diff.desc)}</div></div><div class="ibtns">${btn(Settings.diff.name, 'difficulty', '', false, 'on')}</div></div>`
-        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('learnOnline', 'Companions keep learning from your fights', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
+        + tog('cues', 'Telegraph words (DASH! / PARRY! over special attacks)', 'On', 'Off') + tog('learnedAI', 'Companions use the learned battle policy (Off: the plain rules)', 'On', 'Off') + tog('learnOnline', 'Companions keep learning from your fights', 'On', 'Off') + tog('companionDodge', 'Companions dash out of telegraphed blows', 'On', 'Off') + tog('timingRing', 'Timing circle on enemy blows (shrinks to the moment of impact)', 'On', 'Off') + tog('hitstop', 'Hit-stop on impact', 'On', 'Off') + tog('haptics', 'Vibration (phones)', 'On', 'Off') + tog('slowmo', 'Slow motion on parries', 'On', 'Off')
         + (document.body.classList.contains('touch') ? '<h3>Touch controls</h3>' + row('padScale', 'Button size', v => v.toFixed(1) + '×') + row('padOpacity', 'Button opacity', pct)
           + tog('lefty', 'Left-handed layout (buttons on the left, move with the right thumb)', 'On', 'Off')
           + `<div class="tact">${btn('Arrange buttons', 'arrange')}${btn('Reset button positions', 'padreset')}</div>` : '')
         + `<h3>Graphics</h3><div class="irow srow"><div class="iinfo"><b>Quality</b><div class="istats">Lower it if the game stutters: Low turns shadows off and draws fewer pixels.</div></div><div class="ibtns">${btn(QNAME[Settings.get('quality')] + (Settings.get('quality') === 'auto' ? ' (' + QNAME[G.quality()] + ')' : ''), 'quality', '', false, 'on')}</div></div>`
         + tog('autoRes', 'Automatic resolution (draws fewer pixels when frames run slow)', 'On', 'Off') + tog('perf', 'Show performance (FPS, frame time, draw calls)', 'On', 'Off')
         + `<h3>Controls</h3><div class="irow srow"><div class="iinfo"><b>Keyboard and controller</b><div class="istats">Change the key or button for any action.</div></div><div class="ibtns">${btn('Change…', 'open', 'controls', false, 'on')}</div></div>`
-        + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('shake', 'Screen shake', 'On', 'Off')
+        + '<h3>Camera</h3>' + row('sens', 'Look sensitivity', v => v.toFixed(1) + '×') + tog('invertY', 'Vertical look', 'Inverted', 'Normal') + tog('mouse', 'Pointing device', 'Mouse', 'Trackpad') + tog('shake', 'Screen shake', 'On', 'Off')
         + `<div class="tact">${btn('Restore defaults', 'sreset')}</div>` + btn('Done', 'close', '', false, 'leave');
     },
     // Nell the gem cutter: the same setting and prying as Bram, and three stones of a kind cut into one of another kind
@@ -9604,6 +10011,163 @@ const TouchLayout = (() => {
 
 </script>
 <script>
+// Deepward - the ad slot: a small banner at the top centre, above the name of the place. It is hidden until an ad has really
+// arrived, so without a publisher id, without a network, or when no ad is filled, nothing shows and the place name keeps its spot.
+// Fill in client (ca-pub-...) and slot (the ad unit's id) from the AdSense account to switch it on. AdSense serves web pages; the
+// Android app's WebView needs AdMob (a native plugin) instead - this slot only reacts to what ends up inside it.
+const Ads = (() => {
+  const CONF = { client: '', slot: '', width: 320, height: 50 };
+  let el = null;
+  const show = on => { document.body.classList.toggle('has-ad', !!on); if (el) el.style.display = on ? 'block' : 'none'; };
+  function init() {
+    el = document.getElementById('adSlot');
+    if (!el) return;
+    show(false);
+    if (!CONF.client || !CONF.slot || !navigator.onLine) return;
+    if (window.Settings && Settings.get('ads') === false) return;
+    const ins = document.createElement('ins');
+    ins.className = 'adsbygoogle'; ins.style.cssText = `display:inline-block;width:${CONF.width}px;height:${CONF.height}px`;
+    ins.setAttribute('data-ad-client', CONF.client); ins.setAttribute('data-ad-slot', CONF.slot);
+    el.appendChild(ins);
+    // The slot is shown only once the ad network marks it filled
+    new MutationObserver(() => show(ins.getAttribute('data-ad-status') === 'filled' && ins.clientHeight > 10)).observe(ins, { attributes: true, attributeFilter: ['data-ad-status'] });
+    const s = document.createElement('script');
+    s.async = true; s.crossOrigin = 'anonymous'; s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(CONF.client);
+    s.onload = () => { try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) { show(false); } };
+    s.onerror = () => show(false);
+    document.head.appendChild(s);
+  }
+  return { init, CONF, show };
+})();
+
+</script>
+<script>
+// Deepward - scenes: a person speaks to the warden in the world instead of in a panel. The camera frames the speaker over the
+// warden's shoulder, the speaker turns to the warden and moves a little as they talk, the words are typed in a caption at the
+// bottom (any key finishes the line, then goes on), and a line can offer choices. Script:
+//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end' }], go?: label | 'end', flag? } ] }
+// who is a camp person's id (null: narration, the camera stays on the warden). A step with `go` jumps there instead of to the next.
+const Scene = (() => {
+  const CPS = 46;                                                            // characters per second
+  let S = null, box = null;
+  const $ = id => document.getElementById(id);
+  const tr = s => (typeof I18N !== 'undefined' && I18N.tr ? I18N.tr(s) : s);
+  const camp = () => (typeof World !== 'undefined' && World.rooms ? World.rooms.find(r => r.kind === 'camp') : null);
+  const npcOf = id => { const c = camp(); return c && id ? c.npcs.find(n => n.id === id) || null : null; };
+
+  function play(script, done) {
+    if (S || G.state !== 'play') { if (done) done(); return false; }
+    box = box || $('sceneBox');
+    S = { script, i: 0, t: 0, npc: npcOf(script.who), sel: 0, done, cam: null, label: {} };
+    script.steps.forEach((st, k) => { if (st.label) S.label[st.label] = k; });
+    G.scene = S; G.state = 'scene'; Input.keys = {};
+    $('letterbox').classList.add('on'); document.body.classList.add('cine', 'scene');
+    if (document.pointerLockElement) document.exitPointerLock();
+    show();
+    return true;
+  }
+  const step = () => S.script.steps[S.i];
+  function show() {
+    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text);
+    box.querySelector('.sn').textContent = tr(st.name === undefined ? (S.script.name || '') : st.name);
+    box.querySelector('.sc').innerHTML = '';
+    box.classList.add('show'); box.classList.remove('done');
+    render();
+  }
+  function render() {
+    const st = step(), n = Math.min(S.full.length, Math.floor(S.t * CPS)), fin = n >= S.full.length;
+    box.querySelector('.st').textContent = S.full.slice(0, n);
+    box.classList.toggle('done', fin);
+    const ch = box.querySelector('.sc');
+    if (fin && st.choices && !ch.children.length) {
+      st.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
+    }
+  }
+  function choose(k) { const st = step(), c = st.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
+  function flag(f) { if (typeof Items !== 'undefined' && Items.S) { Items.S.flags = Items.S.flags || {}; Items.S.flags[f] = true; Items.save(); } }
+  function jump(go) {
+    if (go === undefined || go === null) S.i++;
+    else if (go === 'end') S.i = Infinity;
+    else S.i = S.label[go] === undefined ? S.i + 1 : S.label[go];
+    if (S.i >= S.script.steps.length) return end();
+    show();
+  }
+  // Advance: finish the typing, or go on to the next line (a line with choices waits for one)
+  function next() {
+    if (!S) return;
+    const st = step(), fin = Math.floor(S.t * CPS) >= S.full.length;
+    if (!fin) { S.t = 1e3; render(); return; }
+    if (st.flag) flag(st.flag);
+    if (st.choices) { choose(S.sel); return; }
+    jump(st.go);
+  }
+  function pick(k) { if (S && step().choices && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < step().choices.length) choose(k); } }
+  function nav(d) { if (!S || !step().choices) return; const n = step().choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
+  function end() {
+    if (!S) return;
+    const d = S.done; box.classList.remove('show', 'done');
+    if (S.npc) { S.npc.rig.root.rotation.z = 0; }
+    $('letterbox').classList.remove('on'); document.body.classList.remove('cine', 'scene');
+    if (G.state === 'scene') G.state = 'play';
+    S = null; G.scene = null;
+    if (d) d();
+  }
+  const skip = () => { if (S) { S.i = Infinity; end(); } };
+
+  // Every frame of a scene: the typing, the speaker turning and moving, the camera
+  function update(dt, camera) {
+    if (!S) return;
+    S.t += dt; render();
+    const p = G.player, n = S.npc, fin = Math.floor(S.t * CPS) >= S.full.length;
+    if (n) {
+      const want = Math.atan2(p.pos.x - n.x, p.pos.z - n.z); let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 5);
+      n.rig.root.rotation.y = n.face;
+      const talk = !fin; const k = talk ? Math.sin(S.t * 9) : 0;               // a lean and a sway while the words come
+      n.rig.root.rotation.z = (n.rig.root.rotation.z || 0) * 0.85 + (talk ? k * 0.03 : 0) * 0.15;
+      n.rig.root.position.y = talk ? Math.abs(Math.sin(S.t * 6)) * 0.015 : 0;
+      // the warden turns to them
+      const hw = Math.atan2(n.x - p.pos.x, n.z - p.pos.z); let dh = hw - p.facing; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); p.facing += dh * Math.min(1, dt * 5);
+      p.rig.root.rotation.y = p.facing;
+    }
+    Rig.animate(p.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
+    // The shot: behind and to the side of the warden, the speaker in the frame; narration looks at the warden from the front-left
+    const tx = n ? n.x : p.pos.x, tz = n ? n.z : p.pos.z, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+    const want = new THREE.Vector3(p.pos.x - ux * 2.3 - uz * 0.9, 1.55, p.pos.z - uz * 2.3 + ux * 0.9);
+    if (!n) want.set(p.pos.x + Math.sin(p.facing) * 2.8 - Math.cos(p.facing) * 1.0, 1.5, p.pos.z + Math.cos(p.facing) * 2.8 + Math.sin(p.facing) * 1.0);
+    camera.position.lerp(want, Math.min(1, dt * 3.2));
+    const look = n ? new THREE.Vector3(n.x, 0.95, n.z) : new THREE.Vector3(p.pos.x, 0.85, p.pos.z);
+    if (!S.cam) S.cam = look.clone(); S.cam.lerp(look, Math.min(1, dt * 5));
+    camera.lookAt(S.cam);
+  }
+  return { play, next, pick, nav, skip, update, end, get active() { return !!S; }, get current() { return S; } };
+})();
+
+</script>
+<script>
+// Deepward - the main story: a chain of objectives (CFG.mainStory.steps) that move on with what the warden does. game.js reports
+// events ('talk' with a camp person, a 'guardian' falling); the step that was waiting for it completes, its scene plays (js/scene.js),
+// and the next objective shows in the HUD. Progress is Items.S.main (saved with the game).
+const Story = (() => {
+  const M = () => CFG.mainStory;
+  const state = () => { const S = Items.S; S.main = S.main || { i: 0 }; return S.main; };
+  const cur = () => (Items.S ? M().steps[state().i] || null : null);
+  const objective = () => { const c = cur(); return c ? c.obj : ''; };
+  // Report something the warden did. Returns true when a scene took over (done runs when it ends)
+  function event(kind, arg, done) {
+    if (!Items.S) return false;
+    const c = cur(); if (!c || !c.on || c.on[0] !== kind || c.on[1] !== arg) return false;
+    state().i++; Items.save();
+    const after = () => { const n = cur(); if (n && typeof UI !== 'undefined') UI.toast('New objective: ' + n.obj, '#f2d27a'); if (done) done(); };
+    if (c.scene && M().scenes[c.scene] && Scene.play(M().scenes[c.scene], after)) return true;
+    after(); return !!done ? true : false;
+  }
+  // A person with nothing new to say speaks their usual lines as a scene too
+  const talk = (who, name, lines, done) => Scene.play({ who, name, steps: lines.map(t => (typeof t === 'string' ? { text: t } : { name: t[0], text: t[1] })) }, done);
+  return { event, objective, talk, get step() { return cur(); } };
+})();
+
+</script>
+<script>
 // Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
 // The dungeon itself (rooms, gates, progression) lives in world.js.
 // G.state: title | play | pause | menu (a panel is open) · G.mode: camp | dungeon
@@ -9620,6 +10184,11 @@ try { if (localStorage.getItem('dw_view') === 'top') View.mode = 'top'; } catch 
 
 // ---------------- Input ----------------
 const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false, touchBlock: false, stick: { x: 0, z: 0 } };
+// Capture the mouse for looking around (the cursor then stays inside the window)
+function lockMouse(el) {
+  if (!el.requestPointerLock) return;
+  try { const r = el.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+}
 (function setupInput() {
   addEventListener('keydown', ev => {
     Snd.init();
@@ -9634,6 +10203,12 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
       ev.preventDefault(); return;
     }
     if (ev.repeat) return;
+    if (G.state === 'scene') {                                              // a scene: Enter, Space, E or J go on; 1-3 or arrows choose; Esc skips
+      const c = ev.code; ev.preventDefault();
+      if (c === 'Escape') Scene.skip(); else if (c === 'ArrowUp' || c === 'KeyW') Scene.nav(-1); else if (c === 'ArrowDown' || c === 'KeyS') Scene.nav(1);
+      else if (/^(Digit|Numpad)[1-4]$/.test(c)) Scene.pick(+c.slice(-1) - 1); else if (c === 'Enter' || c === 'Space' || c === 'KeyE' || c === 'KeyJ') Scene.next();
+      return;
+    }
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
@@ -9662,7 +10237,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
     Snd.init();
     if (G.state !== 'play') return;
     // In the behind view the first click captures the mouse for looking around; it does not attack
-    if (View.mode === 'behind' && document.pointerLockElement !== cv && cv.requestPointerLock) { cv.requestPointerLock(); return; }
+    if (View.mode === 'behind' && document.pointerLockElement !== cv && cv.requestPointerLock) { lockMouse(cv); return; }
     if (ev.button === 0) Player.press(G.player, 'light');
     if (ev.button === 2) Input.mouseBlock = true;
     if (ev.button === 1) { Player.press(G.player, 'heavy'); ev.preventDefault(); }
@@ -9671,12 +10246,21 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
   cv.addEventListener('contextmenu', ev => ev.preventDefault());
   addEventListener('mousemove', ev => {
     if (document.pointerLockElement !== cv || View.mode !== 'behind') return;
-    turnView(ev.movementX * 0.0032, ev.movementY * 0.0026);
+    // A capture on a Mac can report wild jumps (some of them the wrong way round): drop those, whatever the device
+    if (performance.now() - lockedAt < 150 || Math.abs(ev.movementX) > 250 || Math.abs(ev.movementY) > 250) return;
+    if (!Settings.get('mouse')) { turnView(ev.movementX * 0.0032, ev.movementY * 0.0026); return; }       // trackpad
+    // A mouse covers many more counts per hand movement than a trackpad, and can report wild jumps (Chrome on a Mac does, right after
+    // capture): gentler turn, skip the first moments after capture, drop spikes
+    const mx = ev.movementX, my = ev.movementY;
+    turnView(Math.max(-60, Math.min(60, mx)) * 0.0017, Math.max(-60, Math.min(60, my)) * 0.0014);
   });
   cv.addEventListener('wheel', ev => { ev.preventDefault(); View.dist = Math.min(12, Math.max(3.5, View.dist * Math.exp(ev.deltaY * 0.001))); }, { passive: false });
   // Esc releases the captured mouse before the page sees the key, so losing the capture mid-fight pauses
+  let lockedAt = 0;
+  document.addEventListener('pointerlockerror', () => { if (G.state === 'play' && View.mode === 'behind') setTimeout(() => { if (document.pointerLockElement !== cv) lockMouse(cv); }, 300); });
   document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement !== cv) { Input.unlockedAt = performance.now(); if (G.state === 'play' && View.mode === 'behind') togglePause(); }
+    if (document.pointerLockElement === cv) lockedAt = performance.now();
+    if (document.pointerLockElement !== cv) { Input.unlockedAt = performance.now(); Input.keys = {}; Input.mouseBlock = false; if (G.state === 'play' && View.mode === 'behind') togglePause(); }
   });
 
   // Touch: a floating joystick on the left half, action buttons on the right
@@ -9728,7 +10312,7 @@ const Input = { move: { x: 0, z: 0 }, block: false, keys: {}, mouseBlock: false,
 // Left stick move · right stick camera · RB / X light · RT heavy · Y ultimate · LB / LT block · A / B dash
 // View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
 const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
-const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12, DOWN: 13 };
 const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
 function pollPad(real) {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -9754,6 +10338,7 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
+  if (G.state === 'scene') { if (down(PAD_BTN.A)) Scene.next(); else if (down(PAD_BTN.B) || down(PAD_BTN.MENU)) Scene.skip(); else if (down(PAD_BTN.UP)) Scene.nav(-1); else if (down(PAD_BTN.DOWN)) Scene.nav(1); return; }
   if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
   if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
@@ -9905,6 +10490,7 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.extra) e.extra = true;                                           // a horde extra: pays less
     if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
       const B = q.fieldBoss;
       if (B.boss) Enemy.makeBoss(e, CFG.monsterBosses[B.boss]);             // a big monster: grown, with phases
@@ -9941,6 +10527,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  { const ob = Story.objective(); if ($('objective').textContent !== ob) $('objective').textContent = ob; }
   const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
@@ -10014,7 +10601,7 @@ function musicMood() {
   if (G.enemies.some(e => e.state !== 'dead' && (!e.zone || e.aggro)) || G.queue.some(q => !q.zone)) G.calmAt = G.time;
   return G.time - (G.calmAt === undefined ? -99 : G.calmAt) < 4 ? 'combat' : 'dungeon';
 }
-$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); if (cv.requestPointerLock) cv.requestPointerLock(); } });
+$('resumeBtn').addEventListener('click', () => { togglePause(); if (View.mode === 'behind' && !document.body.classList.contains('touch')) { const cv = $('game'); lockMouse(cv); } });
 // ---------------- Game flow ----------------
 // Title -> (story) -> camp -> descend into a stage -> rooms -> guardian -> back to camp or press on. Falling wakes you in camp.
 function fadeTo(fn) {
@@ -10026,6 +10613,7 @@ function openPanel(id, opt, done) {
   G.state = 'menu';
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
+$('sceneBox').addEventListener('click', ev => { if (ev.target.closest('button')) return; Scene.next(); });
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
 // ---------------- Guardian entrances ----------------
 function startCine(e) {
@@ -10187,12 +10775,21 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  // A run of kills close together: every few steps a little health back and the ultimate sooner
+  if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
+    const H = CFG.horde;
+    G.streak = G.time - (G.streakAt || -99) < H.streakGap ? (G.streak || 0) + 1 : 1; G.streakAt = G.time;
+    if (G.streak >= H.streakStep && G.streak % H.streakStep === 0) {
+      const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * H.streakHeal); if (p.ultCd > 0) p.ultCd = Math.max(0, p.ultCd - H.streakUlt);
+      FX.text(Combat.chestPos(p.pos, 2.6), '×' + G.streak + ' STREAK', 'gold');
+    }
+  }
   if (G.boss === e) G.boss = null;
   if (!Items.S || G.mode === 'camp') return;
-  const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
+  const xp = e.def.xp * e.mult * (e.extra ? CFG.horde.extraPay : 1) * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
-  const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
+  const g = Items.addGold(e.def.gold * e.mult * (e.extra ? CFG.horde.extraPay : 1) * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
   // A field boss: its spoils, and when it comes back
@@ -10372,6 +10969,7 @@ function gemFound(n) {
 G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
+  if (k < CFG.stages.length) Story.event('guardian', k);
   if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
@@ -10400,7 +10998,8 @@ function interact() {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
-    return say(lines);
+    if (Story.event('talk', 'elder')) return;                              // the story had something to say
+    return Story.talk('elder', 'Maren', lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
@@ -10425,7 +11024,7 @@ function interact() {
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
   }
-  if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
@@ -10563,6 +11162,7 @@ function resize() {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
+if (typeof Ads !== 'undefined') Ads.init();
 
 // ---------------- Main loop ----------------
 let last = performance.now();
@@ -10629,6 +11229,10 @@ function step(real) {
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
+  } else if (G.state === 'scene') {
+    // A scene: the world goes on quietly while someone speaks to the warden
+    G.time += real; World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Scene.update(real, camera);
   } else if (G.state === 'cine') {
     // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
     const c = G.cine; c.t += real; G.time += real;

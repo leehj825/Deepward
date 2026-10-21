@@ -254,10 +254,17 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
 Next, in order (details in `docs/DESIGN.md` → Roadmap):
+0. **The hack-and-slash dungeon.** Hordes (H1), cave spaces (H2), forest and abandoned town (H3), story and natural NPCs (H4). Ordinary blows no longer stagger the warden.
 1. **Check what is built.** A real-phone pass (P1), Korean polish (P3), the balance bot on the new content (P4).
 2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
 3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
 4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
+
+## Ads
+
+A small banner (320 x 50, top centre, not the whole top) sits above the place name; the HUD makes room for it only once an ad has loaded, so with no ad the place name keeps its spot.
+- **Android app:** a Google AdMob banner through `@capacitor-community/admob`, with Deepward's own AdMob app id (in the manifest, written by `tools/android_patch.js`) and banner unit id (`CONF.admob.banner` in `js/ads.js`). `CONF.admob.testing` is **on**: the banner asks for Google's test ads from that unit, so you can run the game without clicking your own live ads (AdMob bans accounts for that). Set it to `false` for the build you publish.
+- **Web:** an AdSense slot, off until `CONF.client` and `CONF.slot` in `js/ads.js` are filled in (AdSense does not serve inside an app WebView).
 
 ## Run
 

@@ -61,3 +61,13 @@ if (!styles.includes('windowSplashScreenBackground')) {
   fs.writeFileSync(stylesF, styles);
 }
 
+
+// Google's ad banner (AdMob): the app id goes in the manifest (Deepward's AdMob app id; ADMOB_APP_ID overrides it in a build).
+{
+  const appId = process.env.ADMOB_APP_ID || 'ca-app-pub-4400173019354346~7285937881';
+  let m = fs.readFileSync(manF, 'utf8');
+  m = m.replace(/\s*<meta-data android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^>]*\/>/, '');
+  m = m.replace(/(<application[^>]*>)/, `$1\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${appId}" />`);
+  fs.writeFileSync(manF, m);
+  console.log('AdMob app id set in the manifest (' + (process.env.ADMOB_APP_ID ? 'from ADMOB_APP_ID' : 'Deepward app id') + ')');
+}

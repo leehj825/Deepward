@@ -352,9 +352,15 @@ const Player = (() => {
     }
     Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt); G.rumble(hit.aoe ? 1 : 0.7, 0.5, hit.aoe ? 350 : 200);
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
-    knock(p, e.pos, hit.aoe ? 9 : 5);
+    // Hack and slash: an ordinary blow hurts but does not stop the warden (a little push, the combo goes on). Only a major one does:
+    // unblockable, an area blow, a boss's, or a heavy swing (posture at least P.staggerPosture). During the warden's own heavy swing even
+    // those but the unblockable and area ones are shrugged off.
+    const major = !!(hit.unblockable || hit.aoe || e.boss || (hit.posture || 0) >= P.staggerPosture);
+    const armoured = p.state === 'attack' && p.atkKind === 'heavy' && !hit.unblockable && !hit.aoe;
+    const flinch = major && !armoured;
+    knock(p, e.pos, hit.aoe ? 9 : flinch ? 5 : 1.6);
     G.stats.hitsTaken++;
-    if (!damage(p, dmg, e.pos) && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
+    if (!damage(p, dmg, e.pos) && flinch && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
     return 'hit';
   }
 
