@@ -86,12 +86,21 @@ const Scene = (() => {
       p.rig.root.rotation.y = p.facing;
     }
     Rig.animate(p.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
-    // The shot: behind and to the side of the warden, the speaker in the frame; narration looks at the warden from the front-left
-    const tx = n ? n.x : p.pos.x, tz = n ? n.z : p.pos.z, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
-    const want = new THREE.Vector3(p.pos.x - ux * 2.3 - uz * 0.9, 1.55, p.pos.z - uz * 2.3 + ux * 0.9);
-    if (!n) want.set(p.pos.x + Math.sin(p.facing) * 2.8 - Math.cos(p.facing) * 1.0, 1.5, p.pos.z + Math.cos(p.facing) * 2.8 + Math.sin(p.facing) * 1.0);
+    // The shot: from the side, so the warden and the speaker stand in profile either side of the middle and neither hides the other; narration
+    // looks at the warden from the front-left. On a tall (phone) screen the camera backs off and the subjects ride high, above the caption.
+    const tall = innerHeight > innerWidth;
+    let want, look;
+    if (n) {
+      const dx = n.x - p.pos.x, dz = n.z - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d, mx = (n.x + p.pos.x) / 2, mz = (n.z + p.pos.z) / 2;
+      if (!S.side) S.side = (camera.position.x - mx) * -uz + (camera.position.z - mz) * ux >= 0 ? 1 : -1;
+      const out = (tall ? 4.4 : 3.8) + d * 0.5;
+      want = new THREE.Vector3(mx - uz * S.side * out - ux * 0.4, tall ? 1.7 : 1.3, mz + ux * S.side * out - uz * 0.4);
+      look = new THREE.Vector3(mx, tall ? 0.45 : 0.15, mz);
+    } else {
+      want = new THREE.Vector3(p.pos.x + Math.sin(p.facing) * 3.4 - Math.cos(p.facing) * 1.2, 1.5, p.pos.z + Math.cos(p.facing) * 3.4 + Math.sin(p.facing) * 1.2);
+      look = new THREE.Vector3(p.pos.x, tall ? 0.5 : 0.85, p.pos.z);
+    }
     camera.position.lerp(want, Math.min(1, dt * 3.2));
-    const look = n ? new THREE.Vector3(n.x, 0.95, n.z) : new THREE.Vector3(p.pos.x, 0.85, p.pos.z);
     if (!S.cam) S.cam = look.clone(); S.cam.lerp(look, Math.min(1, dt * 5));
     camera.lookAt(S.cam);
   }
