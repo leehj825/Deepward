@@ -128,6 +128,7 @@ const Props = (() => {
     if (r.kind === 'bell') { put(g, new THREE.CylinderGeometry(0.15, 0.55, 0.8, 9), mat(0x7a5a2a), 0, 0.45, 0).rotation.z = 1.2; }
     else if (r.kind === 'banner') { put(g, new THREE.CylinderGeometry(0.04, 0.05, 2.2, 6), dark, 0, 1.1, 0); const c = put(g, new THREE.PlaneGeometry(0.8, 1.2), cloth, 0.4, 1.5, 0); c.material.side = THREE.DoubleSide; }
     else if (r.kind === 'pack') { put(g, new THREE.BoxGeometry(0.7, 0.45, 0.45), dark, 0, 0.25, 0).rotation.y = 0.5; put(g, new THREE.BoxGeometry(0.5, 0.2, 0.35), mat(0x6a5a3a), 0.1, 0.55, 0); }
+    else if (r.kind === 'ring') { put(g, new THREE.CylinderGeometry(0.7, 0.8, 0.7, 10), stone, 0, 0.35, 0); put(g, new THREE.TorusGeometry(0.5, 0.1, 6, 14), dark, 0, 0.95, 0).rotation.x = Math.PI / 2; }
     else { put(g, new THREE.BoxGeometry(1.1, 1.6, 0.25), stone, 0, 0.8, 0); put(g, new THREE.BoxGeometry(0.8, 0.05, 0.02), mat(0x1a1a22), 0, 1.1, 0.14); }
     const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), glow); m.position.y = 2.3; g.add(m); room.geos.push(m.geometry); room.mats.push(glow);
     const o = { id: r.id, label: r.label, g, m, x: room.cx + lx, z, r: 1.9, found: false };

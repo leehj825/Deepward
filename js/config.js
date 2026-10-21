@@ -290,7 +290,14 @@ const CFG = {
       { id: 'spiders', obj: 'Defeat the Brood Queen in the Spider Depths', on: ['guardian', 3] },
       { id: 'court', obj: 'Defeat the Pale Duelist in the Shadow Court', on: ['guardian', 4] },
       { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess' },
-      { id: 'more', obj: 'The story goes on in the Sunken Temple (to be continued)' },
+      { id: 'temple', obj: 'Defeat the Drowned Prophet in the Sunken Temple', on: ['guardian', 5] },
+      { id: 'prophet', obj: 'Tell Maren what the mural showed', on: ['talk', 'elder'], scene: 'prophet' },
+      { id: 'frost', obj: 'Defeat the Frost Marshal in the Frost Halls', on: ['guardian', 6] },
+      { id: 'forge', obj: 'Defeat the Furnace Lord in the Ashen Forge', on: ['guardian', 7] },
+      { id: 'orchard', obj: 'Defeat the Bone Gardener in the Bone Orchard', on: ['guardian', 8] },
+      { id: 'grave', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'grave' },
+      { id: 'throne', obj: 'Go down to the Throne of the Deep and face the Hollow King', on: ['guardian', 9] },
+      { id: 'told', obj: 'The story is told. The Endless Deep goes on below.' },
     ],
     // What the guardians say as they fall (shown as a caption); the Brood Queen says nothing
     guardianLines: {
@@ -298,6 +305,11 @@ const CFG = {
       1: ['Sir Aldric', 'Orrin.'],
       2: ['The Den Mother', 'He is awake. He is so tired.'],
       4: ['The Pale Duelist', 'A good watch. Please, be kinder to him.'],
+      5: ['The Drowned Prophet', 'He dug it himself. We only held the lamp.'],
+      6: ['The Frost Marshal', 'Relieved?'],
+      7: ['The Furnace Lord', 'Forty winters I fed it. Is it enough?'],
+      8: ['The Bone Gardener', 'It is the harvest he cannot stop.'],
+      9: ['The Hollow King', 'Orrin. My name was Orrin. Thank you for saying it.'],
     },
     // Things to examine in the dungeon (first time through only): stage index -> [{ id, room (section), label, kind }]
     relics: {
@@ -306,6 +318,11 @@ const CFG = {
       2: [{ id: 'den-paintings', room: 2, label: 'Soot paintings', kind: 'slab' }],
       3: [{ id: 'depths-pack', room: 2, label: 'A dead man\'s pack', kind: 'pack' }],
       4: [{ id: 'court-portraits', room: 2, label: 'A turned portrait', kind: 'slab' }],
+      5: [{ id: 'temple-mural', room: 2, label: 'A drowned mural', kind: 'slab' }],
+      6: [{ id: 'frost-orders', room: 2, label: 'Frozen orders', kind: 'slab' }],
+      7: [{ id: 'forge-mould', room: 2, label: 'A great mould', kind: 'ring' }],
+      8: [{ id: 'orchard-graves', room: 2, label: 'A named tree', kind: 'slab' }],
+      9: [{ id: 'throne-crown', room: 3, label: 'The Crown', kind: 'ring' }],
     },
     beats: [
       // The finds
@@ -325,6 +342,18 @@ const CFG = {
       { id: 'bramPack', on: ['talk', 'smith'], needs: ['done_den'], scene: 'bramPack', set: ['bramAsked'] },
       { id: 'bramFragment', on: ['talk', 'smith'], needs: ['haveFragment'], scene: 'bramFragment' },
       { id: 'marenSlip', on: ['talk', 'elder'], needs: ['done_spiders'], scene: 'marenSlip' },
+      // Act II
+      { id: 'f-mural', on: ['find', 'temple-mural'], scene: 'f-mural' },
+      { id: 'f-orders', on: ['find', 'frost-orders'], scene: 'f-orders' },
+      { id: 'f-mould', on: ['find', 'forge-mould'], scene: 'f-mould' },
+      { id: 'f-graves', on: ['find', 'orchard-graves'], scene: 'f-graves' },
+      { id: 'f-crown', on: ['find', 'throne-crown'], scene: 'f-crown' },
+      { id: 'bramComes', on: ['talk', 'smith'], needs: ['done_confess'], scene: 'bramComes' },
+      { id: 'rookTired', on: ['talk', 'guard'], needs: ['done_prophet'], scene: 'rookTired' },
+      { id: 'rookSalute', on: ['talk', 'guard'], needs: ['done_frost'], scene: 'rookSalute' },
+      { id: 'bramForge', on: ['talk', 'smith'], needs: ['done_frost'], scene: 'bramForge' },
+      { id: 'bramKey', on: ['talk', 'smith'], needs: ['done_forge'], scene: 'bramKey', set: ['keyFound'] },
+      { id: 'tildaQuiet', on: ['talk', 'trader'], needs: ['done_forge'], scene: 'tildaQuiet' },
     ],
     scenes: {
       greet: { who: 'elder', name: 'Maren', steps: [
@@ -372,6 +401,37 @@ const CFG = {
       'f-banner': { who: null, name: '', steps: [{ narr: true, text: 'A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.' }] },
       'f-paint': { who: null, name: '', steps: [{ narr: true, text: 'Soot paintings run along the cave wall: small figures kneeling around a larger one with a ring on its head. The ring is the only thing the goblins painted in red.' }] },
       'f-pack': { who: null, name: '', steps: [{ narr: true, text: 'Inside the dead man\'s pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.' }] },
+      ending: { who: null, name: '', steps: [
+        { narr: true, text: 'The Hollow King is down. The Crown lies at his side, and the Under whispers through the break in its rim.' },
+        { narr: true, text: 'Maren stands at your shoulder. She has come down after all. Her eyes are on the Crown.', if: 'marenDescends' },
+        { narr: true, text: 'In your pack, Bram\'s key is heavy as a stone.', if: 'bramKey' },
+        { text: 'Orrin. My name was Orrin. Thank you for saying it.', name: 'The Hollow King' },
+        { narr: true, text: 'You could take up the Crown, or let someone else take it, or break it. Whatever you choose, the Deep will remember.', choices: [
+          { text: 'Take up the Crown, and keep the watch.', go: 'watch', flag: 'ending_watch' },
+          { text: 'Let Maren take the Crown.', go: 'relief', flag: 'ending_relief', if: ['marenDescends', 'maren_forgiven'] },
+          { text: 'Break the Crown with Bram\'s key.', go: 'breaking', flag: 'ending_breaking', if: 'bramKey' },
+        ] },
+        { label: 'watch', narr: true, text: 'The Crown is lighter than it looks. It settles on you as if it had been waiting, and the Deep goes quiet like a held breath. You will have to come down again, and again; the Deep is quiet because you went.', go: 'end' },
+        { label: 'relief', narr: true, text: 'Maren takes the Crown in both hands. She says the King\'s name, gently, and sets it on her own head. Orrin lets go at last. The bells overhead stop, one by one.', go: 'end' },
+        { label: 'breaking', narr: true, text: 'The key bites. The Crown rings once like a bell and comes apart in your hands. The Under shrieks, and then, for the first time in forty winters, there is nothing holding it. The Deep begins to drain.', go: 'end' },
+      ] },
+      epi_watch: { who: 'elder', name: 'Maren', steps: [
+        { narr: true, text: 'The camp is the same, and not. The lamp by the fire is lit before dusk. Someone has been tending it.' },
+        { text: 'You came back up, warden. That was the one rule.' },
+        { text: 'It is not quite true, is it. You will go down again, and again. I will light the lamp every night.' },
+      ] },
+      epi_relief: { who: null, name: '', steps: [
+        { narr: true, text: 'Maren\'s chair by the fire is empty. The lamp beside it burns, though no one has lit it.' },
+        { text: 'She went gentle. The bells stopped.', name: 'Captain Rook' },
+        { text: 'She asked me to say she was sorry for the long silence. And that you were right to let her.', name: 'Captain Rook' },
+        { narr: true, text: 'Below, the Crown is hers. The Deep is quiet; there is a watch kept again, by someone who chose it.' },
+      ] },
+      epi_breaking: { who: 'elder', name: 'Maren', steps: [
+        { narr: true, text: 'The wells are going dry. Carts line the road, and families walk beside them with their lamps lit.' },
+        { text: 'The Deep is closing. The hill will not hold. We have to leave Varrow.' },
+        { text: 'You came back up, warden. That was the one rule. It is all I asked. I think it is the thing I am proudest of.' },
+        { narr: true, text: 'Bram stays at the anvil until the last cart. He does not look back.' },
+      ] },
       'f-portrait': { who: null, name: '', steps: [{ narr: true, text: 'A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.' }] },
       rookAsk: { who: 'guard', name: 'Captain Rook', steps: [
         { text: 'You are going into the Keep. I will ask one thing, and you may say no.' },
@@ -405,6 +465,67 @@ const CFG = {
         { label: 'knows', text: 'My family made this. ...Why would we make a crown?', go: 'tail' },
         { label: 'lied', text: 'Thank you. I will keep it.', go: 'tail' },
         { label: 'tail', text: 'I will melt nothing today. Go well, warden.' },
+      ] },
+      // Act II
+      prophet: { who: 'elder', name: 'Maren', steps: [
+        { text: 'The Prophet is drowned twice over. And you have the look of someone who has seen a wall.' },
+        { text: 'I already know what is on it. I was there when it was painted. Tell me anyway: what did the mural show?', choices: [{ text: 'A king with a spade, and a pit.', go: 'all', flag: 'marenToldAll' }, { text: 'Plague. Only plague.', go: 'some', flag: 'marenToldSome' }] },
+        { label: 'all', text: 'Yes. He dug it for his son. I held the lamp while he did.', go: 'tail' },
+        { label: 'some', text: 'Kind of you. I will pretend it was only the plague.', go: 'tail' },
+        { label: 'tail', text: 'Below the Temple the cold begins. There is a Marshal there who held his post forty winters. Do not mistake that for stubbornness.' },
+      ] },
+      grave: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have been to the Orchard. You saw the trees.' },
+        { text: 'That is my grave. He planted it for me. Forty years I have walked past that tree in my sleep.' },
+        { text: 'Below the Orchard there is only the throne. I climbed out of that room once. I am not certain I can walk back into it.', choices: [{ text: 'Come with me.', go: 'come', flag: 'marenDescends' }, { text: 'Stay and keep the lamp.', go: 'stay', flag: 'marenStays' }] },
+        { label: 'come', text: 'Then I will come down after you, as slowly as I like. Do not wait for me. If I reach the throne, I will know what to do.', go: 'tail' },
+        { label: 'stay', text: 'The lamp, then. Someone has to light it. Someone has always had to.', go: 'tail' },
+        { label: 'tail', text: 'Whatever you find at the bottom of the Deep, warden: he was a person. Remember that, when it is time to choose.' },
+      ] },
+      bramComes: { who: 'smith', name: 'Bram', steps: [
+        { text: 'I have been at the anvil all night, turning that rim over. The mark is ours, but the make is older than my family.', if: 'bramKnows' },
+        { text: 'I could not sleep. That piece of iron sits wrong in my mind. Whatever it is, you are going to find the rest of it.', if: 'bramLied' },
+        { text: 'If there is a crown at the end of this, I want to know who ordered it. And why my family was the one to cast it.' },
+      ] },
+      rookTired: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'Do not worry about the circles under my eyes. I have not slept since the bells changed.' },
+        { text: 'The goblins have stopped coming. Do you know what that means? Either the war camp is quiet or they have all gone down.' },
+      ] },
+      rookSalute: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'They lowered their shields, you said. All at once.' },
+        { narr: true, text: 'Rook salutes the empty gate, slowly, as if he were being watched.' },
+        { text: 'Aldric would have liked that. Tell me, did the Marshal ask for anyone by name?' },
+      ] },
+      bramForge: { who: 'smith', name: 'Bram', steps: [
+        { text: 'The Forge is next. My grandmother used to say our trade began there: the first mould, the first hammer.' },
+        { text: 'She never said what it made. Perhaps no one ever asked her.' },
+      ] },
+      bramKey: { who: 'smith', name: 'Bram', steps: [
+        { text: 'You went. You saw the mould.', if: 'bramKnows' },
+        { text: 'You knew what it was, and you did not tell me. I had to read it on a plaque.', if: 'bramLied' },
+        { text: 'It was a crown, wasn\'t it. A crown made to bind, not to rule. My family cast the lock on the thing at the bottom of the world.' },
+        { text: 'There is a tool in the mould-box, the key to the casting. It cuts what the Crown binds. It can break the Crown. Whether it should, I cannot say.' },
+        { text: 'What do you want me to do with it?', choices: [{ text: 'Give it to me. If it comes to it, I will break the Crown.', go: 'give', flag: 'bramKey' }, { text: 'Keep it hidden. I do not trust either of us.', go: 'hide', flag: 'bramHid' }] },
+        { label: 'give', text: 'Then take it. Do not use it lightly. A broken lock cannot be mended, and I will have made it for nothing.', go: 'end' },
+        { label: 'hide', text: 'Hidden, then. Under the anvil, where I can find it, and no one else can.' },
+      ] },
+      tildaQuiet: { who: 'trader', name: 'Tilda', steps: [
+        { text: 'The Rim is quiet. I do not like it. Quiet is when things are making up their minds.' },
+        { text: 'Whatever you are doing down there, finish it. I would like to open a shop in a world where the roads are safe.' },
+      ] },
+      'f-mural': { who: null, name: '', steps: [{ narr: true, text: 'A mural, drowned and green: a village of sick faces, then a king with a spade at the edge of a pit. The last panel is under the water.' }] },
+      'f-orders': { who: null, name: '', steps: [{ narr: true, text: 'Orders in a firm hand, frozen into the stone: HOLD UNTIL RELIEVED. Under it, in another hand: relieved by whom?' }] },
+      'f-mould': { who: null, name: '', steps: [
+        { narr: true, text: 'A mould the size of a table, split in four, still black from the casting. A plaque is set into its side.' },
+        { narr: true, text: 'MADE TO BIND, NOT TO RULE. THE WEARER KEEPS WATCH; THE WATCH KEEPS THE DEEP.' },
+      ] },
+      'f-graves': { who: null, name: '', steps: [
+        { narr: true, text: 'Every tree in the orchard grows from a grave. The bark carries names, forty winters weathered, in a household\'s hands.' },
+        { narr: true, text: 'One of the names is MAREN. Someone has kept the moss off it.' },
+      ] },
+      'f-crown': { who: null, name: '', steps: [
+        { narr: true, text: 'The Crown rests on the arm of the throne, dark iron with a break in its rim: exactly the shape of the piece you carried down.', if: 'haveFragment' },
+        { narr: true, text: 'The Crown rests on the arm of the throne. A voice speaks from it, and from the man seated beneath it, and they are not the same voice.' },
       ] },
       marenSlip: { who: 'elder', name: 'Maren', steps: [
         { text: 'The Court is next. From here down I cannot tell you what to expect.' },

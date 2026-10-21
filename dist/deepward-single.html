@@ -779,7 +779,14 @@ const CFG = {
       { id: 'spiders', obj: 'Defeat the Brood Queen in the Spider Depths', on: ['guardian', 3] },
       { id: 'court', obj: 'Defeat the Pale Duelist in the Shadow Court', on: ['guardian', 4] },
       { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess' },
-      { id: 'more', obj: 'The story goes on in the Sunken Temple (to be continued)' },
+      { id: 'temple', obj: 'Defeat the Drowned Prophet in the Sunken Temple', on: ['guardian', 5] },
+      { id: 'prophet', obj: 'Tell Maren what the mural showed', on: ['talk', 'elder'], scene: 'prophet' },
+      { id: 'frost', obj: 'Defeat the Frost Marshal in the Frost Halls', on: ['guardian', 6] },
+      { id: 'forge', obj: 'Defeat the Furnace Lord in the Ashen Forge', on: ['guardian', 7] },
+      { id: 'orchard', obj: 'Defeat the Bone Gardener in the Bone Orchard', on: ['guardian', 8] },
+      { id: 'grave', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'grave' },
+      { id: 'throne', obj: 'Go down to the Throne of the Deep and face the Hollow King', on: ['guardian', 9] },
+      { id: 'told', obj: 'The story is told. The Endless Deep goes on below.' },
     ],
     // What the guardians say as they fall (shown as a caption); the Brood Queen says nothing
     guardianLines: {
@@ -787,6 +794,11 @@ const CFG = {
       1: ['Sir Aldric', 'Orrin.'],
       2: ['The Den Mother', 'He is awake. He is so tired.'],
       4: ['The Pale Duelist', 'A good watch. Please, be kinder to him.'],
+      5: ['The Drowned Prophet', 'He dug it himself. We only held the lamp.'],
+      6: ['The Frost Marshal', 'Relieved?'],
+      7: ['The Furnace Lord', 'Forty winters I fed it. Is it enough?'],
+      8: ['The Bone Gardener', 'It is the harvest he cannot stop.'],
+      9: ['The Hollow King', 'Orrin. My name was Orrin. Thank you for saying it.'],
     },
     // Things to examine in the dungeon (first time through only): stage index -> [{ id, room (section), label, kind }]
     relics: {
@@ -795,6 +807,11 @@ const CFG = {
       2: [{ id: 'den-paintings', room: 2, label: 'Soot paintings', kind: 'slab' }],
       3: [{ id: 'depths-pack', room: 2, label: 'A dead man\'s pack', kind: 'pack' }],
       4: [{ id: 'court-portraits', room: 2, label: 'A turned portrait', kind: 'slab' }],
+      5: [{ id: 'temple-mural', room: 2, label: 'A drowned mural', kind: 'slab' }],
+      6: [{ id: 'frost-orders', room: 2, label: 'Frozen orders', kind: 'slab' }],
+      7: [{ id: 'forge-mould', room: 2, label: 'A great mould', kind: 'ring' }],
+      8: [{ id: 'orchard-graves', room: 2, label: 'A named tree', kind: 'slab' }],
+      9: [{ id: 'throne-crown', room: 3, label: 'The Crown', kind: 'ring' }],
     },
     beats: [
       // The finds
@@ -814,6 +831,18 @@ const CFG = {
       { id: 'bramPack', on: ['talk', 'smith'], needs: ['done_den'], scene: 'bramPack', set: ['bramAsked'] },
       { id: 'bramFragment', on: ['talk', 'smith'], needs: ['haveFragment'], scene: 'bramFragment' },
       { id: 'marenSlip', on: ['talk', 'elder'], needs: ['done_spiders'], scene: 'marenSlip' },
+      // Act II
+      { id: 'f-mural', on: ['find', 'temple-mural'], scene: 'f-mural' },
+      { id: 'f-orders', on: ['find', 'frost-orders'], scene: 'f-orders' },
+      { id: 'f-mould', on: ['find', 'forge-mould'], scene: 'f-mould' },
+      { id: 'f-graves', on: ['find', 'orchard-graves'], scene: 'f-graves' },
+      { id: 'f-crown', on: ['find', 'throne-crown'], scene: 'f-crown' },
+      { id: 'bramComes', on: ['talk', 'smith'], needs: ['done_confess'], scene: 'bramComes' },
+      { id: 'rookTired', on: ['talk', 'guard'], needs: ['done_prophet'], scene: 'rookTired' },
+      { id: 'rookSalute', on: ['talk', 'guard'], needs: ['done_frost'], scene: 'rookSalute' },
+      { id: 'bramForge', on: ['talk', 'smith'], needs: ['done_frost'], scene: 'bramForge' },
+      { id: 'bramKey', on: ['talk', 'smith'], needs: ['done_forge'], scene: 'bramKey', set: ['keyFound'] },
+      { id: 'tildaQuiet', on: ['talk', 'trader'], needs: ['done_forge'], scene: 'tildaQuiet' },
     ],
     scenes: {
       greet: { who: 'elder', name: 'Maren', steps: [
@@ -861,6 +890,37 @@ const CFG = {
       'f-banner': { who: null, name: '', steps: [{ narr: true, text: 'A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.' }] },
       'f-paint': { who: null, name: '', steps: [{ narr: true, text: 'Soot paintings run along the cave wall: small figures kneeling around a larger one with a ring on its head. The ring is the only thing the goblins painted in red.' }] },
       'f-pack': { who: null, name: '', steps: [{ narr: true, text: 'Inside the dead man\'s pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.' }] },
+      ending: { who: null, name: '', steps: [
+        { narr: true, text: 'The Hollow King is down. The Crown lies at his side, and the Under whispers through the break in its rim.' },
+        { narr: true, text: 'Maren stands at your shoulder. She has come down after all. Her eyes are on the Crown.', if: 'marenDescends' },
+        { narr: true, text: 'In your pack, Bram\'s key is heavy as a stone.', if: 'bramKey' },
+        { text: 'Orrin. My name was Orrin. Thank you for saying it.', name: 'The Hollow King' },
+        { narr: true, text: 'You could take up the Crown, or let someone else take it, or break it. Whatever you choose, the Deep will remember.', choices: [
+          { text: 'Take up the Crown, and keep the watch.', go: 'watch', flag: 'ending_watch' },
+          { text: 'Let Maren take the Crown.', go: 'relief', flag: 'ending_relief', if: ['marenDescends', 'maren_forgiven'] },
+          { text: 'Break the Crown with Bram\'s key.', go: 'breaking', flag: 'ending_breaking', if: 'bramKey' },
+        ] },
+        { label: 'watch', narr: true, text: 'The Crown is lighter than it looks. It settles on you as if it had been waiting, and the Deep goes quiet like a held breath. You will have to come down again, and again; the Deep is quiet because you went.', go: 'end' },
+        { label: 'relief', narr: true, text: 'Maren takes the Crown in both hands. She says the King\'s name, gently, and sets it on her own head. Orrin lets go at last. The bells overhead stop, one by one.', go: 'end' },
+        { label: 'breaking', narr: true, text: 'The key bites. The Crown rings once like a bell and comes apart in your hands. The Under shrieks, and then, for the first time in forty winters, there is nothing holding it. The Deep begins to drain.', go: 'end' },
+      ] },
+      epi_watch: { who: 'elder', name: 'Maren', steps: [
+        { narr: true, text: 'The camp is the same, and not. The lamp by the fire is lit before dusk. Someone has been tending it.' },
+        { text: 'You came back up, warden. That was the one rule.' },
+        { text: 'It is not quite true, is it. You will go down again, and again. I will light the lamp every night.' },
+      ] },
+      epi_relief: { who: null, name: '', steps: [
+        { narr: true, text: 'Maren\'s chair by the fire is empty. The lamp beside it burns, though no one has lit it.' },
+        { text: 'She went gentle. The bells stopped.', name: 'Captain Rook' },
+        { text: 'She asked me to say she was sorry for the long silence. And that you were right to let her.', name: 'Captain Rook' },
+        { narr: true, text: 'Below, the Crown is hers. The Deep is quiet; there is a watch kept again, by someone who chose it.' },
+      ] },
+      epi_breaking: { who: 'elder', name: 'Maren', steps: [
+        { narr: true, text: 'The wells are going dry. Carts line the road, and families walk beside them with their lamps lit.' },
+        { text: 'The Deep is closing. The hill will not hold. We have to leave Varrow.' },
+        { text: 'You came back up, warden. That was the one rule. It is all I asked. I think it is the thing I am proudest of.' },
+        { narr: true, text: 'Bram stays at the anvil until the last cart. He does not look back.' },
+      ] },
       'f-portrait': { who: null, name: '', steps: [{ narr: true, text: 'A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.' }] },
       rookAsk: { who: 'guard', name: 'Captain Rook', steps: [
         { text: 'You are going into the Keep. I will ask one thing, and you may say no.' },
@@ -894,6 +954,67 @@ const CFG = {
         { label: 'knows', text: 'My family made this. ...Why would we make a crown?', go: 'tail' },
         { label: 'lied', text: 'Thank you. I will keep it.', go: 'tail' },
         { label: 'tail', text: 'I will melt nothing today. Go well, warden.' },
+      ] },
+      // Act II
+      prophet: { who: 'elder', name: 'Maren', steps: [
+        { text: 'The Prophet is drowned twice over. And you have the look of someone who has seen a wall.' },
+        { text: 'I already know what is on it. I was there when it was painted. Tell me anyway: what did the mural show?', choices: [{ text: 'A king with a spade, and a pit.', go: 'all', flag: 'marenToldAll' }, { text: 'Plague. Only plague.', go: 'some', flag: 'marenToldSome' }] },
+        { label: 'all', text: 'Yes. He dug it for his son. I held the lamp while he did.', go: 'tail' },
+        { label: 'some', text: 'Kind of you. I will pretend it was only the plague.', go: 'tail' },
+        { label: 'tail', text: 'Below the Temple the cold begins. There is a Marshal there who held his post forty winters. Do not mistake that for stubbornness.' },
+      ] },
+      grave: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have been to the Orchard. You saw the trees.' },
+        { text: 'That is my grave. He planted it for me. Forty years I have walked past that tree in my sleep.' },
+        { text: 'Below the Orchard there is only the throne. I climbed out of that room once. I am not certain I can walk back into it.', choices: [{ text: 'Come with me.', go: 'come', flag: 'marenDescends' }, { text: 'Stay and keep the lamp.', go: 'stay', flag: 'marenStays' }] },
+        { label: 'come', text: 'Then I will come down after you, as slowly as I like. Do not wait for me. If I reach the throne, I will know what to do.', go: 'tail' },
+        { label: 'stay', text: 'The lamp, then. Someone has to light it. Someone has always had to.', go: 'tail' },
+        { label: 'tail', text: 'Whatever you find at the bottom of the Deep, warden: he was a person. Remember that, when it is time to choose.' },
+      ] },
+      bramComes: { who: 'smith', name: 'Bram', steps: [
+        { text: 'I have been at the anvil all night, turning that rim over. The mark is ours, but the make is older than my family.', if: 'bramKnows' },
+        { text: 'I could not sleep. That piece of iron sits wrong in my mind. Whatever it is, you are going to find the rest of it.', if: 'bramLied' },
+        { text: 'If there is a crown at the end of this, I want to know who ordered it. And why my family was the one to cast it.' },
+      ] },
+      rookTired: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'Do not worry about the circles under my eyes. I have not slept since the bells changed.' },
+        { text: 'The goblins have stopped coming. Do you know what that means? Either the war camp is quiet or they have all gone down.' },
+      ] },
+      rookSalute: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'They lowered their shields, you said. All at once.' },
+        { narr: true, text: 'Rook salutes the empty gate, slowly, as if he were being watched.' },
+        { text: 'Aldric would have liked that. Tell me, did the Marshal ask for anyone by name?' },
+      ] },
+      bramForge: { who: 'smith', name: 'Bram', steps: [
+        { text: 'The Forge is next. My grandmother used to say our trade began there: the first mould, the first hammer.' },
+        { text: 'She never said what it made. Perhaps no one ever asked her.' },
+      ] },
+      bramKey: { who: 'smith', name: 'Bram', steps: [
+        { text: 'You went. You saw the mould.', if: 'bramKnows' },
+        { text: 'You knew what it was, and you did not tell me. I had to read it on a plaque.', if: 'bramLied' },
+        { text: 'It was a crown, wasn\'t it. A crown made to bind, not to rule. My family cast the lock on the thing at the bottom of the world.' },
+        { text: 'There is a tool in the mould-box, the key to the casting. It cuts what the Crown binds. It can break the Crown. Whether it should, I cannot say.' },
+        { text: 'What do you want me to do with it?', choices: [{ text: 'Give it to me. If it comes to it, I will break the Crown.', go: 'give', flag: 'bramKey' }, { text: 'Keep it hidden. I do not trust either of us.', go: 'hide', flag: 'bramHid' }] },
+        { label: 'give', text: 'Then take it. Do not use it lightly. A broken lock cannot be mended, and I will have made it for nothing.', go: 'end' },
+        { label: 'hide', text: 'Hidden, then. Under the anvil, where I can find it, and no one else can.' },
+      ] },
+      tildaQuiet: { who: 'trader', name: 'Tilda', steps: [
+        { text: 'The Rim is quiet. I do not like it. Quiet is when things are making up their minds.' },
+        { text: 'Whatever you are doing down there, finish it. I would like to open a shop in a world where the roads are safe.' },
+      ] },
+      'f-mural': { who: null, name: '', steps: [{ narr: true, text: 'A mural, drowned and green: a village of sick faces, then a king with a spade at the edge of a pit. The last panel is under the water.' }] },
+      'f-orders': { who: null, name: '', steps: [{ narr: true, text: 'Orders in a firm hand, frozen into the stone: HOLD UNTIL RELIEVED. Under it, in another hand: relieved by whom?' }] },
+      'f-mould': { who: null, name: '', steps: [
+        { narr: true, text: 'A mould the size of a table, split in four, still black from the casting. A plaque is set into its side.' },
+        { narr: true, text: 'MADE TO BIND, NOT TO RULE. THE WEARER KEEPS WATCH; THE WATCH KEEPS THE DEEP.' },
+      ] },
+      'f-graves': { who: null, name: '', steps: [
+        { narr: true, text: 'Every tree in the orchard grows from a grave. The bark carries names, forty winters weathered, in a household\'s hands.' },
+        { narr: true, text: 'One of the names is MAREN. Someone has kept the moss off it.' },
+      ] },
+      'f-crown': { who: null, name: '', steps: [
+        { narr: true, text: 'The Crown rests on the arm of the throne, dark iron with a break in its rim: exactly the shape of the piece you carried down.', if: 'haveFragment' },
+        { narr: true, text: 'The Crown rests on the arm of the throne. A voice speaks from it, and from the man seated beneath it, and they are not the same voice.' },
       ] },
       marenSlip: { who: 'elder', name: 'Maren', steps: [
         { text: 'The Court is next. From here down I cannot tell you what to expect.' },
@@ -1671,24 +1792,30 @@ const LANG_KO = {
 "A captive": "포로",
 "A dash / talk": "A 대시 / 대화",
 "A dead man's pack": "죽은 이의 배낭",
+"A drowned mural": "물에 잠긴 벽화",
 "A fallen bell": "쓰러진 종",
 "A good watch. Please, be kinder to him.": "훌륭한 불침번이었어요. 부디 그분께 더 다정하게 대해 주세요.",
 "A great beast, not yet fought here": "아직 이곳에서 싸워 보지 않은 거대한 짐승",
 "A great light that mends everyone near": "주변 모두를 치유하는 커다란 빛",
 "A great light: mends everyone near for {0}% and burns the foes in it": "커다란 빛: 주변 모두를 {0}% 치유하고 빛 속의 적을 태웁니다",
+"A great mould": "거대한 거푸집",
 "A grey banner": "회색 깃발",
 "A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.": "붉은 줄이 있는 회색 깃발이 가로등 기둥에 걸려 있다. 삭았지만 온전하다. 당신은 그것을 접어 배낭에 넣는다.",
 "A ground shock that shatters posture all around": "주위의 자세를 모조리 무너뜨리는 지면 충격파",
 "A ground shock that shatters posture all around · {0} s": "주위의 자세를 모조리 무너뜨리는 지면 충격파 · {0}초",
 "A guardian waits at the end of this floor": "이 층 끝에서 수호자가 기다립니다",
 "A guardian, fought again": "다시 맞서는 수호자",
+"A king with a spade, and a pit.": "삽을 든 왕과 구덩이요.",
 "A leaping overhead that breaks guards": "방어를 부수는 도약 내려찍기",
 "A leaping overhead that breaks guards · {0} s": "방어를 부수는 도약 내려찍기 · {0}초",
 "A long dashing thrust that strikes from afar": "멀리서 파고드는 긴 돌진 찌르기",
 "A long dashing thrust that strikes from afar · {0} s": "멀리서 파고드는 긴 돌진 찌르기 · {0}초",
 "A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.": "긴 초상화 회랑. 액자 하나가 벽을 향해 돌려져 있다. 뒷면에는 분필로 '오린'이라고 적혀 있다.",
+"A mould the size of a table, split in four, still black from the casting. A plaque is set into its side.": "탁자만 한 거푸집이 네 조각으로 갈라져 있고, 주조의 그을음으로 아직 검다. 옆면에 명판이 박혀 있다.",
+"A mural, drowned and green: a village of sick faces, then a king with a spade at the edge of a pit. The last panel is under the water.": "물에 잠겨 푸르러진 벽화. 병든 얼굴의 마을, 그리고 구덩이 가장자리에서 삽을 든 왕. 마지막 장면은 물속에 있다.",
 "A name: Orrin.": "이름 하나요. 오린.",
 "A name: the Hollow King.": "이름 하나요. 텅 빈 왕이라고.",
+"A named tree": "이름 새겨진 나무",
 "A parry looses a blade of light down the line": "패링하면 빛의 칼날이 일직선으로 날아갑니다",
 "A roll of names": "이름이 새겨진 두루마리",
 "A roll of names is cut into the wall, hundreds of them, each struck through but the last. That one has been scratched out so hard the stone is white.": "벽에 수백 개의 이름이 새겨져 있고, 마지막 하나만 빼고 모두 줄이 그어져 있다. 그 이름은 돌이 하얗게 드러날 만큼 세게 긁혀 있다.",
@@ -1707,6 +1834,7 @@ const LANG_KO = {
 "After a dash through an attack, your next blow deals {0}% per rank": "공격을 대시로 뚫고 지나간 뒤, 다음 일격이 랭크당 {0}% 피해를 줍니다",
 "Aldo": "알도",
 "Aldric was my friend. I held the gate because he told me to. I have wondered every night since whether he meant it kindly.": "알드릭은 내 친구였어. 그가 시켜서 문을 지켰지. 그게 호의였는지 매일 밤 생각해.",
+"Aldric would have liked that. Tell me, did the Marshal ask for anyone by name?": "알드릭이 좋아했겠군. 말해 봐, 원수가 누구 이름을 찾던가?",
 "Aldric. They sent a knight to pull the oath out of him, and you did it.": "알드릭이라. 그에게서 맹세를 끌어내려고 기사까지 보냈는데, 네가 해냈구나.",
 "All": "전체",
 "All the Banners": "모든 깃발",
@@ -1774,8 +1902,11 @@ const LANG_KO = {
 "Below the Crypt stands the Iron Keep: the garrison that marched down to seal the Deep and never marched back.": "지하 묘지 아래에는 강철 성채가 있습니다. 심연을 봉인하러 내려갔다가 끝내 돌아오지 못한 수비대의 성채지요.",
 "Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.": "소굴 아래로 가면 돌이 거미줄로 바뀝니다. 거미 심층이지요. 브람은 그곳에서 형제를 잃었습니다.",
 "Below the Den the walls are webbed. Rest first, warden.": "소굴 아래의 벽은 거미줄투성이입니다. 먼저 쉬세요, 파수꾼.",
+"Below the Orchard there is only the throne. I climbed out of that room once. I am not certain I can walk back into it.": "과수원 아래에는 왕좌뿐이야. 나는 그 방에서 한 번 기어 나왔지. 다시 걸어 들어갈 수 있을지 모르겠어.",
+"Below the Temple the cold begins. There is a Marshal there who held his post forty winters. Do not mistake that for stubbornness.": "신전 아래부터 추위가 시작돼. 마흔 해 겨울 동안 자리를 지킨 원수가 있어. 그걸 고집이라 착각하지 마.",
 "Below the court the stair goes on, past drowned temples and frozen halls, to a throne no one has seen.": "궁정 아래로 계단은 계속 이어집니다. 물에 잠긴 신전과 얼어붙은 전당을 지나, 아무도 본 적 없는 왕좌까지.",
 "Below the five": "다섯 구역 그 아래",
+"Below, the Crown is hers. The Deep is quiet; there is a watch kept again, by someone who chose it.": "저 아래에서 왕관은 그녀의 것이다. 심연은 고요하고, 스스로 선택한 이가 다시 불침번을 선다.",
 "Beneath the forge, an orchard of bone. Something there plants the dead and makes them grow.": "대장간 아래에는 뼈의 과수원이 있습니다. 그곳의 무언가가 죽은 자를 심고 자라게 하지요.",
 "Bera": "베라",
 "Berserker": "광전사",
@@ -1817,8 +1948,10 @@ const LANG_KO = {
 "Bram forges a new piece at your depth (Hollow-king). A better forge raises the odds of rare work.": "브람이 현재 깊이에 맞는 장비를 새로 벼려 냅니다(공허왕의 등급). 대장간이 좋을수록 희귀한 장비가 나올 확률이 높아집니다.",
 "Bram says the iron you hauled up is good. Spend your gold on the camp": "브람이 네가 가져온 철이 좋다더군. 골드는 야영지에 써라",
 "Bram says the iron you hauled up is good. Spend your gold on the camp: a better forge makes better blades.": "브람 말로는 당신이 가져온 철이 좋답니다. 골드는 야영지에 쓰세요: 대장간이 좋아야 칼날도 좋아집니다.",
+"Bram stays at the anvil until the last cart. He does not look back.": "브램은 마지막 수레가 떠날 때까지 모루 곁에 남는다. 그는 뒤를 돌아보지 않는다.",
 "Bram the smith": "대장장이 브람",
 "Bram's Forge": "브람의 대장간",
+"Break the Crown with Bram's key.": "브램의 열쇠로 왕관을 부수기.",
 "Breaker": "파쇄자",
 "Brew": "양조",
 "Brew · 🌿{0} ◆{1}": "양조 · 🌿{0} ◆{1}",
@@ -1881,6 +2014,7 @@ const LANG_KO = {
 "Codex": "기록집",
 "Cold": "차가움",
 "Come back and tell me you are alive. That is all I ask of any warden.": "돌아와서 살아 있다고 말해줘. 어느 감시자에게든 내가 바라는 건 그것뿐이야.",
+"Come with me.": "저와 함께 가요.",
 "Common": "일반",
 "Companions dash out of telegraphed blows": "동료가 예고된 공격을 대시로 피합니다",
 "Companions keep learning from your fights": "동료가 전투에서 계속 배웁니다",
@@ -1950,14 +2084,18 @@ const LANG_KO = {
 "Defeat a guardian without taking a hit": "피격 없이 수호자 처치",
 "Defeat the Abomination in the Ring": "투기장에서 흉물 처치",
 "Defeat the Bone Gardener": "뼈 정원사 처치",
+"Defeat the Bone Gardener in the Bone Orchard": "뼈 과수원에서 뼈의 정원사 쓰러뜨리기",
 "Defeat the Bone Warden": "뼈의 파수병 처치",
 "Defeat the Brood Queen": "번식 여왕 처치",
 "Defeat the Brood Queen in the Spider Depths": "거미 심층에서 부화의 여왕 쓰러뜨리기",
 "Defeat the Den Mother": "소굴의 어미 처치",
 "Defeat the Den Mother in the Ogre Den": "오거 소굴에서 소굴의 어미 쓰러뜨리기",
 "Defeat the Drowned Prophet": "익사한 예언자 처치",
+"Defeat the Drowned Prophet in the Sunken Temple": "가라앉은 신전에서 익사한 예언자 쓰러뜨리기",
 "Defeat the Frost Marshal": "서리 원수 처치",
+"Defeat the Frost Marshal in the Frost Halls": "서리 회랑에서 서리 원수 쓰러뜨리기",
 "Defeat the Furnace Lord": "용광로 군주 처치",
+"Defeat the Furnace Lord in the Ashen Forge": "재의 대장간에서 용광로 군주 쓰러뜨리기",
 "Defeat the Hollow King": "공허왕 처치",
 "Defeat the Pale Duelist": "창백한 결투가 처치",
 "Defeat the Pale Duelist in the Shadow Court": "그림자 궁정에서 창백한 결투가 쓰러뜨리기",
@@ -1973,6 +2111,7 @@ const LANG_KO = {
 "Difficulty": "난이도",
 "Dismiss": "내보내기",
 "Do not look at the prices. The roads are scared, the carters want danger money, and I want to stay alive to sell you things.": "가격은 보지 마. 길이 무서워서 마부들이 위험수당을 요구하고, 나는 너에게 물건을 팔려고 살아남아야 하거든.",
+"Do not worry about the circles under my eyes. I have not slept since the bells changed.": "내 눈 밑의 그늘은 신경 쓰지 마. 종소리가 바뀐 뒤로 잠을 못 잤어.",
 "Done": "완료",
 "Drag the buttons where your thumbs want them.": "엄지가 편한 곳으로 버튼을 끌어다 놓으세요.",
 "Drag the right side": "오른쪽을 드래그",
@@ -2004,6 +2143,7 @@ const LANG_KO = {
 "Every kill heals {0}% of your health": "처치할 때마다 체력의 {0}% 회복",
 "Every parry heals {0}% of your health": "패링할 때마다 체력의 {0}% 회복",
 "Every stage is mapped from the start": "모든 구역의 지도가 처음부터 밝혀져 있습니다",
+"Every tree in the orchard grows from a grave. The bark carries names, forty winters weathered, in a household's hands.": "과수원의 모든 나무는 무덤에서 자란다. 껍질에는 한 가문 사람들의 손으로 새긴, 마흔 해 겨울에 바랜 이름들이 있다.",
 "Examine": "살펴보기",
 "Execute a broken foe": "무너진 적 처형하기",
 "Execute {0} broken foes": "무너진 적 {0}명 처형하기",
@@ -2057,6 +2197,7 @@ const LANG_KO = {
 "Forget what they learned": "학습 내용 잊기",
 "Forget what they learned ": "학습 내용 잊기",
 "Fortune": "행운",
+"Forty winters I fed it. Is it enough?": "마흔 해 겨울 동안 불을 먹였다. 이걸로 충분한가?",
 "Forty winters ago the ground beneath Varrow Hill split open. The village called it the Deep.": "사십 년 전, 바로우 언덕 아래 땅이 갈라졌다. 마을 사람들은 그것을 심연이라 불렀다.",
 "Free": "무료",
 "Free a captive from the Deep": "심연에서 포로 구출하기",
@@ -2065,6 +2206,7 @@ const LANG_KO = {
 "Frost (slows for {0} s)": "냉기 ({0}초간 둔화)",
 "Frost Ward": "서리 수호",
 "Frost {0}%": "냉기 {0}%",
+"Frozen orders": "얼어붙은 명령서",
 "Full map": "전체 지도",
 "Further Down": "더 깊이",
 "Fury": "분노",
@@ -2077,6 +2219,7 @@ const LANG_KO = {
 "Gems": "보석",
 "Gems: 🔴 ×{0} · 🔷 ×{1} · 🟢 ×{2} · 🟡 ×{3} · ⚫ ×{4}": "보석: 🔴 ×{0} · 🔷 ×{1} · 🟢 ×{2} · 🟡 ×{3} · ⚫ ×{4}",
 "Ghost Step": "유령 걸음",
+"Give it to me. If it comes to it, I will break the Crown.": "저에게 주세요. 그래야 한다면 제가 왕관을 부수겠어요.",
 "Glass Warden": "유리 파수꾼",
 "Gloves": "장갑",
 "Gloves · Common": "장갑 · 일반",
@@ -2089,6 +2232,7 @@ const LANG_KO = {
 "Go deeper · floor": "더 깊이 · 층",
 "Go deeper · floor {0}": "더 깊이 · {0}층",
 "Go down the gate and defeat the Bone Warden": "문을 내려가 뼈의 감시자 쓰러뜨리기",
+"Go down to the Throne of the Deep and face the Hollow King": "심연의 왕좌로 내려가 텅 빈 왕과 맞서기",
 "Goblin": "고블린",
 "Goblin Scout": "고블린 정찰병",
 "Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.": "고블린 무리가 이따금 길을 따라 올라와 내 성문을 두들겨 댑니다. 뿔나팔이 울리면 달려오세요, 파수꾼.",
@@ -2136,6 +2280,7 @@ const LANG_KO = {
 "Harder hits, tougher foes, four may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 넷이 동시에 공격, 좁은 패링 구간",
 "Harder hits, tougher foes, three may attack at once, a tight parry window": "더 강한 공격, 더 질긴 적, 최대 세 명이 동시에 공격, 빠듯한 패링 판정 시간",
 "Hauberk": "사슬 갑옷",
+"He dug it himself. We only held the lamp.": "그가 직접 팠다. 우리는 등불을 들고 있었을 뿐이다.",
 "He is awake. He is so tired.": "그분이 깨어 있어. 너무나 지쳐 있어.",
 "He ordered me up to keep the lamps lit. I could have refused. I did not. I told myself it was an order.": "그는 나에게 올라가 등불을 지키라고 명했어. 거절할 수도 있었는데 하지 않았지. 명령이라고 스스로에게 말했어.",
 "Headsman": "처형인",
@@ -2159,6 +2304,7 @@ const LANG_KO = {
 "Helm · Epic": "투구 · 영웅",
 "Helm · Rare": "투구 · 희귀",
 "Herbs": "약초",
+"Hidden, then. Under the anvil, where I can find it, and no one else can.": "그럼 숨겨 두지. 모루 밑에, 나만 찾을 수 있는 곳에.",
 "Hide the text": "텍스트 숨기기",
 "Hire for ◆ {0}": "◆ {0}로 고용",
 "Hire for ◆ {0} (free if you free them from the Deep)": "◆ {0}로 고용 (심연에서 구해내면 무료)",
@@ -2179,8 +2325,11 @@ const LANG_KO = {
 "Hunts count from when the job was pinned. A torn-down job is replaced with a fresh one.": "사냥은 의뢰를 붙인 뒤부터 셉니다. 떼어 낸 의뢰는 새 의뢰로 바뀝니다.",
 "Hunts count from when the job was pinned. A torn-down job is replaced with a fresh one. Materials: 🐾 Pelt ×{0} · 🦷 Tusk ×{1} · 🦴 Bone ×{2} · ⛏ Iron ore ×{3} · 🌿 Herbs ×{4} · 🕸 Silk ×{5}": "사냥 수는 의뢰를 고정한 시점부터 집계됩니다. 떼어 낸 의뢰는 새 의뢰로 교체됩니다. 재료: 🐾 가죽 ×{0} · 🦷 엄니 ×{1} · 🦴 뼈 ×{2} · ⛏ 철광석 ×{3} · 🌿 약초 ×{4} · 🕸 비단 ×{5}",
 "I AM THE DEEP": "내가 곧 심연이다",
+"I already know what is on it. I was there when it was painted. Tell me anyway: what did the mural show?": "거기 뭐가 그려졌는지는 이미 알아. 그릴 때 내가 있었으니까. 그래도 말해줘. 벽화가 무엇을 보여줬지?",
 "I buy what the Rim gives up. Pelts sell well where it snows.": "변두리 들판에서 나오는 건 뭐든 사지. 가죽은 눈 오는 지방에서 잘 팔려.",
+"I could not sleep. That piece of iron sits wrong in my mind. Whatever it is, you are going to find the rest of it.": "잠을 못 잤어. 그 쇳조각이 머릿속에서 자꾸 걸려. 그게 뭐든 나머지도 네가 찾게 되겠지.",
 "I gear": "I 장비",
+"I have been at the anvil all night, turning that rim over. The mark is ours, but the make is older than my family.": "밤새 모루 곁에서 그 테두리를 돌려 봤어. 표식은 우리 것인데 만든 솜씨는 우리 가문보다 오래됐어.",
 "I only found it.": "그냥 주웠어요.",
 "I think it is part of a crown.": "왕관의 일부 같아요.",
 "I will melt nothing today. Go well, warden.": "오늘은 아무것도 녹이지 않겠어. 잘 가, 감시자.",
@@ -2189,9 +2338,11 @@ const LANG_KO = {
 "IT RISES FROM THE BOG": "그것이 늪에서 일어선다",
 "IT TEARS LOOSE": "그것이 사슬을 끊는다",
 "IT WILL NOT DIE": "그것은 죽지 않는다",
+"If there is a crown at the end of this, I want to know who ordered it. And why my family was the one to cast it.": "이 끝에 왕관이 있다면 누가 주문했는지 알고 싶어. 그리고 왜 우리 가문이 그걸 주조했는지도.",
 "If you have a free hour, the Ridge is the place to look. I will pay for what you find.": "한 시간이라도 여유가 있다면 능선을 살펴봐. 찾아낸 것에는 값을 치르지.",
 "Ilsa the cook": "요리사 일사",
 "Import": "가져오기",
+"In your pack, Bram's key is heavy as a stone.": "배낭 속 브램의 열쇠가 돌처럼 무겁다.",
 "In your party": "파티에 속해 있음",
 "Inside the dead man's pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.": "죽은 이의 배낭 속에 천에 싸인 휘어진 검은 쇠 조각이 있다. 무언가 둥근 것의 테두리 일부다. 당신은 그것을 챙긴다.",
 "Instead of": "대신:",
@@ -2202,8 +2353,11 @@ const LANG_KO = {
 "Iron Will": "강철 의지",
 "Iron ore": "철광석",
 "It is fine. It means the world up here is still worth the trouble.": "괜찮아. 위쪽 세상이 아직 애쓸 가치가 있다는 뜻이니까.",
+"It is not quite true, is it. You will go down again, and again. I will light the lamp every night.": "사실 그렇지는 않지. 너는 다시 또 내려갈 테니까. 나는 매일 밤 등불을 켜 두겠다.",
 "It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.": "끝났습니다. 공허왕은 안식에 들었고, 심연은 사십 년 만에 처음으로 고요합니다.",
+"It is the harvest he cannot stop.": "그가 멈출 수 없는 수확이다.",
 "It said nothing.": "아무 말도 하지 않았어요.",
+"It was a crown, wasn't it. A crown made to bind, not to rule. My family cast the lock on the thing at the bottom of the world.": "왕관이었지, 그렇지? 다스리려는 게 아니라 묶어두려고 만든 왕관. 우리 가문이 세상 밑바닥에 있는 그것의 자물쇠를 주조한 거야.",
 "It was waiting for something.": "무언가를 기다리고 있었어요.",
 "Its acolytes throw light that hurts. Parry it at the last moment and it goes back the way it came.": "그 시종들은 해로운 빛을 던진다. 마지막 순간에 패링하면 빛이 온 길로 되돌아간다.",
 "J / left-click attack": "J / 왼쪽 클릭 공격",
@@ -2215,6 +2369,7 @@ const LANG_KO = {
 "K heavy": "K 강공격",
 "KNEEL": "무릎 꿇어라",
 "Keen Eye": "예리한 눈",
+"Keep it hidden. I do not trust either of us.": "숨겨 두세요. 우리 둘 다 믿을 수 없어요.",
 "Keeps the line. A sword, a shield and thirty years of bad knees.": "전선을 지킵니다. 검 한 자루, 방패 하나, 그리고 삼십 년 묵은 무릎 통증.",
 "Kept on this device.": "이 기기에 저장됩니다.",
 "KeyA": "KeyA",
@@ -2229,6 +2384,7 @@ const LANG_KO = {
 "Keyboard and controller": "키보드 및 컨트롤러",
 "Kill a foe with its own reflected orb": "반사한 구체로 적 처치",
 "Kill the shield-bearers first. While they stand, every blade near them is hard to bite.": "방패병부터 처치하세요. 그들이 서 있는 동안에는 주변의 모든 적에게 공격이 잘 먹히지 않습니다.",
+"Kind of you. I will pretend it was only the plague.": "고맙구나. 역병뿐이었다고 믿는 척하겠어.",
 "Kite Shield": "카이트 실드",
 "Knight's": "기사의",
 "Knight's Amulet": "기사의 부적",
@@ -2262,6 +2418,7 @@ const LANG_KO = {
 "Left thumb: move": "왼손 엄지: 이동",
 "Left thumb: move · Drag the right side: turn the camera · Attack, Heavy, Block (hold), Dash · 🎥 switches camera": "왼쪽 엄지: 이동 · 화면 오른쪽 드래그: 카메라 회전 · 공격, 강공격, 막기(누르고 있기), 대시 · 🎥 카메라 전환",
 "Legendary": "전설",
+"Let Maren take the Crown.": "마렌이 왕관을 쓰게 하기.",
 "Level": "레벨",
 "Level {0}": "레벨 {0}",
 "Level {0} · The Crypt · ◆ {1} · saved just now": "레벨 {0} · 지하 묘지 · ◆ {1} · 방금 저장됨",
@@ -2289,6 +2446,7 @@ const LANG_KO = {
 "Lower it if the game stutters": "게임이 끊기면 낮추세요",
 "Lower it if the game stutters: Low turns shadows off and draws fewer pixels.": "게임이 끊기면 낮추세요. '낮음'은 그림자를 끄고 더 적은 픽셀을 그립니다.",
 "Lv": "Lv",
+"MADE TO BIND, NOT TO RULE. THE WEARER KEEPS WATCH; THE WATCH KEEPS THE DEEP.": "다스리기 위함이 아니라 묶기 위해 만들었다. 쓰는 자는 불침번을 서고, 불침번이 심연을 지킨다.",
 "MORE COME": "더 몰려온다",
 "MOSSBACK BELLOWS": "이끼등이 포효한다",
 "Mace": "철퇴",
@@ -2298,6 +2456,11 @@ const LANG_KO = {
 "Map (N)": "지도 (N)",
 "Maren": "마렌",
 "Maren sent you. She always does, when she is worried.": "마렌이 보냈군. 걱정될 때마다 늘 그러지.",
+"Maren stands at your shoulder. She has come down after all. Her eyes are on the Crown.": "마렌이 당신의 어깨 곁에 서 있다. 결국 내려왔다. 그녀의 시선은 왕관에 머물러 있다.",
+"Maren takes the Crown in both hands. She says the King's name, gently, and sets it on her own head. Orrin lets go at last. The bells overhead stop, one by one.": "마렌이 두 손으로 왕관을 든다. 왕의 이름을 부드럽게 부르고 자신의 머리에 얹는다. 오린이 마침내 손을 놓는다. 머리 위의 종이 하나둘 멈춘다.",
+"Maren's chair": "마렌의 의자",
+"Maren's chair by the fire is empty. The lamp beside it burns, though no one has lit it.": "모닥불 곁 마렌의 의자가 비어 있다. 아무도 켜지 않았는데 곁의 등불이 타고 있다.",
+"Maren's chair is empty. The lamp beside it burns.": "마렌의 의자가 비어 있다. 곁의 등불이 타고 있다.",
 "Maren's hand stops on the cup. She does not look at you.": "마렌의 손이 잔 위에서 멈춘다. 그녀는 당신을 보지 않는다.",
 "Maren: \"Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense.\"": "마렌: \"홉이 동쪽 울타리 옆 훈련장을 맡고 있어요. 수업은 여섯 가지예요. 공격, 막기, 패링, 대시, 그리고 비틀거리는 적을 마무리하는 법이죠. 분별이 있다면 그에게 먼저 가 보세요.\"",
 "Marked Men": "표적이 된 자들",
@@ -2379,13 +2542,16 @@ const LANG_KO = {
 "One more healing flask": "치유 물약 1개 추가",
 "One more healing flask · next trip": "치유 물약 1개 추가 · 다음 탐험부터",
 "One more ring before the last, they say. An orchard. I do not like the sound of it.": "마지막 고리 전에 하나가 더 있다고 하더군요. 과수원이라고요. 어감부터 마음에 들지 않습니다.",
+"One of the names is MAREN. Someone has kept the moss off it.": "이름 중 하나는 마렌이다. 누군가 이끼를 털어내 왔다.",
 "One ring remains that we know of. The Court. Go carefully.": "우리가 아는 고리는 하나 남았습니다. 궁정이에요. 조심해서 가세요.",
 "One rule here": "여기 규칙은 하나",
 "One rule here: come back up. The gate by the fire leads down. Go when you are ready.": "여기 규칙은 하나야. 살아서 올라올 것. 모닥불 옆 문이 아래로 이어져. 준비되면 가.",
 "One word. \"Relieved?\"": "한 마디요. \"교대인가?\"",
 "Onyx": "오닉스",
 "Orb": "보주",
+"Orders in a firm hand, frozen into the stone: HOLD UNTIL RELIEVED. Under it, in another hand: relieved by whom?": "돌에 얼어붙은 단호한 필체의 명령: 교대될 때까지 지켜라. 그 아래 다른 필체: 누구에게 교대된단 말인가?",
 "Orrin.": "오린.",
+"Orrin. My name was Orrin. Thank you for saying it.": "오린. 내 이름은 오린이었다. 불러줘서 고맙구나.",
 "Oswin": "오스윈",
 "Parries": "패링",
 "Parries give back {0} stamina; parry window {1} s": "패링 시 기력 {0} 회복, 패링 판정 시간 {1}초",
@@ -2405,6 +2571,7 @@ const LANG_KO = {
 "Piercing Shot": "관통 사격",
 "Pinned by the fire": "모닥불 옆에 붙은 의뢰",
 "Pinned by the fire: work for anyone with a blade.": "모닥불 옆에 붙어 있다: 칼 든 자라면 누구나 할 수 있는 일거리.",
+"Plague. Only plague.": "역병이요. 역병뿐이었어요.",
 "Play": "플레이",
 "Pointing device": "포인팅 장치",
 "Posture damage": "자세 피해",
@@ -2479,6 +2646,7 @@ const LANG_KO = {
 "Riposte": "반격",
 "Roads, warden. All the roads lead past a hole in the ground eventually.": "길이지, 파수꾼. 결국 모든 길은 땅에 난 구멍 옆을 지나가게 돼 있어.",
 "Rolf": "롤프",
+"Rook salutes the empty gate, slowly, as if he were being watched.": "룩이 누가 보고 있기라도 한 듯 빈 문을 향해 천천히 경례한다.",
 "Rook says the wolves are bold this year.": "루크 말로는 올해 늑대들이 대담하대.",
 "Rook takes the banner in both hands and says nothing for a long time.": "룩은 깃발을 두 손으로 받아 들고 한참 동안 아무 말도 하지 않는다.",
 "Ruby": "루비",
@@ -2528,9 +2696,12 @@ const LANG_KO = {
 "Share": "공유",
 "Share learned data": "학습 데이터 공유",
 "Shaved": "민머리",
+"She asked me to say she was sorry for the long silence. And that you were right to let her.": "긴 침묵이 미안했다고 전해 달라더군. 그리고 그렇게 하게 해준 네가 옳았다고.",
 "She buys materials at ◆ {0} each": "재료를 개당 ◆ {0}에 사들입니다",
 "She buys materials at ◆ {0} each:": "그녀는 재료를 개당 ◆ {0}에 삽니다:",
 "She looks away as she says it.": "그녀는 그렇게 말하며 시선을 피한다.",
+"She never said what it made. Perhaps no one ever asked her.": "무엇을 만들었는지는 말씀하지 않으셨어. 아무도 묻지 않았겠지.",
+"She went gentle. The bells stopped.": "그분은 평온하게 떠났어. 종이 멈췄지.",
 "Shield": "방패",
 "Shield Knight": "방패 기사",
 "Shield · Common": "방패 · 일반",
@@ -2557,6 +2728,7 @@ const LANG_KO = {
 "Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.": "아드릭 경은 왕이 돌아올 때까지 성채를 지키겠노라 맹세했다. 왕은 끝내 돌아오지 않았다. 아드릭은 아직도 기다린다.",
 "Sir Aldric the Hollow": "공허한 자 아드릭 경",
 "Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.": "아드릭 경... 그를 알았어요. 전선을 지키겠다고 맹세했죠. 실제로 지켜냈어요. 다만 엉뚱한 쪽을 향한 채로요.",
+"Sit": "앉기",
 "Six cuts faster than the eye": "눈보다 빠른 여섯 번의 베기",
 "Six cuts faster than the eye · {0} s": "눈보다 빠른 여섯 번의 베기 · {0}초",
 "Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.": "여섯 가지 훈련이다. 베기, 막기, 패링, 대시, 그리고 무너뜨린 적을 마무리하는 법. 순서대로 하고, 지루한 것도 건너뛰지 마라. 지루한 것들이 너를 살려준다.",
@@ -2613,6 +2785,7 @@ const LANG_KO = {
 "Stamina regenerates {0}% faster per rank": "랭크당 기력 회복 속도 {0}% 증가",
 "Stamina {0}": "기력 {0}",
 "Stamina, Parry window": "기력, 패링 판정 시간",
+"Stay and keep the lamp.": "남아서 등불을 지켜 주세요.",
 "Stay in camp": "캠프에 머무르기",
 "Steady Guard": "굳건한 방어",
 "Steady Hand": "안정된 손",
@@ -2671,6 +2844,7 @@ const LANG_KO = {
 "Take five shrine blessings": "제단 축복 다섯 번 받기",
 "Take off": "벗기",
 "Take this. It is not payment. It is what a captain does when he cannot say thank you.": "이걸 받아. 보수가 아니야. 고맙다는 말을 못 하는 대장이 하는 일이지.",
+"Take up the Crown, and keep the watch.": "왕관을 쓰고 불침번을 서기.",
 "Take up the watch": "경계 근무 서기",
 "Take {0}% less damage": "받는 피해 {0}% 감소",
 "Take {0}% less damage · next trip": "받는 피해 {0}% 감소 · 다음 원정",
@@ -2682,6 +2856,7 @@ const LANG_KO = {
 "Telegraph words (DASH! / PARRY! over special attacks)": "경고 문구 (특수 공격 위에 대시! / 패링! 표시)",
 "Tell Captain Rook what you found": "루크 대장에게 발견한 것을 보고하기",
 "Tell Maren what Sir Aldric said": "알드릭 경이 한 말을 마렌에게 전하기",
+"Tell Maren what the mural showed": "벽화가 보여준 것을 마렌에게 알리기",
 "Tell Maren what you found in the Crypt": "지하묘지에서 본 것을 마렌에게 알리기",
 "Tell me: did it speak?": "말해줘, 그것이 말을 했나?",
 "Temper": "담금질",
@@ -2690,6 +2865,7 @@ const LANG_KO = {
 "Thank you. I will keep it.": "고마워. 간직할게.",
 "That is kind. It is also not true, but I will keep it.": "다정한 말이군. 사실은 아니지만, 간직하겠어.",
 "That is my family's mark. That is... a piece of the rim of something. Do you know what it is?": "우리 가문의 표식이야. 이건... 무언가의 테두리 조각인데. 이게 뭔지 알아?",
+"That is my grave. He planted it for me. Forty years I have walked past that tree in my sleep.": "그건 내 무덤이야. 그가 나를 위해 심었지. 마흔 해 동안 꿈속에서 그 나무 곁을 지나쳤어.",
 "That is... Yes. That is the one.": "이건... 그래. 바로 그 깃발이야.",
 "Thaw": "해동",
 "The Abomination": "흉물",
@@ -2707,11 +2883,16 @@ const LANG_KO = {
 "The Brood Queen... Bram will drink to that tonight, for his brother.": "무리의 여왕이라... 브람이 오늘 밤 형제를 위해 한잔하겠군.",
 "The Collector": "수집가",
 "The Court is next. From here down I cannot tell you what to expect.": "다음은 궁정이야. 여기서부터는 무엇이 기다리는지 말해줄 수 없어.",
+"The Crown": "왕관",
 "The Crown Falls": "왕관이 떨어지다",
+"The Crown is lighter than it looks. It settles on you as if it had been waiting, and the Deep goes quiet like a held breath. You will have to come down again, and again; the Deep is quiet because you went.": "왕관은 보기보다 가볍다. 기다리고 있었다는 듯 당신에게 자리 잡고, 심연은 숨을 죽인 듯 조용해진다. 당신은 다시 또 다시 내려와야 할 것이다. 심연이 조용한 것은 당신이 갔기 때문이다.",
+"The Crown rests on the arm of the throne, dark iron with a break in its rim: exactly the shape of the piece you carried down.": "왕관이 왕좌의 팔걸이에 놓여 있다. 테두리가 갈라진 검은 쇠. 당신이 가져온 조각의 모양과 꼭 맞는다.",
+"The Crown rests on the arm of the throne. A voice speaks from it, and from the man seated beneath it, and they are not the same voice.": "왕관이 왕좌의 팔걸이에 놓여 있다. 왕관에서, 그리고 그 아래 앉은 사내에게서 목소리가 들리는데 서로 다른 목소리다.",
 "The Crypt": "지하 묘지",
 "The Crypt is the first ring. The dead there are slow, but they never tire.": "지하 묘지는 첫 번째 고리예요. 그곳의 망자들은 느리지만, 결코 지치지 않아요.",
 "The Crypt · {0}/{1}": "지하 묘지 · {0}/{1}",
 "The Deep": "심연",
+"The Deep is closing. The hill will not hold. We have to leave Varrow.": "심연이 닫히고 있어. 언덕이 버티지 못할 거야. 우리는 바로우를 떠나야 해.",
 "The Deep takes all kinds. This choice stays with this warden.": "심연은 가리지 않고 삼킵니다. 이 선택은 이 파수꾼에게 평생 따라갑니다.",
 "The Den Mother": "소굴의 어미",
 "The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.": "소굴의 어미는 죽었는데, 심연은 여전히 숨을 쉬어요. 아래쪽 바위가 있어선 안 될 만큼 따뜻해요.",
@@ -2725,6 +2906,7 @@ const LANG_KO = {
 "The Endless Deep · deepest {0}": "끝없는 심연 · 최고 {0}층",
 "The Fen": "늪지대",
 "The Forge Colossus": "대장간 거상",
+"The Forge is next. My grandmother used to say our trade began there: the first mould, the first hammer.": "다음은 대장간이야. 우리 할머니는 우리 가업이 거기서 시작됐다고 하셨지. 첫 거푸집, 첫 망치.",
 "The Frost Halls": "서리의 전당",
 "The Frost Marshal": "서리 원수",
 "The Frost Marshal held his hall for forty winters. You took it in an afternoon.": "서리 원수는 마흔 번의 겨울 동안 자신의 전당을 지켰어. 넌 그걸 오후 한나절 만에 빼앗았고.",
@@ -2737,6 +2919,7 @@ const LANG_KO = {
 "The Gravetender": "무덤지기",
 "The Hold grows every season. Thanks to you.": "요새는 계절마다 커져요. 당신 덕분이에요.",
 "The Hollow King": "공허왕",
+"The Hollow King is down. The Crown lies at his side, and the Under whispers through the break in its rim.": "텅 빈 왕이 쓰러졌다. 왕관이 그의 곁에 놓여 있고, 심연이 테두리의 갈라진 틈으로 속삭인다.",
 "The Hollow Knight Falls": "공허의 기사가 쓰러지다",
 "The Hollow Sentinel": "공허의 파수병",
 "The Ice Bulwark": "얼음 방벽",
@@ -2752,11 +2935,13 @@ const LANG_KO = {
 "The Pale Duelist": "창백한 결투가",
 "The Pale Duelist bowed before she fell, they say. Courteous to the end.": "창백한 결투가는 쓰러지기 전에 고개를 숙였다더군. 끝까지 예의 바르게.",
 "The Pale Duelist fenced for a crown he never wore. Watch his first swing; it is always a lie.": "창백한 결투가는 써 보지도 못한 왕관을 위해 칼을 휘둘렀어. 첫 번째 공격을 잘 봐. 그건 언제나 속임수야.",
+"The Prophet is drowned twice over. And you have the look of someone who has seen a wall.": "예언자는 이중으로 물에 잠겼구나. 그리고 너는 벽을 본 얼굴이야.",
 "The Prophet is drowned twice over. The water is already going down.": "예언자가 두 번이나 물에 잠겼군. 물이 벌써 빠지고 있어.",
 "The Quarry Foreman": "채석장 감독관",
 "The Reedbank": "갈대 둑",
 "The Ridge Horror": "능선의 공포",
 "The Rim": "변두리 들판",
+"The Rim is quiet. I do not like it. Quiet is when things are making up their minds.": "변두리가 조용해. 마음에 안 들어. 조용할 때는 무언가가 마음을 정하고 있는 때거든.",
 "The Ring": "투기장",
 "The Ring ·": "투기장 ·",
 "The Shadow Court": "그림자 궁정",
@@ -2770,13 +2955,17 @@ const LANG_KO = {
 "The War Camp": "전쟁 야영지",
 "The Widow": "과부",
 "The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.": "요새의 종이 밤마다 저절로 울려. 나흘 전엔 그 소리에 가락이 있었어. 누군가의 이름을 부르는 것처럼.",
+"The camp is the same, and not. The lamp by the fire is lit before dusk. Someone has been tending it.": "야영지는 그대로이면서 그렇지 않다. 모닥불 곁의 등불이 해 지기 전에 켜져 있다. 누군가 돌보고 있었다.",
 "The dark closes in, and no map": "어둠이 조여 오는데, 지도는 없다",
 "The deepest ring we know of": "우리가 아는 가장 깊은 고리",
 "The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.": "우리가 아는 가장 깊은 고리는 그림자 궁정이에요. 그곳의 결투가들은 한때 귀족이었죠. 지금도 귀족처럼 싸워요.",
 "The east gate": "동쪽 문",
 "The east gate opens on the Fen. Black water, spiders as big as dogs, and the drowned dead at night. Mind your footing.": "동쪽 문은 늪지대로 이어져. 검은 물, 개만 한 거미들, 밤이면 익사한 망자들까지. 발밑 조심해.",
 "The fireball blast is {0} m wider per rank": "등급마다 불덩이 폭발이 {0}m 넓어집니다",
+"The goblins have stopped coming. Do you know what that means? Either the war camp is quiet or they have all gone down.": "고블린이 더는 오지 않아. 무슨 뜻인지 알겠어? 전쟁 야영지가 조용해졌거나 모두 내려갔다는 거지.",
 "The heavy thrust reaches {0} m further and pierces every foe in line": "강한 찌르기의 사거리가 {0}m 늘어나고 일직선상의 모든 적을 관통합니다",
+"The key bites. The Crown rings once like a bell and comes apart in your hands. The Under shrieks, and then, for the first time in forty winters, there is nothing holding it. The Deep begins to drain.": "열쇠가 파고든다. 왕관이 종처럼 한 번 울리고 손안에서 부서진다. 심연이 비명을 지르고, 마흔 해 만에 처음으로 그것을 붙드는 것이 없어진다. 심연이 빠져나가기 시작한다.",
+"The lamp, then. Someone has to light it. Someone has always had to.": "그럼 등불이로군. 누군가는 켜야 하지. 언제나 누군가 해야 했어.",
 "The last camp on the rim of the Deep needs a warden": "심연의 변두리에 남은 마지막 캠프에 파수꾼이 필요하다",
 "The last ring. A throne, and a king who was the first warden of all, before he went down and did not come up.": "마지막 고리예요. 왕좌가 하나 있고, 그 위엔 왕이 있죠. 모든 파수꾼 중 첫 번째였던 자예요. 아래로 내려갔다가 다시는 올라오지 않았죠.",
 "The mimic coughs up:": "미믹이 토해낸 것:",
@@ -2792,17 +2981,23 @@ const LANG_KO = {
 "The stone hums. Choose one blessing; it holds until you leave this stage.": "돌이 웅웅거립니다. 축복 하나를 고르세요. 이 구역을 떠날 때까지 유지됩니다.",
 "The story goes on below the Keep": "이야기는 요새 아래에서 계속된다",
 "The story goes on in the Sunken Temple (to be continued)": "이야기는 가라앉은 신전에서 이어집니다 (계속)",
+"The story is told. The Endless Deep goes on below.": "이야기는 끝났습니다. 끝없는 심연은 아래에서 계속됩니다.",
+"The wells are going dry. Carts line the road, and families walk beside them with their lamps lit.": "우물이 말라 간다. 길가에는 수레가 늘어섰고, 가족들이 등불을 들고 그 곁을 걷는다.",
 "Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.": "놈들이 덮치면 방패도 튕겨 나간다. 마지막 순간에 패링으로 받아치거나, 아예 그 자리에 없어야 해.",
 "Their shields still hold. A heavy blow breaks a guard, or get behind them.": "놈들의 방패는 아직 버티고 있다. 강한 일격으로 방어를 깨거나, 뒤로 돌아가라.",
+"Then I will come down after you, as slowly as I like. Do not wait for me. If I reach the throne, I will know what to do.": "그럼 네 뒤를 따라 내려가겠어. 내 속도대로. 기다리지 마. 왕좌에 닿으면 무엇을 해야 할지 알게 되겠지.",
 "Then heat again. A forge, still burning, with no one to feed it but the Deep itself.": "그리고 다시 열기. 아직 타오르는 대장간인데, 불을 지피는 건 심연뿐이다.",
 "Then it was not meant for you to follow. Not yet.": "그렇다면 네가 따라갈 일이 아니었던 거야. 아직은.",
+"Then take it. Do not use it lightly. A broken lock cannot be mended, and I will have made it for nothing.": "그럼 가져가. 함부로 쓰지 마. 부서진 자물쇠는 고칠 수 없고, 난 헛수고를 한 셈이 될 테니까.",
 "Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.": "그다음엔 문이다. 지하묘지부터 시작해라. 느리고 정직한 죽은 자들이지. 그 밑바닥은 뼈의 감시자가 지키고 있다.",
+"There is a tool in the mould-box, the key to the casting. It cuts what the Crown binds. It can break the Crown. Whether it should, I cannot say.": "거푸집 상자에 도구가 하나 있어. 주조의 열쇠지. 왕관이 묶은 것을 끊어. 왕관을 부술 수도 있어. 그래야 하는지는 나도 모르겠어.",
 "There is fire below the ice. Strange, the Deep.": "얼음 아래에 불이 있다. 기이한 곳이지, 심연은.",
 "They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.": "모두 그렇지. 알드릭도 기다리고 있을 거야. 심연이 이미 집어삼킨 왕에게 맹세했으니까.",
 "They have learned from {0} fight.": "{0}번의 전투에서 배웠습니다.",
 "They have learned from {0} fights.": "{0}번의 전투에서 배웠습니다.",
 "They have not learned from your fights yet.": "아직 당신의 전투에서 배운 것이 없습니다.",
 "They lie with their blades. Watch the first swing, but answer the second.": "놈들은 칼로 속인다. 첫 번째 휘두르기를 지켜보고, 두 번째에 응수해라.",
+"They lowered their shields, you said. All at once.": "방패를 내렸다고 했지. 모두 한꺼번에.",
 "They say the Bone Warden was the first warden of this camp. He went down to hold the stair, and never came up.": "뼈의 파수병이 이 야영지의 첫 파수꾼이었다고들 하지. 계단을 지키러 내려갔다가, 다시는 올라오지 않았어.",
 "Thirst": "갈증",
 "Thornwood": "가시나무 숲",
@@ -2909,10 +3104,13 @@ const LANG_KO = {
 "Wenna the bard": "음유시인 웬나",
 "What Deepward could be, with enough gold.": "골드만 충분하다면, 딥워드는 이렇게 될 수 있습니다.",
 "What did he say at the end?": "마지막에 그가 뭐라고 했지?",
+"What do you want me to do with it?": "이걸 어떻게 했으면 좋겠어?",
 "What is down there?": "저 아래에는 무엇이 있나요?",
 "What the Deep has taught you.": "심연이 당신에게 가르쳐 준 것.",
 "What the Deep swallows, it sends back up": "심연이 삼킨 것은 다시 올려 보낸다",
 "What the Deep swallows, it sends back up: bones that walk, knights who forgot their oaths, beasts grown fat in the dark.": "심연은 삼킨 것을 다시 토해 낸다. 걸어 다니는 뼈, 맹세를 잊은 기사, 어둠 속에서 살찐 짐승들.",
+"Whatever you are doing down there, finish it. I would like to open a shop in a world where the roads are safe.": "저 아래서 무얼 하든 끝내 줘. 길이 안전한 세상에서 가게를 열고 싶으니까.",
+"Whatever you find at the bottom of the Deep, warden: he was a person. Remember that, when it is time to choose.": "심연 바닥에서 무엇을 만나든, 감시자, 그도 한 사람이었어. 선택해야 할 때 그걸 기억해.",
 "When its weapon burns red, do not block. Dash through it.": "무기가 붉게 타오르면 막지 마라. 대시로 뚫고 지나가.",
 "When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.": "칼날이 하얗게 번뜩이면 방패를 들어라. 마지막 순간에 들면 놈의 자세를 무너뜨릴 수 있다.",
 "Where do I start?": "어디서부터 시작하죠?",
@@ -2934,18 +3132,25 @@ const LANG_KO = {
 "Wrath": "분노",
 "Wynn": "윈",
 "Y ultimate": "Y 궁극기",
+"Yes. He dug it for his son. I held the lamp while he did.": "그래. 그는 아들을 위해 팠지. 그가 파는 동안 내가 등불을 들고 있었어.",
 "You are back. That is the Warden's bone on your cloak. Sit, before you fall.": "돌아왔구나. 망토에 묻은 건 감시자의 뼈로군. 쓰러지기 전에 앉아.",
 "You are going into the Keep. I will ask one thing, and you may say no.": "요새로 들어가는군. 부탁이 하나 있는데, 거절해도 좋아.",
 "You are going to ask me why.": "왜 그랬는지 물을 테지.",
 "You are going to the Depths. I will not ask you to turn back; I know better.": "심층으로 가는군. 돌아가라고는 안 하겠어. 그 정도는 알지.",
+"You came back up, warden. That was the one rule.": "올라왔구나, 감시자. 그게 유일한 규칙이었지.",
+"You came back up, warden. That was the one rule. It is all I asked. I think it is the thing I am proudest of.": "올라왔구나, 감시자. 그게 유일한 규칙이었지. 내가 바란 건 그것뿐이었고, 가장 자랑스러운 일이기도 해.",
 "You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.": "돌아왔구나, 파수꾼. 그게 유일한 규칙이었지. 끝없는 심연은 여전히 아래로 이어진다. 언젠가 들여다보고 싶다면.",
 "You carry gold. The ledger by the fire turns gold into a stronger camp.": "골드를 가지고 있군. 모닥불 옆 장부가 골드를 더 강한 야영지로 바꿔 준다.",
+"You could take up the Crown, or let someone else take it, or break it. Whatever you choose, the Deep will remember.": "왕관을 쓸 수도, 다른 이에게 맡길 수도, 부술 수도 있다. 무엇을 택하든 심연은 기억할 것이다.",
 "You did what you were told.": "명령받은 대로 하셨잖아요.",
 "You do not need a reason to hold a line. You need a good stance.": "전선을 지키는 데 이유는 필요 없다. 좋은 자세가 필요하지.",
+"You have been to the Orchard. You saw the trees.": "과수원에 다녀왔구나. 나무들을 봤겠지.",
 "You have fallen": "쓰러졌습니다",
 "You have seen the portraits. You were always going to.": "초상화를 봤구나. 언젠가는 볼 수밖에 없었지.",
 "You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.": "이야기를 들어본 적 없는 얼굴이군. 좋아. 이야기는 심연보다 더 지독하니까.",
+"You knew what it was, and you did not tell me. I had to read it on a plaque.": "그게 뭔지 알면서 말해주지 않았어. 명판으로 읽어야 했잖아.",
 "You set the curved piece of dark iron on the anvil. Bram turns white.": "당신이 휘어진 검은 쇠 조각을 모루 위에 올려놓자 브램의 얼굴이 하얘진다.",
+"You went. You saw the mould.": "다녀왔군. 거푸집을 봤겠지.",
 "Your bag is full": "가방이 가득 찼습니다",
 "Your gems": "내 보석",
 "Your weapon burns": "무기가 불탄다",
@@ -7333,6 +7538,7 @@ const Props = (() => {
     if (r.kind === 'bell') { put(g, new THREE.CylinderGeometry(0.15, 0.55, 0.8, 9), mat(0x7a5a2a), 0, 0.45, 0).rotation.z = 1.2; }
     else if (r.kind === 'banner') { put(g, new THREE.CylinderGeometry(0.04, 0.05, 2.2, 6), dark, 0, 1.1, 0); const c = put(g, new THREE.PlaneGeometry(0.8, 1.2), cloth, 0.4, 1.5, 0); c.material.side = THREE.DoubleSide; }
     else if (r.kind === 'pack') { put(g, new THREE.BoxGeometry(0.7, 0.45, 0.45), dark, 0, 0.25, 0).rotation.y = 0.5; put(g, new THREE.BoxGeometry(0.5, 0.2, 0.35), mat(0x6a5a3a), 0.1, 0.55, 0); }
+    else if (r.kind === 'ring') { put(g, new THREE.CylinderGeometry(0.7, 0.8, 0.7, 10), stone, 0, 0.35, 0); put(g, new THREE.TorusGeometry(0.5, 0.1, 6, 14), dark, 0, 0.95, 0).rotation.x = Math.PI / 2; }
     else { put(g, new THREE.BoxGeometry(1.1, 1.6, 0.25), stone, 0, 0.8, 0); put(g, new THREE.BoxGeometry(0.8, 0.05, 0.02), mat(0x1a1a22), 0, 1.1, 0.14); }
     const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), glow); m.position.y = 2.3; g.add(m); room.geos.push(m.geometry); room.mats.push(glow);
     const o = { id: r.id, label: r.label, g, m, x: room.cx + lx, z, r: 1.9, found: false };
@@ -7488,7 +7694,7 @@ const Camp = (() => {
     for (let k = 0; k < 3; k++) add(new THREE.BoxGeometry(0.28, 0.34, 0.01), M(0xe8dcc0), -3.8 + k * 0.4, 1.55, 4.7, group, false).rotation.z = (Math.random() - 0.5) * 0.3;
     block(-3.4, 4.6, 0.4);
     room.spots.push({ id: 'ledger', name: 'Camp ledger', verb: 'Upgrade camp', x: -3.4, z: 5.5, r: 1.8 });
-    room.spots.push({ id: 'elder', name: 'Maren', verb: 'Talk', x: 2.4, z: 2.6, r: 2.0 });
+    room.spots.push({ id: 'elder', name: (typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief) ? "Maren's chair" : 'Maren', verb: (typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief) ? 'Sit' : 'Talk', x: 2.4, z: 2.6, r: 2.0 });
     room.spots.push({ id: 'bard', name: 'Wenna the bard', verb: 'Listen', x: -3.2, z: 2.6, r: 1.8 });
     // The notice board: jobs for the warden
     for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 2.0, 0.12), darkWood, 3.6 + sd * 0.7, 1.0, 5.4);
@@ -7671,7 +7877,7 @@ const Camp = (() => {
     };
     npc('smith', fx + 2.4, fz + 2.2, 0.9, { pose: { clip: 'idleExamine' }, cloth: 0x5a4632, hair: 0x2a1a10, beard: true, apron: true, tool: 'hammer', skin: 0xc88b63 });
     npc('trader', sx - 1.0, sz + 1.0, -2.4, { pose: { clip: 'idleLook', rate: 0.8 }, cloth: 0x6a2a2a, hair: 0x8a5a2b, scarf: 0xc9a23a, skin: 0xf1c9a0 });
-    npc('elder', 2.4, 1.7, -0.6, { pose: { clip: 'idleEase', rate: 0.7, add: { spine: [0.22, 0, 0], neck: [0.12, 0, 0] } }, cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
+    if (!(typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief)) npc('elder', 2.4, 1.7, -0.6, { pose: { clip: 'idleEase', rate: 0.7, add: { spine: [0.22, 0, 0], neck: [0.12, 0, 0] } }, cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
     npc('bard', -2.4, 1.6, facing(-2.4, 1.6, 0, 1), { pose: SEAT, cloth: 0x6a3a6a, hair: 0xc88a3a, scarf: 0xd8b04a, skin: 0xf0c8a8, tool: 'lute' });
     npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
@@ -10259,7 +10465,7 @@ const Ads = (() => {
 // Deepward - scenes: a person speaks to the warden in the world instead of in a panel. The camera frames the speaker over the
 // warden's shoulder, the speaker turns to the warden and moves a little as they talk, the words are typed in a caption at the
 // bottom (any key finishes the line, then goes on), and a line can offer choices. Script:
-//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end' }], go?: label | 'end', flag? } ] }
+//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end', flag?, if? }], go?: label | 'end', flag?, if?: flag | '!flag' | [flags], narr? } ] }
 // who is a camp person's id (null: narration, the camera stays on the warden). A step with `go` jumps there instead of to the next.
 const Scene = (() => {
   const CPS = 46;                                                            // characters per second
@@ -10298,7 +10504,7 @@ const Scene = (() => {
     S.side = score(1) >= score(-1) ? 1 : -1;
   }
   // Steps and choices can be conditional on saved flags: if: 'flag' or '!flag'
-  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return x.if.charAt(0) === '!' ? !F[x.if.slice(1)] : !!F[x.if]; };
+  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return [].concat(x.if).every(f => (f.charAt(0) === '!' ? !F[f.slice(1)] : !!F[f])); };
   const step = () => S.script.steps[S.i];
   function show() {
     while (S.i < S.script.steps.length && !okIf(step())) S.i++;
@@ -10448,9 +10654,25 @@ const Story = (() => {
     if (!Items.S || loop > 0) return;
     const l = M().guardianLines[si]; if (l) whisper(l[0], l[1]);
   }
+  // The end of the story: the Hollow King has fallen. The ending scene asks what to do with the Crown (choices open up with what the
+  // warden did: the Relief needs Maren to have come down and forgiven, the Breaking needs Bram's key); `done` runs when it ends
+  function ending(done) {
+    const S = Items.S; if (!S || state().ending) { if (done) done(); return false; }
+    return play('ending', () => {
+      const e = flags().ending_relief ? 'relief' : flags().ending_breaking ? 'breaking' : 'watch';
+      state().ending = e; Items.save(); if (done) done();
+    });
+  }
+  // Back in camp after the ending: the epilogue for it, once
+  function epilogue(done) {
+    const S = Items.S, e = S && state().ending;
+    if (!e || flags().epilogueSeen) { if (done) done(); return false; }
+    set('epilogueSeen'); Items.save();
+    return play('epi_' + e, done);
+  }
   // Relics to place in a stage (those not found yet), for js/world.js
   const relicsFor = si => (Items.S ? (M().relics[si] || []).filter(r => !flags()['found_' + r.id]) : []);
-  return { event, objective, talk, whisper, guardianFell, relicsFor, has, set, get step() { return cur(); } };
+  return { event, objective, talk, whisper, guardianFell, relicsFor, ending, epilogue, has, set, get ended() { return Items.S ? state().ending || null : null; }, get step() { return cur(); } };
 })();
 
 </script>
@@ -11137,7 +11359,11 @@ G.onChest = room => {
   else if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
   else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
-    G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
+    G.after(1.3, () => {
+      if (G.mode !== 'dungeon') return;
+      const done = () => openPanel('cleared', { k, guardian: room.inf.stage.guardian });
+      if (k === CFG.stages.length - 1) Story.ending(done); else done();          // the first time through the last ring: the ending
+    });
   } else Items.save();
 };
 // ---------------- World events: a raid on the gate, Sefa's caravan ----------------
@@ -11258,7 +11484,8 @@ G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
   if (k < CFG.stages.length) Story.event('guardian', k);
-  if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
+  if (k === CFG.stages.length - 1 && Story.ended && !Story.has('epilogueSeen')) { S.story.post[k] = true; Items.save(); Story.epilogue(); }
+  else if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
 // Press on: down the stair behind the fallen guardian into the next stage
@@ -11282,6 +11509,7 @@ G.onGearChanged = campChanged => {
 function interact() {
   const s = G.spot; if (!s || G.state !== 'play') return;
   Player.revive(G.player);
+  if (s.id === 'elder' && Story.has('ending_relief')) return Story.talk(null, '', [{ text: "Maren's chair is empty. The lamp beside it burns." }].map(x => x.text));
   if (s.id === 'elder') {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];

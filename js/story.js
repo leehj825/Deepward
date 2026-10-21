@@ -56,7 +56,23 @@ const Story = (() => {
     if (!Items.S || loop > 0) return;
     const l = M().guardianLines[si]; if (l) whisper(l[0], l[1]);
   }
+  // The end of the story: the Hollow King has fallen. The ending scene asks what to do with the Crown (choices open up with what the
+  // warden did: the Relief needs Maren to have come down and forgiven, the Breaking needs Bram's key); `done` runs when it ends
+  function ending(done) {
+    const S = Items.S; if (!S || state().ending) { if (done) done(); return false; }
+    return play('ending', () => {
+      const e = flags().ending_relief ? 'relief' : flags().ending_breaking ? 'breaking' : 'watch';
+      state().ending = e; Items.save(); if (done) done();
+    });
+  }
+  // Back in camp after the ending: the epilogue for it, once
+  function epilogue(done) {
+    const S = Items.S, e = S && state().ending;
+    if (!e || flags().epilogueSeen) { if (done) done(); return false; }
+    set('epilogueSeen'); Items.save();
+    return play('epi_' + e, done);
+  }
   // Relics to place in a stage (those not found yet), for js/world.js
   const relicsFor = si => (Items.S ? (M().relics[si] || []).filter(r => !flags()['found_' + r.id]) : []);
-  return { event, objective, talk, whisper, guardianFell, relicsFor, has, set, get step() { return cur(); } };
+  return { event, objective, talk, whisper, guardianFell, relicsFor, ending, epilogue, has, set, get ended() { return Items.S ? state().ending || null : null; }, get step() { return cur(); } };
 })();

@@ -1,7 +1,7 @@
 // Deepward - scenes: a person speaks to the warden in the world instead of in a panel. The camera frames the speaker over the
 // warden's shoulder, the speaker turns to the warden and moves a little as they talk, the words are typed in a caption at the
 // bottom (any key finishes the line, then goes on), and a line can offer choices. Script:
-//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end' }], go?: label | 'end', flag? } ] }
+//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end', flag?, if? }], go?: label | 'end', flag?, if?: flag | '!flag' | [flags], narr? } ] }
 // who is a camp person's id (null: narration, the camera stays on the warden). A step with `go` jumps there instead of to the next.
 const Scene = (() => {
   const CPS = 46;                                                            // characters per second
@@ -40,7 +40,7 @@ const Scene = (() => {
     S.side = score(1) >= score(-1) ? 1 : -1;
   }
   // Steps and choices can be conditional on saved flags: if: 'flag' or '!flag'
-  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return x.if.charAt(0) === '!' ? !F[x.if.slice(1)] : !!F[x.if]; };
+  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return [].concat(x.if).every(f => (f.charAt(0) === '!' ? !F[f.slice(1)] : !!F[f])); };
   const step = () => S.script.steps[S.i];
   function show() {
     while (S.i < S.script.steps.length && !okIf(step())) S.i++;

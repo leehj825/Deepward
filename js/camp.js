@@ -80,7 +80,7 @@ const Camp = (() => {
     for (let k = 0; k < 3; k++) add(new THREE.BoxGeometry(0.28, 0.34, 0.01), M(0xe8dcc0), -3.8 + k * 0.4, 1.55, 4.7, group, false).rotation.z = (Math.random() - 0.5) * 0.3;
     block(-3.4, 4.6, 0.4);
     room.spots.push({ id: 'ledger', name: 'Camp ledger', verb: 'Upgrade camp', x: -3.4, z: 5.5, r: 1.8 });
-    room.spots.push({ id: 'elder', name: 'Maren', verb: 'Talk', x: 2.4, z: 2.6, r: 2.0 });
+    room.spots.push({ id: 'elder', name: (typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief) ? "Maren's chair" : 'Maren', verb: (typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief) ? 'Sit' : 'Talk', x: 2.4, z: 2.6, r: 2.0 });
     room.spots.push({ id: 'bard', name: 'Wenna the bard', verb: 'Listen', x: -3.2, z: 2.6, r: 1.8 });
     // The notice board: jobs for the warden
     for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 2.0, 0.12), darkWood, 3.6 + sd * 0.7, 1.0, 5.4);
@@ -263,7 +263,7 @@ const Camp = (() => {
     };
     npc('smith', fx + 2.4, fz + 2.2, 0.9, { pose: { clip: 'idleExamine' }, cloth: 0x5a4632, hair: 0x2a1a10, beard: true, apron: true, tool: 'hammer', skin: 0xc88b63 });
     npc('trader', sx - 1.0, sz + 1.0, -2.4, { pose: { clip: 'idleLook', rate: 0.8 }, cloth: 0x6a2a2a, hair: 0x8a5a2b, scarf: 0xc9a23a, skin: 0xf1c9a0 });
-    npc('elder', 2.4, 1.7, -0.6, { pose: { clip: 'idleEase', rate: 0.7, add: { spine: [0.22, 0, 0], neck: [0.12, 0, 0] } }, cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
+    if (!(typeof Items !== 'undefined' && Items.S && Items.S.flags && Items.S.flags.ending_relief)) npc('elder', 2.4, 1.7, -0.6, { pose: { clip: 'idleEase', rate: 0.7, add: { spine: [0.22, 0, 0], neck: [0.12, 0, 0] } }, cloth: 0x3a4a5a, hair: 0xb0b0b0, elder: true, scarf: 0x6a5a48, skin: 0xe3b48a });
     npc('bard', -2.4, 1.6, facing(-2.4, 1.6, 0, 1), { pose: SEAT, cloth: 0x6a3a6a, hair: 0xc88a3a, scarf: 0xd8b04a, skin: 0xf0c8a8, tool: 'lute' });
     npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });

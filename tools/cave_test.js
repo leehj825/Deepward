@@ -28,7 +28,7 @@ const path = require('path');
       __dw.arena(stage);
       for (const r of W.sections) {
         const n = r.pillars.length;
-        if (cave && n < 4) o.shaped = false;
+        if (cave && n < 3) o.shaped = false;
         if (!cave && n > 4) o.plainStays = false;
         if (!reach(r)) { o.connected = false; o['bad_' + stage + '_' + r.j] = false; }
         for (const [d, z] of [[r.doorS, r.southZ], [r.doorN, r.northZ]]) if (d !== null && r.pillars.some(([px, pz, pr]) => Math.hypot(px - d, pz - z) < (pr || 0) + 1.3)) o.doorsClear = false;

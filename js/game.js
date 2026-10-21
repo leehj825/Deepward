@@ -680,7 +680,11 @@ G.onChest = room => {
   else if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
   else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
-    G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
+    G.after(1.3, () => {
+      if (G.mode !== 'dungeon') return;
+      const done = () => openPanel('cleared', { k, guardian: room.inf.stage.guardian });
+      if (k === CFG.stages.length - 1) Story.ending(done); else done();          // the first time through the last ring: the ending
+    });
   } else Items.save();
 };
 // ---------------- World events: a raid on the gate, Sefa's caravan ----------------
@@ -801,7 +805,8 @@ G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
   if (k < CFG.stages.length) Story.event('guardian', k);
-  if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
+  if (k === CFG.stages.length - 1 && Story.ended && !Story.has('epilogueSeen')) { S.story.post[k] = true; Items.save(); Story.epilogue(); }
+  else if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
 // Press on: down the stair behind the fallen guardian into the next stage
@@ -825,6 +830,7 @@ G.onGearChanged = campChanged => {
 function interact() {
   const s = G.spot; if (!s || G.state !== 'play') return;
   Player.revive(G.player);
+  if (s.id === 'elder' && Story.has('ending_relief')) return Story.talk(null, '', [{ text: "Maren's chair is empty. The lamp beside it burns." }].map(x => x.text));
   if (s.id === 'elder') {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
