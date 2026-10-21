@@ -444,7 +444,21 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 - **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
 - **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, the gauntlet and the rune vault, and Korean.
 
-### Next: check what is built
+### Next: the hack-and-slash dungeon (in this order)
+
+Ordinary blows no longer stagger the warden (built: only unblockable, area, boss and heavy blows do, and not during the warden's own heavy swing; `CFG.player.staggerPosture`). The steps below build on that.
+
+**H1. Hordes.** Bigger packs (5 to 8 foes: many light ones, one or two strong), more foes attacking at once (`maxAttackers` 2 to about 4 on Normal, the rest circling), waves that chain when the last is nearly cleared, a kill-streak that feeds the ultimate and drops health orbs, a cap on live foes for phones.
+- Exit: the bot clears the stages with the horde on, a test of the attacker limit, 50+ FPS with the cap on.
+
+**H2. Natural spaces: caves.** Walkable space becomes shapes (circles, blobs, tunnels of varying width) instead of rectangles: `World.inSpace`, the camera's wall push, the movement limits of heroes, foes and companions, and the walls follow the shape. First theme: caves (chambers, winding tunnels, stalactites, glowing crystals, pools). Rectangular rooms stay as they are; a stage can mix styles.
+- Exit: a cave stage that plays end to end, no stuck spots, the old rooms unchanged (all room tests pass).
+
+**H3. Forest and abandoned town.** The same shapes with trails and clearings under tree trunks (forest), and streets, open-door houses, a square and a broken fountain (town). The town is also the place for the story's NPCs.
+
+**H4. Story and natural NPCs.** A quest-state system first (acts tied to the stages, guardians as beats, saved with the game); then short in-engine scenes with the camera framing the speaker, NPCs that turn to you, gesture and speak with a typed caption and choices, NPCs and companions that react as the story moves on.
+
+### Then: check what is built
 
 **P1. Real-phone pass.** Every number so far is headless. Install the debug APK on a mid-range Android phone and play the Hold, the Rim during a raid, the Fen at night and a boss fight.
 - Frame rate, touch reach, text size, safe areas, and the Korean font.
