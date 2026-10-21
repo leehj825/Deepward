@@ -28,6 +28,25 @@ const World = (() => {
   function themeTex(name) {
     if (texCache[name]) return texCache[name];
     const th = CFG.themes[name];
+    // A cave: mottled earth and rock with no masonry
+    if (th.style === 'cave') {
+      const mottle = (c, base, spread, n, size) => {
+        c.fillStyle = rgb(base, -16); c.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < n; i++) {
+          const x = Math.random() * 256, y = Math.random() * 256, r = size * (0.4 + Math.random());
+          c.fillStyle = rgb(base, (Math.random() - 0.5) * spread); c.beginPath(); c.ellipse(x, y, r, r * (0.5 + Math.random() * 0.6), Math.random() * 3, 0, 7); c.fill();
+          if (x < r) { c.beginPath(); c.ellipse(x + 256, y, r, r * 0.7, 0, 0, 7); c.fill(); }
+          if (y < r) { c.beginPath(); c.ellipse(x, y + 256, r, r * 0.7, 0, 0, 7); c.fill(); }
+        }
+      };
+      const floor = canvasTex(c => { mottle(c, th.stone, 40, 140, 22); c.fillStyle = 'rgba(0,0,0,0.3)'; for (let i = 0; i < 40; i++) c.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 3, 2 + Math.random() * 2); });
+      const wall = canvasTex(c => {
+        mottle(c, th.wall, 46, 90, 34);
+        c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 2;
+        for (let i = 0; i < 9; i++) { c.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; c.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (Math.random() - 0.3) * 40; py += (Math.random() - 0.5) * 14; c.lineTo(px, py); } c.stroke(); }
+      });
+      return (texCache[name] = { floor, wall });
+    }
     // Flagstones: irregular slabs, dark grout, a few cracks
     const floor = canvasTex(c => {
       c.fillStyle = rgb(th.stone, -36); c.fillRect(0, 0, 256, 256);
@@ -155,7 +174,7 @@ const World = (() => {
     }
 
     // Pillar stumps
-    if (def.pillars) {
+    if (def.pillars && th.style !== 'cave') {
       const stone = M(rgbHex(th.wall, 14));
       for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const x = px * hw * 0.55, z = cz + pz * hd * 0.45, h = 1.2 + Math.random() * 0.8;
@@ -178,11 +197,11 @@ const World = (() => {
       const pos = new THREE.Vector3(cx + x + Math.sin(ry) * 0.6, 2.6, z + Math.cos(ry) * 0.6);
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
-    for (const s of [-1, 1]) {
+    if (th.style !== 'cave') for (const s of [-1, 1]) {
       for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
-    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
+    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);          // (a cave's light is its crystals)
 
     // Scattered decor in the theme of the stage, kept off the path between the doorways
     const pathA = [ds === null ? (dn === null ? 0 : dn) : ds, southZ], pathB = [dn === null ? 0 : dn, northZ];
@@ -242,6 +261,66 @@ const World = (() => {
       }
     }
     room.offPath = offPath;
+
+    // A cave: rock bulges out of the walls, rock formations stand between the passages, crystals give the light. The rocks are blockers
+    // (the same circles the pillars use), so the walkable space is no longer a plain rectangle; a lane along the way through stays open.
+    if (th.style === 'cave') {
+      const rockM = M(rgbHex(th.wall, 10), { roughness: 1 }), rockM2 = M(rgbHex(th.wall, -2), { roughness: 1 });
+      const jit = (x, y, z) => 0.8 + 0.4 * (((Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1 + 1) % 1);
+      const rock = (x, z, r, hMul, m = rockM) => {                               // a lumpy boulder; x is local to the section
+        const g = new THREE.IcosahedronGeometry(r, 1), pa = g.attributes.position;
+        for (let i = 0; i < pa.count; i++) { const k = jit(pa.getX(i) + x, pa.getY(i), pa.getZ(i) + z); pa.setXYZ(i, pa.getX(i) * k, pa.getY(i) * k, pa.getZ(i) * k); }
+        g.computeVertexNormals();
+        hMul = Math.max(0.5, Math.min(hMul, (1.3 + Math.random() * 1.0) / (2 * r)));          // never taller than about 2.3 m: the camera looks over them
+        const o = add(g, m, x, r * hMul * 0.55, z); o.scale.y = hMul; o.rotation.y = Math.random() * 3; return o;
+      };
+      const block = (x, z, r) => room.pillars.push([x + cx, z, r * 0.8]);
+      const nearDoor = (x, z, r) => (ds !== null && z > southZ - r - 3 && Math.abs(x - ds) < DOOR + r + 1.4) || (dn !== null && z < northZ + r + 3 && Math.abs(x - dn) < DOOR + r + 1.4)
+        || (P.side && Math.abs(z - cz) < SIDE_DOOR + r + 1.2 && Math.sign(x) === P.side.dir && Math.abs(x) > hw - r - 3) || (last && Math.abs(x) < 4.5 && z < northZ + 5.5);
+      // The wall's own edge: a rim of half-buried rock so no straight line shows (low along the south wall, which the camera looks over)
+      for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.5 + Math.random() * 1.2) { const r = 0.7 + Math.random() * 0.8; if (!nearDoor(sd * hw, z, 0.4)) rock(sd * (hw - 0.1), z, r, 1.2 + Math.random() * 1.1, Math.random() < 0.5 ? rockM : rockM2); }
+      for (let x = -hw + 1; x < hw; x += 1.5 + Math.random() * 1.2) {
+        const r = 0.7 + Math.random() * 0.8;
+        if (!nearDoor(x, northZ + 0.2, 0.4)) rock(x, northZ + 0.2, r, 1.4 + Math.random() * 1.2, rockM2);
+        if (!nearDoor(x, southZ + 0.2, 0.4)) rock(x, southZ + 0.1, r * 0.6, 0.6, rockM);
+      }
+      // Bulges into the section (blockers) along the side walls and the far wall
+      for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 2.8 + Math.random() * 2.2) {
+        if (Math.random() < 0.2) continue;
+        const r = 1.0 + Math.random() * 1.4, d = 0.5 + Math.random() * 1.6, x = sd * (hw - d + r * 0.3);
+        if (nearDoor(x, z, r)) continue;
+        rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+      }
+      for (let x = -hw + 3; x < hw - 2; x += 3 + Math.random() * 3) {
+        if (Math.random() < 0.3) continue;
+        const r = 0.9 + Math.random() * 1.1, z = northZ + 0.5 + Math.random() * 1.4;
+        if (nearDoor(x, z, r)) continue;
+        rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+      }
+      // Formations in the open, with room to walk between them
+      const want = Math.max(2, Math.round(hw * hd * 0.04)) + (def.pillars ? 2 : 0);
+      for (let n = 0, tries = 0; n < want && tries < 60; tries++) {
+        const r = 0.8 + Math.random() * 1.0, x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+        if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+        if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+        rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
+        if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
+      }
+      // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
+      const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
+      const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+      for (const [sd, f] of spots) {
+        let x = sd * (hw - 1.1), z = cz + hd * f + (Math.random() - 0.5) * 2;
+        const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+        let tall = null;
+        for (let q = 0; q < 4; q++) {
+          const h = 0.5 + Math.random() * 1.0, geo = new THREE.OctahedronGeometry(0.16 + Math.random() * 0.1, 0), m = new THREE.Mesh(geo, crystalM);
+          m.scale.set(0.8, h / 0.2, 0.8); m.position.set((Math.random() - 0.5) * 0.7, h * 0.5, (Math.random() - 0.5) * 0.7); m.rotation.set((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4);
+          g.add(m); room.geos.push(geo); if (!tall || h > tall.h) tall = { m, h };
+        }
+        room.torches.push({ pos: new THREE.Vector3(cx + x, 1.4, z), fl: tall.m, seed: Math.random() * 10, color: th.torch });
+      }
+    }
 
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     // Props stay separate meshes: pots break, traps move, the shrine glows
@@ -436,7 +515,7 @@ const World = (() => {
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
       const x = room.cx + gx / 2 * (room.hw - 1.8), z = room.northZ + 1.8 + gz * (room.hd * 2 - 3.6) / 3;
       if (Math.hypot(x - p.pos.x, z - p.pos.z) < 5) continue;
-      if (room.pillars.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue;
+      if (room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (pr || 0.8) + 1.0)) continue;
       spots.push(new THREE.Vector3(x, 0, z));
     }
     spots.sort(() => Math.random() - 0.5);
