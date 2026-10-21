@@ -260,6 +260,12 @@ Next, in order (details in `docs/DESIGN.md` → Roadmap):
 3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
 4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
 
+## Ads
+
+A small banner (320 x 50, top centre, not the whole top) sits above the place name; the HUD makes room for it only once an ad has loaded, so with no ad the place name keeps its spot.
+- **Android app:** a Google AdMob banner through `@capacitor-community/admob`. It ships with Google's public **test** ids (test ads, no earnings). To go live: create the app and a banner unit in AdMob, put the unit id in `CONF.admob.banner` and set `testing: false` in `js/ads.js`, and set the app id as the `ADMOB_APP_ID` environment variable in the build (`tools/android_patch.js` writes it into the manifest).
+- **Web:** an AdSense slot, off until `CONF.client` and `CONF.slot` in `js/ads.js` are filled in (AdSense does not serve inside an app WebView).
+
 ## Run
 
 Open `index.html` in a browser. Three.js is vendored in `vendor/`, so it works offline and from `file://`.

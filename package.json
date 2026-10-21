@@ -13,6 +13,7 @@
     "policy:learn-check": "node tools/policy/learn_check.js"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^6.2.0",
     "@capacitor/android": "^6.2.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/share": "^6.0.4"
