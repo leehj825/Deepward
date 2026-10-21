@@ -1,4 +1,4 @@
-// Headless check of the cave stages (Ogre Den, Spider Depths, Frost Halls): rock blockers shape every section, a walkable path always
+// Headless check of the styled stages (caves: Ogre Den, Spider Depths, Frost Halls; the Iron Keep as a ruined town; the Bone Orchard as a forest): blockers shape every section, a walkable path always
 // leads from the south doorway to the north one (a 0.5 m grid flood), nothing stands on a blocker, and the doorways stay clear.
 // Run: node tools/cave_test.js   (needs Playwright)
 const { chromium } = require('playwright');
@@ -24,7 +24,7 @@ const path = require('path');
       }
       return false;
     };
-    for (const [stage, cave] of [[2, true], [3, true], [6, true], [0, false]]) for (let k = 0; k < 4; k++) {
+    for (const [stage, cave] of [[1, true], [2, true], [3, true], [6, true], [8, true], [0, false]]) for (let k = 0; k < 4; k++) {
       __dw.arena(stage);
       for (const r of W.sections) {
         const n = r.pillars.length;

@@ -276,9 +276,10 @@ const CFG = {
   // last few fall, and a run of kills in quick succession pays back (a streak step every `step` kills: health and a shorter ultimate cooldown)
   horde: {
     fodder: ['skeleton', 'goblin', 'wolf', 'scout', 'spider'],
-    extra: 1.0,               // extra foes per foe in the wave (times the difficulty's `horde`), plus one more every two sections
+    extra: 0.6,               // extra foes per foe in the wave (times the difficulty's `horde`), plus one more every two sections
+    extraDmg: 0.7, extraHp: 0.7,     // the extras are weaker than the wave proper: a crowd to cut through, not a wall
     extraPay: 0.4,            // the extras pay this share of the usual experience and gold (the stage's pay stays about the same)
-    cap: 14,                  // most foes alive and waiting from one section at once (phones)
+    cap: 12,                  // most foes alive and waiting from one section at once (phones)
     chainAt: 2,               // the next wave starts when this many or fewer of the last are left
     streakGap: 4, streakStep: 5, streakHeal: 0.03, streakUlt: 3,
   },
@@ -286,8 +287,8 @@ const CFG = {
   // allowed to attack at once, and a change to the parry window
   difficulty: {
     story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: -1, horde: 0.5, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
-    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 1, horde: 1, parry: 0, desc: 'As intended' },
-    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 2, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, five may attack at once, a tight parry window' },
+    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, horde: 1, parry: 0, desc: 'As intended' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, five may attack at once, a tight parry window' },
   },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages
@@ -463,7 +464,7 @@ const CFG = {
   // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
   themes: {
     crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
-    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
+    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates', style: 'town' },
     den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks', style: 'cave' },
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
     depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs', style: 'cave' },
@@ -471,7 +472,7 @@ const CFG = {
     temple: { stone: [40, 66, 64], wall: [34, 56, 56], torch: 0x5affd0, fog: 0x03080a, hemi: 0x5a9a9a, decor: 'water' },
     frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice', style: 'cave' },
     forge: { stone: [52, 40, 36], wall: [44, 32, 28], torch: 0xff5a1a, fog: 0x0e0503, hemi: 0xc06a40, decor: 'forge' },
-    orchard: { stone: [62, 58, 50], wall: [52, 48, 42], torch: 0xd8ff9a, fog: 0x080806, hemi: 0x9aa080, decor: 'orchard' },
+    orchard: { stone: [52, 60, 42], wall: [36, 46, 30], torch: 0xd8ff9a, fog: 0x070a06, hemi: 0x90a880, decor: 'orchard', style: 'forest' },
     throne: { stone: [30, 26, 34], wall: [24, 20, 28], torch: 0xffc040, fog: 0x050307, hemi: 0x8a7aa0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier

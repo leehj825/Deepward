@@ -29,7 +29,7 @@ const World = (() => {
     if (texCache[name]) return texCache[name];
     const th = CFG.themes[name];
     // A cave: mottled earth and rock with no masonry
-    if (th.style === 'cave') {
+    if (th.style === 'cave' || th.style === 'forest') {
       const mottle = (c, base, spread, n, size) => {
         c.fillStyle = rgb(base, -16); c.fillRect(0, 0, 256, 256);
         for (let i = 0; i < n; i++) {
@@ -174,7 +174,7 @@ const World = (() => {
     }
 
     // Pillar stumps
-    if (def.pillars && th.style !== 'cave') {
+    if (def.pillars && !th.style) {
       const stone = M(rgbHex(th.wall, 14));
       for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const x = px * hw * 0.55, z = cz + pz * hd * 0.45, h = 1.2 + Math.random() * 0.8;
@@ -197,7 +197,7 @@ const World = (() => {
       const pos = new THREE.Vector3(cx + x + Math.sin(ry) * 0.6, 2.6, z + Math.cos(ry) * 0.6);
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
-    if (th.style !== 'cave') for (const s of [-1, 1]) {
+    if (!th.style) for (const s of [-1, 1]) {
       for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
@@ -262,9 +262,10 @@ const World = (() => {
     }
     room.offPath = offPath;
 
-    // A cave: rock bulges out of the walls, rock formations stand between the passages, crystals give the light. The rocks are blockers
-    // (the same circles the pillars use), so the walkable space is no longer a plain rectangle; a lane along the way through stays open.
-    if (th.style === 'cave') {
+    // Styled spaces (th.style): obstacles are blockers (the same circles the pillars use), so the walkable space is no longer a plain
+    // rectangle; a lane along the way through stays open. cave: rock bulges out of the walls, formations stand in the open, crystals
+    // give the light. forest: trees and bushes, wisp lanterns. town: ruined houses along the walls, a fountain, carts, lamp posts.
+    if (th.style) {
       const rockM = M(rgbHex(th.wall, 10), { roughness: 1 }), rockM2 = M(rgbHex(th.wall, -2), { roughness: 1 });
       const jit = (x, y, z) => 0.8 + 0.4 * (((Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1 + 1) % 1);
       const rock = (x, z, r, hMul, m = rockM) => {                               // a lumpy boulder; x is local to the section
@@ -277,48 +278,144 @@ const World = (() => {
       const block = (x, z, r) => room.pillars.push([x + cx, z, r * 0.8]);
       const nearDoor = (x, z, r) => (ds !== null && z > southZ - r - 3 && Math.abs(x - ds) < DOOR + r + 1.4) || (dn !== null && z < northZ + r + 3 && Math.abs(x - dn) < DOOR + r + 1.4)
         || (P.side && Math.abs(z - cz) < SIDE_DOOR + r + 1.2 && Math.sign(x) === P.side.dir && Math.abs(x) > hw - r - 3) || (last && Math.abs(x) < 4.5 && z < northZ + 5.5);
-      // The wall's own edge: a rim of half-buried rock so no straight line shows (low along the south wall, which the camera looks over)
-      for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.5 + Math.random() * 1.2) { const r = 0.7 + Math.random() * 0.8; if (!nearDoor(sd * hw, z, 0.4)) rock(sd * (hw - 0.1), z, r, 1.2 + Math.random() * 1.1, Math.random() < 0.5 ? rockM : rockM2); }
-      for (let x = -hw + 1; x < hw; x += 1.5 + Math.random() * 1.2) {
-        const r = 0.7 + Math.random() * 0.8;
-        if (!nearDoor(x, northZ + 0.2, 0.4)) rock(x, northZ + 0.2, r, 1.4 + Math.random() * 1.2, rockM2);
-        if (!nearDoor(x, southZ + 0.2, 0.4)) rock(x, southZ + 0.1, r * 0.6, 0.6, rockM);
-      }
-      // Bulges into the section (blockers) along the side walls and the far wall
-      for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 2.8 + Math.random() * 2.2) {
-        if (Math.random() < 0.2) continue;
-        const r = 1.0 + Math.random() * 1.4, d = 0.5 + Math.random() * 1.6, x = sd * (hw - d + r * 0.3);
-        if (nearDoor(x, z, r)) continue;
-        rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
-      }
-      for (let x = -hw + 3; x < hw - 2; x += 3 + Math.random() * 3) {
-        if (Math.random() < 0.3) continue;
-        const r = 0.9 + Math.random() * 1.1, z = northZ + 0.5 + Math.random() * 1.4;
-        if (nearDoor(x, z, r)) continue;
-        rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
-      }
-      // Formations in the open, with room to walk between them
-      const want = Math.max(2, Math.round(hw * hd * 0.04)) + (def.pillars ? 2 : 0);
-      for (let n = 0, tries = 0; n < want && tries < 60; tries++) {
-        const r = 0.8 + Math.random() * 1.0, x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
-        if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
-        if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
-        rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
-        if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
-      }
-      // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
-      const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
-      const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
-      for (const [sd, f] of spots) {
-        let x = sd * (hw - 1.1), z = cz + hd * f + (Math.random() - 0.5) * 2;
-        const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
-        let tall = null;
-        for (let q = 0; q < 4; q++) {
-          const h = 0.5 + Math.random() * 1.0, geo = new THREE.OctahedronGeometry(0.16 + Math.random() * 0.1, 0), m = new THREE.Mesh(geo, crystalM);
-          m.scale.set(0.8, h / 0.2, 0.8); m.position.set((Math.random() - 0.5) * 0.7, h * 0.5, (Math.random() - 0.5) * 0.7); m.rotation.set((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4);
-          g.add(m); room.geos.push(geo); if (!tall || h > tall.h) tall = { m, h };
+      if (th.style === 'cave') {
+        // The wall's own edge: a rim of half-buried rock so no straight line shows (low along the south wall, which the camera looks over)
+        for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.5 + Math.random() * 1.2) { const r = 0.7 + Math.random() * 0.8; if (!nearDoor(sd * hw, z, 0.4)) rock(sd * (hw - 0.1), z, r, 1.2 + Math.random() * 1.1, Math.random() < 0.5 ? rockM : rockM2); }
+        for (let x = -hw + 1; x < hw; x += 1.5 + Math.random() * 1.2) {
+          const r = 0.7 + Math.random() * 0.8;
+          if (!nearDoor(x, northZ + 0.2, 0.4)) rock(x, northZ + 0.2, r, 1.4 + Math.random() * 1.2, rockM2);
+          if (!nearDoor(x, southZ + 0.2, 0.4)) rock(x, southZ + 0.1, r * 0.6, 0.6, rockM);
         }
-        room.torches.push({ pos: new THREE.Vector3(cx + x, 1.4, z), fl: tall.m, seed: Math.random() * 10, color: th.torch });
+        // Bulges into the section (blockers) along the side walls and the far wall
+        for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 2.8 + Math.random() * 2.2) {
+          if (Math.random() < 0.2) continue;
+          const r = 1.0 + Math.random() * 1.4, d = 0.5 + Math.random() * 1.6, x = sd * (hw - d + r * 0.3);
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        for (let x = -hw + 3; x < hw - 2; x += 3 + Math.random() * 3) {
+          if (Math.random() < 0.3) continue;
+          const r = 0.9 + Math.random() * 1.1, z = northZ + 0.5 + Math.random() * 1.4;
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        // Formations in the open, with room to walk between them
+        const want = Math.max(2, Math.round(hw * hd * 0.04)) + (def.pillars ? 2 : 0);
+        for (let n = 0, tries = 0; n < want && tries < 60; tries++) {
+          const r = 0.8 + Math.random() * 1.0, x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+          if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+          if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+          rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
+          if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
+        }
+        // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
+        const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
+        const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        for (const [sd, f] of spots) {
+          let x = sd * (hw - 1.1), z = cz + hd * f + (Math.random() - 0.5) * 2;
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          let tall = null;
+          for (let q = 0; q < 4; q++) {
+            const h = 0.5 + Math.random() * 1.0, geo = new THREE.OctahedronGeometry(0.16 + Math.random() * 0.1, 0), m = new THREE.Mesh(geo, crystalM);
+            m.scale.set(0.8, h / 0.2, 0.8); m.position.set((Math.random() - 0.5) * 0.7, h * 0.5, (Math.random() - 0.5) * 0.7); m.rotation.set((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4);
+            g.add(m); room.geos.push(geo); if (!tall || h > tall.h) tall = { m, h };
+          }
+          room.torches.push({ pos: new THREE.Vector3(cx + x, 1.4, z), fl: tall.m, seed: Math.random() * 10, color: th.torch });
+        }
+      } else {
+        // Places to stand obstacles in the open: random spots off the lane with room to walk between them
+        const scatter = (want, rMin, rMax, make) => {
+          for (let n = 0, tries = 0; n < want && tries < 80; tries++) {
+            const r = rMin + Math.random() * (rMax - rMin), x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+            if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+            if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+            make(x, z, r); n++;
+          }
+        };
+        // A lamp that stands in for a torch (its light follows it like a torch's)
+        const lamp = (x, z, glowM, tall) => {
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, tall, 6), M(0x2a2420)), bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), glowM);
+          post.position.y = tall / 2; bulb.position.y = tall + 0.1; g.add(post, bulb); room.geos.push(post.geometry, bulb.geometry);
+          room.torches.push({ pos: new THREE.Vector3(cx + x, tall, z), fl: bulb, seed: Math.random() * 10, color: th.torch });
+        };
+        const lampSpots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        const glowM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(glowM);
+        if (th.style === 'forest') {
+          const bark = [M(0x3a2c20), M(0x2c2218)], leaf = [M(0x24402a), M(0x2f5030)], bushM = M(0x2a4a2a);
+          const tree = (x, z, r, crown) => {                                         // a trunk, and either a dark crown (the rim) or bare branches
+            const h = 3.2 + Math.random() * 1.6;
+            add(new THREE.CylinderGeometry(r * 0.55, r, h, 7), bark[Math.random() * 2 | 0], x, h / 2, z);
+            if (crown) add(new THREE.ConeGeometry(r * 3.2 + Math.random() * 0.8, h * 0.85, 7), leaf[Math.random() * 2 | 0], x, h * 0.9 + 0.6, z);
+            else for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.03, 0.07, 1.2, 5), bark[1], x, h * (0.6 + q * 0.14), z).rotation.set((Math.random() - 0.5) * 1.6, Math.random() * 3, 0.9 + Math.random() * 0.4);
+          };
+          const bush = (x, z, r) => { const o = add(new THREE.IcosahedronGeometry(r, 0), bushM, x, r * 0.5, z); o.scale.y = 0.7; o.rotation.y = Math.random() * 3; };
+          // The wall's edge: a dense stand of trees (low bushes along the south wall, which the camera looks over)
+          for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.6 + Math.random() * 1.2) if (!nearDoor(sd * hw, z, 0.4)) tree(sd * (hw - 0.3 + Math.random() * 0.2), z, 0.35 + Math.random() * 0.25, true);
+          for (let x = -hw + 1; x < hw; x += 1.6 + Math.random() * 1.2) {
+            if (!nearDoor(x, northZ + 0.3, 0.4)) tree(x, northZ + 0.3 + Math.random() * 0.4, 0.35 + Math.random() * 0.25, true);
+            if (!nearDoor(x, southZ + 0.2, 0.4)) bush(x, southZ + 0.2, 0.4 + Math.random() * 0.3);
+          }
+          // Thickets in from the walls (blockers)
+          for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 3 + Math.random() * 2.4) {
+            if (Math.random() < 0.25) continue;
+            const x = sd * (hw - 0.8 - Math.random() * 1.6);
+            if (nearDoor(x, z, 1.6)) continue;
+            tree(x, z, 0.5, true); tree(x - sd * 0.9, z + 0.8, 0.4, false); bush(x - sd * 1.2, z - 0.7, 0.8); block(x, z, 1.6);
+          }
+          // In the open: bare trees, fallen logs, thickets
+          scatter(Math.max(2, Math.round(hw * hd * 0.035)), 0.55, 0.9, (x, z, r) => {
+            const t = Math.random();
+            if (t < 0.5) { tree(x, z, 0.5, false); block(x, z, 0.75); }
+            else if (t < 0.75) { const a = Math.random() * Math.PI; const o = add(new THREE.CylinderGeometry(0.32, 0.38, 2.8, 7), bark[0], x, 0.32, z); o.rotation.set(Math.PI / 2, 0, a); block(x + Math.sin(a) * 0.9, z + Math.cos(a) * 0.9, 0.62); block(x - Math.sin(a) * 0.9, z - Math.cos(a) * 0.9, 0.62); }
+            else { bush(x, z, 0.9); bush(x + 0.6, z + 0.4, 0.6); block(x, z, 1.1); }
+          });
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 1.4), cz + hd * f + (Math.random() - 0.5) * 2, glowM, 1.5);       // wisp lanterns on posts
+        } else {
+          // town: ruined houses along both walls, then the square's furniture
+          const plaster = M(rgbHex(th.wall, 8)), roofM = M(0x3a2a20), darkM = M(0x0a0806), woodM = M(0x4a3422), rubbleM = M(rgbHex(th.wall, -4));
+          const house = (sd, z, len, dep, h) => {
+            const x = sd * (hw - dep / 2 + 0.1);
+            wallBox(dep, h, len, x, h / 2, z, plaster);
+            add(new THREE.BoxGeometry(dep * 1.1, 0.22, len * 1.05), roofM, x, h + 0.1, z).rotation.z = sd * (0.12 + Math.random() * 0.22);   // a sagging roof
+            for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.05, 0.07, 1.1 + Math.random() * 0.6, 5), woodM, x + (Math.random() - 0.5) * dep, h + 0.5, z + (Math.random() - 0.5) * len).rotation.set(Math.random(), 0, Math.random());   // broken beams
+            const face = x - sd * (dep / 2 + 0.03), ry = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
+            for (let w = 0; w < Math.floor(len / 2.2); w++) add(new THREE.PlaneGeometry(0.7, 0.9), darkM, face, 1.6, z - len / 2 + 1.1 + w * 2.2, false).rotation.y = ry;       // empty windows
+            add(new THREE.PlaneGeometry(1.0, 1.9), darkM, face, 0.95, z + (Math.random() - 0.5) * (len - 2), false).rotation.y = ry;                                     // a doorway
+            const n = Math.ceil(len / (dep * 0.9));
+            for (let k = 0; k < n; k++) block(sd * (hw - dep / 2), z - len / 2 + (k + 0.5) * len / n, dep * 0.62);
+          };
+          for (const sd of [-1, 1]) for (let z = southZ - 2.5; z > northZ + 5;) {
+            const len = 3.6 + Math.random() * 2.6, dep = 2.4 + Math.random() * 0.8, zc = z - len / 2;
+            if (zc - len / 2 < northZ + 2) break;
+            if (Math.random() > 0.2 && !nearDoor(sd * (hw - dep), zc, dep + len / 4)) house(sd, zc, len, dep, 2.6 + Math.random() * 0.6);
+            z -= len + 1.6 + Math.random() * 2.6;
+          }
+          // Rubble heaps along the far wall
+          for (let x = -hw + 2; x < hw - 1; x += 2.5 + Math.random() * 2.5) if (!nearDoor(x, northZ + 1, 1.2)) { const r = 0.6 + Math.random() * 0.7; const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, northZ + 0.8 + Math.random() * 0.6); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); if (Math.random() < 0.6) block(x, northZ + 0.9, r); }
+          // The square: a fountain, wells, carts, crates and rubble
+          let fountain = Math.random() < 0.6;
+          scatter(Math.max(2, Math.round(hw * hd * 0.03)), 0.7, 1.1, (x, z, r) => {
+            const t = Math.random();
+            if (fountain && hw * hd > 60) {
+              fountain = false;
+              add(new THREE.CylinderGeometry(1.2, 1.3, 0.5, 12), plaster, x, 0.25, z); add(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 12), M(0x2a5a5a, { transparent: true, opacity: 0.6 }), x, 0.46, z, false);
+              add(new THREE.CylinderGeometry(0.16, 0.22, 1.5, 8), plaster, x, 1.0, z); add(new THREE.CylinderGeometry(0.4, 0.2, 0.2, 8), plaster, x + 0.25, 1.7, z).rotation.z = 0.3;     // a broken basin
+              block(x, z, 1.5);
+            } else if (t < 0.4) {                                                    // a cart on its side
+              const a = Math.random() * Math.PI; add(new THREE.BoxGeometry(2.0, 0.7, 1.0), woodM, x, 0.45, z).rotation.set(0, a, 0.15);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 10), woodM, x + Math.cos(a) * 0.3, 0.4, z - Math.sin(a) * 0.3 + sg * 0.55 * Math.cos(a)).rotation.x = Math.PI / 2;
+              block(x + Math.sin(a) * 0.5, z + Math.cos(a) * 0.5, 0.7); block(x - Math.sin(a) * 0.5, z - Math.cos(a) * 0.5, 0.7);
+            } else if (t < 0.6) {                                                    // a well
+              add(new THREE.CylinderGeometry(0.7, 0.75, 0.8, 10), plaster, x, 0.4, z); add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 10), darkM, x, 0.8, z, false);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5), woodM, x + sg * 0.6, 1.2, z); add(new THREE.BoxGeometry(1.5, 0.08, 0.5), roofM, x, 2.05, z);
+              block(x, z, 1.0);
+            } else if (t < 0.8) { for (let q = 0; q < 3; q++) add(new THREE.BoxGeometry(0.7, 0.7, 0.7), woodM, x + (q - 1) * 0.55, 0.35 + (q === 1 ? 0.7 : 0), z + (q === 1 ? 0 : 0.2)).rotation.y = Math.random(); block(x, z, 1.0); }
+            else { const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, z); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); block(x, z, r * 1.1); }
+          });
+          const amber = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(amber);
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 3.4), cz + hd * f + (Math.random() - 0.5) * 2, amber, 2.4);          // lamp posts in front of the houses
+        }
       }
     }
 
@@ -524,7 +621,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ extra: k >= baseN, type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ extra: k >= baseN, type, at: far || at, mult: mult * (k >= baseN ? CFG.horde.extraDmg : 1) * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult: k >= baseN ? hpMult * CFG.horde.extraHp : hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
