@@ -395,6 +395,20 @@ html[lang="ko"] body { word-break: keep-all; }
 html[lang="ko"] #waveBox b, html[lang="ko"] #banner, html[lang="ko"] h2, html[lang="ko"] h3 { letter-spacing: 0.02em; }
 html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
 
+/* Scenes: the speaker's words typed at the bottom of the screen, choices under them */
+#sceneBox { position: fixed; left: 50%; bottom: calc(14vh + env(safe-area-inset-bottom)); transform: translate(-50%, 10px); width: min(720px, calc(100vw - 32px)); padding: 12px 18px 10px; background: rgba(8, 6, 10, 0.82); border: 1px solid rgba(255, 230, 190, 0.25); border-radius: 10px; opacity: 0; pointer-events: none; z-index: 6; transition: opacity 0.25s, transform 0.25s; }
+#sceneBox.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
+#sceneBox .sn { color: #f2d27a; font-weight: 700; letter-spacing: 0.1em; font-size: 14px; margin-bottom: 4px; }
+#sceneBox .st { font-size: 17px; line-height: 1.5; min-height: 3em; text-shadow: 0 1px 3px #000; }
+#sceneBox .sc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+#sceneBox .sc button { text-align: left; padding: 8px 12px; background: rgba(255, 230, 190, 0.08); border: 1px solid rgba(255, 230, 190, 0.25); color: #eee; border-radius: 6px; font: inherit; cursor: pointer; }
+#sceneBox .sc button.on, #sceneBox .sc button:hover { background: rgba(242, 210, 122, 0.22); border-color: #f2d27a; }
+#sceneBox .sh { text-align: right; opacity: 0; font-size: 13px; color: #f2d27a; }
+#sceneBox.done .sh { opacity: 0.8; } #sceneBox.done .sc:not(:empty) + .sh { display: none; }
+#sceneBox .sh small { opacity: 0.6; font-size: 11px; margin-left: 6px; }
+body.scene #hud, body.scene #minimap, body.scene #mapInfo, body.scene #waveBox, body.scene #corner, body.scene #adSlot, body.scene #prompt, body.scene #party { opacity: 0; pointer-events: none; }
+#objective { font-size: 12px; color: #f2d27a; text-shadow: 0 1px 3px #000; margin: 4px 0 2px; opacity: 0.9; } #objective:empty { display: none; } #objective::before { content: '◈ '; }
+
 </style>
 </head>
 <body>
@@ -406,6 +420,7 @@ html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
   <div id="xpRow"><span id="lvBox">Lv <b id="lvN">1</b></span><div id="xpBar"><i id="xpFill"></i></div><span id="ultBox" style="display:none" title="Ultimate (F / Y)">✦</span><span id="modeBox" style="display:none" title="Cleric mode (V)">✦ Smite</span></div>
   <div id="bless"></div>
   <div id="party" style="display:none"></div>
+  <div id="objective"></div>
   <div id="purse"><span class="gold">◆ <b id="goldN">0</b></span><span class="flask">⚗ <b id="flaskN">0</b></span></div>
 </div>
 <div id="bossBar"><span id="bossName"></span><div class="track"><i id="bossFill"></i></div><div class="ptrack"><i id="bossPost"></i></div></div>
@@ -418,6 +433,7 @@ html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
 <div id="bars"></div>
 <div id="floaters"></div>
 <div id="banner"></div>
+<div id="sceneBox"><div class="sn"></div><div class="st"></div><div class="sc"></div><div class="sh">▶ <small>Enter / click · Esc skips</small></div></div>
 <div id="tip"></div>
 <div id="lesson"></div>
 <div id="padKeys"><b>LS</b> move · <b>RS</b> camera (click: lock on) · <b>RB</b> attack · <b>RT</b> heavy · <b>Y</b> ultimate · <b>LB</b> block · <b>A</b> dash / talk · <b>▲</b> flask · <b>▼</b> gear · <b>Menu</b> pause</div>
@@ -555,6 +571,7 @@ const CFG = {
     bufferTime: 0.3,             // how long a pressed button waits for the current move to finish
     critMult: 3,                 // damage multiplier on a posture-broken enemy (riposte)
     hurtStun: 0.32,
+    staggerPosture: 30,          // a blow with at least this much posture (or an unblockable, area or boss blow) staggers the warden; lighter ones do not
   },
   feel: {
     hitStop: 0.06, heavyHitStop: 0.11, parrySlowmo: 0.35, parrySlowScale: 0.25,
@@ -738,13 +755,67 @@ const CFG = {
       ],
     },
   },
-  maxAttackers: 2,
+  maxAttackers: 3,
+
+  // The main story: a chain of objectives (shown in the HUD) that move on with what the warden does (`on`: [event, argument]);
+  // a step can play a scene when it completes. Scenes are scripts for js/scene.js (a person, lines, choices that jump to labels).
+  mainStory: {
+    steps: [
+      { id: 'greet', obj: 'Speak with Maren by the fire', on: ['talk', 'elder'], scene: 'greet' },
+      { id: 'yard', obj: "Visit Hobb's training yard, east of the camp", on: ['talk', 'trainer'], scene: 'yard' },
+      { id: 'crypt', obj: 'Go down the gate and defeat the Bone Warden', on: ['guardian', 0] },
+      { id: 'report', obj: 'Tell Maren what you found in the Crypt', on: ['talk', 'elder'], scene: 'report' },
+      { id: 'aldric', obj: 'Defeat Sir Aldric in the Iron Keep', on: ['guardian', 1] },
+      { id: 'king', obj: 'Tell Maren what Sir Aldric said', on: ['talk', 'elder'], scene: 'king' },
+      { id: 'more', obj: 'The story goes on below the Keep' },
+    ],
+    scenes: {
+      greet: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.' },
+        { label: 'menu', text: 'Ask what you will. I have no long answers, only true ones.', choices: [{ text: 'What is down there?', go: 'what' }, { text: 'Louder how?', go: 'louder' }, { text: 'Where do I start?', go: 'start' }] },
+        { label: 'what', text: 'Dead things that will not lie down. Knights who sealed the gate and kept their post past death. And at the bottom, something that wears a crown.', go: 'menu' },
+        { label: 'louder', text: 'The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.', go: 'menu' },
+        { label: 'start', text: 'Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.' },
+        { text: 'Come back and tell me you are alive. That is all I ask of any warden.' },
+      ] },
+      yard: { who: null, name: 'Hobb', steps: [
+        { text: 'Maren sent you. She always does, when she is worried.' },
+        { text: 'Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.' },
+        { text: 'Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.' },
+      ] },
+      report: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You are back. That is the Warden\'s bone on your cloak. Sit, before you fall.' },
+        { text: 'Tell me: did it speak?', choices: [{ text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { label: 'wait', text: 'They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.', go: 'tail' },
+        { label: 'nothing', text: 'Nothing is a kind of answer, down there. Remember it.', go: 'tail' },
+        { label: 'tail', text: 'The Iron Keep is next. Take a shield you trust, and come back whole.' },
+      ] },
+      king: { who: 'elder', name: 'Maren', steps: [
+        { text: 'Aldric. They sent a knight to pull the oath out of him, and you did it.' },
+        { text: 'What did he say at the end?', choices: [{ text: 'A name: the Hollow King.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
+        { label: 'name', text: '...So it has a name now. I had hoped it would not. Names are how things get their hold on us.', go: 'tail' },
+        { label: 'nothing', text: 'Then it was not meant for you to follow. Not yet.', go: 'tail' },
+        { label: 'tail', text: 'The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.' },
+      ] },
+    },
+  },
+  // Hordes: a section's waves grow by extra light foes (the wave's own kinds that are in the fodder list), the next wave comes as the
+  // last few fall, and a run of kills in quick succession pays back (a streak step every `step` kills: health and a shorter ultimate cooldown)
+  horde: {
+    fodder: ['skeleton', 'goblin', 'wolf', 'scout', 'spider'],
+    extra: 0.6,               // extra foes per foe in the wave (times the difficulty's `horde`), plus one more every two sections
+    extraDmg: 0.7, extraHp: 0.7,     // the extras are weaker than the wave proper: a crowd to cut through, not a wall
+    extraPay: 0.4,            // the extras pay this share of the usual experience and gold (the stage's pay stays about the same)
+    cap: 12,                  // most foes alive and waiting from one section at once (phones)
+    chainAt: 2,               // the next wave starts when this many or fewer of the last are left
+    streakGap: 4, streakStep: 5, streakHeal: 0.03, streakUlt: 3,
+  },
   // Difficulty (Settings): damage the hero takes, enemy health, how long enemies wait between attacks, extra enemies
   // allowed to attack at once, and a change to the parry window
   difficulty: {
-    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: 0, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
-    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, parry: 0, desc: 'As intended' },
-    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, parry: -0.03, desc: 'Harder hits, tougher foes, three may attack at once, a tight parry window' },
+    story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: -1, horde: 0.5, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
+    normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, horde: 1, parry: 0, desc: 'As intended' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, four may attack at once, a tight parry window' },
   },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages
@@ -920,15 +991,15 @@ const CFG = {
   // stone / wall: base RGB of floor slabs and bricks; torch: flame and light colour; fog: background and fog colour
   themes: {
     crypt: { stone: [58, 60, 70], wall: [46, 48, 58], torch: 0x8fd8ff, fog: 0x06070c, hemi: 0x6a7aa0, decor: 'bones' },
-    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates' },
-    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks' },
+    keep: { stone: [70, 62, 54], wall: [62, 54, 46], torch: 0xffa040, fog: 0x0a0705, hemi: 0x9a8a70, decor: 'crates', style: 'town' },
+    den: { stone: [70, 50, 42], wall: [58, 40, 34], torch: 0xff6a2a, fog: 0x0c0504, hemi: 0xa07060, decor: 'rocks', style: 'cave' },
     camp: { stone: [60, 52, 40], wall: [60, 52, 40], torch: 0xff8a3a, fog: 0x0b1224, hemi: 0x8098c8, decor: '' },
-    depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs' },
+    depths: { stone: [42, 44, 58], wall: [34, 36, 52], torch: 0xa07aff, fog: 0x05040a, hemi: 0x6a60a0, decor: 'webs', style: 'cave' },
     court: { stone: [72, 68, 76], wall: [42, 38, 48], torch: 0xe8e0ff, fog: 0x07060c, hemi: 0x9090b0, decor: 'court' },
     temple: { stone: [40, 66, 64], wall: [34, 56, 56], torch: 0x5affd0, fog: 0x03080a, hemi: 0x5a9a9a, decor: 'water' },
-    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice' },
+    frost: { stone: [86, 96, 110], wall: [70, 82, 98], torch: 0xbfe8ff, fog: 0x0a0e14, hemi: 0xa0b8d8, decor: 'ice', style: 'cave' },
     forge: { stone: [52, 40, 36], wall: [44, 32, 28], torch: 0xff5a1a, fog: 0x0e0503, hemi: 0xc06a40, decor: 'forge' },
-    orchard: { stone: [62, 58, 50], wall: [52, 48, 42], torch: 0xd8ff9a, fog: 0x080806, hemi: 0x9aa080, decor: 'orchard' },
+    orchard: { stone: [52, 60, 42], wall: [36, 46, 30], torch: 0xd8ff9a, fog: 0x070a06, hemi: 0x90a880, decor: 'orchard', style: 'forest' },
     throne: { stone: [30, 26, 34], wall: [24, 20, 28], torch: 0xffc040, fog: 0x050307, hemi: 0x8a7aa0, decor: 'court' },
   },
   guardianMult: 1.7,             // guardian health and damage multiplier
@@ -1479,6 +1550,7 @@ const LANG_KO = {
 ", half the gold gathered on this trip.": ", 이번 원정에서 모은 골드의 절반입니다.",
 "- block it, or block right at impact to": "- 막거나, 맞는 순간에 막아서",
 "- unblockable:": "- 막기 불가:",
+"...So it has a name now. I had hoped it would not. Names are how things get their hold on us.": "...그럼 이제 이름이 생겼구나. 그러지 않길 바랐는데. 이름이야말로 그것들이 우리를 붙잡는 방법이니까.",
 "/click attack ·": "/클릭 공격 ·",
 "/right-click block ·": "/우클릭 막기 ·",
 "A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.": "붉은 빛은 막을 수 없습니다. 대시(@dodge)로 뚫고 지나가세요. 대시 중에는 무적입니다.",
@@ -1502,6 +1574,7 @@ const LANG_KO = {
 "A leaping overhead that breaks guards · {0} s": "방어를 부수는 도약 내려찍기 · {0}초",
 "A long dashing thrust that strikes from afar": "멀리서 파고드는 긴 돌진 찌르기",
 "A long dashing thrust that strikes from afar · {0} s": "멀리서 파고드는 긴 돌진 찌르기 · {0}초",
+"A name: the Hollow King.": "이름 하나요. 텅 빈 왕이라고.",
 "A parry looses a blade of light down the line": "패링하면 빛의 칼날이 일직선으로 날아갑니다",
 "A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast is a stronger smite or an area heal. Weaker than the mage in a fight.": "홀과 성서. 성스러운 화살, 또는 전환하여 치유. 강공격은 더 강한 응징 또는 범위 치유입니다. 전투력은 마법사보다 약합니다.",
 "A staff and an orb. Arcane bolts and a fireball that burns a crowd. The hardest hitter and the frailest.": "지팡이와 보주. 비전 화살, 그리고 무리를 태우는 불덩이. 가장 강력하지만 가장 약합니다.",
@@ -1516,6 +1589,7 @@ const LANG_KO = {
 "Aegis of the Pale": "창백한 자의 아이기스",
 "After a dash through an attack, your next blow deals {0}% per rank": "공격을 대시로 뚫고 지나간 뒤, 다음 일격이 랭크당 {0}% 피해를 줍니다",
 "Aldo": "알도",
+"Aldric. They sent a knight to pull the oath out of him, and you did it.": "알드릭이라. 그에게서 맹세를 끌어내려고 기사까지 보냈는데, 네가 해냈구나.",
 "All": "전체",
 "All the Banners": "모든 깃발",
 "Amulet": "목걸이",
@@ -1548,6 +1622,7 @@ const LANG_KO = {
 "ArrowUp": "ArrowUp",
 "Arrows cost a quarter less stamina": "화살의 기력 소모가 4분의 1 줄어듭니다",
 "As intended": "의도된 난이도",
+"Ask what you will. I have no long answers, only true ones.": "묻고 싶은 걸 물어봐. 긴 대답은 없지만 거짓 없는 대답만 해주지.",
 "Attack": "공격",
 "Attack, Heavy, Block (hold), Dash": "공격, 강공격, 막기(누르기), 대시",
 "Auto (High)": "자동(높음)",
@@ -1685,7 +1760,9 @@ const LANG_KO = {
 "Close": "닫기",
 "Codex": "기록집",
 "Cold": "차가움",
+"Come back and tell me you are alive. That is all I ask of any warden.": "돌아와서 살아 있다고 말해줘. 어느 감시자에게든 내가 바라는 건 그것뿐이야.",
 "Common": "일반",
+"Companions dash out of telegraphed blows": "동료가 예고된 공격을 대시로 피합니다",
 "Companions keep learning from your fights": "동료가 전투에서 계속 배웁니다",
 "Companions use the learned battle policy (Off: the plain rules)": "동료가 학습된 전투 방침을 사용 (끄면 기본 규칙)",
 "Conduit": "전도체",
@@ -1735,6 +1812,7 @@ const LANG_KO = {
 "Dawnbreaker": "새벽을 가르는 자",
 "Dawnlight": "새벽빛",
 "Day": "낮",
+"Dead things that will not lie down. Knights who sealed the gate and kept their post past death. And at the bottom, something that wears a crown.": "누워 쉬지 못하는 죽은 것들. 문을 봉인하고 죽어서도 자리를 지키는 기사들. 그리고 맨 밑바닥에는 왕관을 쓴 무언가가 있지.",
 "Deep Abomination": "심연의 흉물",
 "Deep Golem": "심연 골렘",
 "Deep Mutant": "심연 변종",
@@ -1746,6 +1824,7 @@ const LANG_KO = {
 "Deepward Hold · Day": "딥워드 요새 · 낮",
 "Deepward Stands": "딥워드는 건재하다",
 "Deepward is the last camp on the rim. Its wardens go down to push the dark back. Most do not come up.": "딥워드는 변두리 들판의 마지막 야영지입니다. 이곳의 파수꾼들은 어둠을 밀어내러 내려갑니다. 대부분은 돌아오지 못합니다.",
+"Defeat Sir Aldric in the Iron Keep": "강철 요새에서 알드릭 경 쓰러뜨리기",
 "Defeat Sir Aldric the Hollow": "공허한 알드릭 경 처치",
 "Defeat a guardian on Hard": "어려움 난이도에서 수호자 처치",
 "Defeat a guardian without taking a hit": "피격 없이 수호자 처치",
@@ -1791,6 +1870,7 @@ const LANG_KO = {
 "Empty": "비어 있음",
 "English": "English",
 "Enter": "Enter",
+"Enter / click · Esc skips": "Enter / 클릭 · Esc 건너뛰기",
 "Epic": "영웅",
 "Equip": "장착",
 "Equip (swap)": "장착 (교체)",
@@ -1883,6 +1963,7 @@ const LANG_KO = {
 "Go deeper": "더 깊이",
 "Go deeper · floor": "더 깊이 · 층",
 "Go deeper · floor {0}": "더 깊이 · {0}층",
+"Go down the gate and defeat the Bone Warden": "문을 내려가 뼈의 감시자 쓰러뜨리기",
 "Goblin": "고블린",
 "Goblin Scout": "고블린 정찰병",
 "Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.": "고블린 무리가 이따금 길을 따라 올라와 내 성문을 두들겨 댑니다. 뿔나팔이 울리면 달려오세요, 파수꾼.",
@@ -1925,6 +2006,8 @@ const LANG_KO = {
 "Half your health": "체력 절반",
 "Halo": "후광",
 "Hard": "어려움",
+"Harder hits, tougher foes, five may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 다섯이 동시에 공격, 좁은 패링 구간",
+"Harder hits, tougher foes, four may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 넷이 동시에 공격, 좁은 패링 구간",
 "Harder hits, tougher foes, three may attack at once, a tight parry window": "더 강한 공격, 더 질긴 적, 최대 세 명이 동시에 공격, 빠듯한 패링 판정 시간",
 "Hauberk": "사슬 갑옷",
 "Headsman": "처형인",
@@ -1954,6 +2037,7 @@ const LANG_KO = {
 "Hit-stop on impact": "타격 시 히트 스톱",
 "Hoard": "보물 더미",
 "Hobb": "홉",
+"Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.": "홉은 모닥불 동쪽에서 훈련장을 맡고 있어. 저 문에 가까이 가기 전에 그부터 만나. 돈을 받지 않을 거야. 그게 너를 마음에 들어 한다는 뜻이지.",
 "Hobb's Pupil": "홉의 제자",
 "Hold {0} gold": "골드 {0} 보유",
 "Hollow Duelist": "공허의 결투가",
@@ -1985,6 +2069,8 @@ const LANG_KO = {
 "Iron Will": "강철 의지",
 "Iron ore": "철광석",
 "It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.": "끝났습니다. 공허왕은 안식에 들었고, 심연은 사십 년 만에 처음으로 고요합니다.",
+"It said nothing.": "아무 말도 하지 않았어요.",
+"It was waiting for something.": "무언가를 기다리고 있었어요.",
 "Its acolytes throw light that hurts. Parry it at the last moment and it goes back the way it came.": "그 시종들은 해로운 빛을 던진다. 마지막 순간에 패링하면 빛이 온 길로 되돌아간다.",
 "J / left-click attack": "J / 왼쪽 클릭 공격",
 "Jerkin": "가죽 조끼",
@@ -2064,6 +2150,7 @@ const LANG_KO = {
 "Look sensitivity": "시점 감도",
 "Loop": "고리",
 "Lost": "패배",
+"Louder how?": "어떻게 더 시끄러워졌다는 거죠?",
 "Low turns shadows off and draws fewer pixels.": "낮음은 그림자를 끄고 화소를 줄여 그립니다.",
 "Lower it if the game stutters": "게임이 끊기면 낮추세요",
 "Lower it if the game stutters: Low turns shadows off and draws fewer pixels.": "게임이 끊기면 낮추세요. '낮음'은 그림자를 끄고 더 적은 픽셀을 그립니다.",
@@ -2076,6 +2163,7 @@ const LANG_KO = {
 "Main menu": "메인 메뉴",
 "Map (N)": "지도 (N)",
 "Maren": "마렌",
+"Maren sent you. She always does, when she is worried.": "마렌이 보냈군. 걱정될 때마다 늘 그러지.",
 "Maren: \"Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense.\"": "마렌: \"홉이 동쪽 울타리 옆 훈련장을 맡고 있어요. 수업은 여섯 가지예요. 공격, 막기, 패링, 대시, 그리고 비틀거리는 적을 마무리하는 법이죠. 분별이 있다면 그에게 먼저 가 보세요.\"",
 "Marked Men": "표적이 된 자들",
 "Marksman": "명사수",
@@ -2119,6 +2207,7 @@ const LANG_KO = {
 "Nell the gem cutter": "보석 세공사 넬",
 "Nell's Bench": "넬의 작업대",
 "New game": "새 게임",
+"New objective:": "새 목표:",
 "No Bottom": "바닥 없음",
 "No curses": "저주 없음",
 "No curses: the plain climb.": "저주 없음: 평범한 등반.",
@@ -2129,6 +2218,8 @@ const LANG_KO = {
 "Normal": "보통",
 "Not Left Behind": "남겨 두지 않는다",
 "Not a Chest": "상자가 아니다",
+"Nothing I could follow.": "알아들을 수 있는 말은 없었어요.",
+"Nothing is a kind of answer, down there. Remember it.": "저 아래에선 침묵도 대답이야. 기억해 둬.",
 "Nothing packed yet.": "아직 챙긴 것이 없습니다.",
 "Nothing you wear has a bonus to rework.": "착용 중인 장비 중 재조정할 보너스가 있는 것이 없습니다.",
 "Notice Board": "게시판",
@@ -2173,6 +2264,7 @@ const LANG_KO = {
 "Pinned by the fire": "모닥불 옆에 붙은 의뢰",
 "Pinned by the fire: work for anyone with a blade.": "모닥불 옆에 붙어 있다: 칼 든 자라면 누구나 할 수 있는 일거리.",
 "Play": "플레이",
+"Pointing device": "포인팅 장치",
 "Posture damage": "자세 피해",
 "Posture damage {0}": "자세 피해 {0}",
 "Posture damage, Health": "자세 피해, 체력",
@@ -2319,6 +2411,7 @@ const LANG_KO = {
 "Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.": "아드릭 경... 그를 알았어요. 전선을 지키겠다고 맹세했죠. 실제로 지켜냈어요. 다만 엉뚱한 쪽을 향한 채로요.",
 "Six cuts faster than the eye": "눈보다 빠른 여섯 번의 베기",
 "Six cuts faster than the eye · {0} s": "눈보다 빠른 여섯 번의 베기 · {0}초",
+"Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.": "여섯 가지 훈련이다. 베기, 막기, 패링, 대시, 그리고 무너뜨린 적을 마무리하는 법. 순서대로 하고, 지루한 것도 건너뛰지 마라. 지루한 것들이 너를 살려준다.",
 "Skeleton": "해골",
 "Skeleton Archer": "해골 궁수",
 "Skewer": "꿰뚫기",
@@ -2349,6 +2442,7 @@ const LANG_KO = {
 "Space": "Space",
 "Space dash": "Space 대시",
 "Spare Flask": "여분의 물약",
+"Speak with Maren by the fire": "모닥불 곁의 마렌과 이야기하기",
 "Spear": "창",
 "Spear: Skewer": "창: 꿰뚫기",
 "Spear: long thrusts and a wide sweep; heavy is a lunging thrust": "창: 긴 찌르기와 넓은 휩쓸기, 강공격은 돌진 찌르기",
@@ -2436,6 +2530,9 @@ const LANG_KO = {
 "Tear down": "철거",
 "Telegraph words (DASH! / PARRY! over special attacks)": "경고 문구 (특수 공격 위에 대시! / 패링! 표시)",
 "Tell Captain Rook what you found": "루크 대장에게 발견한 것을 보고하기",
+"Tell Maren what Sir Aldric said": "알드릭 경이 한 말을 마렌에게 전하기",
+"Tell Maren what you found in the Crypt": "지하묘지에서 본 것을 마렌에게 알리기",
+"Tell me: did it speak?": "말해줘, 그것이 말을 했나?",
 "Temper": "담금질",
 "Temper · ⛏{0} ⚙{1}": "단련 · ⛏{0} ⚙{1}",
 "Tempered:": "단련됨:",
@@ -2464,6 +2561,7 @@ const LANG_KO = {
 "The Den Mother is dead, and still the Deep breathes. The stone below is warmer than it should be.": "소굴의 어미는 죽었는데, 심연은 여전히 숨을 쉬어요. 아래쪽 바위가 있어선 안 될 만큼 따뜻해요.",
 "The Den Mother was a woodwife once, before the Deep took her children. She keeps the goblins now.": "소굴의 어미는 한때 숲의 아낙이었다. 심연이 그녀의 아이들을 앗아가기 전까지는. 이제 그녀는 고블린들을 거느린다.",
 "The Den Mother's Hand": "소굴의 어미의 손",
+"The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.": "소굴은 요새 아래에 있어. 돌아오면 더 이야기해 주지. 이 이야기는 하룻밤으로 끝나지 않아.",
 "The Drowned Bishop": "익사한 주교",
 "The Drowned Hollow": "물에 잠긴 골짜기",
 "The Drowned Prophet": "익사한 예언자",
@@ -2487,6 +2585,7 @@ const LANG_KO = {
 "The Hollow Sentinel": "공허의 파수병",
 "The Ice Bulwark": "얼음 방벽",
 "The Iron Keep": "강철 성채",
+"The Iron Keep is next. Take a shield you trust, and come back whole.": "다음은 강철 요새야. 믿을 만한 방패를 챙기고, 온전히 돌아와.",
 "The King's Hand": "왕의 손",
 "The Meadow": "초원",
 "The Mire Queen": "수렁의 여왕",
@@ -2513,6 +2612,7 @@ const LANG_KO = {
 "The Tidecaller": "물결을 부르는 자",
 "The War Camp": "전쟁 야영지",
 "The Widow": "과부",
+"The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.": "요새의 종이 밤마다 저절로 울려. 나흘 전엔 그 소리에 가락이 있었어. 누군가의 이름을 부르는 것처럼.",
 "The dark closes in, and no map": "어둠이 조여 오는데, 지도는 없다",
 "The deepest ring we know of": "우리가 아는 가장 깊은 고리",
 "The deepest ring we know of: the Shadow Court. Its duelists were nobles once. They still fight like it.": "우리가 아는 가장 깊은 고리는 그림자 궁정이에요. 그곳의 결투가들은 한때 귀족이었죠. 지금도 귀족처럼 싸워요.",
@@ -2533,10 +2633,14 @@ const LANG_KO = {
 "The stair goes down into the dark. Where will you go?": "계단은 어둠 속으로 이어집니다. 어디로 가시겠습니까?",
 "The stair keeps going. Floor {0} is {1}% tougher. Go home now and the gold is safe; fall and you lose half of this trip's.": "계단은 계속 이어집니다. {0}층은 {1}% 더 강합니다. 지금 돌아가면 골드는 안전하지만, 쓰러지면 이번 원정에서 얻은 골드의 절반을 잃습니다.",
 "The stone hums. Choose one blessing; it holds until you leave this stage.": "돌이 웅웅거립니다. 축복 하나를 고르세요. 이 구역을 떠날 때까지 유지됩니다.",
+"The story goes on below the Keep": "이야기는 요새 아래에서 계속된다",
 "Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.": "놈들이 덮치면 방패도 튕겨 나간다. 마지막 순간에 패링으로 받아치거나, 아예 그 자리에 없어야 해.",
 "Their shields still hold. A heavy blow breaks a guard, or get behind them.": "놈들의 방패는 아직 버티고 있다. 강한 일격으로 방어를 깨거나, 뒤로 돌아가라.",
 "Then heat again. A forge, still burning, with no one to feed it but the Deep itself.": "그리고 다시 열기. 아직 타오르는 대장간인데, 불을 지피는 건 심연뿐이다.",
+"Then it was not meant for you to follow. Not yet.": "그렇다면 네가 따라갈 일이 아니었던 거야. 아직은.",
+"Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.": "그다음엔 문이다. 지하묘지부터 시작해라. 느리고 정직한 죽은 자들이지. 그 밑바닥은 뼈의 감시자가 지키고 있다.",
 "There is fire below the ice. Strange, the Deep.": "얼음 아래에 불이 있다. 기이한 곳이지, 심연은.",
+"They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.": "모두 그렇지. 알드릭도 기다리고 있을 거야. 심연이 이미 집어삼킨 왕에게 맹세했으니까.",
 "They have learned from {0} fight.": "{0}번의 전투에서 배웠습니다.",
 "They have learned from {0} fights.": "{0}번의 전투에서 배웠습니다.",
 "They have not learned from your fights yet.": "아직 당신의 전투에서 배운 것이 없습니다.",
@@ -2549,11 +2653,13 @@ const LANG_KO = {
 "Tilda the quartermaster": "보급관 틸다",
 "Tilda's Stall": "틸다의 가판대",
 "Tilda's people drag you back up the stair.": "틸다의 사람들이 당신을 계단 위로 끌어올립니다.",
+"Timing circle on enemy blows (shrinks to the moment of impact)": "적의 공격에 타이밍 원 표시 (타격 순간까지 줄어듭니다)",
 "Tomas": "토마스",
 "Tome": "성서",
 "Tonics": "강장제",
 "Tonics:": "강장제:",
 "Topaz": "토파즈",
+"Trackpad": "트랙패드",
 "Trade": "거래",
 "Train now": "지금 훈련",
 "Train with Hobb (six lessons, {0} gold the first time)": "홉과 훈련 (수업 6회, 첫 회 {0} 골드)",
@@ -2599,6 +2705,7 @@ const LANG_KO = {
 "View camera": "View 카메라",
 "Vigor": "활력",
 "Villager": "마을 주민",
+"Visit Hobb's training yard, east of the camp": "야영지 동쪽 홉의 훈련장 찾아가기",
 "Vivid": "선명",
 "Volatile": "불안정",
 "Volatile Drowned Acolyte": "불안정한 익사한 시종",
@@ -2642,11 +2749,14 @@ const LANG_KO = {
 "Welcome back, warden!": "돌아온 걸 환영해, 파수꾼!",
 "Wenna the bard": "음유시인 웬나",
 "What Deepward could be, with enough gold.": "골드만 충분하다면, 딥워드는 이렇게 될 수 있습니다.",
+"What did he say at the end?": "마지막에 그가 뭐라고 했지?",
+"What is down there?": "저 아래에는 무엇이 있나요?",
 "What the Deep has taught you.": "심연이 당신에게 가르쳐 준 것.",
 "What the Deep swallows, it sends back up": "심연이 삼킨 것은 다시 올려 보낸다",
 "What the Deep swallows, it sends back up: bones that walk, knights who forgot their oaths, beasts grown fat in the dark.": "심연은 삼킨 것을 다시 토해 낸다. 걸어 다니는 뼈, 맹세를 잊은 기사, 어둠 속에서 살찐 짐승들.",
 "When its weapon burns red, do not block. Dash through it.": "무기가 붉게 타오르면 막지 마라. 대시로 뚫고 지나가.",
 "When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.": "칼날이 하얗게 번뜩이면 방패를 들어라. 마지막 순간에 들면 놈의 자세를 무너뜨릴 수 있다.",
+"Where do I start?": "어디서부터 시작하죠?",
 "Whetstone Oil": "숫돌 기름",
 "Whirlwind": "회오리바람",
 "White glint": "흰색 번뜩임",
@@ -2664,9 +2774,11 @@ const LANG_KO = {
 "Wrath": "분노",
 "Wynn": "윈",
 "Y ultimate": "Y 궁극기",
+"You are back. That is the Warden's bone on your cloak. Sit, before you fall.": "돌아왔구나. 망토에 묻은 건 감시자의 뼈로군. 쓰러지기 전에 앉아.",
 "You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.": "돌아왔구나, 파수꾼. 그게 유일한 규칙이었지. 끝없는 심연은 여전히 아래로 이어진다. 언젠가 들여다보고 싶다면.",
 "You carry gold. The ledger by the fire turns gold into a stronger camp.": "골드를 가지고 있군. 모닥불 옆 장부가 골드를 더 강한 야영지로 바꿔 준다.",
 "You have fallen": "쓰러졌습니다",
+"You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.": "이야기를 들어본 적 없는 얼굴이군. 좋아. 이야기는 심연보다 더 지독하니까.",
 "Your bag is full": "가방이 가득 찼습니다",
 "Your gems": "내 보석",
 "Your weapon burns": "무기가 불탄다",
@@ -3156,7 +3268,7 @@ const Items = (() => {
       gold: 0, scrap: 0, inv: [], equip: {}, nextId: 1, looks: { skin: 0, hair: 0, style: 0, beard: 0 },
       camp: { forge: 0, apothecary: 0, yard: 0 },
       stage: 0,                                     // highest stage unlocked (running index: 3 per depth)
-      story: { intro: false, pre: {}, post: {} },
+      story: { intro: false, pre: {}, post: {} }, main: { i: 0 }, flags: {},
       tripGold: 0, stock: [], best: 0, deaths: 0,
       level: 1, xp: 0, points: 0, talents: {}, ult: null, mastery: {}, cls: 'warrior', party: [], hired: {}, policyAdapt: null,
       gems: {}, uniques: [], mats: {}, rescued: [],                        // loose gems by kind; uniques found so far
@@ -5483,9 +5595,15 @@ const Player = (() => {
     }
     Snd.play('hurt'); flash(p, 0xff2a1a); FX.shake(CFG.feel.shake.hurt); G.rumble(hit.aoe ? 1 : 0.7, 0.5, hit.aoe ? 350 : 200);
     FX.burst(Combat.chestPos(p.pos, 1.2), 0xc0201a, 10, 4);
-    knock(p, e.pos, hit.aoe ? 9 : 5);
+    // Hack and slash: an ordinary blow hurts but does not stop the warden (a little push, the combo goes on). Only a major one does:
+    // unblockable, an area blow, a boss's, or a heavy swing (posture at least P.staggerPosture). During the warden's own heavy swing even
+    // those but the unblockable and area ones are shrugged off.
+    const major = !!(hit.unblockable || hit.aoe || e.boss || (hit.posture || 0) >= P.staggerPosture);
+    const armoured = p.state === 'attack' && p.atkKind === 'heavy' && !hit.unblockable && !hit.aoe;
+    const flinch = major && !armoured;
+    knock(p, e.pos, hit.aoe ? 9 : flinch ? 5 : 1.6);
     G.stats.hitsTaken++;
-    if (!damage(p, dmg, e.pos) && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
+    if (!damage(p, dmg, e.pos) && flinch && !(p.rageT > 0)) { p.hurtFor = hit.aoe ? 0.6 : P.hurtStun; setState(p, 'hurt'); p.combo = 0; p.rig.hurtVar = Math.random() < 0.5; }
     return 'hit';
   }
 
@@ -7819,6 +7937,25 @@ const World = (() => {
   function themeTex(name) {
     if (texCache[name]) return texCache[name];
     const th = CFG.themes[name];
+    // A cave: mottled earth and rock with no masonry
+    if (th.style === 'cave' || th.style === 'forest') {
+      const mottle = (c, base, spread, n, size) => {
+        c.fillStyle = rgb(base, -16); c.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < n; i++) {
+          const x = Math.random() * 256, y = Math.random() * 256, r = size * (0.4 + Math.random());
+          c.fillStyle = rgb(base, (Math.random() - 0.5) * spread); c.beginPath(); c.ellipse(x, y, r, r * (0.5 + Math.random() * 0.6), Math.random() * 3, 0, 7); c.fill();
+          if (x < r) { c.beginPath(); c.ellipse(x + 256, y, r, r * 0.7, 0, 0, 7); c.fill(); }
+          if (y < r) { c.beginPath(); c.ellipse(x, y + 256, r, r * 0.7, 0, 0, 7); c.fill(); }
+        }
+      };
+      const floor = canvasTex(c => { mottle(c, th.stone, 40, 140, 22); c.fillStyle = 'rgba(0,0,0,0.3)'; for (let i = 0; i < 40; i++) c.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 3, 2 + Math.random() * 2); });
+      const wall = canvasTex(c => {
+        mottle(c, th.wall, 46, 90, 34);
+        c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 2;
+        for (let i = 0; i < 9; i++) { c.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; c.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (Math.random() - 0.3) * 40; py += (Math.random() - 0.5) * 14; c.lineTo(px, py); } c.stroke(); }
+      });
+      return (texCache[name] = { floor, wall });
+    }
     // Flagstones: irregular slabs, dark grout, a few cracks
     const floor = canvasTex(c => {
       c.fillStyle = rgb(th.stone, -36); c.fillRect(0, 0, 256, 256);
@@ -7946,7 +8083,7 @@ const World = (() => {
     }
 
     // Pillar stumps
-    if (def.pillars) {
+    if (def.pillars && !th.style) {
       const stone = M(rgbHex(th.wall, 14));
       for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const x = px * hw * 0.55, z = cz + pz * hd * 0.45, h = 1.2 + Math.random() * 0.8;
@@ -7969,11 +8106,11 @@ const World = (() => {
       const pos = new THREE.Vector3(cx + x + Math.sin(ry) * 0.6, 2.6, z + Math.cos(ry) * 0.6);
       room.torches.push({ pos, fl, seed: Math.random() * 10, color: th.torch });
     }
-    for (const s of [-1, 1]) {
+    if (!th.style) for (const s of [-1, 1]) {
       for (const f of [-0.6, 0, 0.6]) if (!(f === 0 && P.side && P.side.dir === s)) torch(s * (hw - 0.05), cz + hd * f, -s * Math.PI / 2);
       torch((dn === null ? 0 : dn) + s * (DOOR + 1.4), northZ + 0.05, 0);
     }
-    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);
+    if (ds !== null) torch(ds - (DOOR - 0.05), southZ + CORR_LEN / 2, Math.PI / 2);          // (a cave's light is its crystals)
 
     // Scattered decor in the theme of the stage, kept off the path between the doorways
     const pathA = [ds === null ? (dn === null ? 0 : dn) : ds, southZ], pathB = [dn === null ? 0 : dn, northZ];
@@ -8033,6 +8170,163 @@ const World = (() => {
       }
     }
     room.offPath = offPath;
+
+    // Styled spaces (th.style): obstacles are blockers (the same circles the pillars use), so the walkable space is no longer a plain
+    // rectangle; a lane along the way through stays open. cave: rock bulges out of the walls, formations stand in the open, crystals
+    // give the light. forest: trees and bushes, wisp lanterns. town: ruined houses along the walls, a fountain, carts, lamp posts.
+    if (th.style) {
+      const rockM = M(rgbHex(th.wall, 10), { roughness: 1 }), rockM2 = M(rgbHex(th.wall, -2), { roughness: 1 });
+      const jit = (x, y, z) => 0.8 + 0.4 * (((Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1 + 1) % 1);
+      const rock = (x, z, r, hMul, m = rockM) => {                               // a lumpy boulder; x is local to the section
+        const g = new THREE.IcosahedronGeometry(r, 1), pa = g.attributes.position;
+        for (let i = 0; i < pa.count; i++) { const k = jit(pa.getX(i) + x, pa.getY(i), pa.getZ(i) + z); pa.setXYZ(i, pa.getX(i) * k, pa.getY(i) * k, pa.getZ(i) * k); }
+        g.computeVertexNormals();
+        hMul = Math.max(0.5, Math.min(hMul, (1.3 + Math.random() * 1.0) / (2 * r)));          // never taller than about 2.3 m: the camera looks over them
+        const o = add(g, m, x, r * hMul * 0.55, z); o.scale.y = hMul; o.rotation.y = Math.random() * 3; return o;
+      };
+      const block = (x, z, r) => room.pillars.push([x + cx, z, r * 0.8]);
+      const nearDoor = (x, z, r) => (ds !== null && z > southZ - r - 3 && Math.abs(x - ds) < DOOR + r + 1.4) || (dn !== null && z < northZ + r + 3 && Math.abs(x - dn) < DOOR + r + 1.4)
+        || (P.side && Math.abs(z - cz) < SIDE_DOOR + r + 1.2 && Math.sign(x) === P.side.dir && Math.abs(x) > hw - r - 3) || (last && Math.abs(x) < 4.5 && z < northZ + 5.5);
+      if (th.style === 'cave') {
+        // The wall's own edge: a rim of half-buried rock so no straight line shows (low along the south wall, which the camera looks over)
+        for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.5 + Math.random() * 1.2) { const r = 0.7 + Math.random() * 0.8; if (!nearDoor(sd * hw, z, 0.4)) rock(sd * (hw - 0.1), z, r, 1.2 + Math.random() * 1.1, Math.random() < 0.5 ? rockM : rockM2); }
+        for (let x = -hw + 1; x < hw; x += 1.5 + Math.random() * 1.2) {
+          const r = 0.7 + Math.random() * 0.8;
+          if (!nearDoor(x, northZ + 0.2, 0.4)) rock(x, northZ + 0.2, r, 1.4 + Math.random() * 1.2, rockM2);
+          if (!nearDoor(x, southZ + 0.2, 0.4)) rock(x, southZ + 0.1, r * 0.6, 0.6, rockM);
+        }
+        // Bulges into the section (blockers) along the side walls and the far wall
+        for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 2.8 + Math.random() * 2.2) {
+          if (Math.random() < 0.2) continue;
+          const r = 1.0 + Math.random() * 1.4, d = 0.5 + Math.random() * 1.6, x = sd * (hw - d + r * 0.3);
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        for (let x = -hw + 3; x < hw - 2; x += 3 + Math.random() * 3) {
+          if (Math.random() < 0.3) continue;
+          const r = 0.9 + Math.random() * 1.1, z = northZ + 0.5 + Math.random() * 1.4;
+          if (nearDoor(x, z, r)) continue;
+          rock(x, z, r, 1.0 + Math.random() * 0.8); block(x, z, r);
+        }
+        // Formations in the open, with room to walk between them
+        const want = Math.max(2, Math.round(hw * hd * 0.04)) + (def.pillars ? 2 : 0);
+        for (let n = 0, tries = 0; n < want && tries < 60; tries++) {
+          const r = 0.8 + Math.random() * 1.0, x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+          if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+          if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+          rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
+          if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
+        }
+        // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
+        const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
+        const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        for (const [sd, f] of spots) {
+          let x = sd * (hw - 1.1), z = cz + hd * f + (Math.random() - 0.5) * 2;
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          let tall = null;
+          for (let q = 0; q < 4; q++) {
+            const h = 0.5 + Math.random() * 1.0, geo = new THREE.OctahedronGeometry(0.16 + Math.random() * 0.1, 0), m = new THREE.Mesh(geo, crystalM);
+            m.scale.set(0.8, h / 0.2, 0.8); m.position.set((Math.random() - 0.5) * 0.7, h * 0.5, (Math.random() - 0.5) * 0.7); m.rotation.set((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4);
+            g.add(m); room.geos.push(geo); if (!tall || h > tall.h) tall = { m, h };
+          }
+          room.torches.push({ pos: new THREE.Vector3(cx + x, 1.4, z), fl: tall.m, seed: Math.random() * 10, color: th.torch });
+        }
+      } else {
+        // Places to stand obstacles in the open: random spots off the lane with room to walk between them
+        const scatter = (want, rMin, rMax, make) => {
+          for (let n = 0, tries = 0; n < want && tries < 80; tries++) {
+            const r = rMin + Math.random() * (rMax - rMin), x = (Math.random() * 2 - 1) * (hw - 3.4), z = cz + (Math.random() * 2 - 1) * (hd - 3.4);
+            if (!offPath(x, z) || nearDoor(x, z, r + 1)) continue;
+            if (room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r * 0.8 + 2.6)) continue;
+            make(x, z, r); n++;
+          }
+        };
+        // A lamp that stands in for a torch (its light follows it like a torch's)
+        const lamp = (x, z, glowM, tall) => {
+          const g = new THREE.Group(); g.position.set(x, 0, z); group.add(g);
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, tall, 6), M(0x2a2420)), bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), glowM);
+          post.position.y = tall / 2; bulb.position.y = tall + 0.1; g.add(post, bulb); room.geos.push(post.geometry, bulb.geometry);
+          room.torches.push({ pos: new THREE.Vector3(cx + x, tall, z), fl: bulb, seed: Math.random() * 10, color: th.torch });
+        };
+        const lampSpots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
+        const glowM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(glowM);
+        if (th.style === 'forest') {
+          const bark = [M(0x3a2c20), M(0x2c2218)], leaf = [M(0x24402a), M(0x2f5030)], bushM = M(0x2a4a2a);
+          const tree = (x, z, r, crown) => {                                         // a trunk, and either a dark crown (the rim) or bare branches
+            const h = 3.2 + Math.random() * 1.6;
+            add(new THREE.CylinderGeometry(r * 0.55, r, h, 7), bark[Math.random() * 2 | 0], x, h / 2, z);
+            if (crown) add(new THREE.ConeGeometry(r * 3.2 + Math.random() * 0.8, h * 0.85, 7), leaf[Math.random() * 2 | 0], x, h * 0.9 + 0.6, z);
+            else for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.03, 0.07, 1.2, 5), bark[1], x, h * (0.6 + q * 0.14), z).rotation.set((Math.random() - 0.5) * 1.6, Math.random() * 3, 0.9 + Math.random() * 0.4);
+          };
+          const bush = (x, z, r) => { const o = add(new THREE.IcosahedronGeometry(r, 0), bushM, x, r * 0.5, z); o.scale.y = 0.7; o.rotation.y = Math.random() * 3; };
+          // The wall's edge: a dense stand of trees (low bushes along the south wall, which the camera looks over)
+          for (const sd of [-1, 1]) for (let z = southZ - 1; z > northZ + 0.5; z -= 1.6 + Math.random() * 1.2) if (!nearDoor(sd * hw, z, 0.4)) tree(sd * (hw - 0.3 + Math.random() * 0.2), z, 0.35 + Math.random() * 0.25, true);
+          for (let x = -hw + 1; x < hw; x += 1.6 + Math.random() * 1.2) {
+            if (!nearDoor(x, northZ + 0.3, 0.4)) tree(x, northZ + 0.3 + Math.random() * 0.4, 0.35 + Math.random() * 0.25, true);
+            if (!nearDoor(x, southZ + 0.2, 0.4)) bush(x, southZ + 0.2, 0.4 + Math.random() * 0.3);
+          }
+          // Thickets in from the walls (blockers)
+          for (const sd of [-1, 1]) for (let z = southZ - 3; z > northZ + 3; z -= 3 + Math.random() * 2.4) {
+            if (Math.random() < 0.25) continue;
+            const x = sd * (hw - 0.8 - Math.random() * 1.6);
+            if (nearDoor(x, z, 1.6)) continue;
+            tree(x, z, 0.5, true); tree(x - sd * 0.9, z + 0.8, 0.4, false); bush(x - sd * 1.2, z - 0.7, 0.8); block(x, z, 1.6);
+          }
+          // In the open: bare trees, fallen logs, thickets
+          scatter(Math.max(2, Math.round(hw * hd * 0.035)), 0.55, 0.9, (x, z, r) => {
+            const t = Math.random();
+            if (t < 0.5) { tree(x, z, 0.5, false); block(x, z, 0.75); }
+            else if (t < 0.75) { const a = Math.random() * Math.PI; const o = add(new THREE.CylinderGeometry(0.32, 0.38, 2.8, 7), bark[0], x, 0.32, z); o.rotation.set(Math.PI / 2, 0, a); block(x + Math.sin(a) * 0.9, z + Math.cos(a) * 0.9, 0.62); block(x - Math.sin(a) * 0.9, z - Math.cos(a) * 0.9, 0.62); }
+            else { bush(x, z, 0.9); bush(x + 0.6, z + 0.4, 0.6); block(x, z, 1.1); }
+          });
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 1.4), cz + hd * f + (Math.random() - 0.5) * 2, glowM, 1.5);       // wisp lanterns on posts
+        } else {
+          // town: ruined houses along both walls, then the square's furniture
+          const plaster = M(rgbHex(th.wall, 8)), roofM = M(0x3a2a20), darkM = M(0x0a0806), woodM = M(0x4a3422), rubbleM = M(rgbHex(th.wall, -4));
+          const house = (sd, z, len, dep, h) => {
+            const x = sd * (hw - dep / 2 + 0.1);
+            wallBox(dep, h, len, x, h / 2, z, plaster);
+            add(new THREE.BoxGeometry(dep * 1.1, 0.22, len * 1.05), roofM, x, h + 0.1, z).rotation.z = sd * (0.12 + Math.random() * 0.22);   // a sagging roof
+            for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.05, 0.07, 1.1 + Math.random() * 0.6, 5), woodM, x + (Math.random() - 0.5) * dep, h + 0.5, z + (Math.random() - 0.5) * len).rotation.set(Math.random(), 0, Math.random());   // broken beams
+            const face = x - sd * (dep / 2 + 0.03), ry = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
+            for (let w = 0; w < Math.floor(len / 2.2); w++) add(new THREE.PlaneGeometry(0.7, 0.9), darkM, face, 1.6, z - len / 2 + 1.1 + w * 2.2, false).rotation.y = ry;       // empty windows
+            add(new THREE.PlaneGeometry(1.0, 1.9), darkM, face, 0.95, z + (Math.random() - 0.5) * (len - 2), false).rotation.y = ry;                                     // a doorway
+            const n = Math.ceil(len / (dep * 0.9));
+            for (let k = 0; k < n; k++) block(sd * (hw - dep / 2), z - len / 2 + (k + 0.5) * len / n, dep * 0.62);
+          };
+          for (const sd of [-1, 1]) for (let z = southZ - 2.5; z > northZ + 5;) {
+            const len = 3.6 + Math.random() * 2.6, dep = 2.4 + Math.random() * 0.8, zc = z - len / 2;
+            if (zc - len / 2 < northZ + 2) break;
+            if (Math.random() > 0.2 && !nearDoor(sd * (hw - dep), zc, dep + len / 4)) house(sd, zc, len, dep, 2.6 + Math.random() * 0.6);
+            z -= len + 1.6 + Math.random() * 2.6;
+          }
+          // Rubble heaps along the far wall
+          for (let x = -hw + 2; x < hw - 1; x += 2.5 + Math.random() * 2.5) if (!nearDoor(x, northZ + 1, 1.2)) { const r = 0.6 + Math.random() * 0.7; const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, northZ + 0.8 + Math.random() * 0.6); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); if (Math.random() < 0.6) block(x, northZ + 0.9, r); }
+          // The square: a fountain, wells, carts, crates and rubble
+          let fountain = Math.random() < 0.6;
+          scatter(Math.max(2, Math.round(hw * hd * 0.03)), 0.7, 1.1, (x, z, r) => {
+            const t = Math.random();
+            if (fountain && hw * hd > 60) {
+              fountain = false;
+              add(new THREE.CylinderGeometry(1.2, 1.3, 0.5, 12), plaster, x, 0.25, z); add(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 12), M(0x2a5a5a, { transparent: true, opacity: 0.6 }), x, 0.46, z, false);
+              add(new THREE.CylinderGeometry(0.16, 0.22, 1.5, 8), plaster, x, 1.0, z); add(new THREE.CylinderGeometry(0.4, 0.2, 0.2, 8), plaster, x + 0.25, 1.7, z).rotation.z = 0.3;     // a broken basin
+              block(x, z, 1.5);
+            } else if (t < 0.4) {                                                    // a cart on its side
+              const a = Math.random() * Math.PI; add(new THREE.BoxGeometry(2.0, 0.7, 1.0), woodM, x, 0.45, z).rotation.set(0, a, 0.15);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 10), woodM, x + Math.cos(a) * 0.3, 0.4, z - Math.sin(a) * 0.3 + sg * 0.55 * Math.cos(a)).rotation.x = Math.PI / 2;
+              block(x + Math.sin(a) * 0.5, z + Math.cos(a) * 0.5, 0.7); block(x - Math.sin(a) * 0.5, z - Math.cos(a) * 0.5, 0.7);
+            } else if (t < 0.6) {                                                    // a well
+              add(new THREE.CylinderGeometry(0.7, 0.75, 0.8, 10), plaster, x, 0.4, z); add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 10), darkM, x, 0.8, z, false);
+              for (const sg of [-1, 1]) add(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5), woodM, x + sg * 0.6, 1.2, z); add(new THREE.BoxGeometry(1.5, 0.08, 0.5), roofM, x, 2.05, z);
+              block(x, z, 1.0);
+            } else if (t < 0.8) { for (let q = 0; q < 3; q++) add(new THREE.BoxGeometry(0.7, 0.7, 0.7), woodM, x + (q - 1) * 0.55, 0.35 + (q === 1 ? 0.7 : 0), z + (q === 1 ? 0 : 0.2)).rotation.y = Math.random(); block(x, z, 1.0); }
+            else { const o = add(new THREE.DodecahedronGeometry(r, 0), rubbleM, x, r * 0.4, z); o.scale.y = 0.7; o.rotation.set(Math.random(), Math.random(), 0); block(x, z, r * 1.1); }
+          });
+          const amber = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(amber);
+          for (const [sd, f] of lampSpots) lamp(sd * (hw - 3.4), cz + hd * f + (Math.random() - 0.5) * 2, amber, 2.4);          // lamp posts in front of the houses
+        }
+      }
+    }
 
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     // Props stay separate meshes: pots break, traps move, the shrine glows
@@ -8210,7 +8504,16 @@ const World = (() => {
   }
   // ---------------- Encounters ----------------
   function spawnWave(room) {
-    const list = (room.waves || room.inf.room.waves)[room.wave], p = G.player;
+    let list = (room.waves || room.inf.room.waves)[room.wave].slice(); const p = G.player, baseN = list.length;
+    // The horde: a section's wave gains extra light foes of the kinds it already holds (or its stage's), up to the cap
+    if (room.kind !== 'side' && !room.inf.stage.monster && !room.noHorde) {
+      const H = CFG.horde, light = t => H.fodder.includes(t);
+      let pool = [...new Set(list.filter(light))];
+      if (!pool.length) pool = [...new Set(room.inf.stage.rooms.flatMap(r => r.waves.flat()).filter(light))];
+      const live = G.enemies.filter(e => e.room === room && e.state !== 'dead').length + G.queue.filter(q => q.room === room).length;
+      const n = Math.min(Math.max(0, H.cap - live - list.length), Math.round((list.length * H.extra + Math.floor(room.j / 2)) * (Settings.diff.horde || 1)));
+      if (pool.length) for (let i = 0; i < n; i++) list.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
     const mult = room.inf.mult || 1 + room.inf.loop * CFG.loopScale + (room.inf.si || 0) * CFG.stageScale;
     const hpMult = room.inf.hpMult || 1 + (room.inf.si || 0) * CFG.stageHp;
     // Spawn spots: across the section, away from the hero and the pillars
@@ -8218,7 +8521,7 @@ const World = (() => {
     for (let gx = -2; gx <= 2; gx++) for (let gz = 0; gz < 4; gz++) {
       const x = room.cx + gx / 2 * (room.hw - 1.8), z = room.northZ + 1.8 + gz * (room.hd * 2 - 3.6) / 3;
       if (Math.hypot(x - p.pos.x, z - p.pos.z) < 5) continue;
-      if (room.pillars.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.6)) continue;
+      if (room.pillars.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (pr || 0.8) + 1.0)) continue;
       spots.push(new THREE.Vector3(x, 0, z));
     }
     spots.sort(() => Math.random() - 0.5);
@@ -8227,7 +8530,7 @@ const World = (() => {
       const at = guardian && room.lairAt ? room.lairAt.clone() : spots[k % spots.length] || new THREE.Vector3(room.cx, 0, room.cz - 2);
       const champion = room.champion && room.wave === room.waves.length - 1 && k === 0;
       const far = room.kind === 'side' ? new THREE.Vector3(room.cx + room.dir * (room.hw - 1.5), 0, room.cz) : null;
-      G.queue.push({ type, at: far || at, mult: mult * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
+      G.queue.push({ extra: k >= baseN, type, at: far || at, mult: mult * (k >= baseN ? CFG.horde.extraDmg : 1) * (guardian ? CFG.guardianMult : room.elite ? FE.eliteMult : 1), guardian: guardian && room.inf.stage.guardian, elite: !!room.elite, champion: champion ? room.champion : null, hpMult: k >= baseN ? hpMult * CFG.horde.extraHp : hpMult, room, t: G.time + (guardian ? 0.2 : 0.3 + k * 0.45) });
       if (!G.seen[type]) { G.seen[type] = true; showTip(CFG.tips[type]); }
     });
     if (room.champion && room.wave === room.waves.length - 1) { banner(room.champion.name.toUpperCase()); Snd.play('slam'); FX.shake(0.3); }
@@ -8345,9 +8648,10 @@ const World = (() => {
         a.t += dt;
         if (a.state === 'start' && a.t > (a.inf.room.guardian && a.kind !== 'side' ? 1.2 : 0.6)) { a.state = 'fight'; a.wave = 0; spawnWave(a); }
         else if (a.state === 'fight') {
-          const alive = G.enemies.some(e => e.room === a && e.state !== 'dead') || G.queue.some(q => q.room === a);
+          const left = G.enemies.filter(e => e.room === a && e.state !== 'dead').length + G.queue.filter(q => q.room === a).length, more = a.wave < (a.waves || a.inf.room.waves).length - 1;
+          const alive = more && a.kind !== 'side' ? left > CFG.horde.chainAt : left > 0;          // the next wave comes as the last few fall
           if (!alive) {
-            if (a.wave < (a.waves || a.inf.room.waves).length - 1) { a.waveDelay += dt; if (a.waveDelay > 1.2) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
+            if (more) { a.waveDelay += dt; if (a.waveDelay > (left ? 0.5 : 1.2)) { a.waveDelay = 0; a.wave++; spawnWave(a); } }
             else if (p.state !== 'dead') clearRoom(a);
           }
         }
@@ -9738,6 +10042,132 @@ const Ads = (() => {
 
 </script>
 <script>
+// Deepward - scenes: a person speaks to the warden in the world instead of in a panel. The camera frames the speaker over the
+// warden's shoulder, the speaker turns to the warden and moves a little as they talk, the words are typed in a caption at the
+// bottom (any key finishes the line, then goes on), and a line can offer choices. Script:
+//   { who: 'elder' | null, steps: [ { name, text, label?, choices?: [{ text, go: label | 'end' }], go?: label | 'end', flag? } ] }
+// who is a camp person's id (null: narration, the camera stays on the warden). A step with `go` jumps there instead of to the next.
+const Scene = (() => {
+  const CPS = 46;                                                            // characters per second
+  let S = null, box = null;
+  const $ = id => document.getElementById(id);
+  const tr = s => (typeof I18N !== 'undefined' && I18N.tr ? I18N.tr(s) : s);
+  const camp = () => (typeof World !== 'undefined' && World.rooms ? World.rooms.find(r => r.kind === 'camp') : null);
+  const npcOf = id => { const c = camp(); return c && id ? c.npcs.find(n => n.id === id) || null : null; };
+
+  function play(script, done) {
+    if (S || G.state !== 'play') { if (done) done(); return false; }
+    box = box || $('sceneBox');
+    S = { script, i: 0, t: 0, npc: npcOf(script.who), sel: 0, done, cam: null, label: {} };
+    script.steps.forEach((st, k) => { if (st.label) S.label[st.label] = k; });
+    G.scene = S; G.state = 'scene'; Input.keys = {};
+    $('letterbox').classList.add('on'); document.body.classList.add('cine', 'scene');
+    if (document.pointerLockElement) document.exitPointerLock();
+    show();
+    return true;
+  }
+  const step = () => S.script.steps[S.i];
+  function show() {
+    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text);
+    box.querySelector('.sn').textContent = tr(st.name === undefined ? (S.script.name || '') : st.name);
+    box.querySelector('.sc').innerHTML = '';
+    box.classList.add('show'); box.classList.remove('done');
+    render();
+  }
+  function render() {
+    const st = step(), n = Math.min(S.full.length, Math.floor(S.t * CPS)), fin = n >= S.full.length;
+    box.querySelector('.st').textContent = S.full.slice(0, n);
+    box.classList.toggle('done', fin);
+    const ch = box.querySelector('.sc');
+    if (fin && st.choices && !ch.children.length) {
+      st.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
+    }
+  }
+  function choose(k) { const st = step(), c = st.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
+  function flag(f) { if (typeof Items !== 'undefined' && Items.S) { Items.S.flags = Items.S.flags || {}; Items.S.flags[f] = true; Items.save(); } }
+  function jump(go) {
+    if (go === undefined || go === null) S.i++;
+    else if (go === 'end') S.i = Infinity;
+    else S.i = S.label[go] === undefined ? S.i + 1 : S.label[go];
+    if (S.i >= S.script.steps.length) return end();
+    show();
+  }
+  // Advance: finish the typing, or go on to the next line (a line with choices waits for one)
+  function next() {
+    if (!S) return;
+    const st = step(), fin = Math.floor(S.t * CPS) >= S.full.length;
+    if (!fin) { S.t = 1e3; render(); return; }
+    if (st.flag) flag(st.flag);
+    if (st.choices) { choose(S.sel); return; }
+    jump(st.go);
+  }
+  function pick(k) { if (S && step().choices && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < step().choices.length) choose(k); } }
+  function nav(d) { if (!S || !step().choices) return; const n = step().choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
+  function end() {
+    if (!S) return;
+    const d = S.done; box.classList.remove('show', 'done');
+    if (S.npc) { S.npc.rig.root.rotation.z = 0; }
+    $('letterbox').classList.remove('on'); document.body.classList.remove('cine', 'scene');
+    if (G.state === 'scene') G.state = 'play';
+    S = null; G.scene = null;
+    if (d) d();
+  }
+  const skip = () => { if (S) { S.i = Infinity; end(); } };
+
+  // Every frame of a scene: the typing, the speaker turning and moving, the camera
+  function update(dt, camera) {
+    if (!S) return;
+    S.t += dt; render();
+    const p = G.player, n = S.npc, fin = Math.floor(S.t * CPS) >= S.full.length;
+    if (n) {
+      const want = Math.atan2(p.pos.x - n.x, p.pos.z - n.z); let df = want - n.face; df = Math.atan2(Math.sin(df), Math.cos(df)); n.face += df * Math.min(1, dt * 5);
+      n.rig.root.rotation.y = n.face;
+      const talk = !fin; const k = talk ? Math.sin(S.t * 9) : 0;               // a lean and a sway while the words come
+      n.rig.root.rotation.z = (n.rig.root.rotation.z || 0) * 0.85 + (talk ? k * 0.03 : 0) * 0.15;
+      n.rig.root.position.y = talk ? Math.abs(Math.sin(S.t * 6)) * 0.015 : 0;
+      // the warden turns to them
+      const hw = Math.atan2(n.x - p.pos.x, n.z - p.pos.z); let dh = hw - p.facing; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); p.facing += dh * Math.min(1, dt * 5);
+      p.rig.root.rotation.y = p.facing;
+    }
+    Rig.animate(p.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
+    // The shot: behind and to the side of the warden, the speaker in the frame; narration looks at the warden from the front-left
+    const tx = n ? n.x : p.pos.x, tz = n ? n.z : p.pos.z, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+    const want = new THREE.Vector3(p.pos.x - ux * 2.3 - uz * 0.9, 1.55, p.pos.z - uz * 2.3 + ux * 0.9);
+    if (!n) want.set(p.pos.x + Math.sin(p.facing) * 2.8 - Math.cos(p.facing) * 1.0, 1.5, p.pos.z + Math.cos(p.facing) * 2.8 + Math.sin(p.facing) * 1.0);
+    camera.position.lerp(want, Math.min(1, dt * 3.2));
+    const look = n ? new THREE.Vector3(n.x, 0.95, n.z) : new THREE.Vector3(p.pos.x, 0.85, p.pos.z);
+    if (!S.cam) S.cam = look.clone(); S.cam.lerp(look, Math.min(1, dt * 5));
+    camera.lookAt(S.cam);
+  }
+  return { play, next, pick, nav, skip, update, end, get active() { return !!S; }, get current() { return S; } };
+})();
+
+</script>
+<script>
+// Deepward - the main story: a chain of objectives (CFG.mainStory.steps) that move on with what the warden does. game.js reports
+// events ('talk' with a camp person, a 'guardian' falling); the step that was waiting for it completes, its scene plays (js/scene.js),
+// and the next objective shows in the HUD. Progress is Items.S.main (saved with the game).
+const Story = (() => {
+  const M = () => CFG.mainStory;
+  const state = () => { const S = Items.S; S.main = S.main || { i: 0 }; return S.main; };
+  const cur = () => (Items.S ? M().steps[state().i] || null : null);
+  const objective = () => { const c = cur(); return c ? c.obj : ''; };
+  // Report something the warden did. Returns true when a scene took over (done runs when it ends)
+  function event(kind, arg, done) {
+    if (!Items.S) return false;
+    const c = cur(); if (!c || !c.on || c.on[0] !== kind || c.on[1] !== arg) return false;
+    state().i++; Items.save();
+    const after = () => { const n = cur(); if (n && typeof UI !== 'undefined') UI.toast('New objective: ' + n.obj, '#f2d27a'); if (done) done(); };
+    if (c.scene && M().scenes[c.scene] && Scene.play(M().scenes[c.scene], after)) return true;
+    after(); return !!done ? true : false;
+  }
+  // A person with nothing new to say speaks their usual lines as a scene too
+  const talk = (who, name, lines, done) => Scene.play({ who, name, steps: lines.map(t => (typeof t === 'string' ? { text: t } : { name: t[0], text: t[1] })) }, done);
+  return { event, objective, talk, get step() { return cur(); } };
+})();
+
+</script>
+<script>
 // Deepward - scene, camera, input (keyboard / mouse / touch), HUD, game flow and the main loop.
 // The dungeon itself (rooms, gates, progression) lives in world.js.
 // G.state: title | play | pause | menu (a panel is open) · G.mode: camp | dungeon
@@ -9773,6 +10203,12 @@ function lockMouse(el) {
       ev.preventDefault(); return;
     }
     if (ev.repeat) return;
+    if (G.state === 'scene') {                                              // a scene: Enter, Space, E or J go on; 1-3 or arrows choose; Esc skips
+      const c = ev.code; ev.preventDefault();
+      if (c === 'Escape') Scene.skip(); else if (c === 'ArrowUp' || c === 'KeyW') Scene.nav(-1); else if (c === 'ArrowDown' || c === 'KeyS') Scene.nav(1);
+      else if (/^(Digit|Numpad)[1-4]$/.test(c)) Scene.pick(+c.slice(-1) - 1); else if (c === 'Enter' || c === 'Space' || c === 'KeyE' || c === 'KeyJ') Scene.next();
+      return;
+    }
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
@@ -9876,7 +10312,7 @@ function lockMouse(el) {
 // Left stick move · right stick camera · RB / X light · RT heavy · Y ultimate · LB / LT block · A / B dash
 // View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
 const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
-const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12, DOWN: 13 };
 const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
 function pollPad(real) {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -9902,6 +10338,7 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
+  if (G.state === 'scene') { if (down(PAD_BTN.A)) Scene.next(); else if (down(PAD_BTN.B) || down(PAD_BTN.MENU)) Scene.skip(); else if (down(PAD_BTN.UP)) Scene.nav(-1); else if (down(PAD_BTN.DOWN)) Scene.nav(1); return; }
   if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
   if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
@@ -10053,6 +10490,7 @@ function updateSpawns() {
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
+    if (q.extra) e.extra = true;                                           // a horde extra: pays less
     if (q.fieldBoss) {                                                    // a field boss: a named elite, bigger, with a boss bar once roused
       const B = q.fieldBoss;
       if (B.boss) Enemy.makeBoss(e, CFG.monsterBosses[B.boss]);             // a big monster: grown, with phases
@@ -10089,6 +10527,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  { const ob = Story.objective(); if ($('objective').textContent !== ob) $('objective').textContent = ob; }
   const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
@@ -10174,6 +10613,7 @@ function openPanel(id, opt, done) {
   G.state = 'menu';
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
+$('sceneBox').addEventListener('click', ev => { if (ev.target.closest('button')) return; Scene.next(); });
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
 // ---------------- Guardian entrances ----------------
 function startCine(e) {
@@ -10335,12 +10775,21 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  // A run of kills close together: every few steps a little health back and the ultimate sooner
+  if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
+    const H = CFG.horde;
+    G.streak = G.time - (G.streakAt || -99) < H.streakGap ? (G.streak || 0) + 1 : 1; G.streakAt = G.time;
+    if (G.streak >= H.streakStep && G.streak % H.streakStep === 0) {
+      const p = G.player; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * H.streakHeal); if (p.ultCd > 0) p.ultCd = Math.max(0, p.ultCd - H.streakUlt);
+      FX.text(Combat.chestPos(p.pos, 2.6), '×' + G.streak + ' STREAK', 'gold');
+    }
+  }
   if (G.boss === e) G.boss = null;
   if (!Items.S || G.mode === 'camp') return;
-  const xp = e.def.xp * e.mult * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
+  const xp = e.def.xp * e.mult * (e.extra ? CFG.horde.extraPay : 1) * (e.champion ? 3 : e.guardian ? CFG.progress.guardianXp : e.elite ? CFG.elites.reward : 1), up = Items.addXp(xp);
   FX.text(Combat.chestPos(e.pos, 2.8), '+' + Math.round(xp) + ' xp', 'xp');
   if (up) levelUp(up);
-  const g = Items.addGold(e.def.gold * e.mult * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
+  const g = Items.addGold(e.def.gold * e.mult * (e.extra ? CFG.horde.extraPay : 1) * G.player.S.goldFind * (e.champion ? 3 : e.guardian ? 5 : e.elite ? CFG.elites.reward : 1));
   FX.text(Combat.chestPos(e.pos, 2.4), '+' + g + ' ◆', 'gold');
   if (e.elite && Math.random() < CFG.gear.gemDrop.elite) gemFound(1);
   // A field boss: its spoils, and when it comes back
@@ -10520,6 +10969,7 @@ function gemFound(n) {
 G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
+  if (k < CFG.stages.length) Story.event('guardian', k);
   if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
@@ -10548,7 +10998,8 @@ function interact() {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
-    return say(lines);
+    if (Story.event('talk', 'elder')) return;                              // the story had something to say
+    return Story.talk('elder', 'Maren', lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
@@ -10573,7 +11024,7 @@ function interact() {
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
   }
-  if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
@@ -10778,6 +11229,10 @@ function step(real) {
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
+  } else if (G.state === 'scene') {
+    // A scene: the world goes on quietly while someone speaks to the warden
+    G.time += real; World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Scene.update(real, camera);
   } else if (G.state === 'cine') {
     // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
     const c = G.cine; c.t += real; G.time += real;

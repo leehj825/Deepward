@@ -272,6 +272,49 @@ const CFG = {
     },
   },
   maxAttackers: 3,
+
+  // The main story: a chain of objectives (shown in the HUD) that move on with what the warden does (`on`: [event, argument]);
+  // a step can play a scene when it completes. Scenes are scripts for js/scene.js (a person, lines, choices that jump to labels).
+  mainStory: {
+    steps: [
+      { id: 'greet', obj: 'Speak with Maren by the fire', on: ['talk', 'elder'], scene: 'greet' },
+      { id: 'yard', obj: "Visit Hobb's training yard, east of the camp", on: ['talk', 'trainer'], scene: 'yard' },
+      { id: 'crypt', obj: 'Go down the gate and defeat the Bone Warden', on: ['guardian', 0] },
+      { id: 'report', obj: 'Tell Maren what you found in the Crypt', on: ['talk', 'elder'], scene: 'report' },
+      { id: 'aldric', obj: 'Defeat Sir Aldric in the Iron Keep', on: ['guardian', 1] },
+      { id: 'king', obj: 'Tell Maren what Sir Aldric said', on: ['talk', 'elder'], scene: 'king' },
+      { id: 'more', obj: 'The story goes on below the Keep' },
+    ],
+    scenes: {
+      greet: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.' },
+        { label: 'menu', text: 'Ask what you will. I have no long answers, only true ones.', choices: [{ text: 'What is down there?', go: 'what' }, { text: 'Louder how?', go: 'louder' }, { text: 'Where do I start?', go: 'start' }] },
+        { label: 'what', text: 'Dead things that will not lie down. Knights who sealed the gate and kept their post past death. And at the bottom, something that wears a crown.', go: 'menu' },
+        { label: 'louder', text: 'The bells in the Keep ring by themselves at night. Four nights ago the ringing had a pattern. Like a name being called.', go: 'menu' },
+        { label: 'start', text: 'Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.' },
+        { text: 'Come back and tell me you are alive. That is all I ask of any warden.' },
+      ] },
+      yard: { who: null, name: 'Hobb', steps: [
+        { text: 'Maren sent you. She always does, when she is worried.' },
+        { text: 'Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.' },
+        { text: 'Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.' },
+      ] },
+      report: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You are back. That is the Warden\'s bone on your cloak. Sit, before you fall.' },
+        { text: 'Tell me: did it speak?', choices: [{ text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { label: 'wait', text: 'They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.', go: 'tail' },
+        { label: 'nothing', text: 'Nothing is a kind of answer, down there. Remember it.', go: 'tail' },
+        { label: 'tail', text: 'The Iron Keep is next. Take a shield you trust, and come back whole.' },
+      ] },
+      king: { who: 'elder', name: 'Maren', steps: [
+        { text: 'Aldric. They sent a knight to pull the oath out of him, and you did it.' },
+        { text: 'What did he say at the end?', choices: [{ text: 'A name: the Hollow King.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
+        { label: 'name', text: '...So it has a name now. I had hoped it would not. Names are how things get their hold on us.', go: 'tail' },
+        { label: 'nothing', text: 'Then it was not meant for you to follow. Not yet.', go: 'tail' },
+        { label: 'tail', text: 'The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.' },
+      ] },
+    },
+  },
   // Hordes: a section's waves grow by extra light foes (the wave's own kinds that are in the fodder list), the next wave comes as the
   // last few fall, and a run of kills in quick succession pays back (a streak step every `step` kills: health and a shorter ultimate cooldown)
   horde: {
@@ -288,7 +331,7 @@ const CFG = {
   difficulty: {
     story: { name: 'Story', dmg: 0.5, hp: 0.75, cooldown: 1.4, attackers: -1, horde: 0.5, parry: 0.08, desc: 'Half the damage, softer foes, a generous parry window' },
     normal: { name: 'Normal', dmg: 1, hp: 1, cooldown: 1, attackers: 0, horde: 1, parry: 0, desc: 'As intended' },
-    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, five may attack at once, a tight parry window' },
+    hard: { name: 'Hard', dmg: 1.35, hp: 1.2, cooldown: 0.8, attackers: 1, horde: 1.3, parry: -0.03, desc: 'Harder hits, tougher foes, four may attack at once, a tight parry window' },
   },               // enemies that may be winding up or swinging at the same time
   // Each stage is one winding dungeon heading north: a run of open sections in its own theme, joined by passages
   // (no gates), ending in the guardian's lair (its first enemy is the guardian). After the last stage the stages

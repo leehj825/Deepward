@@ -33,6 +33,12 @@ function lockMouse(el) {
       ev.preventDefault(); return;
     }
     if (ev.repeat) return;
+    if (G.state === 'scene') {                                              // a scene: Enter, Space, E or J go on; 1-3 or arrows choose; Esc skips
+      const c = ev.code; ev.preventDefault();
+      if (c === 'Escape') Scene.skip(); else if (c === 'ArrowUp' || c === 'KeyW') Scene.nav(-1); else if (c === 'ArrowDown' || c === 'KeyS') Scene.nav(1);
+      else if (/^(Digit|Numpad)[1-4]$/.test(c)) Scene.pick(+c.slice(-1) - 1); else if (c === 'Enter' || c === 'Space' || c === 'KeyE' || c === 'KeyJ') Scene.next();
+      return;
+    }
     if (G.state === 'cine') { endCine(); return; }                         // any key skips a guardian's entrance
     Input.keys[ev.code] = true;
     const A = Bindings.actionsOf(ev.code), has = a => A.includes(a);
@@ -136,7 +142,7 @@ function lockMouse(el) {
 // Left stick move · right stick camera · RB / X light · RT heavy · Y ultimate · LB / LT block · A / B dash
 // View (back) switches camera · Menu (start) pauses and confirms menus · right-stick click recentres the camera
 const Pad = { id: null, prev: [], move: { x: 0, z: 0 }, block: false };
-const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11 };
+const PAD_BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12, DOWN: 13 };
 const dead = (x, y, dz = 0.2) => { const l = Math.hypot(x, y); if (l < dz) return [0, 0]; const k = Math.min(1, (l - dz) / (1 - dz)) / l; return [x * k, y * k]; };
 function pollPad(real) {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -162,6 +168,7 @@ function pollPad(real) {
     if (down(PAD_BTN.A)) UI.confirm(); else if (down(PAD_BTN.B)) UI.back();
     Pad.move.x = Pad.move.z = 0; return;
   }
+  if (G.state === 'scene') { if (down(PAD_BTN.A)) Scene.next(); else if (down(PAD_BTN.B) || down(PAD_BTN.MENU)) Scene.skip(); else if (down(PAD_BTN.UP)) Scene.nav(-1); else if (down(PAD_BTN.DOWN)) Scene.nav(1); return; }
   if (G.state === 'cine') { if (down(PAD_BTN.A) || down(PAD_BTN.B) || down(PAD_BTN.MENU)) endCine(); return; }
   if (G.state === 'title') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU)) titleGo(); return; }
   if (G.state === 'pause') { if (down(PAD_BTN.Y)) openSettings(); else if (down(PAD_BTN.A) || down(PAD_BTN.MENU) || down(PAD_BTN.B)) togglePause(); return; }
@@ -350,6 +357,7 @@ function showTip(txt) {
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
   const p = G.player;
+  { const ob = Story.objective(); if ($('objective').textContent !== ob) $('objective').textContent = ob; }
   const goal = G.mode !== 'dungeon' ? G.questGoal() : ''; if ($('questLine').textContent !== goal) $('questLine').textContent = goal;
   $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
   $('hpTxt').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
@@ -435,6 +443,7 @@ function openPanel(id, opt, done) {
   G.state = 'menu';
   UI.show(id, opt, () => { if (G.state === 'menu') G.state = 'play'; if (done) done(); });
 }
+$('sceneBox').addEventListener('click', ev => { if (ev.target.closest('button')) return; Scene.next(); });
 const say = (lines, done, last) => openPanel('dialogue', { lines, i: 0, last }, done);
 // ---------------- Guardian entrances ----------------
 function startCine(e) {
@@ -790,6 +799,7 @@ function gemFound(n) {
 G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
+  if (k < CFG.stages.length) Story.event('guardian', k);
   if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
@@ -818,7 +828,8 @@ function interact() {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
     if (S.gold >= 90) lines.push(['Maren', 'You carry gold. The ledger by the fire turns gold into a stronger camp.']);
-    return say(lines);
+    if (Story.event('talk', 'elder')) return;                              // the story had something to say
+    return Story.talk('elder', 'Maren', lines);
   }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
@@ -843,7 +854,7 @@ function interact() {
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);
   }
-  if (s.id === 'trainer') return openPanel('trainer');
+  if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
   openPanel(s.id);
 }
@@ -1048,6 +1059,10 @@ function step(real) {
     updateLock(real);
     updateCamera(real);
     MiniMap.draw(real);
+  } else if (G.state === 'scene') {
+    // A scene: the world goes on quietly while someone speaks to the warden
+    G.time += real; World.update(real, camera.position); updateSpawns(); FX.update(real); updateHud();
+    Scene.update(real, camera);
   } else if (G.state === 'cine') {
     // A guardian's entrance: the world holds its breath, the camera swings to it, then hands back
     const c = G.cine; c.t += real; G.time += real;
