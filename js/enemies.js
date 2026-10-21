@@ -258,7 +258,7 @@ const Enemy = (() => {
       e.bubble.visible = e.ward > 0 && e.state !== 'dead';
       e.bubble.material.opacity = 0.18 + Math.sin(e.t * 4) * 0.05;
     }
-    if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, e.enraged ? 0x5a0c06 : 0, e.enraged ? 1 : 0); }
+    if (e.flashT > 0) { e.flashT -= dt; if (e.flashT <= 0) Rig.flash(r, e.tint || (e.enraged ? 0x5a0c06 : 0), e.tint || e.enraged ? 1 : 0); }
   }
 
   function hurtFlash(e, c = 0xffffff, a = 0.45) { Rig.flash(e.rig, c, a); e.flashT = 0.1; }
@@ -443,6 +443,7 @@ const Enemy = (() => {
     e.hp = e.maxHp = e.maxHp * B.hp;
     e.rig.root.scale.multiplyScalar(B.scale);
     e.boss = { B, next: 0 }; if (typeof si === 'number') e.bossIdx = si;
+    if (B.start) { if (B.start.def) Object.assign(def, clone(B.start.def)); if (B.start.stance === 'twoHanded') dropShield(e); }      // a guardian that starts in its first form
   }
   function checkPhase(e) {
     const ph = e.boss.B.phases[e.boss.next];
@@ -461,6 +462,8 @@ const Enemy = (() => {
     if (ph.faster) for (const a of def.attacks) for (const h of a.hits) h.wind *= ph.faster;
     if (ph.stance === 'twoHanded') dropShield(e);
     if (ph.enrage) e.enraged = true;
+    if (ph.tint) e.tint = ph.tint;                                         // a colour the guardian keeps
+    if (ph.music !== undefined) e.musicTheme = ph.music;                   // and a theme of its own in the music
     // Shockwave
     const d = Combat.dist(e.pos, p.pos);
     FX.ring(e.pos, 4.5, ph.enrage ? 0xff4020 : 0xffd0a0, 0.6, { r0: 0.5 }); FX.burst(Combat.chestPos(e.pos, 1.2 * def.scale), 0xffe0a0, 30, 8, 0.6);

@@ -1,6 +1,6 @@
 # The Under Crown: a draft main story
 
-Status: **decisions made (section 8); Act I (rings 1 to 5, section 10) and Act II with the three endings (rings 6 to 10, sections 5 and 6) are built and tested (`tools/story2_test.js`, `tools/story3_test.js`).** It keeps everything already in the game (the story text in `CFG.story`, the first main-story chain in `CFG.mainStory`, Rook's task, the Fen, the captives) and fills the gaps. Names: the King is **Orrin Varrow**, the hunger under the hill is **the Under**, and the King's title stays **the Hollow King**.
+Status: **decisions made (section 8); Act I (rings 1 to 5, section 10) and Act II with the three endings (rings 6 to 10, sections 5 and 6) are built and tested (`tools/story2_test.js`, `tools/story3_test.js`), with the Hollow King's two-phase fight and the companions' comments (`tools/story4_test.js`).** It keeps everything already in the game (the story text in `CFG.story`, the first main-story chain in `CFG.mainStory`, Rook's task, the Fen, the captives) and fills the gaps. Names: the King is **Orrin Varrow**, the hunger under the hill is **the Under**, and the King's title stays **the Hollow King**.
 
 ## 1. The secret history (what the player slowly learns)
 

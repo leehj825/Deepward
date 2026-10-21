@@ -318,6 +318,7 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
+    if (q.guardian && q.room.inf && !q.room.inf.custom) Story.guardianWake(q.room.inf.si, q.room.inf.loop);
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.extra) e.extra = true;                                           // a horde extra: pays less
@@ -601,7 +602,7 @@ G.descend = (k, onward) => fadeTo(() => {
   }
 });
 // A guardian enters a new phase
-G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
+G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); if (ph.line) Story.whisper(ph.line[0], ph.line[1]); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
@@ -1043,7 +1044,7 @@ document.addEventListener('visibilitychange', () => {
 });
 function step(real) {
   pollPad(real);
-  Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
+  Snd.music(musicMood(), G.boss && G.boss.musicTheme !== undefined ? G.boss.musicTheme : G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
   updateAir(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;

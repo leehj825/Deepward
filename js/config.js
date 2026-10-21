@@ -289,7 +289,7 @@ const CFG = {
       { id: 'den', obj: 'Defeat the Den Mother in the Ogre Den', on: ['guardian', 2] },
       { id: 'spiders', obj: 'Defeat the Brood Queen in the Spider Depths', on: ['guardian', 3] },
       { id: 'court', obj: 'Defeat the Pale Duelist in the Shadow Court', on: ['guardian', 4] },
-      { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess' },
+      { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess', banter: 'confess' },
       { id: 'temple', obj: 'Defeat the Drowned Prophet in the Sunken Temple', on: ['guardian', 5] },
       { id: 'prophet', obj: 'Tell Maren what the mural showed', on: ['talk', 'elder'], scene: 'prophet' },
       { id: 'frost', obj: 'Defeat the Frost Marshal in the Frost Halls', on: ['guardian', 6] },
@@ -299,6 +299,16 @@ const CFG = {
       { id: 'throne', obj: 'Go down to the Throne of the Deep and face the Hollow King', on: ['guardian', 9] },
       { id: 'told', obj: 'The story is told. The Endless Deep goes on below.' },
     ],
+    // What a guardian says as it wakes (a caption), for the last one
+    wakeLines: { 9: ['The Hollow King', 'Warden. Do it properly. I have waited long enough to deserve that.'] },
+    // The hired companions speak a line or two at the story's key moments (a caption each): who -> text, by moment
+    banter: {
+      confess: { hobb: 'Forty years, and she carried it alone. Hm. I would have carried it with her.', mira: 'She left a man behind. Everyone leaves someone. What you do after that is what counts.', pell: 'I will note it on the map. Not the secret. The place she stood when she said it.', aldo: 'Confession is half of mercy. The other half is being heard. You heard her.' },
+      throne: { hobb: 'Stance, warden. Whatever is in that chair, it still has to be fought on two feet.', mira: 'Two voices. I do not like two voices.', pell: 'The break in the rim. It fits. Of course it fits.', aldo: 'He was a person. Maren said so. Let us be gentle where we can.' },
+      watch: { hobb: 'Hold the line, warden. I will hold it with you.', mira: 'The lamp will be lit. I will make sure of it.', pell: 'The Deep is quiet. I have never been so unhappy to see a calm map.', aldo: 'A watch is a kind of prayer. Do not forget to rest.' },
+      relief: { hobb: 'She walked in on her own feet. That is a good way to go.', mira: 'She came back for him. Few do.', pell: 'I will draw the chair. Empty, with the lamp beside it.', aldo: 'Peace to them both.' },
+      breaking: { hobb: 'Bad knees and all, I will help pull the carts.', mira: 'The roads will be long. I will scout them.', pell: 'A new map, a new place. I did not think I was ready.', aldo: 'Home is where the lamps are lit. We will light them again.' },
+    },
     // What the guardians say as they fall (shown as a caption); the Brood Queen says nothing
     guardianLines: {
       0: ['The Bone Warden', 'Relieved?'],
@@ -347,7 +357,7 @@ const CFG = {
       { id: 'f-orders', on: ['find', 'frost-orders'], scene: 'f-orders' },
       { id: 'f-mould', on: ['find', 'forge-mould'], scene: 'f-mould' },
       { id: 'f-graves', on: ['find', 'orchard-graves'], scene: 'f-graves' },
-      { id: 'f-crown', on: ['find', 'throne-crown'], scene: 'f-crown' },
+      { id: 'f-crown', on: ['find', 'throne-crown'], scene: 'f-crown', banter: 'throne' },
       { id: 'bramComes', on: ['talk', 'smith'], needs: ['done_confess'], scene: 'bramComes' },
       { id: 'rookTired', on: ['talk', 'guard'], needs: ['done_prophet'], scene: 'rookTired' },
       { id: 'rookSalute', on: ['talk', 'guard'], needs: ['done_frost'], scene: 'rookSalute' },
@@ -705,20 +715,25 @@ const CFG = {
         { at: 0.66, shout: 'THE ORCHARD WAKES', summon: ['skeleton', 'archer', 'skeleton'] },
         { at: 0.33, shout: 'REAP', summon: ['knight', 'knight'], faster: 0.8, def: { cooldown: [1.2, 1.8], raiseMax: 6 } },
       ] },
+    // The Hollow King fights in two phases. First the King: honourable and sad, the old sergeant's two-handed set (a pair of slashes, a
+    // parry-only overhead, a ring he cannot be blocked from). At half health the Under takes him: a darker tint, a new theme in the
+    // music, faster, a blink thrust and a void ring, and shades that rise from the floor.
     { name: 'The Hollow King', scale: 1.35, hp: 9, posture: 3, reach: 1.15,
+      start: { stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] } },
+      attacks: [
+        { weight: 3, hits: [
+          { pose: 'slashR', wind: 0.55, active: 0.12, recover: 0.14, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+          { pose: 'slashL', wind: 0.35, active: 0.12, recover: 0.7, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
+        ] },
+        { weight: 2, hits: [{ pose: 'overhead', wind: 0.8, active: 0.12, recover: 0.8, dmg: 36, posture: 36, blockMult: 2, range: 2.7, arc: 70, lunge: 1.6, parryOnly: true }] },
+        { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 34, posture: 0, range: 2.9, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+      ],
       phases: [
-        { at: 0.7, shout: 'KNEEL', stance: 'twoHanded', def: { guard: false, hyperArmor: true, speed: 3.1, cooldown: [0.7, 1.3] },
-          attacks: [
-            { weight: 3, hits: [
-              { pose: 'slashR', wind: 0.55, active: 0.12, recover: 0.14, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
-              { pose: 'slashL', wind: 0.35, active: 0.12, recover: 0.7, dmg: 24, posture: 24, blockMult: 1.5, range: 2.8, arc: 140, lunge: 1.3 },
-            ] },
-            { weight: 2, hits: [{ pose: 'overhead', wind: 0.8, active: 0.12, recover: 0.8, dmg: 36, posture: 36, blockMult: 2, range: 2.7, arc: 70, lunge: 1.6, parryOnly: true }] },
-            { weight: 2, hits: [{ pose: 'heavy', wind: 1.0, active: 0.2, recover: 1.0, dmg: 34, posture: 0, range: 2.9, arc: 360, aoe: { fwd: 0, r: 3.0 }, unblockable: true, lunge: 0.4 }] },
+        { at: 0.5, shout: 'THE UNDER WEARS HIM', line: ['The Under', 'He is tired. I am not.'], tint: 0x4a1a7a, music: 10, enrage: true, faster: 0.85, def: { speed: 3.6, cooldown: [0.4, 0.9] }, summon: ['duelist', 'caster'],
+          add: [
+            { weight: 2, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 26, posture: 22, range: 2.7, arc: 60, lunge: 1.4, blink: true }] },
+            { weight: 2, hits: [{ pose: 'heavy', wind: 0.9, active: 0.2, recover: 0.9, dmg: 30, posture: 0, range: 3.2, arc: 360, aoe: { fwd: 0, r: 4.2 }, unblockable: true, lunge: 0.2 }] },
           ] },
-        { at: 0.4, shout: 'THE CROWN COMMANDS', summon: ['duelist', 'caster'],
-          add: [{ weight: 2, hits: [{ pose: 'thrust', wind: 0.55, active: 0.1, recover: 0.6, dmg: 26, posture: 22, range: 2.7, arc: 60, lunge: 1.4, blink: true }] }] },
-        { at: 0.15, shout: 'I AM THE DEEP', enrage: true, faster: 0.8, def: { speed: 3.6, cooldown: [0.4, 0.9] } },
       ] },
   ],
   addMult: 0.6,                  // summoned adds are this strong relative to the room's normal enemies

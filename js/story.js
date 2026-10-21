@@ -32,13 +32,13 @@ const Story = (() => {
     if (c && c.on && c.on[0] === kind && c.on[1] === arg) {
       state().i++; set('done_' + c.id); Items.save();
       const next = () => { const n = cur(); if (n) toast('New objective: ' + n.obj); if (done) done(); };
-      if (c.scene) { play(c.scene, next); return Scene.active; }
+      if (c.scene) { play(c.scene, () => { next(); if (c.banter) banter(c.banter); }); return Scene.active; }
       next(); return !!done;
     }
     const b = M().beats.find(b => b.on[0] === kind && b.on[1] === arg && !flags()['seen_' + b.id] && (b.needs || []).every(has) && (b.not || []).every(f => !flags()[f]));
     if (!b) return false;
     set('seen_' + b.id); (b.set || []).forEach(set); Items.save();
-    const after = () => { reward(b.reward); if (done) done(); };
+    const after = () => { reward(b.reward); if (b.banter) banter(b.banter); if (done) done(); };
     play(b.scene, after); return Scene.active;
   }
   // A person with nothing new to say speaks their usual lines as a scene too
@@ -62,7 +62,7 @@ const Story = (() => {
     const S = Items.S; if (!S || state().ending) { if (done) done(); return false; }
     return play('ending', () => {
       const e = flags().ending_relief ? 'relief' : flags().ending_breaking ? 'breaking' : 'watch';
-      state().ending = e; Items.save(); if (done) done();
+      state().ending = e; Items.save(); banter(e, done);
     });
   }
   // Back in camp after the ending: the epilogue for it, once
@@ -72,7 +72,23 @@ const Story = (() => {
     set('epilogueSeen'); Items.save();
     return play('epi_' + e, done);
   }
+  // A guardian wakes: its first word (the last ring's)
+  function guardianWake(si, loop) {
+    if (!Items.S || loop > 0) return;
+    const l = M().wakeLines[si]; if (l) whisper(l[0], l[1]);
+  }
+  // The hired companions comment on a key moment: up to two of them, one caption after the other; `done` runs after the last
+  function banter(moment, done) {
+    const S = Items.S, lines = M().banter[moment] || {}, party = (S && S.party) || [];
+    const who = party.filter(id => lines[id]).slice(0, 2);
+    if (!who.length) { if (done) done(); return false; }
+    who.forEach((id, k) => setTimeout(() => {
+      const c = CFG.companions.find(c => c.id === id); whisper(c ? c.short : id, lines[id]);
+      if (k === who.length - 1 && done) setTimeout(done, 4200);
+    }, k * 5000 + 400));
+    return true;
+  }
   // Relics to place in a stage (those not found yet), for js/world.js
   const relicsFor = si => (Items.S ? (M().relics[si] || []).filter(r => !flags()['found_' + r.id]) : []);
-  return { event, objective, talk, whisper, guardianFell, relicsFor, ending, epilogue, has, set, get ended() { return Items.S ? state().ending || null : null; }, get step() { return cur(); } };
+  return { event, objective, talk, whisper, guardianFell, guardianWake, banter, relicsFor, ending, epilogue, has, set, get ended() { return Items.S ? state().ending || null : null; }, get step() { return cur(); } };
 })();
