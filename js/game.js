@@ -971,6 +971,7 @@ function resize() {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
+if (typeof Ads !== 'undefined') Ads.init();
 
 // ---------------- Main loop ----------------
 let last = performance.now();
