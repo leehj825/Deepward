@@ -408,6 +408,10 @@ html[lang="ko"] .gdoll::after { content: '드래그해서 돌리기'; }
 #sceneBox .sh small { opacity: 0.6; font-size: 11px; margin-left: 6px; }
 body.scene #hud, body.scene #minimap, body.scene #mapInfo, body.scene #waveBox, body.scene #corner, body.scene #adSlot, body.scene #prompt, body.scene #party { opacity: 0; pointer-events: none; }
 #objective { font-size: 12px; color: #f2d27a; text-shadow: 0 1px 3px #000; margin: 4px 0 2px; opacity: 0.9; } #objective:empty { display: none; } #objective::before { content: '◈ '; }
+body.scene #pad, body.scene #stick, body.scene #padKeys, body.scene #keys, body.scene #lesson, body.scene #tip { display: none !important; }
+#sceneBox.narr .st { font-style: italic; opacity: 0.92; } #sceneBox.narr .sn { display: none; }
+#whisper { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); text-align: center; max-width: min(640px, 88vw); font-size: 20px; font-style: italic; color: #e8dcc0; text-shadow: 0 2px 6px #000, 0 0 18px #000; opacity: 0; pointer-events: none; transition: opacity 1.2s; z-index: 5; }
+#whisper.show { opacity: 1; } #whisper small { display: block; font-style: normal; font-size: 12px; letter-spacing: 0.18em; color: #f2d27a; margin-bottom: 4px; text-transform: uppercase; }
 
 </style>
 </head>
@@ -433,6 +437,7 @@ body.scene #hud, body.scene #minimap, body.scene #mapInfo, body.scene #waveBox, 
 <div id="bars"></div>
 <div id="floaters"></div>
 <div id="banner"></div>
+<div id="whisper"></div>
 <div id="sceneBox"><div class="sn"></div><div class="st"></div><div class="sc"></div><div class="sh">▶ <small>Enter / click · Esc skips</small></div></div>
 <div id="tip"></div>
 <div id="lesson"></div>
@@ -757,8 +762,11 @@ const CFG = {
   },
   maxAttackers: 3,
 
-  // The main story: a chain of objectives (shown in the HUD) that move on with what the warden does (`on`: [event, argument]);
-  // a step can play a scene when it completes. Scenes are scripts for js/scene.js (a person, lines, choices that jump to labels).
+  // The main story (docs/STORY.md). `steps` is a chain of objectives shown in the HUD; each completes on an event ([kind, argument]:
+  // 'talk' with a camp person, 'guardian' of a stage falling) and may play a scene, and sets the flag done_<id>. `beats` are scenes that
+  // can come at any time once their conditions hold, each once (the flag seen_<id>): on [event, argument], needs (flags that must be set),
+  // not (flags that must not be), set (flags to set), reward {gold}. 'find' events come from relics in the dungeon (`relics`, by stage).
+  // A scene is { who: camp person id | null, name, steps: [{ text, label?, go?, flag?, if?: 'flag' | '!flag', narr?, choices?: [{ text, go, flag?, if? }] }] }.
   mainStory: {
     steps: [
       { id: 'greet', obj: 'Speak with Maren by the fire', on: ['talk', 'elder'], scene: 'greet' },
@@ -767,7 +775,45 @@ const CFG = {
       { id: 'report', obj: 'Tell Maren what you found in the Crypt', on: ['talk', 'elder'], scene: 'report' },
       { id: 'aldric', obj: 'Defeat Sir Aldric in the Iron Keep', on: ['guardian', 1] },
       { id: 'king', obj: 'Tell Maren what Sir Aldric said', on: ['talk', 'elder'], scene: 'king' },
-      { id: 'more', obj: 'The story goes on below the Keep' },
+      { id: 'den', obj: 'Defeat the Den Mother in the Ogre Den', on: ['guardian', 2] },
+      { id: 'spiders', obj: 'Defeat the Brood Queen in the Spider Depths', on: ['guardian', 3] },
+      { id: 'court', obj: 'Defeat the Pale Duelist in the Shadow Court', on: ['guardian', 4] },
+      { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess' },
+      { id: 'more', obj: 'The story goes on in the Sunken Temple (to be continued)' },
+    ],
+    // What the guardians say as they fall (shown as a caption); the Brood Queen says nothing
+    guardianLines: {
+      0: ['The Bone Warden', 'Relieved?'],
+      1: ['Sir Aldric', 'Orrin.'],
+      2: ['The Den Mother', 'He is awake. He is so tired.'],
+      4: ['The Pale Duelist', 'A good watch. Please, be kinder to him.'],
+    },
+    // Things to examine in the dungeon (first time through only): stage index -> [{ id, room (section), label, kind }]
+    relics: {
+      0: [{ id: 'crypt-roll', room: 2, label: 'A roll of names', kind: 'slab' }],
+      1: [{ id: 'keep-bell', room: 1, label: 'A fallen bell', kind: 'bell' }, { id: 'keep-banner', room: 3, label: 'A grey banner', kind: 'banner' }],
+      2: [{ id: 'den-paintings', room: 2, label: 'Soot paintings', kind: 'slab' }],
+      3: [{ id: 'depths-pack', room: 2, label: 'A dead man\'s pack', kind: 'pack' }],
+      4: [{ id: 'court-portraits', room: 2, label: 'A turned portrait', kind: 'slab' }],
+    },
+    beats: [
+      // The finds
+      { id: 'f-roll', on: ['find', 'crypt-roll'], scene: 'f-roll' },
+      { id: 'f-bell', on: ['find', 'keep-bell'], scene: 'f-bell' },
+      { id: 'f-banner', on: ['find', 'keep-banner'], scene: 'f-banner', set: ['bannerFound'] },
+      { id: 'f-paint', on: ['find', 'den-paintings'], scene: 'f-paint' },
+      { id: 'f-pack', on: ['find', 'depths-pack'], scene: 'f-pack', set: ['haveFragment'] },
+      { id: 'f-portrait', on: ['find', 'court-portraits'], scene: 'f-portrait' },
+      // Captain Rook
+      { id: 'rookAsk', on: ['talk', 'guard'], needs: ['done_crypt'], scene: 'rookAsk', set: ['rookAsked'] },
+      { id: 'rookBanner', on: ['talk', 'guard'], needs: ['rookAsked', 'bannerFound'], not: ['rookBanner'], scene: 'rookBanner', set: ['rookBanner'], reward: { gold: 150 } },
+      { id: 'rookNoBanner', on: ['talk', 'guard'], needs: ['rookAsked', 'done_aldric'], not: ['bannerFound'], scene: 'rookNoBanner' },
+      { id: 'rookWarns', on: ['talk', 'guard'], needs: ['done_aldric'], scene: 'rookWarns' },
+      // Tilda, Bram, Maren
+      { id: 'tildaRoads', on: ['talk', 'trader'], needs: ['done_den'], scene: 'tildaRoads' },
+      { id: 'bramPack', on: ['talk', 'smith'], needs: ['done_den'], scene: 'bramPack', set: ['bramAsked'] },
+      { id: 'bramFragment', on: ['talk', 'smith'], needs: ['haveFragment'], scene: 'bramFragment' },
+      { id: 'marenSlip', on: ['talk', 'elder'], needs: ['done_spiders'], scene: 'marenSlip' },
     ],
     scenes: {
       greet: { who: 'elder', name: 'Maren', steps: [
@@ -778,24 +824,81 @@ const CFG = {
         { label: 'start', text: 'Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.' },
         { text: 'Come back and tell me you are alive. That is all I ask of any warden.' },
       ] },
-      yard: { who: null, name: 'Hobb', steps: [
+      yard: { who: 'hobb', name: 'Hobb', steps: [
         { text: 'Maren sent you. She always does, when she is worried.' },
         { text: 'Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.' },
+        { text: 'You do not need a reason to hold a line. You need a good stance.' },
         { text: 'Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.' },
       ] },
       report: { who: 'elder', name: 'Maren', steps: [
         { text: 'You are back. That is the Warden\'s bone on your cloak. Sit, before you fall.' },
-        { text: 'Tell me: did it speak?', choices: [{ text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { text: 'Tell me: did it speak?', choices: [{ text: 'One word. "Relieved?"', go: 'word', flag: 'heardRelieved' }, { text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { label: 'word', text: '...Relieved. Yes. They would say that.', go: 'hand' },
         { label: 'wait', text: 'They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.', go: 'tail' },
         { label: 'nothing', text: 'Nothing is a kind of answer, down there. Remember it.', go: 'tail' },
+        { label: 'hand', narr: true, text: 'Maren\'s hand stops on the cup. She does not look at you.', go: 'tail' },
         { label: 'tail', text: 'The Iron Keep is next. Take a shield you trust, and come back whole.' },
       ] },
       king: { who: 'elder', name: 'Maren', steps: [
         { text: 'Aldric. They sent a knight to pull the oath out of him, and you did it.' },
-        { text: 'What did he say at the end?', choices: [{ text: 'A name: the Hollow King.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
-        { label: 'name', text: '...So it has a name now. I had hoped it would not. Names are how things get their hold on us.', go: 'tail' },
+        { text: 'What did he say at the end?', choices: [{ text: 'A name: Orrin.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
+        { label: 'name', text: '...So the bells were his. I had hoped they were only the dead. Names are how the Deep gets its hold on us.', go: 'tail' },
         { label: 'nothing', text: 'Then it was not meant for you to follow. Not yet.', go: 'tail' },
         { label: 'tail', text: 'The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.' },
+      ] },
+      confess: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have seen the portraits. You were always going to.' },
+        { text: '...I was his second. I was the last of his wardens. I climbed out.' },
+        { text: 'You are going to ask me why.', choices: [{ text: 'Why did you leave?', go: 'why' }, { text: 'You did what you were told.', go: 'told' }] },
+        { label: 'why', text: 'He ordered me up to keep the lamps lit. I could have refused. I did not. I told myself it was an order.', flag: 'maren_blamed', go: 'tail' },
+        { label: 'told', text: 'That is kind. It is also not true, but I will keep it.', flag: 'maren_forgiven', go: 'tail' },
+        { label: 'tail', text: 'The King\'s name is Orrin. Please do not say it near the gate. The bells are listening.' },
+        { text: 'Rest, then go on. Under the Court there is water. I do not know that ring, and that frightens me more than I like.' },
+      ] },
+      // The beats
+      'f-roll': { who: null, name: '', steps: [{ narr: true, text: 'A roll of names is cut into the wall, hundreds of them, each struck through but the last. That one has been scratched out so hard the stone is white.' }] },
+      'f-bell': { who: null, name: '', steps: [{ narr: true, text: 'A bell lies on its side in the square. Someone has chiselled a name from its rim, then, in a different hand, tried to carve it back.' }] },
+      'f-banner': { who: null, name: '', steps: [{ narr: true, text: 'A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.' }] },
+      'f-paint': { who: null, name: '', steps: [{ narr: true, text: 'Soot paintings run along the cave wall: small figures kneeling around a larger one with a ring on its head. The ring is the only thing the goblins painted in red.' }] },
+      'f-pack': { who: null, name: '', steps: [{ narr: true, text: 'Inside the dead man\'s pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.' }] },
+      'f-portrait': { who: null, name: '', steps: [{ narr: true, text: 'A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.' }] },
+      rookAsk: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'You are going into the Keep. I will ask one thing, and you may say no.' },
+        { text: 'My company carried a banner: grey, with a bar of red. If it is still down there, it is not mine to leave.' },
+        { text: 'Aldric was my friend. I held the gate because he told me to. I have wondered every night since whether he meant it kindly.' },
+      ] },
+      rookBanner: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'That is... Yes. That is the one.' },
+        { narr: true, text: 'Rook takes the banner in both hands and says nothing for a long time.' },
+        { text: 'Take this. It is not payment. It is what a captain does when he cannot say thank you.' },
+      ] },
+      rookNoBanner: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'No banner? ... No. It was a lot to ask of a stranger. I will go myself, one day, when the gate does not need me.' },
+      ] },
+      rookWarns: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'Goblins are coming up onto the Rim by the dozen. Nothing runs from the dark that way unless something worse is behind it.' },
+        { text: 'If you have a free hour, the Ridge is the place to look. I will pay for what you find.' },
+      ] },
+      tildaRoads: { who: 'trader', name: 'Tilda', steps: [
+        { text: 'Do not look at the prices. The roads are scared, the carters want danger money, and I want to stay alive to sell you things.' },
+        { text: 'It is fine. It means the world up here is still worth the trouble.' },
+        { text: 'Bring me a boar tusk and I will pretend I did not charge you extra.' },
+      ] },
+      bramPack: { who: 'smith', name: 'Bram', steps: [
+        { text: 'You are going to the Depths. I will not ask you to turn back; I know better.' },
+        { text: 'My brother went there for a piece of a mould. He never said what for. If you see his pack, bring it to me. Please.' },
+      ] },
+      bramFragment: { who: 'smith', name: 'Bram', steps: [
+        { narr: true, text: 'You set the curved piece of dark iron on the anvil. Bram turns white.' },
+        { text: 'That is my family\'s mark. That is... a piece of the rim of something. Do you know what it is?', choices: [{ text: 'I think it is part of a crown.', go: 'knows', flag: 'bramKnows' }, { text: 'I only found it.', go: 'lied', flag: 'bramLied' }] },
+        { label: 'knows', text: 'My family made this. ...Why would we make a crown?', go: 'tail' },
+        { label: 'lied', text: 'Thank you. I will keep it.', go: 'tail' },
+        { label: 'tail', text: 'I will melt nothing today. Go well, warden.' },
+      ] },
+      marenSlip: { who: 'elder', name: 'Maren', steps: [
+        { text: 'The Court is next. From here down I cannot tell you what to expect.' },
+        { narr: true, text: 'She looks away as she says it.' },
+        { text: 'Mind your feet, warden. Mind your manners too. The nobles there were always particular.' },
       ] },
     },
   },
@@ -1550,12 +1653,16 @@ const LANG_KO = {
 ", half the gold gathered on this trip.": ", 이번 원정에서 모은 골드의 절반입니다.",
 "- block it, or block right at impact to": "- 막거나, 맞는 순간에 막아서",
 "- unblockable:": "- 막기 불가:",
+"...I was his second. I was the last of his wardens. I climbed out.": "...나는 그의 부관이었어. 그의 마지막 감시자였지. 나는 기어 올라왔어.",
+"...Relieved. Yes. They would say that.": "...교대라. 그래. 그들이라면 그렇게 말하겠지.",
 "...So it has a name now. I had hoped it would not. Names are how things get their hold on us.": "...그럼 이제 이름이 생겼구나. 그러지 않길 바랐는데. 이름이야말로 그것들이 우리를 붙잡는 방법이니까.",
+"...So the bells were his. I had hoped they were only the dead. Names are how the Deep gets its hold on us.": "...그럼 그 종소리는 그의 것이었구나. 죽은 자들의 소리이길 바랐는데. 이름이야말로 심연이 우리를 붙잡는 방법이야.",
 "/click attack ·": "/클릭 공격 ·",
 "/right-click block ·": "/우클릭 막기 ·",
 "A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.": "붉은 빛은 막을 수 없습니다. 대시(@dodge)로 뚫고 지나가세요. 대시 중에는 무적입니다.",
 "A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.": "흰 섬광은 막을 수 있는 공격입니다. 막기(@block)를 누르고 있거나, 맞는 순간에 막아 패링하세요.",
 "A WHITE glint means the attack can be blocked. Hold BLOCK (L / right-click) - or raise it right at impact to PARRY.": "흰 섬광은 막을 수 있는 공격입니다. 막기(L / 우클릭)를 누르고 있거나, 맞는 순간에 막아 패링하세요.",
+"A bell lies on its side in the square. Someone has chiselled a name from its rim, then, in a different hand, tried to carve it back.": "광장에 종이 옆으로 쓰러져 있다. 누군가 테두리에서 이름을 깎아냈고, 다른 손이 그것을 다시 새기려 한 흔적이 있다.",
 "A blast of force around you": "주변으로 터지는 힘의 파동",
 "A blast of force around you: heavy damage and posture, throws foes back": "주위로 힘을 터뜨립니다: 큰 피해와 자세 피해를 주고 적을 날려 보냅니다",
 "A blast of raw magic all around you": "주변 전체를 날려 버리는 순수한 마력의 폭발",
@@ -1563,9 +1670,14 @@ const LANG_KO = {
 "A bow and a quiver. Quick arrows from afar, and a fan of arrows that all strike a close foe.": "활과 화살통. 멀리서 쏘는 빠른 화살, 그리고 가까운 적에게 전부 꽂히는 부채꼴 화살.",
 "A captive": "포로",
 "A dash / talk": "A 대시 / 대화",
+"A dead man's pack": "죽은 이의 배낭",
+"A fallen bell": "쓰러진 종",
+"A good watch. Please, be kinder to him.": "훌륭한 불침번이었어요. 부디 그분께 더 다정하게 대해 주세요.",
 "A great beast, not yet fought here": "아직 이곳에서 싸워 보지 않은 거대한 짐승",
 "A great light that mends everyone near": "주변 모두를 치유하는 커다란 빛",
 "A great light: mends everyone near for {0}% and burns the foes in it": "커다란 빛: 주변 모두를 {0}% 치유하고 빛 속의 적을 태웁니다",
+"A grey banner": "회색 깃발",
+"A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.": "붉은 줄이 있는 회색 깃발이 가로등 기둥에 걸려 있다. 삭았지만 온전하다. 당신은 그것을 접어 배낭에 넣는다.",
 "A ground shock that shatters posture all around": "주위의 자세를 모조리 무너뜨리는 지면 충격파",
 "A ground shock that shatters posture all around · {0} s": "주위의 자세를 모조리 무너뜨리는 지면 충격파 · {0}초",
 "A guardian waits at the end of this floor": "이 층 끝에서 수호자가 기다립니다",
@@ -1574,12 +1686,17 @@ const LANG_KO = {
 "A leaping overhead that breaks guards · {0} s": "방어를 부수는 도약 내려찍기 · {0}초",
 "A long dashing thrust that strikes from afar": "멀리서 파고드는 긴 돌진 찌르기",
 "A long dashing thrust that strikes from afar · {0} s": "멀리서 파고드는 긴 돌진 찌르기 · {0}초",
+"A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.": "긴 초상화 회랑. 액자 하나가 벽을 향해 돌려져 있다. 뒷면에는 분필로 '오린'이라고 적혀 있다.",
+"A name: Orrin.": "이름 하나요. 오린.",
 "A name: the Hollow King.": "이름 하나요. 텅 빈 왕이라고.",
 "A parry looses a blade of light down the line": "패링하면 빛의 칼날이 일직선으로 날아갑니다",
+"A roll of names": "이름이 새겨진 두루마리",
+"A roll of names is cut into the wall, hundreds of them, each struck through but the last. That one has been scratched out so hard the stone is white.": "벽에 수백 개의 이름이 새겨져 있고, 마지막 하나만 빼고 모두 줄이 그어져 있다. 그 이름은 돌이 하얗게 드러날 만큼 세게 긁혀 있다.",
 "A scepter and a tome. Holy bolts or, with a toggle, healing; the heavy cast is a stronger smite or an area heal. Weaker than the mage in a fight.": "홀과 성서. 성스러운 화살, 또는 전환하여 치유. 강공격은 더 강한 응징 또는 범위 치유입니다. 전투력은 마법사보다 약합니다.",
 "A staff and an orb. Arcane bolts and a fireball that burns a crowd. The hardest hitter and the frailest.": "지팡이와 보주. 비전 화살, 그리고 무리를 태우는 불덩이. 가장 강력하지만 가장 약합니다.",
 "A thrust that reaches five metres and breaks guards": "5미터까지 닿아 방어를 부수는 찌르기",
 "A thrust that reaches five metres and breaks guards · {0} s": "5미터까지 닿아 방어를 부수는 찌르기 · {0}초",
+"A turned portrait": "돌려진 초상화",
 "A ward soaks hits (heavies break it faster) and returns": "보호막이 공격을 흡수하고(강공격에 더 빨리 깨짐) 다시 생겨납니다",
 "AMBER: only a parry (or a dash) stops it - a plain block is smashed aside": "주황: 패링(또는 대시)으로만 막을 수 있음 - 그냥 막으면 튕겨 나갑니다",
 "AREA": "범위",
@@ -1589,6 +1706,7 @@ const LANG_KO = {
 "Aegis of the Pale": "창백한 자의 아이기스",
 "After a dash through an attack, your next blow deals {0}% per rank": "공격을 대시로 뚫고 지나간 뒤, 다음 일격이 랭크당 {0}% 피해를 줍니다",
 "Aldo": "알도",
+"Aldric was my friend. I held the gate because he told me to. I have wondered every night since whether he meant it kindly.": "알드릭은 내 친구였어. 그가 시켜서 문을 지켰지. 그게 호의였는지 매일 밤 생각해.",
 "Aldric. They sent a knight to pull the oath out of him, and you did it.": "알드릭이라. 그에게서 맹세를 끌어내려고 기사까지 보냈는데, 네가 해냈구나.",
 "All": "전체",
 "All the Banners": "모든 깃발",
@@ -1694,6 +1812,7 @@ const LANG_KO = {
 "Bow and Quiver": "활과 화살통",
 "Bow: Piercing Shot": "활: 관통 사격",
 "Bow: quick arrows from afar; heavy is a fan of arrows": "활: 멀리서 빠른 화살, 강공격은 부채꼴 화살",
+"Bram": "브램",
 "Bram can forge and upgrade better gear": "브람이 더 좋은 장비를 제작하고 강화할 수 있습니다",
 "Bram forges a new piece at your depth (Hollow-king). A better forge raises the odds of rare work.": "브람이 현재 깊이에 맞는 장비를 새로 벼려 냅니다(공허왕의 등급). 대장간이 좋을수록 희귀한 장비가 나올 확률이 높아집니다.",
 "Bram says the iron you hauled up is good. Spend your gold on the camp": "브람이 네가 가져온 철이 좋다더군. 골드는 야영지에 써라",
@@ -1709,6 +1828,7 @@ const LANG_KO = {
 "Bring herbs and she brews it for a fraction of the price.": "약초를 가져오면 훨씬 싼 값에 빚어 줍니다.",
 "Bring herbs and she brews it for a fraction of the price. Materials: 🐾 Pelt ×{0} · 🦷 Tusk ×{1} · 🦴 Bone ×{2} · ⛏ Iron ore ×{3} · 🌿 Herbs ×{4} · 🕸 Silk ×{5}": "약초를 가져오면 그녀가 값의 일부만 받고 달여 줍니다. 재료: 🐾 가죽 ×{0} · 🦷 엄니 ×{1} · 🦴 뼈 ×{2} · ⛏ 철광석 ×{3} · 🌿 약초 ×{4} · 🕸 거미줄 ×{5}",
 "Bring him back to the light, or put him to rest. Either way, come home.": "그를 빛으로 데려오든, 안식에 들게 하든. 어느 쪽이든 집으로 돌아오세요.",
+"Bring me a boar tusk and I will pretend I did not charge you extra.": "멧돼지 엄니를 가져오면 웃돈 받은 건 모른 척해 줄게.",
 "Bring me stones. I set them, pry them, and cut three alike into one of another kind.": "돌을 가져와. 박아 주고, 빼 주고, 같은 돌 세 개를 다른 종류 하나로 깎아 주지.",
 "Bring {0} {a}": "{a} {0}개 가져오기",
 "Brittle Guard": "깨지기 쉬운 방어",
@@ -1832,12 +1952,15 @@ const LANG_KO = {
 "Defeat the Bone Gardener": "뼈 정원사 처치",
 "Defeat the Bone Warden": "뼈의 파수병 처치",
 "Defeat the Brood Queen": "번식 여왕 처치",
+"Defeat the Brood Queen in the Spider Depths": "거미 심층에서 부화의 여왕 쓰러뜨리기",
 "Defeat the Den Mother": "소굴의 어미 처치",
+"Defeat the Den Mother in the Ogre Den": "오거 소굴에서 소굴의 어미 쓰러뜨리기",
 "Defeat the Drowned Prophet": "익사한 예언자 처치",
 "Defeat the Frost Marshal": "서리 원수 처치",
 "Defeat the Furnace Lord": "용광로 군주 처치",
 "Defeat the Hollow King": "공허왕 처치",
 "Defeat the Pale Duelist": "창백한 결투가 처치",
+"Defeat the Pale Duelist in the Shadow Court": "그림자 궁정에서 창백한 결투가 쓰러뜨리기",
 "Delete": "삭제",
 "Den Cleared": "소굴 소탕",
 "Depth {0}": "깊이 {0}",
@@ -1849,6 +1972,7 @@ const LANG_KO = {
 "Devout": "독실한 자",
 "Difficulty": "난이도",
 "Dismiss": "내보내기",
+"Do not look at the prices. The roads are scared, the carters want danger money, and I want to stay alive to sell you things.": "가격은 보지 마. 길이 무서워서 마부들이 위험수당을 요구하고, 나는 너에게 물건을 팔려고 살아남아야 하거든.",
 "Done": "완료",
 "Drag the buttons where your thumbs want them.": "엄지가 편한 곳으로 버튼을 끌어다 놓으세요.",
 "Drag the right side": "오른쪽을 드래그",
@@ -1880,6 +2004,7 @@ const LANG_KO = {
 "Every kill heals {0}% of your health": "처치할 때마다 체력의 {0}% 회복",
 "Every parry heals {0}% of your health": "패링할 때마다 체력의 {0}% 회복",
 "Every stage is mapped from the start": "모든 구역의 지도가 처음부터 밝혀져 있습니다",
+"Examine": "살펴보기",
 "Execute a broken foe": "무너진 적 처형하기",
 "Execute {0} broken foes": "무너진 적 {0}명 처형하기",
 "Executions": "처형",
@@ -1968,6 +2093,7 @@ const LANG_KO = {
 "Goblin Scout": "고블린 정찰병",
 "Goblin bands come up the road now and then to batter my gate. When the horn sounds, warden, come running.": "고블린 무리가 이따금 길을 따라 올라와 내 성문을 두들겨 댑니다. 뿔나팔이 울리면 달려오세요, 파수꾼.",
 "Goblin tracks": "고블린 발자국",
+"Goblins are coming up onto the Rim by the dozen. Nothing runs from the dark that way unless something worse is behind it.": "고블린들이 수십 마리씩 변두리로 올라오고 있어. 더 나쁜 무언가가 뒤에 있지 않고서야 어둠에서 저렇게 도망치지 않아.",
 "Goblins are quick but fragile. Keep moving - do not let a pack surround you.": "고블린은 빠르지만 약합니다. 계속 움직이고, 무리에게 포위당하지 마세요.",
 "Gold found": "획득한 골드",
 "Gold found {0}%": "골드 획득량 {0}%",
@@ -2010,6 +2136,8 @@ const LANG_KO = {
 "Harder hits, tougher foes, four may attack at once, a tight parry window": "더 아픈 공격, 더 단단한 적, 최대 넷이 동시에 공격, 좁은 패링 구간",
 "Harder hits, tougher foes, three may attack at once, a tight parry window": "더 강한 공격, 더 질긴 적, 최대 세 명이 동시에 공격, 빠듯한 패링 판정 시간",
 "Hauberk": "사슬 갑옷",
+"He is awake. He is so tired.": "그분이 깨어 있어. 너무나 지쳐 있어.",
+"He ordered me up to keep the lamps lit. I could have refused. I did not. I told myself it was an order.": "그는 나에게 올라가 등불을 지키라고 명했어. 거절할 수도 있었는데 하지 않았지. 명령이라고 스스로에게 말했어.",
 "Headsman": "처형인",
 "Heal cooldowns are {0}% shorter per rank": "등급마다 치유 재사용 대기시간이 {0}% 줄어듭니다",
 "Healing flask": "치유 물약",
@@ -2053,14 +2181,19 @@ const LANG_KO = {
 "I AM THE DEEP": "내가 곧 심연이다",
 "I buy what the Rim gives up. Pelts sell well where it snows.": "변두리 들판에서 나오는 건 뭐든 사지. 가죽은 눈 오는 지방에서 잘 팔려.",
 "I gear": "I 장비",
+"I only found it.": "그냥 주웠어요.",
+"I think it is part of a crown.": "왕관의 일부 같아요.",
+"I will melt nothing today. Go well, warden.": "오늘은 아무것도 녹이지 않겠어. 잘 가, 감시자.",
 "IT BREAKS OPEN": "그것이 터져 열린다",
 "IT CALLS ITS KIN": "그것이 동족을 부른다",
 "IT RISES FROM THE BOG": "그것이 늪에서 일어선다",
 "IT TEARS LOOSE": "그것이 사슬을 끊는다",
 "IT WILL NOT DIE": "그것은 죽지 않는다",
+"If you have a free hour, the Ridge is the place to look. I will pay for what you find.": "한 시간이라도 여유가 있다면 능선을 살펴봐. 찾아낸 것에는 값을 치르지.",
 "Ilsa the cook": "요리사 일사",
 "Import": "가져오기",
 "In your party": "파티에 속해 있음",
+"Inside the dead man's pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.": "죽은 이의 배낭 속에 천에 싸인 휘어진 검은 쇠 조각이 있다. 무언가 둥근 것의 테두리 일부다. 당신은 그것을 챙긴다.",
 "Instead of": "대신:",
 "Into the Ring": "투기장으로",
 "Iron": "철",
@@ -2068,6 +2201,7 @@ const LANG_KO = {
 "Iron Skin": "강철 피부",
 "Iron Will": "강철 의지",
 "Iron ore": "철광석",
+"It is fine. It means the world up here is still worth the trouble.": "괜찮아. 위쪽 세상이 아직 애쓸 가치가 있다는 뜻이니까.",
 "It is over. The Hollow King lies at rest, and the Deep is quiet for the first time in forty years.": "끝났습니다. 공허왕은 안식에 들었고, 심연은 사십 년 만에 처음으로 고요합니다.",
 "It said nothing.": "아무 말도 하지 않았어요.",
 "It was waiting for something.": "무언가를 기다리고 있었어요.",
@@ -2164,6 +2298,7 @@ const LANG_KO = {
 "Map (N)": "지도 (N)",
 "Maren": "마렌",
 "Maren sent you. She always does, when she is worried.": "마렌이 보냈군. 걱정될 때마다 늘 그러지.",
+"Maren's hand stops on the cup. She does not look at you.": "마렌의 손이 잔 위에서 멈춘다. 그녀는 당신을 보지 않는다.",
 "Maren: \"Hobb runs the training yard by the east fence. Six lessons - strike, block, parry, dash, and how to finish a staggered foe. Go to him first, if you've any sense.\"": "마렌: \"홉이 동쪽 울타리 옆 훈련장을 맡고 있어요. 수업은 여섯 가지예요. 공격, 막기, 패링, 대시, 그리고 비틀거리는 적을 마무리하는 법이죠. 분별이 있다면 그에게 먼저 가 보세요.\"",
 "Marked Men": "표적이 된 자들",
 "Marksman": "명사수",
@@ -2183,6 +2318,7 @@ const LANG_KO = {
 "Meteor Shower": "유성우",
 "Mimic": "미믹",
 "Mind the fire, it spits.": "불 조심해, 튀거든.",
+"Mind your feet, warden. Mind your manners too. The nobles there were always particular.": "발밑을 조심해, 감시자. 예의도 조심하고. 그곳 귀족들은 늘 까다로웠으니까.",
 "Mira": "미라",
 "Mira the scout": "정찰병 미라",
 "Mirewalker Boots": "늪 걷는 자의 장화",
@@ -2201,6 +2337,9 @@ const LANG_KO = {
 "Mute": "음소거",
 "Mute (M)": "음소거 (M)",
 "My brother went down the stair. Find him, if you can.": "내 동생이 계단 아래로 내려갔어. 찾을 수 있다면 찾아 줘.",
+"My brother went there for a piece of a mould. He never said what for. If you see his pack, bring it to me. Please.": "내 형은 거푸집 조각 하나를 찾으러 거기 갔어. 뭐에 쓸 건지는 말하지 않았지. 그의 배낭을 보게 되면 가져다줘. 부탁이야.",
+"My company carried a banner: grey, with a bar of red. If it is still down there, it is not mine to leave.": "우리 부대는 붉은 줄이 그어진 회색 깃발을 들고 있었어. 아직 저 아래에 있다면, 내가 버려둘 수 있는 게 아니야.",
+"My family made this. ...Why would we make a crown?": "우리 가문이 만든 거야. ...왜 우리가 왕관을 만들었을까?",
 "N map": "N 지도",
 "NOW YOU SEE ME": "이제 보이느냐",
 "Nell cut me a ring once. I lost it in the Rim.": "넬이 예전에 반지를 하나 깎아 줬는데, 변두리 들판에서 잃어버렸어.",
@@ -2209,6 +2348,7 @@ const LANG_KO = {
 "New game": "새 게임",
 "New objective:": "새 목표:",
 "No Bottom": "바닥 없음",
+"No banner? ... No. It was a lot to ask of a stranger. I will go myself, one day, when the gate does not need me.": "깃발이 없다고? ...그래. 낯선 이에게 너무 큰 부탁이었지. 문이 나를 필요로 하지 않을 때, 언젠가 내가 직접 가겠어.",
 "No curses": "저주 없음",
 "No curses: the plain climb.": "저주 없음: 평범한 등반.",
 "No healing flasks": "치유 물약 없음",
@@ -2242,8 +2382,10 @@ const LANG_KO = {
 "One ring remains that we know of. The Court. Go carefully.": "우리가 아는 고리는 하나 남았습니다. 궁정이에요. 조심해서 가세요.",
 "One rule here": "여기 규칙은 하나",
 "One rule here: come back up. The gate by the fire leads down. Go when you are ready.": "여기 규칙은 하나야. 살아서 올라올 것. 모닥불 옆 문이 아래로 이어져. 준비되면 가.",
+"One word. \"Relieved?\"": "한 마디요. \"교대인가?\"",
 "Onyx": "오닉스",
 "Orb": "보주",
+"Orrin.": "오린.",
 "Oswin": "오스윈",
 "Parries": "패링",
 "Parries give back {0} stamina; parry window {1} s": "패링 시 기력 {0} 회복, 패링 판정 시간 {1}초",
@@ -2312,15 +2454,18 @@ const LANG_KO = {
 "Recruit": "영입",
 "Recruit in the Hold.": "요새에서 영입하세요.",
 "Red glow": "붉은 빛",
+"Relieved?": "교대인가?",
 "Reliquary": "성물함",
 "Reroll": "재굴림",
 "Reset": "초기화",
 "Reset button positions": "버튼 위치 초기화",
+"Rest, then go on. Under the Court there is water. I do not know that ring, and that frightens me more than I like.": "쉬고 나서 계속 가. 궁정 아래엔 물이 있어. 나는 그 층을 몰라. 그게 생각보다 더 두려워.",
 "Rest. Mend your gear. The Den waits below the Keep.": "쉬어라. 장비를 손봐 둬. 소굴은 성채 아래에서 기다리고 있다.",
 "Restore default controls": "기본 조작으로 복원",
 "Restore defaults": "기본값 복원",
 "Resume": "계속하기",
 "Return to Captain Rook": "루크 대장에게 돌아가기",
+"Return to Maren": "마렌에게 돌아가기",
 "Return to Sender": "되돌려 주기",
 "Return to camp": "캠프로 돌아가기",
 "Return to camp to bank your gold, mend your gear and spend it, or press on into The Iron Keep while the blood is hot.": "캠프로 돌아가 골드를 맡기고 장비를 수리하고 소비하세요. 아니면 피가 끓어오를 때 강철 성채로 계속 전진하세요.",
@@ -2335,6 +2480,7 @@ const LANG_KO = {
 "Roads, warden. All the roads lead past a hole in the ground eventually.": "길이지, 파수꾼. 결국 모든 길은 땅에 난 구멍 옆을 지나가게 돼 있어.",
 "Rolf": "롤프",
 "Rook says the wolves are bold this year.": "루크 말로는 올해 늑대들이 대담하대.",
+"Rook takes the banner in both hands and says nothing for a long time.": "룩은 깃발을 두 손으로 받아 들고 한참 동안 아무 말도 하지 않는다.",
 "Ruby": "루비",
 "Runed": "룬",
 "Runed Band of the Long Road": "머나먼 길의 룬 고리",
@@ -2384,6 +2530,7 @@ const LANG_KO = {
 "Shaved": "민머리",
 "She buys materials at ◆ {0} each": "재료를 개당 ◆ {0}에 사들입니다",
 "She buys materials at ◆ {0} each:": "그녀는 재료를 개당 ◆ {0}에 삽니다:",
+"She looks away as she says it.": "그녀는 그렇게 말하며 시선을 피한다.",
 "Shield": "방패",
 "Shield Knight": "방패 기사",
 "Shield · Common": "방패 · 일반",
@@ -2406,6 +2553,7 @@ const LANG_KO = {
 "Silk": "거미줄",
 "Silk and Ash": "거미줄과 잿더미",
 "Sing with me? No? Then go and give me something to sing about.": "같이 부를래? 싫어? 그럼 가서 노래할 거리라도 만들어 와.",
+"Sir Aldric": "알드릭 경",
 "Sir Aldric swore to guard the Keep until the king returned. The king never did. Aldric still waits.": "아드릭 경은 왕이 돌아올 때까지 성채를 지키겠노라 맹세했다. 왕은 끝내 돌아오지 않았다. 아드릭은 아직도 기다린다.",
 "Sir Aldric the Hollow": "공허한 자 아드릭 경",
 "Sir Aldric... I knew him. He swore to hold the line. He held it, only facing the wrong way.": "아드릭 경... 그를 알았어요. 전선을 지키겠다고 맹세했죠. 실제로 지켜냈어요. 다만 엉뚱한 쪽을 향한 채로요.",
@@ -2438,6 +2586,8 @@ const LANG_KO = {
 "Sockets: ◇ ◇ · {0} health · {1} stamina · Light · weight {2} · {3}% stamina regen · {4}% gold found": "소켓: ◇ ◇ · 체력 {0} · 기력 {1} · 경량 · 무게 {2} · 기력 회복 {3}% · 골드 획득량 {4}%",
 "Sockets: ◇ ◇ · {0} health · {1} stamina · Medium · weight {2} · {3} health · {4}% critical chance": "소켓: ◇ ◇ · 체력 {0} · 기력 {1} · 중량 · 무게 {2} · 체력 {3} · 치명타 확률 {4}%",
 "Sockets: ◇ ◇ · {0} health · {1}% damage reduction · Medium · weight {2} · {3}% critical chance · {4}% posture damage": "소켓: ◇ ◇ · 체력 {0} · 피해 감소 {1}% · 중량 · 무게 {2} · 치명타 확률 {3}% · 자세 피해 {4}%",
+"Soot paintings": "그을음 벽화",
+"Soot paintings run along the cave wall: small figures kneeling around a larger one with a ring on its head. The ring is the only thing the goblins painted in red.": "동굴 벽을 따라 그을음 그림이 이어진다. 머리에 고리를 쓴 큰 형상 둘레에 작은 형상들이 무릎을 꿇고 있다. 고블린들이 붉게 칠한 것은 그 고리뿐이다.",
 "Sound": "사운드",
 "Space": "Space",
 "Space dash": "Space 대시",
@@ -2520,6 +2670,7 @@ const LANG_KO = {
 "Tail": "꼬리",
 "Take five shrine blessings": "제단 축복 다섯 번 받기",
 "Take off": "벗기",
+"Take this. It is not payment. It is what a captain does when he cannot say thank you.": "이걸 받아. 보수가 아니야. 고맙다는 말을 못 하는 대장이 하는 일이지.",
 "Take up the watch": "경계 근무 서기",
 "Take {0}% less damage": "받는 피해 {0}% 감소",
 "Take {0}% less damage · next trip": "받는 피해 {0}% 감소 · 다음 원정",
@@ -2536,6 +2687,10 @@ const LANG_KO = {
 "Temper": "담금질",
 "Temper · ⛏{0} ⚙{1}": "단련 · ⛏{0} ⚙{1}",
 "Tempered:": "단련됨:",
+"Thank you. I will keep it.": "고마워. 간직할게.",
+"That is kind. It is also not true, but I will keep it.": "다정한 말이군. 사실은 아니지만, 간직하겠어.",
+"That is my family's mark. That is... a piece of the rim of something. Do you know what it is?": "우리 가문의 표식이야. 이건... 무언가의 테두리 조각인데. 이게 뭔지 알아?",
+"That is... Yes. That is the one.": "이건... 그래. 바로 그 깃발이야.",
 "Thaw": "해동",
 "The Abomination": "흉물",
 "The Ashen Forge": "잿빛 대장간",
@@ -2551,6 +2706,7 @@ const LANG_KO = {
 "The Brood Queen": "무리의 여왕",
 "The Brood Queen... Bram will drink to that tonight, for his brother.": "무리의 여왕이라... 브람이 오늘 밤 형제를 위해 한잔하겠군.",
 "The Collector": "수집가",
+"The Court is next. From here down I cannot tell you what to expect.": "다음은 궁정이야. 여기서부터는 무엇이 기다리는지 말해줄 수 없어.",
 "The Crown Falls": "왕관이 떨어지다",
 "The Crypt": "지하 묘지",
 "The Crypt is the first ring. The dead there are slow, but they never tire.": "지하 묘지는 첫 번째 고리예요. 그곳의 망자들은 느리지만, 결코 지치지 않아요.",
@@ -2587,6 +2743,7 @@ const LANG_KO = {
 "The Iron Keep": "강철 성채",
 "The Iron Keep is next. Take a shield you trust, and come back whole.": "다음은 강철 요새야. 믿을 만한 방패를 챙기고, 온전히 돌아와.",
 "The King's Hand": "왕의 손",
+"The King's name is Orrin. Please do not say it near the gate. The bells are listening.": "왕의 이름은 오린이야. 문 근처에서는 말하지 마. 종이 듣고 있어.",
 "The Meadow": "초원",
 "The Mire Queen": "수렁의 여왕",
 "The Mirelord": "수렁의 군주",
@@ -2634,6 +2791,7 @@ const LANG_KO = {
 "The stair keeps going. Floor {0} is {1}% tougher. Go home now and the gold is safe; fall and you lose half of this trip's.": "계단은 계속 이어집니다. {0}층은 {1}% 더 강합니다. 지금 돌아가면 골드는 안전하지만, 쓰러지면 이번 원정에서 얻은 골드의 절반을 잃습니다.",
 "The stone hums. Choose one blessing; it holds until you leave this stage.": "돌이 웅웅거립니다. 축복 하나를 고르세요. 이 구역을 떠날 때까지 유지됩니다.",
 "The story goes on below the Keep": "이야기는 요새 아래에서 계속된다",
+"The story goes on in the Sunken Temple (to be continued)": "이야기는 가라앉은 신전에서 이어집니다 (계속)",
 "Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.": "놈들이 덮치면 방패도 튕겨 나간다. 마지막 순간에 패링으로 받아치거나, 아예 그 자리에 없어야 해.",
 "Their shields still hold. A heavy blow breaks a guard, or get behind them.": "놈들의 방패는 아직 버티고 있다. 강한 일격으로 방어를 깨거나, 뒤로 돌아가라.",
 "Then heat again. A forge, still burning, with no one to feed it but the Deep itself.": "그리고 다시 열기. 아직 타오르는 대장간인데, 불을 지피는 건 심연뿐이다.",
@@ -2650,6 +2808,7 @@ const LANG_KO = {
 "Thornwood": "가시나무 숲",
 "Three stones of one kind become one stone of another kind you choose.": "같은 종류의 보석 세 개를 원하는 다른 종류의 보석 하나로 바꿉니다.",
 "Three wardens, kept on this device. Export a save as a code to keep it safe or move it to another device.": "이 기기에 파수꾼 세 명이 저장됩니다. 저장 데이터를 코드로 내보내 안전하게 보관하거나 다른 기기로 옮기세요.",
+"Tilda": "틸다",
 "Tilda the quartermaster": "보급관 틸다",
 "Tilda's Stall": "틸다의 가판대",
 "Tilda's people drag you back up the stair.": "틸다의 사람들이 당신을 계단 위로 끌어올립니다.",
@@ -2761,6 +2920,7 @@ const LANG_KO = {
 "Whirlwind": "회오리바람",
 "White glint": "흰색 번뜩임",
 "Whoever you heal takes {0}% less damage per rank for {1} s": "치유받은 대상은 등급마다 {1}초 동안 받는 피해가 {0}% 줄어듭니다",
+"Why did you leave?": "왜 떠났나요?",
 "Wide Blast": "넓은 폭발",
 "Widowmaker": "과부 제조기",
 "Wildfire": "들불",
@@ -2775,10 +2935,17 @@ const LANG_KO = {
 "Wynn": "윈",
 "Y ultimate": "Y 궁극기",
 "You are back. That is the Warden's bone on your cloak. Sit, before you fall.": "돌아왔구나. 망토에 묻은 건 감시자의 뼈로군. 쓰러지기 전에 앉아.",
+"You are going into the Keep. I will ask one thing, and you may say no.": "요새로 들어가는군. 부탁이 하나 있는데, 거절해도 좋아.",
+"You are going to ask me why.": "왜 그랬는지 물을 테지.",
+"You are going to the Depths. I will not ask you to turn back; I know better.": "심층으로 가는군. 돌아가라고는 안 하겠어. 그 정도는 알지.",
 "You came back up, warden. That was the one rule. The Endless Deep still goes down, if you ever want to look.": "돌아왔구나, 파수꾼. 그게 유일한 규칙이었지. 끝없는 심연은 여전히 아래로 이어진다. 언젠가 들여다보고 싶다면.",
 "You carry gold. The ledger by the fire turns gold into a stronger camp.": "골드를 가지고 있군. 모닥불 옆 장부가 골드를 더 강한 야영지로 바꿔 준다.",
+"You did what you were told.": "명령받은 대로 하셨잖아요.",
+"You do not need a reason to hold a line. You need a good stance.": "전선을 지키는 데 이유는 필요 없다. 좋은 자세가 필요하지.",
 "You have fallen": "쓰러졌습니다",
+"You have seen the portraits. You were always going to.": "초상화를 봤구나. 언젠가는 볼 수밖에 없었지.",
 "You have the look of someone who has not heard the stories. Good. The stories are worse than the Deep.": "이야기를 들어본 적 없는 얼굴이군. 좋아. 이야기는 심연보다 더 지독하니까.",
+"You set the curved piece of dark iron on the anvil. Bram turns white.": "당신이 휘어진 검은 쇠 조각을 모루 위에 올려놓자 브램의 얼굴이 하얘진다.",
 "Your bag is full": "가방이 가득 찼습니다",
 "Your gems": "내 보석",
 "Your weapon burns": "무기가 불탄다",
@@ -7042,10 +7209,10 @@ const Party = (() => {
 // this module keeps them working.
 const Props = (() => {
   const F = CFG.features;
-  let pots = [], traps = [], shrines = [], mimics = [], captives = [];
+  let pots = [], traps = [], shrines = [], mimics = [], captives = [], relics = [];
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
   const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
-  function clear() { pots = []; traps = []; shrines = []; mimics = []; captives = []; }
+  function clear() { pots = []; traps = []; shrines = []; mimics = []; captives = []; relics = []; }
 
   // ---------------- Breakables ----------------
   // Along the walls, off the path and away from pillars and doorways
@@ -7158,10 +7325,27 @@ const Props = (() => {
     const now = performance.now() / 1000;
     for (const s of shrines) { s.gem.rotation.y += dt * 1.5; s.gem.position.y = 1.4 + Math.sin(now * 2) * 0.05; s.rune.emissiveIntensity = s.used ? 0.1 : 1 + Math.sin(now * 3) * 0.3; }
   }
+  // A relic of the story to examine (a carving, a bell, a banner, a pack): a soft glow on a small marker; pressing the interact key
+  // reports the find to Story. Lives in the room's group, so it fades with it.
+  function relic(room, r, lx, z) {
+    const glow = new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.85 }), stone = mat(0x5a5a64), cloth = mat(0x8a8a90), dark = mat(0x3a2e24);
+    const g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+    if (r.kind === 'bell') { put(g, new THREE.CylinderGeometry(0.15, 0.55, 0.8, 9), mat(0x7a5a2a), 0, 0.45, 0).rotation.z = 1.2; }
+    else if (r.kind === 'banner') { put(g, new THREE.CylinderGeometry(0.04, 0.05, 2.2, 6), dark, 0, 1.1, 0); const c = put(g, new THREE.PlaneGeometry(0.8, 1.2), cloth, 0.4, 1.5, 0); c.material.side = THREE.DoubleSide; }
+    else if (r.kind === 'pack') { put(g, new THREE.BoxGeometry(0.7, 0.45, 0.45), dark, 0, 0.25, 0).rotation.y = 0.5; put(g, new THREE.BoxGeometry(0.5, 0.2, 0.35), mat(0x6a5a3a), 0.1, 0.55, 0); }
+    else { put(g, new THREE.BoxGeometry(1.1, 1.6, 0.25), stone, 0, 0.8, 0); put(g, new THREE.BoxGeometry(0.8, 0.05, 0.02), mat(0x1a1a22), 0, 1.1, 0.14); }
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), glow); m.position.y = 2.3; g.add(m); room.geos.push(m.geometry); room.mats.push(glow);
+    const o = { id: r.id, label: r.label, g, m, x: room.cx + lx, z, r: 1.9, found: false };
+    relics.push(o); return o;
+  }
+  function updateRelics(dt) { const now = performance.now() / 1000; for (const o of relics) if (!o.found) { o.m.rotation.y += dt * 2; o.m.position.y = 2.3 + Math.sin(now * 2.4) * 0.08; } }
+  function examine(o) { o.found = true; o.g.visible = false; }
   // The shrine the hero is standing at, as a prompt spot
   function nearest(pos) {
     const c = captives.find(c => !c.freed && Math.hypot(pos.x - c.x, pos.z - c.z) < 2.0);
     if (c) return { id: 'captive', name: 'A captive', verb: 'Free', captive: c };
+    const rl = relics.find(o => !o.found && Math.hypot(pos.x - o.x, pos.z - o.z) < o.r);
+    if (rl) return { id: 'find', name: rl.label, verb: 'Examine', relic: rl };
     const s = shrines.find(s => !s.used && Math.hypot(pos.x - s.x, pos.z - s.z) < 2.3);
     return s ? { id: 'shrine', name: 'Shrine of the Deep', verb: 'Pray', shrine: s } : null;
   }
@@ -7205,7 +7389,7 @@ const Props = (() => {
   // Free a captive: they leave the vault (and walk into the Hold next time the warden is home)
   function free(c) { c.freed = true; c.room.group.remove(c.g); FX.burst(new THREE.Vector3(c.x, 1, c.z), 0xffe0a0, 16, 3); }
   function update(dt) {
-    updateTraps(dt); updateShrines(dt); updateMimics();
+    updateTraps(dt); updateShrines(dt); updateRelics(dt); updateMimics();
     for (const c of captives) if (!c.freed && c.room.fade > 0.01) Rig.animate(c.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
   }
   // Unbroken pots, crates and shrines are solid
@@ -7217,7 +7401,7 @@ const Props = (() => {
     for (const c of captives) if (!c.freed) out.push([c.x, c.z, 0.45]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, mimic, captive, free, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, strike, trap, shrine, mimic, captive, free, relic, examine, get relics() { return relics; }, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();
 
 </script>
@@ -7492,6 +7676,7 @@ const Camp = (() => {
     npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
     npc('curio', wx - 1.4, wz + 0.9, -2.0, { pose: { clip: 'idleExamine', phase: 2.5 }, cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
+    npc('hobb', 16.2, 10.4, Math.PI / 2, { pose: { clip: 'idleAlert', rate: 0.9 }, cloth: 0x5a3a2a, hair: 0x4a3a2a, beard: true, scarf: 0x8a6a3a, skin: 0xd09a6a, tool: 'spear' });
     const guardN = npc('guard', -3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleAlert' }, cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
     npc('arenamaster', 13 - 4.4, -12 - 0.2, -1.2, { pose: { clip: 'idleEase', rate: 0.9, phase: 3 }, cloth: 0x5a3a2a, hair: 0x6a6a6a, beard: true, scarf: 0xa03a2a, skin: 0xc89060, tool: 'spear' });
     if (lv.wanderer) npc('wanderer', -11 + 1.2, -12 + 2.1, 0.4, { pose: { clip: 'idleLook', phase: 1 }, cloth: 0x2a6a6a, hair: 0x1a1a1a, scarf: 0xd8a040, skin: 0xa86a40 });
@@ -8331,6 +8516,19 @@ const World = (() => {
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     // Props stay separate meshes: pots break, traps move, the shrine glows
     Props.breakables(room);
+    // The story's relics: things to examine in the first rings, on the open floor off the lane
+    if (!inf.custom && inf.loop === 0 && CFG.stages[inf.si] && CFG.stages[inf.si].name === inf.stage.name && typeof Story !== 'undefined') {
+      for (const r of Story.relicsFor(inf.si)) if (r.room === P.j) {
+        let best = null;
+        for (let t = 0; t < 120 && !best; t++) {
+          const lx = (Math.random() * 2 - 1) * (hw - 2.6), z = cz + (Math.random() * 2 - 1) * (hd - 2.6);
+          if (!offPath(lx, z) || (last && Math.abs(lx) < 4 && z < northZ + 6)) continue;
+          if (room.pillars.some(([px, pz, pr]) => Math.hypot(lx + cx - px, z - pz) < (pr || CFG.pillarR) + 1.6)) continue;
+          best = [lx, z];
+        }
+        if (best) Props.relic(room, r, best[0], best[1]);
+      }
+    }
     if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
     if (P.mimic) {
       const sd = Math.random() < 0.5 ? -1 : 1, lx = sd * (hw - 1.6), mz = cz - hd * 0.3;
@@ -10011,18 +10209,34 @@ const TouchLayout = (() => {
 
 </script>
 <script>
-// Deepward - the ad slot: a small banner at the top centre, above the name of the place. It is hidden until an ad has really
+// Deepward - the ad banner. In the Android app it is a Google AdMob banner (the Capacitor plugin @capacitor-community/admob) at the top
+// centre: 320 x 50, not the whole width, drawn over the game by the system. The banner unit is Deepward's own. `testing` makes
+// it ask for Google's TEST ads from that unit (the safe way to develop: AdMob bans accounts that click their own live ads); turn it
+// off for the build that goes to the store. The app id is in the manifest (tools/android_patch.js). On the web it is an AdSense slot (below).
+// The web slot: a small banner at the top centre, above the name of the place. It is hidden until an ad has really
 // arrived, so without a publisher id, without a network, or when no ad is filled, nothing shows and the place name keeps its spot.
 // Fill in client (ca-pub-...) and slot (the ad unit's id) from the AdSense account to switch it on. AdSense serves web pages; the
 // Android app's WebView needs AdMob (a native plugin) instead - this slot only reacts to what ends up inside it.
 const Ads = (() => {
-  const CONF = { client: '', slot: '', width: 320, height: 50 };
+  const CONF = { client: '', slot: '', width: 320, height: 50, admob: { banner: 'ca-app-pub-4400173019354346/4461123131', testing: true } };
   let el = null;
   const show = on => { document.body.classList.toggle('has-ad', !!on); if (el) el.style.display = on ? 'block' : 'none'; };
+  const native = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.AdMob);
+  // The app: initialise AdMob, show the banner at the top centre; the HUD makes room only once an ad has really loaded
+  async function nativeBanner() {
+    const A = Capacitor.Plugins.AdMob;
+    try {
+      await A.initialize({ initializeForTesting: !!CONF.admob.testing });
+      A.addListener('bannerAdLoaded', () => document.body.classList.add('has-ad'));
+      A.addListener('bannerAdFailedToLoad', () => document.body.classList.remove('has-ad'));
+      await A.showBanner({ adId: CONF.admob.banner, adSize: 'BANNER', position: 'TOP_CENTER', margin: 0, isTesting: !!CONF.admob.testing });
+    } catch (e) { document.body.classList.remove('has-ad'); }
+  }
   function init() {
     el = document.getElementById('adSlot');
     if (!el) return;
     show(false);
+    if (native()) return nativeBanner();
     if (!CONF.client || !CONF.slot || !navigator.onLine) return;
     if (window.Settings && Settings.get('ads') === false) return;
     const ins = document.createElement('ins');
@@ -10060,15 +10274,37 @@ const Scene = (() => {
     box = box || $('sceneBox');
     S = { script, i: 0, t: 0, npc: npcOf(script.who), sel: 0, done, cam: null, label: {} };
     script.steps.forEach((st, k) => { if (st.label) S.label[st.label] = k; });
+    if (S.npc) setup(S);
     G.scene = S; G.state = 'scene'; Input.keys = {};
     $('letterbox').classList.add('on'); document.body.classList.add('cine', 'scene');
     if (document.pointerLockElement) document.exitPointerLock();
     show();
     return true;
   }
+  // Wherever the warden stands, the shot is the same: they step to a spot about 1.7 m from the speaker (on the side they came from),
+  // and the camera goes to whichever side of the pair has the clearer view (inside the walls, away from stalls, posts and people)
+  function setup(S) {
+    const n = S.npc, p = G.player, room = camp();
+    let dx = p.pos.x - n.x, dz = p.pos.z - n.z, d = Math.hypot(dx, dz); if (d < 0.01) { dx = Math.sin(n.face); dz = Math.cos(n.face); d = 1; }
+    S.stand = { x: n.x + dx / d * 1.7, z: n.z + dz / d * 1.7 };
+    const ux = -dx / d, uz = -dz / d, mx = (n.x + S.stand.x) / 2, mz = (n.z + S.stand.z) / 2, out = innerHeight > innerWidth ? 4.4 : 3.8;
+    const clearance = (x, z) => {
+      if (typeof World !== 'undefined' && World.inSpace && !World.inSpace(x, z, -0.6)) return -5;
+      let m = 3; if (room) for (const [px, pz, pr] of room.pillars) m = Math.min(m, Math.hypot(x - px, z - pz) - (pr || 0.5));
+      if (room) for (const o of room.npcs) if (o !== n) m = Math.min(m, Math.hypot(x - o.x, z - o.z) - 0.5);
+      return m;
+    };
+    const score = sg => { const cx = mx - uz * sg * out - ux * 0.4, cz = mz + ux * sg * out - uz * 0.4; let m = Math.min(clearance(cx, cz), clearance((cx + mx) / 2, (cz + mz) / 2) + 0.5); return m; };
+    S.side = score(1) >= score(-1) ? 1 : -1;
+  }
+  // Steps and choices can be conditional on saved flags: if: 'flag' or '!flag'
+  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return x.if.charAt(0) === '!' ? !F[x.if.slice(1)] : !!F[x.if]; };
   const step = () => S.script.steps[S.i];
   function show() {
-    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text);
+    while (S.i < S.script.steps.length && !okIf(step())) S.i++;
+    if (S.i >= S.script.steps.length) return end();
+    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text); S.choices = (st.choices || []).filter(okIf);
+    box.classList.toggle('narr', !!st.narr);
     box.querySelector('.sn').textContent = tr(st.name === undefined ? (S.script.name || '') : st.name);
     box.querySelector('.sc').innerHTML = '';
     box.classList.add('show'); box.classList.remove('done');
@@ -10079,11 +10315,11 @@ const Scene = (() => {
     box.querySelector('.st').textContent = S.full.slice(0, n);
     box.classList.toggle('done', fin);
     const ch = box.querySelector('.sc');
-    if (fin && st.choices && !ch.children.length) {
-      st.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
+    if (fin && S.choices.length && !ch.children.length) {
+      S.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
     }
   }
-  function choose(k) { const st = step(), c = st.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
+  function choose(k) { const c = S.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
   function flag(f) { if (typeof Items !== 'undefined' && Items.S) { Items.S.flags = Items.S.flags || {}; Items.S.flags[f] = true; Items.save(); } }
   function jump(go) {
     if (go === undefined || go === null) S.i++;
@@ -10098,11 +10334,11 @@ const Scene = (() => {
     const st = step(), fin = Math.floor(S.t * CPS) >= S.full.length;
     if (!fin) { S.t = 1e3; render(); return; }
     if (st.flag) flag(st.flag);
-    if (st.choices) { choose(S.sel); return; }
+    if (S.choices.length) { choose(S.sel); return; }
     jump(st.go);
   }
-  function pick(k) { if (S && step().choices && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < step().choices.length) choose(k); } }
-  function nav(d) { if (!S || !step().choices) return; const n = step().choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
+  function pick(k) { if (S && S.choices.length && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < S.choices.length) choose(k); } }
+  function nav(d) { if (!S || !S.choices.length) return; const n = S.choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
   function end() {
     if (!S) return;
     const d = S.done; box.classList.remove('show', 'done');
@@ -10125,17 +10361,27 @@ const Scene = (() => {
       const talk = !fin; const k = talk ? Math.sin(S.t * 9) : 0;               // a lean and a sway while the words come
       n.rig.root.rotation.z = (n.rig.root.rotation.z || 0) * 0.85 + (talk ? k * 0.03 : 0) * 0.15;
       n.rig.root.position.y = talk ? Math.abs(Math.sin(S.t * 6)) * 0.015 : 0;
+      // the warden steps to the spot, then turns to them
+      if (S.stand) { const sx = S.stand.x - p.pos.x, sz = S.stand.z - p.pos.z, sd = Math.hypot(sx, sz); if (sd > 0.03) { const st = Math.min(sd, 2.2 * dt); p.pos.x += sx / sd * st; p.pos.z += sz / sd * st; if (typeof World !== 'undefined') World.constrain(p.pos, 0.45); } }
       // the warden turns to them
       const hw = Math.atan2(n.x - p.pos.x, n.z - p.pos.z); let dh = hw - p.facing; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); p.facing += dh * Math.min(1, dt * 5);
-      p.rig.root.rotation.y = p.facing;
+      p.rig.root.position.set(p.pos.x, p.pos.y || 0, p.pos.z); p.rig.root.rotation.y = p.facing;
     }
     Rig.animate(p.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
-    // The shot: behind and to the side of the warden, the speaker in the frame; narration looks at the warden from the front-left
-    const tx = n ? n.x : p.pos.x, tz = n ? n.z : p.pos.z, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
-    const want = new THREE.Vector3(p.pos.x - ux * 2.3 - uz * 0.9, 1.55, p.pos.z - uz * 2.3 + ux * 0.9);
-    if (!n) want.set(p.pos.x + Math.sin(p.facing) * 2.8 - Math.cos(p.facing) * 1.0, 1.5, p.pos.z + Math.cos(p.facing) * 2.8 + Math.sin(p.facing) * 1.0);
+    // The shot: from the side, so the warden and the speaker stand in profile either side of the middle and neither hides the other; narration
+    // looks at the warden from the front-left. On a tall (phone) screen the camera backs off and the subjects ride high, above the caption.
+    const tall = innerHeight > innerWidth;
+    let want, look;
+    if (n) {
+      const dx = n.x - p.pos.x, dz = n.z - p.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d, mx = (n.x + p.pos.x) / 2, mz = (n.z + p.pos.z) / 2;
+      const out = (tall ? 4.4 : 3.8) + d * 0.5;
+      want = new THREE.Vector3(mx - uz * S.side * out - ux * 0.4, tall ? 1.7 : 1.3, mz + ux * S.side * out - uz * 0.4);
+      look = new THREE.Vector3(mx, tall ? 0.45 : 0.15, mz);
+    } else {
+      want = new THREE.Vector3(p.pos.x + Math.sin(p.facing) * 3.4 - Math.cos(p.facing) * 1.2, 1.5, p.pos.z + Math.cos(p.facing) * 3.4 + Math.sin(p.facing) * 1.2);
+      look = new THREE.Vector3(p.pos.x, tall ? 0.5 : 0.85, p.pos.z);
+    }
     camera.position.lerp(want, Math.min(1, dt * 3.2));
-    const look = n ? new THREE.Vector3(n.x, 0.95, n.z) : new THREE.Vector3(p.pos.x, 0.85, p.pos.z);
     if (!S.cam) S.cam = look.clone(); S.cam.lerp(look, Math.min(1, dt * 5));
     camera.lookAt(S.cam);
   }
@@ -10144,26 +10390,67 @@ const Scene = (() => {
 
 </script>
 <script>
-// Deepward - the main story: a chain of objectives (CFG.mainStory.steps) that move on with what the warden does. game.js reports
-// events ('talk' with a camp person, a 'guardian' falling); the step that was waiting for it completes, its scene plays (js/scene.js),
-// and the next objective shows in the HUD. Progress is Items.S.main (saved with the game).
+// Deepward - the main story (docs/STORY.md): objectives (CFG.mainStory.steps) that move on with what the warden does, and beats (scenes
+// that come once their conditions hold). game.js reports events: 'talk' with a camp person, a 'guardian' falling, a 'find' (a relic
+// examined in the dungeon). A step that was waiting for the event completes and plays its scene; otherwise the first beat whose
+// conditions hold plays. Flags (Items.S.flags) record what happened: done_<step>, seen_<beat>, found_<relic>, and the story's own
+// (toldKing, bannerFound...). Progress is Items.S.main (saved with the game).
 const Story = (() => {
   const M = () => CFG.mainStory;
   const state = () => { const S = Items.S; S.main = S.main || { i: 0 }; return S.main; };
+  const flags = () => { const S = Items.S; S.flags = S.flags || {}; return S.flags; };
+  const has = f => (f.charAt(0) === '!' ? !flags()[f.slice(1)] : !!flags()[f]);
+  const set = f => { if (f) flags()[f] = true; };
   const cur = () => (Items.S ? M().steps[state().i] || null : null);
   const objective = () => { const c = cur(); return c ? c.obj : ''; };
+  const toast = t => { if (typeof UI !== 'undefined') UI.toast(t, '#f2d27a'); };
+
+  // Play a scene; `after` runs when it ends (at once if one cannot play now). Returns true when a scene took over
+  function play(id, after) {
+    const sc = M().scenes[id];
+    if (sc && Scene.play(sc, after)) return true;
+    if (after) after(); return false;
+  }
+  function reward(r) {
+    if (!r) return;
+    if (r.gold) { const g = Items.addGold(r.gold); toast('+' + g + ' ◆'); }
+    Items.save();
+  }
   // Report something the warden did. Returns true when a scene took over (done runs when it ends)
   function event(kind, arg, done) {
     if (!Items.S) return false;
-    const c = cur(); if (!c || !c.on || c.on[0] !== kind || c.on[1] !== arg) return false;
-    state().i++; Items.save();
-    const after = () => { const n = cur(); if (n && typeof UI !== 'undefined') UI.toast('New objective: ' + n.obj, '#f2d27a'); if (done) done(); };
-    if (c.scene && M().scenes[c.scene] && Scene.play(M().scenes[c.scene], after)) return true;
-    after(); return !!done ? true : false;
+    if (kind === 'find') set('found_' + arg);
+    const c = cur();
+    if (c && c.on && c.on[0] === kind && c.on[1] === arg) {
+      state().i++; set('done_' + c.id); Items.save();
+      const next = () => { const n = cur(); if (n) toast('New objective: ' + n.obj); if (done) done(); };
+      if (c.scene) { play(c.scene, next); return Scene.active; }
+      next(); return !!done;
+    }
+    const b = M().beats.find(b => b.on[0] === kind && b.on[1] === arg && !flags()['seen_' + b.id] && (b.needs || []).every(has) && (b.not || []).every(f => !flags()[f]));
+    if (!b) return false;
+    set('seen_' + b.id); (b.set || []).forEach(set); Items.save();
+    const after = () => { reward(b.reward); if (done) done(); };
+    play(b.scene, after); return Scene.active;
   }
   // A person with nothing new to say speaks their usual lines as a scene too
   const talk = (who, name, lines, done) => Scene.play({ who, name, steps: lines.map(t => (typeof t === 'string' ? { text: t } : { name: t[0], text: t[1] })) }, done);
-  return { event, objective, talk, get step() { return cur(); } };
+  // A line that fades in and out at the foot of the screen (a guardian's last word)
+  function whisper(who, text) {
+    const el = document.getElementById('whisper'); if (!el) return;
+    el.innerHTML = ''; const a = document.createElement('small'), b = document.createElement('div');
+    a.textContent = (typeof I18N !== 'undefined' ? I18N.tr(who) : who); b.textContent = '"' + (typeof I18N !== 'undefined' ? I18N.tr(text) : text) + '"';
+    el.append(a, b); el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(whisper.t); whisper.t = setTimeout(() => el.classList.remove('show'), 5200);
+  }
+  // A guardian of the first rings has fallen: its last word
+  function guardianFell(si, loop) {
+    if (!Items.S || loop > 0) return;
+    const l = M().guardianLines[si]; if (l) whisper(l[0], l[1]);
+  }
+  // Relics to place in a stage (those not found yet), for js/world.js
+  const relicsFor = si => (Items.S ? (M().relics[si] || []).filter(r => !flags()['found_' + r.id]) : []);
+  return { event, objective, talk, whisper, guardianFell, relicsFor, has, set, get step() { return cur(); } };
 })();
 
 </script>
@@ -10775,6 +11062,7 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  if (e.guardian && e.boss && e.room && e.room.inf && !e.room.inf.custom && !e.room.inf.monster) Story.guardianFell(e.room.inf.si, e.room.inf.loop);
   // A run of kills close together: every few steps a little health back and the ultimate sooner
   if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
     const H = CFG.horde;
@@ -11001,6 +11289,7 @@ function interact() {
     if (Story.event('talk', 'elder')) return;                              // the story had something to say
     return Story.talk('elder', 'Maren', lines);
   }
+  if (s.id === 'find') { Snd.play('glint'); Props.examine(s.relic); G.spot = null; Story.event('find', s.relic.id); return; }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
     Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
@@ -11013,6 +11302,7 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && Story.event('talk', 'guard')) return;          // the story's beats for the captain
   if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
   if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
   if (s.id === 'totem') {
@@ -11026,6 +11316,7 @@ function interact() {
   }
   if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
+  if ((s.id === 'smith' || s.id === 'trader') && Story.event('talk', s.id, () => openPanel(s.id))) return;       // a scene first, then the shop
   openPanel(s.id);
 }
 // ---------------- Captain Rook's task ----------------

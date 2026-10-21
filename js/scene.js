@@ -39,9 +39,14 @@ const Scene = (() => {
     const score = sg => { const cx = mx - uz * sg * out - ux * 0.4, cz = mz + ux * sg * out - uz * 0.4; let m = Math.min(clearance(cx, cz), clearance((cx + mx) / 2, (cz + mz) / 2) + 0.5); return m; };
     S.side = score(1) >= score(-1) ? 1 : -1;
   }
+  // Steps and choices can be conditional on saved flags: if: 'flag' or '!flag'
+  const okIf = x => { if (!x.if) return true; const F = (typeof Items !== 'undefined' && Items.S && Items.S.flags) || {}; return x.if.charAt(0) === '!' ? !F[x.if.slice(1)] : !!F[x.if]; };
   const step = () => S.script.steps[S.i];
   function show() {
-    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text);
+    while (S.i < S.script.steps.length && !okIf(step())) S.i++;
+    if (S.i >= S.script.steps.length) return end();
+    const st = step(); S.t = 0; S.sel = 0; S.full = tr(st.text); S.choices = (st.choices || []).filter(okIf);
+    box.classList.toggle('narr', !!st.narr);
     box.querySelector('.sn').textContent = tr(st.name === undefined ? (S.script.name || '') : st.name);
     box.querySelector('.sc').innerHTML = '';
     box.classList.add('show'); box.classList.remove('done');
@@ -52,11 +57,11 @@ const Scene = (() => {
     box.querySelector('.st').textContent = S.full.slice(0, n);
     box.classList.toggle('done', fin);
     const ch = box.querySelector('.sc');
-    if (fin && st.choices && !ch.children.length) {
-      st.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
+    if (fin && S.choices.length && !ch.children.length) {
+      S.choices.forEach((c, k) => { const b = document.createElement('button'); b.textContent = tr(c.text); b.dataset.k = k; b.className = k === S.sel ? 'on' : ''; b.onclick = () => choose(k); ch.appendChild(b); });
     }
   }
-  function choose(k) { const st = step(), c = st.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
+  function choose(k) { const c = S.choices[k]; if (!c) return; if (c.flag) flag(c.flag); jump(c.go); }
   function flag(f) { if (typeof Items !== 'undefined' && Items.S) { Items.S.flags = Items.S.flags || {}; Items.S.flags[f] = true; Items.save(); } }
   function jump(go) {
     if (go === undefined || go === null) S.i++;
@@ -71,11 +76,11 @@ const Scene = (() => {
     const st = step(), fin = Math.floor(S.t * CPS) >= S.full.length;
     if (!fin) { S.t = 1e3; render(); return; }
     if (st.flag) flag(st.flag);
-    if (st.choices) { choose(S.sel); return; }
+    if (S.choices.length) { choose(S.sel); return; }
     jump(st.go);
   }
-  function pick(k) { if (S && step().choices && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < step().choices.length) choose(k); } }
-  function nav(d) { if (!S || !step().choices) return; const n = step().choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
+  function pick(k) { if (S && S.choices.length && Math.floor(S.t * CPS) >= S.full.length) { if (k >= 0 && k < S.choices.length) choose(k); } }
+  function nav(d) { if (!S || !S.choices.length) return; const n = S.choices.length; S.sel = (S.sel + d + n) % n; [...box.querySelectorAll('.sc button')].forEach((b, k) => b.classList.toggle('on', k === S.sel)); }
   function end() {
     if (!S) return;
     const d = S.done; box.classList.remove('show', 'done');

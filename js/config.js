@@ -273,8 +273,11 @@ const CFG = {
   },
   maxAttackers: 3,
 
-  // The main story: a chain of objectives (shown in the HUD) that move on with what the warden does (`on`: [event, argument]);
-  // a step can play a scene when it completes. Scenes are scripts for js/scene.js (a person, lines, choices that jump to labels).
+  // The main story (docs/STORY.md). `steps` is a chain of objectives shown in the HUD; each completes on an event ([kind, argument]:
+  // 'talk' with a camp person, 'guardian' of a stage falling) and may play a scene, and sets the flag done_<id>. `beats` are scenes that
+  // can come at any time once their conditions hold, each once (the flag seen_<id>): on [event, argument], needs (flags that must be set),
+  // not (flags that must not be), set (flags to set), reward {gold}. 'find' events come from relics in the dungeon (`relics`, by stage).
+  // A scene is { who: camp person id | null, name, steps: [{ text, label?, go?, flag?, if?: 'flag' | '!flag', narr?, choices?: [{ text, go, flag?, if? }] }] }.
   mainStory: {
     steps: [
       { id: 'greet', obj: 'Speak with Maren by the fire', on: ['talk', 'elder'], scene: 'greet' },
@@ -283,7 +286,45 @@ const CFG = {
       { id: 'report', obj: 'Tell Maren what you found in the Crypt', on: ['talk', 'elder'], scene: 'report' },
       { id: 'aldric', obj: 'Defeat Sir Aldric in the Iron Keep', on: ['guardian', 1] },
       { id: 'king', obj: 'Tell Maren what Sir Aldric said', on: ['talk', 'elder'], scene: 'king' },
-      { id: 'more', obj: 'The story goes on below the Keep' },
+      { id: 'den', obj: 'Defeat the Den Mother in the Ogre Den', on: ['guardian', 2] },
+      { id: 'spiders', obj: 'Defeat the Brood Queen in the Spider Depths', on: ['guardian', 3] },
+      { id: 'court', obj: 'Defeat the Pale Duelist in the Shadow Court', on: ['guardian', 4] },
+      { id: 'confess', obj: 'Return to Maren', on: ['talk', 'elder'], scene: 'confess' },
+      { id: 'more', obj: 'The story goes on in the Sunken Temple (to be continued)' },
+    ],
+    // What the guardians say as they fall (shown as a caption); the Brood Queen says nothing
+    guardianLines: {
+      0: ['The Bone Warden', 'Relieved?'],
+      1: ['Sir Aldric', 'Orrin.'],
+      2: ['The Den Mother', 'He is awake. He is so tired.'],
+      4: ['The Pale Duelist', 'A good watch. Please, be kinder to him.'],
+    },
+    // Things to examine in the dungeon (first time through only): stage index -> [{ id, room (section), label, kind }]
+    relics: {
+      0: [{ id: 'crypt-roll', room: 2, label: 'A roll of names', kind: 'slab' }],
+      1: [{ id: 'keep-bell', room: 1, label: 'A fallen bell', kind: 'bell' }, { id: 'keep-banner', room: 3, label: 'A grey banner', kind: 'banner' }],
+      2: [{ id: 'den-paintings', room: 2, label: 'Soot paintings', kind: 'slab' }],
+      3: [{ id: 'depths-pack', room: 2, label: 'A dead man\'s pack', kind: 'pack' }],
+      4: [{ id: 'court-portraits', room: 2, label: 'A turned portrait', kind: 'slab' }],
+    },
+    beats: [
+      // The finds
+      { id: 'f-roll', on: ['find', 'crypt-roll'], scene: 'f-roll' },
+      { id: 'f-bell', on: ['find', 'keep-bell'], scene: 'f-bell' },
+      { id: 'f-banner', on: ['find', 'keep-banner'], scene: 'f-banner', set: ['bannerFound'] },
+      { id: 'f-paint', on: ['find', 'den-paintings'], scene: 'f-paint' },
+      { id: 'f-pack', on: ['find', 'depths-pack'], scene: 'f-pack', set: ['haveFragment'] },
+      { id: 'f-portrait', on: ['find', 'court-portraits'], scene: 'f-portrait' },
+      // Captain Rook
+      { id: 'rookAsk', on: ['talk', 'guard'], needs: ['done_crypt'], scene: 'rookAsk', set: ['rookAsked'] },
+      { id: 'rookBanner', on: ['talk', 'guard'], needs: ['rookAsked', 'bannerFound'], not: ['rookBanner'], scene: 'rookBanner', set: ['rookBanner'], reward: { gold: 150 } },
+      { id: 'rookNoBanner', on: ['talk', 'guard'], needs: ['rookAsked', 'done_aldric'], not: ['bannerFound'], scene: 'rookNoBanner' },
+      { id: 'rookWarns', on: ['talk', 'guard'], needs: ['done_aldric'], scene: 'rookWarns' },
+      // Tilda, Bram, Maren
+      { id: 'tildaRoads', on: ['talk', 'trader'], needs: ['done_den'], scene: 'tildaRoads' },
+      { id: 'bramPack', on: ['talk', 'smith'], needs: ['done_den'], scene: 'bramPack', set: ['bramAsked'] },
+      { id: 'bramFragment', on: ['talk', 'smith'], needs: ['haveFragment'], scene: 'bramFragment' },
+      { id: 'marenSlip', on: ['talk', 'elder'], needs: ['done_spiders'], scene: 'marenSlip' },
     ],
     scenes: {
       greet: { who: 'elder', name: 'Maren', steps: [
@@ -294,24 +335,81 @@ const CFG = {
         { label: 'start', text: 'Hobb keeps the training yard east of the fire. Go to him before you go anywhere near that gate. He will not charge you; that is how you will know he likes you.' },
         { text: 'Come back and tell me you are alive. That is all I ask of any warden.' },
       ] },
-      yard: { who: null, name: 'Hobb', steps: [
+      yard: { who: 'hobb', name: 'Hobb', steps: [
         { text: 'Maren sent you. She always does, when she is worried.' },
         { text: 'Six lessons: strike, block, parry, dash, and how to finish what you have broken. Do them in order, and do not skip the dull ones. The dull ones keep you alive.' },
+        { text: 'You do not need a reason to hold a line. You need a good stance.' },
         { text: 'Then the gate. Start with the Crypt: slow dead, honest dead. The Bone Warden holds the bottom of it.' },
       ] },
       report: { who: 'elder', name: 'Maren', steps: [
         { text: 'You are back. That is the Warden\'s bone on your cloak. Sit, before you fall.' },
-        { text: 'Tell me: did it speak?', choices: [{ text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { text: 'Tell me: did it speak?', choices: [{ text: 'One word. "Relieved?"', go: 'word', flag: 'heardRelieved' }, { text: 'It was waiting for something.', go: 'wait' }, { text: 'It said nothing.', go: 'nothing' }] },
+        { label: 'word', text: '...Relieved. Yes. They would say that.', go: 'hand' },
         { label: 'wait', text: 'They all are. Aldric will be waiting too: he swore an oath to a king the Deep has since eaten.', go: 'tail' },
         { label: 'nothing', text: 'Nothing is a kind of answer, down there. Remember it.', go: 'tail' },
+        { label: 'hand', narr: true, text: 'Maren\'s hand stops on the cup. She does not look at you.', go: 'tail' },
         { label: 'tail', text: 'The Iron Keep is next. Take a shield you trust, and come back whole.' },
       ] },
       king: { who: 'elder', name: 'Maren', steps: [
         { text: 'Aldric. They sent a knight to pull the oath out of him, and you did it.' },
-        { text: 'What did he say at the end?', choices: [{ text: 'A name: the Hollow King.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
-        { label: 'name', text: '...So it has a name now. I had hoped it would not. Names are how things get their hold on us.', go: 'tail' },
+        { text: 'What did he say at the end?', choices: [{ text: 'A name: Orrin.', go: 'name', flag: 'toldKing' }, { text: 'Nothing I could follow.', go: 'nothing' }] },
+        { label: 'name', text: '...So the bells were his. I had hoped they were only the dead. Names are how the Deep gets its hold on us.', go: 'tail' },
         { label: 'nothing', text: 'Then it was not meant for you to follow. Not yet.', go: 'tail' },
         { label: 'tail', text: 'The Den lies below the Keep. I will have more for you when you return. The story is longer than one evening.' },
+      ] },
+      confess: { who: 'elder', name: 'Maren', steps: [
+        { text: 'You have seen the portraits. You were always going to.' },
+        { text: '...I was his second. I was the last of his wardens. I climbed out.' },
+        { text: 'You are going to ask me why.', choices: [{ text: 'Why did you leave?', go: 'why' }, { text: 'You did what you were told.', go: 'told' }] },
+        { label: 'why', text: 'He ordered me up to keep the lamps lit. I could have refused. I did not. I told myself it was an order.', flag: 'maren_blamed', go: 'tail' },
+        { label: 'told', text: 'That is kind. It is also not true, but I will keep it.', flag: 'maren_forgiven', go: 'tail' },
+        { label: 'tail', text: 'The King\'s name is Orrin. Please do not say it near the gate. The bells are listening.' },
+        { text: 'Rest, then go on. Under the Court there is water. I do not know that ring, and that frightens me more than I like.' },
+      ] },
+      // The beats
+      'f-roll': { who: null, name: '', steps: [{ narr: true, text: 'A roll of names is cut into the wall, hundreds of them, each struck through but the last. That one has been scratched out so hard the stone is white.' }] },
+      'f-bell': { who: null, name: '', steps: [{ narr: true, text: 'A bell lies on its side in the square. Someone has chiselled a name from its rim, then, in a different hand, tried to carve it back.' }] },
+      'f-banner': { who: null, name: '', steps: [{ narr: true, text: 'A grey banner with a bar of red hangs from a lamp post, rotted but whole. You fold it into your pack.' }] },
+      'f-paint': { who: null, name: '', steps: [{ narr: true, text: 'Soot paintings run along the cave wall: small figures kneeling around a larger one with a ring on its head. The ring is the only thing the goblins painted in red.' }] },
+      'f-pack': { who: null, name: '', steps: [{ narr: true, text: 'Inside the dead man\'s pack, wrapped in cloth, is a curved piece of dark iron: part of the rim of something round. You take it.' }] },
+      'f-portrait': { who: null, name: '', steps: [{ narr: true, text: 'A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.' }] },
+      rookAsk: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'You are going into the Keep. I will ask one thing, and you may say no.' },
+        { text: 'My company carried a banner: grey, with a bar of red. If it is still down there, it is not mine to leave.' },
+        { text: 'Aldric was my friend. I held the gate because he told me to. I have wondered every night since whether he meant it kindly.' },
+      ] },
+      rookBanner: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'That is... Yes. That is the one.' },
+        { narr: true, text: 'Rook takes the banner in both hands and says nothing for a long time.' },
+        { text: 'Take this. It is not payment. It is what a captain does when he cannot say thank you.' },
+      ] },
+      rookNoBanner: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'No banner? ... No. It was a lot to ask of a stranger. I will go myself, one day, when the gate does not need me.' },
+      ] },
+      rookWarns: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'Goblins are coming up onto the Rim by the dozen. Nothing runs from the dark that way unless something worse is behind it.' },
+        { text: 'If you have a free hour, the Ridge is the place to look. I will pay for what you find.' },
+      ] },
+      tildaRoads: { who: 'trader', name: 'Tilda', steps: [
+        { text: 'Do not look at the prices. The roads are scared, the carters want danger money, and I want to stay alive to sell you things.' },
+        { text: 'It is fine. It means the world up here is still worth the trouble.' },
+        { text: 'Bring me a boar tusk and I will pretend I did not charge you extra.' },
+      ] },
+      bramPack: { who: 'smith', name: 'Bram', steps: [
+        { text: 'You are going to the Depths. I will not ask you to turn back; I know better.' },
+        { text: 'My brother went there for a piece of a mould. He never said what for. If you see his pack, bring it to me. Please.' },
+      ] },
+      bramFragment: { who: 'smith', name: 'Bram', steps: [
+        { narr: true, text: 'You set the curved piece of dark iron on the anvil. Bram turns white.' },
+        { text: 'That is my family\'s mark. That is... a piece of the rim of something. Do you know what it is?', choices: [{ text: 'I think it is part of a crown.', go: 'knows', flag: 'bramKnows' }, { text: 'I only found it.', go: 'lied', flag: 'bramLied' }] },
+        { label: 'knows', text: 'My family made this. ...Why would we make a crown?', go: 'tail' },
+        { label: 'lied', text: 'Thank you. I will keep it.', go: 'tail' },
+        { label: 'tail', text: 'I will melt nothing today. Go well, warden.' },
+      ] },
+      marenSlip: { who: 'elder', name: 'Maren', steps: [
+        { text: 'The Court is next. From here down I cannot tell you what to expect.' },
+        { narr: true, text: 'She looks away as she says it.' },
+        { text: 'Mind your feet, warden. Mind your manners too. The nobles there were always particular.' },
       ] },
     },
   },

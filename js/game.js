@@ -605,6 +605,7 @@ G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  if (e.guardian && e.boss && e.room && e.room.inf && !e.room.inf.custom && !e.room.inf.monster) Story.guardianFell(e.room.inf.si, e.room.inf.loop);
   // A run of kills close together: every few steps a little health back and the ultimate sooner
   if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
     const H = CFG.horde;
@@ -831,6 +832,7 @@ function interact() {
     if (Story.event('talk', 'elder')) return;                              // the story had something to say
     return Story.talk('elder', 'Maren', lines);
   }
+  if (s.id === 'find') { Snd.play('glint'); Props.examine(s.relic); G.spot = null; Story.event('find', s.relic.id); return; }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
     Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
@@ -843,6 +845,7 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && Story.event('talk', 'guard')) return;          // the story's beats for the captain
   if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
   if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
   if (s.id === 'totem') {
@@ -856,6 +859,7 @@ function interact() {
   }
   if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
+  if ((s.id === 'smith' || s.id === 'trader') && Story.event('talk', s.id, () => openPanel(s.id))) return;       // a scene first, then the shop
   openPanel(s.id);
 }
 // ---------------- Captain Rook's task ----------------

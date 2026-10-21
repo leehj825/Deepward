@@ -268,6 +268,7 @@ const Camp = (() => {
     npc('gemcutter', nx + 0.2, nz + 0.95, Math.PI, { pose: BENCH, seat: 0.42, cloth: 0x3a5a6a, hair: 0x1a1a1a, apron: true, skin: 0xa8784a });
     npc('herbalist', hx - 1.2, hz + 1.0, -2.2, { pose: { clip: 'idleHold', rate: 0.8 }, cloth: 0x3a5a3a, hair: 0x6a4a2a, elder: true, scarf: 0x9aa04a, skin: 0xe8b890, tool: 'basket' });
     npc('curio', wx - 1.4, wz + 0.9, -2.0, { pose: { clip: 'idleExamine', phase: 2.5 }, cloth: 0x4a2a5a, hair: 0x3a2a1a, beard: true, scarf: 0xc06aff, skin: 0xd09a6a });
+    npc('hobb', 16.2, 10.4, Math.PI / 2, { pose: { clip: 'idleAlert', rate: 0.9 }, cloth: 0x5a3a2a, hair: 0x4a3a2a, beard: true, scarf: 0x8a6a3a, skin: 0xd09a6a, tool: 'spear' });
     const guardN = npc('guard', -3.2, HD - 1.4, Math.PI, { pose: { clip: 'idleAlert' }, cloth: 0x4a4a5a, hair: 0x3a2a1a, beard: true, scarf: 0x7a2a22, skin: 0xd8a07a, tool: 'spear' });
     npc('arenamaster', 13 - 4.4, -12 - 0.2, -1.2, { pose: { clip: 'idleEase', rate: 0.9, phase: 3 }, cloth: 0x5a3a2a, hair: 0x6a6a6a, beard: true, scarf: 0xa03a2a, skin: 0xc89060, tool: 'spear' });
     if (lv.wanderer) npc('wanderer', -11 + 1.2, -12 + 2.1, 0.4, { pose: { clip: 'idleLook', phase: 1 }, cloth: 0x2a6a6a, hair: 0x1a1a1a, scarf: 0xd8a040, skin: 0xa86a40 });
