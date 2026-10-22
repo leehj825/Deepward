@@ -3,6 +3,8 @@
 Everything runs in Node and a headless Chromium: no phone, no display. You need Node 22 and, for the real-game training, about
 4 CPU cores (it runs three browsers at once).
 
+> The network is 23 inputs, 20 hidden, 8 moves (the dodge move was added 2026-10-21). `js/policy.js` ignores weights of any other shape, so after changing the inputs or the moves, train again before shipping. The simulator (`tools/policy/sim.js`) mirrors `Party.stateOf` (danger, `aoe`, `dodgeRdy`) and randomizes enemy speed, damage and wind-ups by ±15% per fight.
+
 ## One-time setup
 
 ```

@@ -43,3 +43,5 @@ Plain written style (해라체): descriptions end in 한다 / 이다, instructio
 `tools/i18n/ko_part*.json` are merged by `python3 tools/i18n_merge.py ko` into `js/lang_ko.js`, in file-name order, so a later file overrides an earlier one. The style pass lives in `ko_partz1_fix.json` (missing strings), `ko_partz2_style.json` (the speech-level pass) and `ko_partz3_names.json` (one spelling per name): name new override files so that they sort after those (`ko_partz4_...`).
 
 Text with a key label inside it is translated first and the key fills the `@block`-style slot afterwards (`showTip`, the tutorial box), so the table holds the `@heavy` form.
+
+Other translation files since: `ko_part10` to `ko_part13` (story lines, objectives and companion comments), `ko_partz4_r6` (the journal, effects, endings' reactions, captives' scenes). New English text must get a Korean line before the i18n test is run: `node tools/i18n_test.js` lists what is left over, and `LANGKO=1 node tools/balance.js story skilled warrior` plays a whole campaign in Korean and prints every text that stayed English.

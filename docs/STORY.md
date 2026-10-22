@@ -1,6 +1,6 @@
-# The Under Crown: a draft main story
+# The Hollow Crown: the main story
 
-Status: **decisions made (section 8); Act I (rings 1 to 5, section 10) and Act II with the three endings (rings 6 to 10, sections 5 and 6) are built and tested (`tools/story2_test.js`, `tools/story3_test.js`), with the Hollow King's two-phase fight and the companions' comments (`tools/story4_test.js`).** It keeps everything already in the game (the story text in `CFG.story`, the first main-story chain in `CFG.mainStory`, Rook's task, the Fen, the captives) and fills the gaps. Names: the King is **Orrin Varrow**, the hunger under the hill is **the Under**, and the King's title stays **the Hollow King**.
+Status: **built and tested.** Act I, Act II, the three endings, the Hollow King's two phases, the companions' comments, the journal, the effects of choices, the people's lines after each ending and the scenes for freed captives are all in the game (`tools/story_test.js` to `story5_test.js`). Section 11 says what the game does now; sections 1 to 10 are the design it came from. Names: the King is **Orrin Varrow**, the hunger under the hill is **the Under**, the King's title stays **the Hollow King**.
 
 ## 1. The secret history (what the player slowly learns)
 
@@ -222,3 +222,29 @@ Steps (already in the game, extended):
 3. Rook, Tilda and Bram scenes (rings 2 to 4).
 4. Ring 5, the confession.
 5. A test that walks every branch (like `tools/story_test.js`) and Korean strings for all new lines.
+
+## 11. As built (what the game does now)
+
+Where it lives: `CFG.mainStory` in `js/config.js` (steps, beats, scenes, relics, guardian and wake lines, effects, banter), `js/story.js` (events, flags, endings), `js/scene.js` (scenes), the Journal panel in `js/ui.js`.
+
+**Objectives (the HUD line and the Journal), in order:** speak with Maren; visit Hobb's yard; defeat the Bone Warden; tell Maren; defeat Sir Aldric; tell Maren what he said; defeat the Den Mother, the Brood Queen, the Pale Duelist; return to Maren (the confession); defeat the Drowned Prophet; tell Maren what the mural showed; defeat the Frost Marshal, the Furnace Lord, the Bone Gardener; return to Maren (her grave); face the Hollow King; the story is told. A guardian step completes as soon as that stage is cleared (`Items.S.stage`), even if the warden pressed on without going home.
+
+**Things to examine (once, on the first time through; the Journal keeps their text):** the roll of names (Crypt), the fallen bell and the grey banner (Keep; the banner hangs inside a house you can enter when the room has one), the soot paintings (Den), the dead man's pack (Depths), the turned portrait (Court), the drowned mural (Temple), the frozen orders (Frost Halls), the great mould (Forge), the named tree (Orchard) and the Crown (Throne).
+
+**Guardians' last words** appear as a caption when they fall; the Hollow King's first words when he wakes.
+
+**Flags** (`Items.S.flags`, saved with the game): `done_<step>`, `seen_<beat>`, `found_<relic>`, plus the story's own: `heardRelieved`, `toldKing`, `rookAsked`, `bannerFound`, `rookBanner`, `bramAsked`, `haveFragment`, `bramKnows` / `bramLied`, `maren_forgiven` / `maren_blamed`, `marenToldAll` / `marenToldSome`, `keyFound`, `bramKey` / `bramHid`, `marenDescends` / `marenStays`, `ending_watch` / `ending_relief` / `ending_breaking`, `epilogueSeen`.
+
+**What choices change in play** (`CFG.mainStory.effects`, listed in the Journal):
+- `bramKnows` (you told Bram what the iron was): his upgrades and rerolls cost 10% less (`Items.upgradeCost`, `rerollCost`).
+- `rookBanner` (you returned his banner): the south gate holds 25% longer in a raid, and Rook paid 150 gold.
+- `maren_forgiven`: healing flasks heal 10% more (`Player.gearStats`).
+- The endings: the Watch is always open; the Relief needs `marenDescends` and `maren_forgiven`; the Breaking needs `bramKey`. After the Relief, Maren's chair is empty in the camp.
+
+**After the ending:** an epilogue scene on the first return to camp (`epi_watch`, `epi_relief`, `epi_breaking`); then Bram, Tilda, Rook, Hobb and Wenna each have a scene with a line for the ending you chose. The Watch leads into the Endless Deep.
+
+**The people the warden frees** (Pell, Ilsa, Aldo, Mira) each get a short scene when freed.
+
+**Companions' comments** (up to two of the hired ones, as captions, `CFG.mainStory.banter`): Maren's confession, the Crown, each ending, the frozen orders, the mould, the graves.
+
+**Not done:** distinct English voices per character (Korean has them, `docs/KOREAN_STYLE.md`); scenes in the dungeon in which a companion speaks as a guardian wakes; more people reacting to the flags (the villagers, the captives once in the Hold).
