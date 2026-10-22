@@ -460,7 +460,31 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 - **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
 - **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, the gauntlet and the rune vault, and Korean.
 
-### Next: the hack-and-slash dungeon (in this order)
+### Next: the list after the hack-and-slash dungeon (ranked; updated 2026-10-22)
+
+H1 to H4 are built (see below). What is left, in the order to do it:
+
+**R1. Check on a real phone.** Everything below was tested headless. Play the debug APK on a phone and a tablet and look at: the ad strip and the banner's position after turning the device (the banner is put up again when the width changes), the Korean text and the speech levels, the scene camera on a tall and a wide screen, the feel of the new combat (no stagger on ordinary blows), and frame rate with a full horde in the cave, forest and town stages (P1's exit criterion: 50+ FPS on Medium).
+
+**R2. Guard against the bug class we hit.** The scene system once overwrote `G.scene`, a field another system used, and the sparring lesson broke after Hobb's scene. Add a test that every `G.*` field is written by one module only, and run the bot through "scene, then shop / lesson / descent" for each scene type.
+
+**R3. Ads before any release.** The consent prompt for the EU and UK, the ads declaration in the Play Console, `testing: false` only in the store build, and an ad-free first-run check.
+
+**R4. Class balance** (`docs/class-balance-report-2026-10-22.md`). Solo, the cleric cannot finish stages and the archer loses time to armored foes. Try: the cleric's smite and heavy smite +40%; ranged hits ignore part of armor (cut by 25% instead of 40%); then re-run all four classes, the cleric with a party (`PARTY=1`), and the casual profile. Before judging further, teach the ranged bot to dodge and to give up on a foe it cannot reach.
+
+**R5. Difficulty.** The skilled bot clears every stage with 0 to 4 deaths, so Normal may be easy for a good player. Wait for real play notes, then tune (horde size, the last stages, the Hollow King's second phase).
+
+**R6. Story depth.**
+- Scenes for more people: Bram, Tilda, Rook and the rescued captives only speak at set moments; villagers could react to the ending; companions could comment on more of the story.
+- A journal screen: finished objectives and what the warden learned.
+- Cheap consequences for choices (so far three change anything: Rook's banner, Bram's key, Maren's forgiveness): for example a discount from Bram after he was trusted.
+- English character voices: Korean has a voice per character (`docs/KOREAN_STYLE.md`), English does not. It means editing the story text in `js/config.js`, so the Korean keys change with it.
+
+**R7. Level design (the rest of H2 and H3).** Winding cave tunnels and curved outlines (walkable space as shapes for `inSpace` and the camera), cave decor (pools, mushrooms, stalactites), houses you can walk into, streets that bend, and new stages (a village above the Orchard) instead of restyled ones.
+
+**R8. Polish.** A native read of the rewritten Korean lines (Rook's 하게체, Odo's 하오체 were written without a reviewer); ambient sound for the Hold, the Rim and the Fen (P5), and hearing the Under's boss theme; the signed release build, the icon and the store listing (V7).
+
+### Done: the hack-and-slash dungeon (H1 to H4)
 
 Ordinary blows no longer stagger the warden (built: only unblockable, area, boss and heavy blows do, and not during the warden's own heavy swing; `CFG.player.staggerPosture`). The steps below build on that.
 
@@ -490,14 +514,14 @@ Ordinary blows no longer stagger the warden (built: only unblockable, area, boss
 
 **P2.** (Photo mode was removed from the game, so there is no photo saving to do.)
 
-**P3. Korean polish.**
+**P3. Korean polish.** (Done since: no honorifics in text to the player, a speech level per character, one spelling per name, `docs/KOREAN_STYLE.md`; open: a native read, see R8.)
 - Texts built from pieces in code (key hints, tutorial lines, "Go deeper · floor 3") become whole sentences with numbered slots, so Korean word order comes out right.
 - A native read of the story lines and boss names.
 - The i18n test fails when new English shows up.
 
 **P4. Balance bot on the new content.** Run tools/balance.js (casual and skilled) through the Fen, the gauntlet, the Ring monsters and raids; tune health and damage where it dies too often or never.
 
-**P14. Class pass.** Balance the three new classes with the bots (solo clears of the stages, the Fen, the Ring and raids); give the archer and mage their own caster-friendly gear in Bram's craft tab; look over the class-picker and mode-toggle text with a native reader for Korean (the new strings are not in `lang_ko.js` yet).
+**P14. Class pass.** (The balance bot has now run all four classes: see R4 and `docs/class-balance-report-2026-10-22.md`.) Balance the three new classes with the bots (solo clears of the stages, the Fen, the Ring and raids); give the archer and mage their own caster-friendly gear in Bram's craft tab; look over the class-picker and mode-toggle text with a native reader for Korean (the new strings are not in `lang_ko.js` yet).
 
 ### Then: feel
 

@@ -253,12 +253,13 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
 Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
-Next, in order (details in `docs/DESIGN.md` → Roadmap):
-0. **The hack-and-slash dungeon.** Hordes (H1), cave spaces (H2), forest and abandoned town (H3), story and natural NPCs (H4). Ordinary blows no longer stagger the warden.
-1. **Check what is built.** A real-phone pass (P1), Korean polish (P3), the balance bot on the new content (P4).
-2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
-3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
-4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
+Next, in order (details in `docs/DESIGN.md` → Roadmap, R1 to R8):
+1. **Check on a real phone** (R1), a test that no two systems share a `G.*` field (R2), and the ad consent prompt and Play declaration before any release (R3).
+2. **Balance.** The cleric and archer solo (R4), and difficulty once there are real play notes (R5).
+3. **Story and levels.** More scenes and a journal (R6); winding caves, enterable houses and new stages (R7).
+4. **Polish.** A native read of the Korean, ambient sound, and the signed release build (R8).
+
+Built since the earlier list: hordes, cave, forest and town stages, the main story with its scenes and three endings, the two-phase Hollow King, companions that dash and comment, the timing circle on enemy blows, an ad banner, and Korean with a voice per character.
 
 ## Ads
 
