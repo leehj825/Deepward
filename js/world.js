@@ -422,6 +422,19 @@ const World = (() => {
     Rig.bake(room.group);                                                  // a few draw calls per section, not hundreds
     // Props stay separate meshes: pots break, traps move, the shrine glows
     Props.breakables(room);
+    // The story's relics: things to examine in the first rings, on the open floor off the lane
+    if (!inf.custom && inf.loop === 0 && CFG.stages[inf.si] && CFG.stages[inf.si].name === inf.stage.name && typeof Story !== 'undefined') {
+      for (const r of Story.relicsFor(inf.si)) if (r.room === P.j) {
+        let best = null;
+        for (let t = 0; t < 120 && !best; t++) {
+          const lx = (Math.random() * 2 - 1) * (hw - 2.6), z = cz + (Math.random() * 2 - 1) * (hd - 2.6);
+          if (!offPath(lx, z) || (last && Math.abs(lx) < 4 && z < northZ + 6)) continue;
+          if (room.pillars.some(([px, pz, pr]) => Math.hypot(lx + cx - px, z - pz) < (pr || CFG.pillarR) + 1.6)) continue;
+          best = [lx, z];
+        }
+        if (best) Props.relic(room, r, best[0], best[1]);
+      }
+    }
     if (P.trap && ds !== null) Props.trap(room, P.trap, southZ + CORR_LEN * 0.5, P.doorS, DOOR * 2);
     if (P.mimic) {
       const sd = Math.random() < 0.5 ? -1 : 1, lx = sd * (hw - 1.6), mz = cz - hd * 0.3;

@@ -4,10 +4,10 @@
 // this module keeps them working.
 const Props = (() => {
   const F = CFG.features;
-  let pots = [], traps = [], shrines = [], mimics = [], captives = [];
+  let pots = [], traps = [], shrines = [], mimics = [], captives = [], relics = [];
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85, flatShading: true }, o));
   const put = (parent, geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; parent.add(o); return o; };
-  function clear() { pots = []; traps = []; shrines = []; mimics = []; captives = []; }
+  function clear() { pots = []; traps = []; shrines = []; mimics = []; captives = []; relics = []; }
 
   // ---------------- Breakables ----------------
   // Along the walls, off the path and away from pillars and doorways
@@ -120,10 +120,28 @@ const Props = (() => {
     const now = performance.now() / 1000;
     for (const s of shrines) { s.gem.rotation.y += dt * 1.5; s.gem.position.y = 1.4 + Math.sin(now * 2) * 0.05; s.rune.emissiveIntensity = s.used ? 0.1 : 1 + Math.sin(now * 3) * 0.3; }
   }
+  // A relic of the story to examine (a carving, a bell, a banner, a pack): a soft glow on a small marker; pressing the interact key
+  // reports the find to Story. Lives in the room's group, so it fades with it.
+  function relic(room, r, lx, z) {
+    const glow = new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.85 }), stone = mat(0x5a5a64), cloth = mat(0x8a8a90), dark = mat(0x3a2e24);
+    const g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+    if (r.kind === 'bell') { put(g, new THREE.CylinderGeometry(0.15, 0.55, 0.8, 9), mat(0x7a5a2a), 0, 0.45, 0).rotation.z = 1.2; }
+    else if (r.kind === 'banner') { put(g, new THREE.CylinderGeometry(0.04, 0.05, 2.2, 6), dark, 0, 1.1, 0); const c = put(g, new THREE.PlaneGeometry(0.8, 1.2), cloth, 0.4, 1.5, 0); c.material.side = THREE.DoubleSide; }
+    else if (r.kind === 'pack') { put(g, new THREE.BoxGeometry(0.7, 0.45, 0.45), dark, 0, 0.25, 0).rotation.y = 0.5; put(g, new THREE.BoxGeometry(0.5, 0.2, 0.35), mat(0x6a5a3a), 0.1, 0.55, 0); }
+    else if (r.kind === 'ring') { put(g, new THREE.CylinderGeometry(0.7, 0.8, 0.7, 10), stone, 0, 0.35, 0); put(g, new THREE.TorusGeometry(0.5, 0.1, 6, 14), dark, 0, 0.95, 0).rotation.x = Math.PI / 2; }
+    else { put(g, new THREE.BoxGeometry(1.1, 1.6, 0.25), stone, 0, 0.8, 0); put(g, new THREE.BoxGeometry(0.8, 0.05, 0.02), mat(0x1a1a22), 0, 1.1, 0.14); }
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), glow); m.position.y = 2.3; g.add(m); room.geos.push(m.geometry); room.mats.push(glow);
+    const o = { id: r.id, label: r.label, g, m, x: room.cx + lx, z, r: 1.9, found: false };
+    relics.push(o); return o;
+  }
+  function updateRelics(dt) { const now = performance.now() / 1000; for (const o of relics) if (!o.found) { o.m.rotation.y += dt * 2; o.m.position.y = 2.3 + Math.sin(now * 2.4) * 0.08; } }
+  function examine(o) { o.found = true; o.g.visible = false; }
   // The shrine the hero is standing at, as a prompt spot
   function nearest(pos) {
     const c = captives.find(c => !c.freed && Math.hypot(pos.x - c.x, pos.z - c.z) < 2.0);
     if (c) return { id: 'captive', name: 'A captive', verb: 'Free', captive: c };
+    const rl = relics.find(o => !o.found && Math.hypot(pos.x - o.x, pos.z - o.z) < o.r);
+    if (rl) return { id: 'find', name: rl.label, verb: 'Examine', relic: rl };
     const s = shrines.find(s => !s.used && Math.hypot(pos.x - s.x, pos.z - s.z) < 2.3);
     return s ? { id: 'shrine', name: 'Shrine of the Deep', verb: 'Pray', shrine: s } : null;
   }
@@ -167,7 +185,7 @@ const Props = (() => {
   // Free a captive: they leave the vault (and walk into the Hold next time the warden is home)
   function free(c) { c.freed = true; c.room.group.remove(c.g); FX.burst(new THREE.Vector3(c.x, 1, c.z), 0xffe0a0, 16, 3); }
   function update(dt) {
-    updateTraps(dt); updateShrines(dt); updateMimics();
+    updateTraps(dt); updateShrines(dt); updateRelics(dt); updateMimics();
     for (const c of captives) if (!c.freed && c.room.fade > 0.01) Rig.animate(c.rig, { mode: 'idle', t: 0, speed: 0, calm: true }, dt);
   }
   // Unbroken pots, crates and shrines are solid
@@ -179,5 +197,5 @@ const Props = (() => {
     for (const c of captives) if (!c.freed) out.push([c.x, c.z, 0.45]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, mimic, captive, free, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, strike, trap, shrine, mimic, captive, free, relic, examine, get relics() { return relics; }, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();

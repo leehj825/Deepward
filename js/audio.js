@@ -71,6 +71,7 @@ const Snd = (() => {
     { bpm: 120, prog: [[45, 48, 52], [46, 50, 53], [45, 48, 52], [44, 48, 51]], scale: [69, 70, 72, 74, 76, 77, 79] },      // Furnace Lord
     { bpm: 94, prog: [[51, 54, 58], [47, 51, 54], [49, 52, 56], [46, 49, 53]], scale: [75, 78, 80, 82, 85, 87] },           // Bone Gardener
     { bpm: 84, prog: [[38, 41, 45], [39, 43, 46], [36, 40, 43], [37, 41, 44]], scale: [62, 63, 65, 67, 68, 70, 74] },      // Hollow King: low, slow, heavy
+    { bpm: 118, prog: [[38, 41, 44], [39, 42, 45], [37, 40, 43], [38, 41, 44]], scale: [62, 63, 66, 67, 68, 71, 74] },      // the Under: the same low notes, faster and with the half steps rubbing
   ];
   const DRUMS = {
     combat: { kick: [1, 0, 0, 0, 1, 0, 0, 1], tom: [0, 0, 1, 0, 0, 0, 1, 0], hat: [0, 1, 0, 1, 0, 1, 0, 1] },

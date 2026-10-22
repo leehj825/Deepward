@@ -298,6 +298,22 @@ Result on Normal:
 
 Real players are slower to react than the bot, so expect more deaths.
 
+### Full playthrough and balance pass (hordes, natural spaces, the story)
+
+`node tools/balance.js story [casual|skilled] [class]` plays a whole campaign in the headless game with the scripted warden: a new warden, the camp round (Maren, Hobb's yard, Rook, Tilda, Bram, every scene read and every choice answered at random), then for each of the ten stages the gear and level of a typical player, the dungeon with its relics examined, the guardian, its chest (and the ending after the Hollow King), the way home and the epilogue. `PARTY=1` brings Hobb and Aldo along.
+
+| Run | Stages cleared | Deaths | Ending | Notes |
+| --- | --- | --- | --- | --- |
+| Skilled, alone | 10 / 10 | 6 | the Watch | every beat seen except Rook's no-banner line (the banner was found); 11 relics; the final boss 110 s |
+| Casual, alone | 10 / 10 | 10 | the Relief | the last stage takes 419 s, the Hollow King 144 s and one death |
+| Skilled, with Hobb and Aldo | 10 / 10 | 1 | the Watch | companions soak up damage; stages are 30 to 40% quicker |
+
+What the runs found and what changed:
+- A relic placed behind rocks could trap the bot for the whole run (a hang of 900 s in the Spider Depths): the bot gives up on a relic after 25 s now; `tools/cave_test.js` also checks by a grid flood that every relic can be reached (all ten styled and plain stages, four layouts each).
+- The bot never opened the last guardian's chest, so the ending never played: the playthrough walks to the chest as the warden would.
+- **A real bug:** the story only noted a guardian when the warden went home, so pressing on to the next stage, or talking to Maren later than the story expected, could leave the chain waiting for an event that never came again. A guardian step now completes whenever that stage has been cleared (`Story.sync`, from `Items.S.stage`), and the event also fires when the guardian's chest is opened.
+- Balance stands as tuned (extras at 70%, three attackers at once): the skilled warrior dies 0 to 4 times in a stage (the Iron Keep's town was the roughest in Act I), the casual one a little more in the first three stages and the last two.
+
 ### The world above (tuned against stage gold)
 
 A full stage pays about 490 gold at the Crypt and 3200 at the Throne (enemies, chests, a vault, the guardian). Against that:
@@ -461,7 +477,10 @@ Ordinary blows no longer stagger the warden (built: only unblockable, area, boss
 
 **H4. Story and natural NPCs (first step built: scenes, objectives, a first chain).** A quest-state system first (acts tied to the stages, guardians as beats, saved with the game); then short in-engine scenes with the camera framing the speaker, NPCs that turn to you, gesture and speak with a typed caption and choices, NPCs and companions that react as the story moves on.
 - Built (`js/scene.js`, `js/story.js`, `CFG.mainStory`, `tools/story_test.js`): **Scenes** play in the world: the camera frames the speaker over the warden's shoulder with the letterbox, the speaker turns to the warden and sways a little while the words are typed (Enter, click, E or A finishes the line and then goes on; Esc or B skips), and a line can offer choices (1 to 4, arrows, click) that jump to labels in the script, with an optional flag saved in `Items.S.flags`. **The main story** is a chain of objectives (shown in the HUD under the health bars, saved as `Items.S.main`) that move on when the warden talks to a camp person or a guardian falls; a step can play a scene when it completes. The first chain: meet Maren (choices about the Deep), Hobb's yard, the Bone Warden, report to Maren (a choice), Sir Aldric, report again (a choice that sets `toldKing`). Maren's usual lines are scenes too.
-- Still open: more people with scenes (Bram, Tilda, Rook, the captives), gestures from the clips (pointing, nodding) instead of a sway, the story's middle and end (the Den to the Throne), scenes in the dungeon (a companion speaking as a guardian wakes), companions and villagers that comment on the flags, voices or sound cues, a journal screen listing finished objectives, the abandoned town as the place of the story's second act.
+- Act I of `docs/STORY.md` is built: relics to examine in the first rings (`Props.relic`, `find` events; shown once, then gone), guardians' last words as a caption (`Story.guardianFell`), beats (`CFG.mainStory.beats`: scenes with `needs`/`not`/`set`/`reward`) for Captain Rook (a banner to fetch and a 150 gold reward), Tilda, Bram (his brother's pack, a mould fragment and a choice) and Maren (a slip, then her confession and a choice), flag-gated scene lines (`if:`), narration lines, and Hobb as a figure at the yard. Tested with `tools/story2_test.js`; Korean for the new lines in `tools/i18n/ko_part11.json`.
+- Act II and the endings are built too (`tools/story3_test.js`): rings 6 to 10 with their relics, last words and beats (the mural and Maren's reply, Rook's tiredness and salute, Bram's forge scene and the lock-key choice, Maren's grave and her choice to come down), the ending scene after the Hollow King falls (`Story.ending`: the Watch always; the Relief needs `marenDescends` and `maren_forgiven`; the Breaking needs `bramKey`; the choices that are open depend on the flags), and an epilogue per ending when the warden is back in camp (`Story.epilogue`). The Relief leaves Maren's chair empty in the camp. The Watch leads into the Endless Deep.
+- The Hollow King fights in two phases (`CFG.bosses[9]`, `tools/story4_test.js`): the King from the start (the old sergeant's two-handed set, a caption as he wakes), then at half health the Under takes him (a dark tint kept by the guardian, its own theme in the music, faster, a blink thrust and a void ring, shades from the floor, a caption). Hired companions comment at three key moments (Maren's confession, the Crown, the ending; up to two of them, one caption after the other, `CFG.mainStory.banter`).
+- Still open: more people with scenes (the captives), gestures from the clips (pointing, nodding) instead of a sway, the story's middle and end (the Den to the Throne), scenes in the dungeon (a companion speaking as a guardian wakes), companions and villagers that comment on the flags, voices or sound cues, a journal screen listing finished objectives, the abandoned town as the place of the story's second act.
 
 ### Then: check what is built
 

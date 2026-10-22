@@ -1,6 +1,7 @@
 // Balance bot: a scripted warden plays every stage (and some Endless floors) at a set skill level, with gear and
 // levels typical for how far a player would have come, and reports deaths, time, damage taken and flasks per stage.
 // Run: node tools/balance.js [casual|skilled|both] [endlessFloors] [fromStage] [toStage]   (needs Playwright)
+//      node tools/balance.js story [casual|skilled] [warrior|archer|mage|cleric]   a whole campaign: camp, scenes, relics, ten guardians, the ending (PARTY=1: with Hobb and Aldo along)
 const { chromium } = require('playwright');
 const path = require('path');
 const who = process.argv[2] || 'both', floors = +(process.argv[3] || 6), from = +(process.argv[4] || 0), to = +(process.argv[5] || 10);
@@ -72,6 +73,15 @@ const PROFILES = {
           else if (p.st > 25 && Math.random() < prof.aggro * 0.25) press(foe.def.guard && Math.random() < 0.5 ? 'heavy' : 'light');
           return;
         }
+        // A relic of the story in a cleared section: go and examine it
+        const rel = Props.relics.find(r => !r.found && (W.roomOf({ x: r.x, z: r.z }) || {}).state === 'cleared');
+        if (rel) {
+          const d = Math.hypot(rel.x - p.pos.x, rel.z - p.pos.z);
+          if (d < 1.4) { if (G.spot && G.spot.id === 'find') { __dw.interact(); m.relics = (m.relics || 0) + 1; } else rel.found = true; return; }
+          m.relicT = (m.relicT || 0) + 1 / 60;
+          if (m.relicT > 25) { rel.found = true; m.relicSkipped = (m.relicSkipped || 0) + 1; m.relicT = 0; return; }       // walked into a rock for too long: leave it
+          const a = Math.atan2(rel.x - p.pos.x, rel.z - p.pos.z); In.stick.x = Math.sin(a); In.stick.z = Math.cos(a); return;
+        }
         // Walk on: to the next section that is not cleared (and the den once its section is)
         const S = W.sections, next = S.find(r => r.state !== 'cleared');
         const den = W.sides.find(r => r.sideKind === 'den' && r.state !== 'cleared' && r.parent.state === 'cleared');
@@ -95,15 +105,22 @@ const PROFILES = {
       S.talents = {}; S.points = 0; for (const id of ['steady', 'keen', 'riposte', 'steady', 'keen', 'riposte', 'precision', 'precision', 'fury'].slice(0, Math.min(9, 2 * k))) S.talents[id] = (S.talents[id] || 0) + 1;
       __dw.G.onGearChanged(); __dw.G.player.hp = __dw.G.player.maxHp; __dw.G.player.flasks = __dw.G.player.S.flasks;
     };
+    // A scene on screen: read it as a player would (finish the typing, go on, answer a choice at random)
+    window.autoScene = () => {
+      if (!Scene.active) return false;
+      const c = Scene.current, fin = Math.floor(c.t * 46) >= c.full.length;
+      if (!fin) Scene.next(); else if (c.choices.length) Scene.pick(Math.floor(Math.random() * c.choices.length)); else Scene.next();
+      window.__sceneLines = (window.__sceneLines || 0) + 1; return true;
+    };
     window.runStage = (kind, k, profile) => {
       const G = __dw.G, W = __dw.World;
-      if (kind === 'stage') { W.startStage(k); G.stageK = k; }
-      G.mode = 'dungeon'; G.state = 'play'; G.blessings = []; G.queue = [];
+      if (kind === 'stage') { W.startStage(k); G.stageK = k; G.mode = 'dungeon'; G.state = 'play'; G.blessings = []; G.queue = []; }
       const at = { x: W.sections[0].cx, z: W.sections[0].southZ - 3 }; G.player.pos.set(at.x, 0, at.z);
       Bot.begin(profile); const st0 = Object.assign({}, G.stats), t0 = G.time;
       const out = {};
       let lair = null;
       __dw.sim(900, () => {
+        if (autoScene()) return false;
         Bot.step();
         if (!out.champ && G.boss && G.boss.champion) out.champ = G.time;
         if (out.champ && !out.champDone && G.boss === null) out.champDone = G.time - out.champ;
@@ -115,11 +132,69 @@ const PROFILES = {
       out.parries = G.stats.parries - st0.parries; out.hits = G.stats.hitsTaken - st0.hitsTaken;
       out.boss = lair ? Math.round(G.time - lair) + 's' : '-'; out.bossDeaths = lair ? Bot.m.deaths - out.bossDeaths0 : 0;
       out.champ = out.champDone ? Math.round(out.champDone) + 's' : '-';
-      out.done = W.sections.every(r => r.state === 'cleared'); out.level = __dw.Items.S.level;
+      out.done = W.sections.every(r => r.state === 'cleared'); out.level = __dw.Items.S.level; out.relicSkipped = Bot.m.relicSkipped || 0; out.relics = Bot.m.relics || 0;
       delete out.champDone; delete out.bossDeaths0;
       return out;
     };
   });
+  if (who === 'story') {
+    const prof = PROFILES[process.argv[3] || 'skilled'], cls = process.argv[4] || 'warrior', rows = [];
+    const closeAll = () => pg.evaluate(() => { for (let i = 0; i < 6 && __dw.UI.open; i++) __dw.UI.close(); if (__dw.G.state === 'menu') __dw.G.state = 'play'; });
+    // A new warden of the class, through the opening
+    await pg.evaluate(cls => {
+      __dw.Items.wipe(); __dw.start('new'); __dw.sim(0.3);
+      for (let i = 0; i < 12 && document.querySelector('.pcard.dialogue'); i++) document.querySelector('#pcard .pb').click();
+      const pk = document.querySelector(`[data-act="pickclass"][data-arg="${cls}"]`); if (pk) pk.click();
+      if (document.querySelector('[data-act="looksdone"]')) document.querySelector('[data-act="looksdone"]').click();
+      const off = document.querySelector('.pcard.trainOffer [data-act="close"]'); if (off) off.click();
+      __dw.sim(0.3);
+    }, cls);
+    if (process.env.PARTY) await pg.evaluate(() => { const I = __dw.Items; I.S.gold = 9999; I.S.rescued = [{ id: 'mira' }, { id: 'aldo' }]; Party.recruit('hobb'); Party.recruit('aldo'); __dw.sim(0.2); });      // PARTY=1: two companions along
+    const campRound = () => pg.evaluate(() => {
+      // Everyone the story speaks through, until a whole round brings no scene
+      const G = __dw.G, p = G.player, camp = __dw.World.rooms.find(r => r.kind === 'camp'); let total = 0;
+      for (let round = 0; round < 8; round++) {
+        let any = 0;
+        for (const id of ['elder', 'trainer', 'guard', 'trader', 'smith']) {
+          const s = camp.spots.find(x => x.id === id); if (!s) continue;
+          p.pos.set(s.x, 0, s.z + 0.9); __dw.sim(0.4);
+          if (G.state !== 'play') continue;
+          __dw.interact(); __dw.sim(0.1);
+          if (Scene.active) { any++; for (let k = 0; k < 400 && Scene.active; k++) { autoScene(); __dw.sim(0.12); } __dw.sim(0.3); }
+          for (let i = 0; i < 6 && __dw.UI.open; i++) __dw.UI.close(); if (G.state === 'menu') G.state = 'play';
+        }
+        total += any; if (!any) break;
+      }
+      return total;
+    });
+    let sceneTotal = 0;
+    for (let k = 0; k < 10; k++) {
+      sceneTotal += await campRound();
+      await pg.evaluate(k => outfit(k), k);
+      await pg.evaluate(k => { __dw.G.descend(k, false); }, k); await pg.waitForTimeout(750); await closeAll();
+      const r = await pg.evaluate(([k, prof]) => { __dw.setView('top'); return runStage('live', k, prof); }, [k, prof]);
+      // The guardian's chest, the cleared panel or (the last) the ending; then home
+      await pg.evaluate(() => {
+        const W = __dw.World, c = W.sections[W.sections.length - 1].chest; if (c && !c.opened) __dw.G.player.pos.set(c.x, 0, c.z + 1.2);      // the guardian's chest, as the warden would
+        for (let i = 0; i < 60 && !__dw.UI.open; i++) { autoScene(); __dw.sim(0.3); }
+      });
+      const ended = await pg.evaluate(() => { const S = __dw.Items.S; return S.main && S.main.ending || null; });
+      await closeAll(); await pg.evaluate(() => { __dw.G.returnToCamp(); }); await pg.waitForTimeout(800); await closeAll();
+      await pg.evaluate(() => { for (let k = 0; k < 400 && Scene.active; k++) { autoScene(); __dw.sim(0.12); } __dw.G.state = 'play'; });
+      const st = await pg.evaluate(() => ({ step: Story.step ? Story.step.id : 'end', i: __dw.Items.S.main.i, state: __dw.G.state }));
+      rows.push(Object.assign({ stage: k + 1, ending: ended }, r, st)); console.log(JSON.stringify(rows[rows.length - 1]));
+    }
+    sceneTotal += await campRound();
+    const fin = await pg.evaluate(() => {
+      const S = __dw.Items.S, F = S.flags || {}, beats = CFG.mainStory.beats.map(b => b.id), unseen = beats.filter(id => !F['seen_' + id]);
+      return { step: Story.step ? Story.step.id : 'end', i: S.main.i, steps: CFG.mainStory.steps.length, ending: S.main.ending || null, epilogue: !!F.epilogueSeen, unseenBeats: unseen, relicsFound: Object.keys(F).filter(k => k.startsWith('found_')).length, sceneLines: window.__sceneLines || 0, level: S.level, gold: S.gold, deaths: S.deaths };
+    });
+    console.log('\nSTORY', JSON.stringify(fin));
+    console.log('\nstage  done  time  deaths  taken  flasks  boss  bossDeaths  stuck  level  step');
+    for (const r of rows) console.log([String(r.stage).padEnd(6), String(r.done).padEnd(5), String(r.time).padStart(4), String(r.deaths).padStart(7), String(r.taken).padStart(6), String(r.flasks).padStart(7), String(r.boss).padStart(5), String(r.bossDeaths).padStart(10), String(r.stuck).padStart(6), String(r.level).padStart(6), r.step].join('  '));
+    await b.close(); if (errs.length) console.log('ERRORS', errs.slice(0, 5));
+    return;
+  }
   const rows = [];
   for (const name of who === 'both' ? ['casual', 'skilled'] : [who]) {
     for (let k = from; k < to; k++) {

@@ -318,6 +318,7 @@ function updateSpawns() {
     const e = Enemy.spawn(scene, q.type, q.at, q.mult);
     e.room = q.room;
     const hm = (q.hpMult || 1) * Settings.diff.hp; e.hp *= hm; e.maxHp *= hm;
+    if (q.guardian && q.room.inf && !q.room.inf.custom) Story.guardianWake(q.room.inf.si, q.room.inf.loop);
     if (q.guardian) { G.bossHits = G.stats.hitsTaken; startCine(e); e.guardian = q.guardian; Enemy.makeBoss(e, q.room.inf.stage.monster ? CFG.monsterBosses[q.room.inf.stage.monster] : q.room.inf.si); e.bar.style.display = 'none'; e.bar.classList.add('guardian'); G.boss = e; }
     if (q.add) e.add = true;
     if (q.extra) e.extra = true;                                           // a horde extra: pays less
@@ -601,10 +602,11 @@ G.descend = (k, onward) => fadeTo(() => {
   }
 });
 // A guardian enters a new phase
-G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); };
+G.onBossPhase = (e, ph) => { banner(ph.shout); G.rumble(0.6, 0.9, 500); if (ph.line) Story.whisper(ph.line[0], ph.line[1]); };
 // Gold from fallen enemies
 G.onEnemyDeath = e => {
   G.stats.kills++; Codex.onKill(e);
+  if (e.guardian && e.boss && e.room && e.room.inf && !e.room.inf.custom && !e.room.inf.monster) Story.guardianFell(e.room.inf.si, e.room.inf.loop);
   // A run of kills close together: every few steps a little health back and the ultimate sooner
   if (G.mode !== 'camp' && G.player && G.player.state !== 'dead') {
     const H = CFG.horde;
@@ -679,7 +681,12 @@ G.onChest = room => {
   else if (big && G.run) { Items.save(); G.after(1.3, () => { if (G.mode === 'dungeon' && G.run) G.onFloorCleared(); }); }
   else if (big) {
     S.stage = Math.max(S.stage, k + 1); S.best = Math.max(S.best, S.stage); Items.save();
-    G.after(1.3, () => { if (G.mode === 'dungeon') openPanel('cleared', { k, guardian: room.inf.stage.guardian }); });
+    if (k < CFG.stages.length) Story.event('guardian', k);                 // (the story notes it at once, not only at home)
+    G.after(1.3, () => {
+      if (G.mode !== 'dungeon') return;
+      const done = () => openPanel('cleared', { k, guardian: room.inf.stage.guardian });
+      if (k === CFG.stages.length - 1) Story.ending(done); else done();          // the first time through the last ring: the ending
+    });
   } else Items.save();
 };
 // ---------------- World events: a raid on the gate, Sefa's caravan ----------------
@@ -800,7 +807,8 @@ G.returnToCamp = () => fadeTo(() => {
   const k = G.stageK; enterCamp(); G.state = 'play';
   const S = Items.S, si = k % CFG.stages.length;
   if (k < CFG.stages.length) Story.event('guardian', k);
-  if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
+  if (k === CFG.stages.length - 1 && Story.ended && !Story.has('epilogueSeen')) { S.story.post[k] = true; Items.save(); Story.epilogue(); }
+  else if (!S.story.post[k] && k < CFG.stages.length) { S.story.post[k] = true; Items.save(); say(CFG.story.post[si].map(t => ['Maren', t])); }
   else { S.story.post[k] = true; Items.save(); }
 });
 // Press on: down the stair behind the fallen guardian into the next stage
@@ -824,6 +832,7 @@ G.onGearChanged = campChanged => {
 function interact() {
   const s = G.spot; if (!s || G.state !== 'play') return;
   Player.revive(G.player);
+  if (s.id === 'elder' && Story.has('ending_relief')) return Story.talk(null, '', [{ text: "Maren's chair is empty. The lamp beside it burns." }].map(x => x.text));
   if (s.id === 'elder') {
     const S = Items.S, k = S.stage, si = k % CFG.stages.length, depth = Math.floor(k / CFG.stages.length);
     const lines = [['Maren', depth ? CFG.story.depth.replace('{n}', depth + 1) : 'Next is ' + CFG.stages[si].name + '.'], ...CFG.story.pre[si].map(t => ['Maren', t])];
@@ -831,6 +840,7 @@ function interact() {
     if (Story.event('talk', 'elder')) return;                              // the story had something to say
     return Story.talk('elder', 'Maren', lines);
   }
+  if (s.id === 'find') { Snd.play('glint'); Props.examine(s.relic); G.spot = null; Story.event('find', s.relic.id); return; }
   if (s.id === 'shrine') return openPanel('shrine', { shrine: s.shrine, offers: Props.offer() });
   if (s.id === 'captive') {                                               // freed: they make their way to the Hold
     Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
@@ -843,6 +853,7 @@ function interact() {
     if (n) { Snd.play('glint'); FX.text(Combat.chestPos(G.player.pos, 2.2), `+${n} ${M.icon} ${M.name}`, 'xp'); Items.save(); }
     return;
   }
+  if (s.id === 'guard' && Story.event('talk', 'guard')) return;          // the story's beats for the captain
   if (s.id === 'guard' && rookTalk()) return;                            // Captain Rook's task, when there is news
   if (s.id === 'tracks') { G.quest(2); Snd.play('glint'); return say([['', 'Goblin tracks, many of them, heading west along the ridge. Iron-shod boots among them, and a broken arrow fletched in red.'], ['', 'A war band, not a raiding party. Captain Rook should hear of this.']]); }
   if (s.id === 'totem') {
@@ -856,6 +867,7 @@ function interact() {
   }
   if (s.id === 'trainer') { if (Story.event('talk', 'trainer', () => openPanel('trainer'))) return; return openPanel('trainer'); }
   if (s.id === 'eastgate') return say([['Captain Rook', `The east gate stays barred until the first ${CFG.fen.unlock} guardians are down. The Fen is no place for a new warden.`]]);
+  if ((s.id === 'smith' || s.id === 'trader') && Story.event('talk', s.id, () => openPanel(s.id))) return;       // a scene first, then the shop
   openPanel(s.id);
 }
 // ---------------- Captain Rook's task ----------------
@@ -1033,7 +1045,7 @@ document.addEventListener('visibilitychange', () => {
 });
 function step(real) {
   pollPad(real);
-  Snd.music(musicMood(), G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
+  Snd.music(musicMood(), G.boss && G.boss.musicTheme !== undefined ? G.boss.musicTheme : G.boss && G.boss.bossIdx !== undefined ? G.boss.bossIdx : null);
   updateAir(real);
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 2);
   dust.position.set(focus.x, 0, focus.z); dust.rotation.y += real * 0.01;
