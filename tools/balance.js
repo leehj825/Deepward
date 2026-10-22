@@ -63,6 +63,11 @@ const PROFILES = {
         }
         // Keep the parry window honest: let go of block between blows
         if (p.hp < p.maxHp * 0.35 && p.flasks > 0 && (!t || t.tt > 0.9)) { if (Player.drink(p)) m.flasks++; return; }
+        // A cleric mends itself below 55% health (heal mode: a light cast heals), and goes back to smiting above 85%
+        if (p.S.weaponType === 'scepter') {
+          if (p.hp < p.maxHp * 0.55 && !p.healMode) Player.toggleMode(p); else if (p.hp > p.maxHp * 0.85 && p.healMode) Player.toggleMode(p);
+          if (p.healMode && p.st > 12 && (!t || t.tt > 0.6)) { press('light'); return; }
+        }
         // Fight: the nearest foe; execute the broken; heavy at shield knights
         let foe = null, fd = 1e9;
         for (const e of G.enemies) { if (!Enemy.targetable(e)) continue; const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z); if (d < fd) { fd = d; foe = e; } }
@@ -213,7 +218,7 @@ const PROFILES = {
   const rows = [];
   for (const name of who === 'both' ? ['casual', 'skilled'] : [who]) {
     for (let k = from; k < to; k++) {
-      const r = await pg.evaluate(([k, prof]) => { __dw.setView('top'); __dw.arena(k); outfit(k); return runStage('stage', k, prof); }, [k, PROFILES[name]]);
+      const r = await pg.evaluate(([k, prof, cls]) => { __dw.setView('top'); __dw.arena(k); if (cls) __dw.Items.setClass(cls); outfit(k); return runStage('stage', k, prof); }, [k, PROFILES[name], process.env.CLASS || '']);
       rows.push(Object.assign({ who: name, what: 'stage ' + (k + 1) }, r)); console.log(JSON.stringify(rows[rows.length - 1]));
     }
     for (let f = 1; f <= floors; f++) {
