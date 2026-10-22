@@ -474,13 +474,18 @@ H1 to H4 are built (see below). What is left, in the order to do it:
 
 **R5. Difficulty.** The skilled bot clears every stage with 0 to 4 deaths, so Normal may be easy for a good player. Wait for real play notes, then tune (horde size, the last stages, the Hollow King's second phase).
 
-**R6. Story depth.**
+**R6. Story depth (built, except the English voices).**
+- Built: a **journal** (key U, the pause menu and the gear screen: where the story stands, what has been found, what the choices changed, the ending); **three effects of choices** (Bram trusts a warden who told him the truth: forge work costs 10% less; Rook's gate holds 25% longer after his banner came back; Maren's blessing: flasks heal 10% more; `CFG.mainStory.effects`); what **Bram, Tilda, Rook, Hobb and Wenna say after each ending**; a scene for **each freed captive** (Pell, Ilsa, Aldo, Mira); and companion comments on three more moments (the frozen orders, the mould, the graves). `tools/story5_test.js`.
+- Not done: distinct English voices per character (the lines already differ in tone; rewriting them changes the Korean keys, so it waits for a reviewer).
 - Scenes for more people: Bram, Tilda, Rook and the rescued captives only speak at set moments; villagers could react to the ending; companions could comment on more of the story.
 - A journal screen: finished objectives and what the warden learned.
 - Cheap consequences for choices (so far three change anything: Rook's banner, Bram's key, Maren's forgiveness): for example a discount from Bram after he was trusted.
 - English character voices: Korean has a voice per character (`docs/KOREAN_STYLE.md`), English does not. It means editing the story text in `js/config.js`, so the Korean keys change with it.
 
-**R7. Level design (the rest of H2 and H3).** Winding cave tunnels and curved outlines (walkable space as shapes for `inSpace` and the camera), cave decor (pools, mushrooms, stalactites), houses you can walk into, streets that bend, and new stages (a village above the Orchard) instead of restyled ones.
+**R7. Level design (built in part).**
+- Built: **winding cave passages** (a rock leans out of one wall, then the other, 2.4 m left open; a flood test walks every passage), cave dressing (pools, glowing mushrooms, stalagmites), **houses you can walk into** in the ruined town (three walls, a doorway, half a roof so the camera sees in, a bed, a table, a lamp and a crate; the grey banner hangs inside one when there is one). `tools/cave_test.js`.
+- Not done: curved chamber outlines (walkable space as shapes for `inSpace` and the camera), bending town streets, and a new stage (a village above the Orchard) instead of the restyled ones.
+- The original list: Winding cave tunnels and curved outlines (walkable space as shapes for `inSpace` and the camera), cave decor (pools, mushrooms, stalactites), houses you can walk into, streets that bend, and new stages (a village above the Orchard) instead of restyled ones.
 
 **R8. Polish.** A native read of the rewritten Korean lines (Rook's 하게체, Odo's 하오체 were written without a reviewer); ambient sound for the Hold, the Rim and the Fen (P5), and hearing the Under's boss theme; the signed release build, the icon and the store listing (V7).
 

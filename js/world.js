@@ -148,16 +148,13 @@ const World = (() => {
       const x = sd * (hw + 0.5), a = cz - hd - 1, b = cz + hd + 1;
       if (!P.side || P.side.dir !== sd) { wallBox(1, WALL_H, b - a, x, WALL_H / 2, cz); continue; }
       wallBox(1, WALL_H, cz - SIDE_DOOR - a, x, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); wallBox(1, WALL_H, b - cz - SIDE_DOOR, x, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
-      wallBox(1, WALL_H - 2.8, SIDE_DOOR * 2, x, 2.8 + (WALL_H - 2.8) / 2, cz);
       room.sideDoor = { dir: sd, z: cz };
     }
-    wallRow(northZ - 0.5, WALL_H, dn);
-    if (dn !== null) wallBox(DOOR * 2, WALL_H - 3.0, 1, dn, 3.0 + (WALL_H - 3.0) / 2, northZ - 0.5);
-    // The south wall stays low so the high camera can see in; posts and a lintel frame its open doorway
+    wallRow(northZ - 0.5, WALL_H, dn);                                       // (no bar over the doorway: it hung across the view and covered the warden)
+    // The south wall stays low so the high camera can see in; posts frame its open doorway
     wallRow(southZ + 0.5, 0.7, ds);
     if (ds !== null) {
       for (const s of [-1, 1]) wallBox(0.5, 3.1, 1.1, ds + s * (DOOR + 0.25), 1.55, southZ + 0.5, trimM);
-      wallBox(DOOR * 2 + 1, 0.45, 1.1, ds, 3.1, southZ + 0.5, trimM);
       for (const s of [-1, 1]) wallBox(1, WALL_H, CORR_LEN, ds + s * (DOOR + 0.5), WALL_H / 2, southZ + CORR_LEN / 2);
     }
     // The south doorway frame turns see-through while the camera is behind it
@@ -308,6 +305,18 @@ const World = (() => {
           rock(x, z, r, 1.3 + Math.random() * 1.2); block(x, z, r); n++;
           if (Math.random() < 0.7) rock(x + (Math.random() - 0.5) * 2, z + (Math.random() - 0.5) * 2, 0.3 + Math.random() * 0.3, 1, rockM2);
         }
+        // The passage into this section winds: a rock leans out of one wall, then of the other, so the way through is an S (2.4 m or more
+        // stays open between a rock and the opposite wall; the trap plate's stretch in the middle is kept clear)
+        if (ds !== null) {
+          const side = Math.random() < 0.5 ? 1 : -1;
+          for (const [f, sg] of [[0.22, side], [0.78, -side]]) { const r = 1.15 + Math.random() * 0.2, x = ds + sg * 1.4, z = southZ + CORR_LEN * f; rock(x, z, r, 1.2 + Math.random() * 0.6); block(x, z, r); }
+        }
+        // Cave dressing that does not get in the way: pools, glowing mushrooms, small stalagmites
+        const poolM = M(0x1a3a4a, { transparent: true, opacity: 0.7, roughness: 0.1, metalness: 0.3 }), capM = M(rgbHex(th.torch, -30), { emissive: th.torch, emissiveIntensity: 0.55 }), stemM = M(0xc8c0b0);
+        const free = (x, z, r) => offPath(x, z) && !nearDoor(x, z, r) && !room.pillars.some(([px, pz, pr]) => Math.hypot(x + cx - px, z - pz) < (pr || CFG.pillarR) + r + 0.4);
+        for (let n = 0, t = 0; n < 2 && t < 30; t++) { const x = (Math.random() * 2 - 1) * (hw - 2.5), z = cz + (Math.random() * 2 - 1) * (hd - 2.5), r = 0.8 + Math.random() * 0.9; if (!free(x, z, r + 0.5)) continue; add(new THREE.CircleGeometry(r, 14).rotateX(-Math.PI / 2), poolM, x, 0.02, z, false); n++; }
+        for (let n = 0, t = 0; n < 5 && t < 50; t++) { const x = (Math.random() * 2 - 1) * (hw - 1.5), z = cz + (Math.random() * 2 - 1) * (hd - 1.5); if (!free(x, z, 0.5)) continue; for (let q = 0; q < 3; q++) { const h = 0.18 + Math.random() * 0.22, px = x + (Math.random() - 0.5) * 0.5, pz = z + (Math.random() - 0.5) * 0.5; add(new THREE.CylinderGeometry(0.02, 0.03, h, 5), stemM, px, h / 2, pz, false); add(new THREE.SphereGeometry(0.09 + Math.random() * 0.05, 7, 5, 0, Math.PI * 2, 0, Math.PI / 2), capM, px, h, pz, false); } n++; }
+        for (let n = 0, t = 0; n < 6 && t < 60; t++) { const x = (Math.random() * 2 - 1) * (hw - 1.5), z = cz + (Math.random() * 2 - 1) * (hd - 1.5); if (!free(x, z, 0.4)) continue; const h = 0.4 + Math.random() * 0.8; add(new THREE.ConeGeometry(0.12 + Math.random() * 0.1, h, 6), rockM2, x, h / 2, z).rotation.z = (Math.random() - 0.5) * 0.2; n++; }
         // Crystals: glowing clusters that stand in for torches (lights follow them like torches)
         const crystalM = new THREE.MeshBasicMaterial({ color: th.torch }); room.mats.push(crystalM);
         const spots = [[-1, 0.35], [1, 0.35], [-1, -0.45], [1, -0.45]];
@@ -385,10 +394,27 @@ const World = (() => {
             const n = Math.ceil(len / (dep * 0.9));
             for (let k = 0; k < n; k++) block(sd * (hw - dep / 2), z - len / 2 + (k + 0.5) * len / n, dep * 0.62);
           };
+          // A house you can walk into: three walls and a front wall with a doorway, a roof over the back half only (the camera sees in), a bed,
+          // a table, a lamp and a crate. Wall blockers are small circles in a row; the doorway (1.8 m) and the inside stay free.
+          room.houseSpots = [];
+          const openHouse = (sd, z, len, dep, h) => {
+            const xin = sd * (hw - dep), xc = sd * (hw - dep / 2), dz = z + (Math.random() - 0.5) * (len - 3.4), gap = 1.8, t = 0.4;
+            const seg = (za, zb) => { if (zb - za < 0.2) return; wallBox(t, h, zb - za, xin, h / 2, (za + zb) / 2, plaster); for (let k = 0, n = Math.ceil((zb - za) / 0.7); k < n; k++) block(xin, za + (k + 0.5) * (zb - za) / n, 0.55); };
+            seg(z - len / 2, dz - gap / 2); seg(dz + gap / 2, z + len / 2);
+            for (const zz of [z - len / 2, z + len / 2]) { wallBox(dep, h, t, xc, h / 2, zz, plaster); for (let k = 0, n = Math.ceil(dep / 0.7); k < n; k++) block(xin + sd * (k + 0.5) * dep / n, zz, 0.55); }
+            add(new THREE.BoxGeometry(dep * 0.5, 0.2, len), roofM, sd * (hw - dep * 0.25), h + 0.1, z).rotation.z = sd * 0.1;       // the roof, over the back half
+            for (let q = 0; q < 3; q++) add(new THREE.CylinderGeometry(0.05, 0.07, dep * 0.5, 5), woodM, sd * (hw - dep * 0.7), h - 0.1, z - len / 2 + (q + 0.5) * len / 3).rotation.z = Math.PI / 2;   // bare rafters at the front
+            add(new THREE.BoxGeometry(dep - t, 0.05, len - t), woodM, xc, 0.03, z, false);                                 // floor boards
+            add(new THREE.BoxGeometry(0.9, 0.4, 1.8), woodM, sd * (hw - 0.8), 0.25, z - len * 0.25).rotation.y = 0;           // a bed against the back wall
+            add(new THREE.BoxGeometry(0.9, 0.7, 0.9), woodM, sd * (hw - 1.1), 0.4, z + len * 0.22);                           // a table
+            lamp(xc - sd * 0.2, z + len * 0.05, glowM, 1.5);
+            Props.crate(room, sd * (hw - 0.7), z + len * 0.4);
+            room.houseSpots.push({ x: xc, z });
+          };
           for (const sd of [-1, 1]) for (let z = southZ - 2.5; z > northZ + 5;) {
-            const len = 3.6 + Math.random() * 2.6, dep = 2.4 + Math.random() * 0.8, zc = z - len / 2;
+            const open = Math.random() < 0.5, len = open ? 4.8 + Math.random() * 1.6 : 3.6 + Math.random() * 2.6, dep = open ? 3.4 + Math.random() * 0.5 : 2.4 + Math.random() * 0.8, zc = z - len / 2;
             if (zc - len / 2 < northZ + 2) break;
-            if (Math.random() > 0.2 && !nearDoor(sd * (hw - dep), zc, dep + len / 4)) house(sd, zc, len, dep, 2.6 + Math.random() * 0.6);
+            if (Math.random() > 0.2 && !nearDoor(sd * (hw - dep), zc, dep + len / 4)) (open ? openHouse : house)(sd, zc, len, dep, 2.6 + Math.random() * 0.6);
             z -= len + 1.6 + Math.random() * 2.6;
           }
           // Rubble heaps along the far wall
@@ -426,6 +452,7 @@ const World = (() => {
     if (!inf.custom && inf.loop === 0 && CFG.stages[inf.si] && CFG.stages[inf.si].name === inf.stage.name && typeof Story !== 'undefined') {
       for (const r of Story.relicsFor(inf.si)) if (r.room === P.j) {
         let best = null;
+        if (r.kind === 'banner' && room.houseSpots && room.houseSpots.length) { const hs = room.houseSpots[Math.floor(Math.random() * room.houseSpots.length)]; best = [hs.x, hs.z]; }      // a banner hangs inside a house when there is one to walk into
         for (let t = 0; t < 120 && !best; t++) {
           const lx = (Math.random() * 2 - 1) * (hw - 2.6), z = cz + (Math.random() * 2 - 1) * (hd - 2.6);
           if (!offPath(lx, z) || (last && Math.abs(lx) < 4 && z < northZ + 6)) continue;
@@ -489,7 +516,6 @@ const World = (() => {
     box(shw * 2 + 2, 0.7, 1, 0, 0.35, cz + shd + 0.5);
     const nx = -dir * (shw + 0.5), a = cz - shd - 1, b = cz + shd + 1;
     box(1, WALL_H, cz - SIDE_DOOR - a, nx, WALL_H / 2, (a + cz - SIDE_DOOR) / 2); box(1, WALL_H, b - cz - SIDE_DOOR, nx, WALL_H / 2, (cz + SIDE_DOOR + b) / 2);
-    box(1, WALL_H - 2.8, SIDE_DOOR * 2, nx, 2.8 + (WALL_H - 2.8) / 2, cz);
     for (const s of [-1, 1]) box(SIDE_LEN, WALL_H, 1, pc, WALL_H / 2, cz + s * (SIDE_DOOR + 0.5));
     // Torches on the north wall
     const flameM = new THREE.MeshBasicMaterial({ color: kind === 'vault' || kind === 'puzzle' ? 0xffd040 : 0xff5030 }); room.mats.push(flameM);
