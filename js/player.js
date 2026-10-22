@@ -22,6 +22,7 @@ const Player = (() => {
     // The people freed from the Deep: Ilsa's cooking, Brother Aldo's blessing, and a share of gold for every one
     if (typeof Items !== 'undefined' && Items.S && Items.S.rescued) {
       if (Items.rescued('ilsa')) S.flaskHeal *= 1.1;
+      if (Items.S && Items.S.flags && Items.S.flags.maren_forgiven) S.flaskHeal *= 1.1;      // the story: Maren's blessing
       if (Items.rescued('aldo')) S.maxHp = Math.round(S.maxHp * 1.05);
       S.goldFind *= 1 + Math.min(CFG.rescues.goldMax, Items.S.rescued.length * CFG.rescues.gold);
     }

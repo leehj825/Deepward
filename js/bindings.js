@@ -6,12 +6,12 @@ const Bindings = (() => {
     ['up', 'Move forward'], ['down', 'Move back'], ['left', 'Move left'], ['right', 'Move right'],
     ['light', 'Attack'], ['heavy', 'Heavy attack'], ['block', 'Block / parry'], ['dodge', 'Dash'],
     ['flask', 'Healing flask'], ['ult', 'Ultimate'], ['mode', 'Cleric: heal / smite'], ['interact', 'Talk / use'], ['lock', 'Lock on'],
-    ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['camera', 'Switch camera'], ['map', 'Full map'], ['mute', 'Mute'],
+    ['gear', 'Gear'], ['talents', 'Expertise'], ['codex', 'Codex'], ['journal', 'Journal'], ['camera', 'Switch camera'], ['map', 'Full map'], ['mute', 'Mute'],
   ];
   const KEYS = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
     light: ['KeyJ'], heavy: ['KeyK', 'KeyQ'], block: ['KeyL', 'ShiftLeft'], dodge: ['Space'], flask: ['KeyR'], ult: ['KeyF'], mode: ['KeyV'], interact: ['KeyE'],
-    lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], camera: ['KeyB'], map: ['KeyN'], mute: ['KeyM'],
+    lock: ['KeyC'], gear: ['KeyI', 'Tab'], talents: ['KeyT'], codex: ['KeyO'], journal: ['KeyU'], camera: ['KeyB'], map: ['KeyN'], mute: ['KeyM'],
   };
   // Standard-mapping button numbers. A both talks (when something is near) and dashes; movement is on the stick.
   const PAD = { light: [5, 2], heavy: [7], block: [4, 6], dodge: [0, 1], interact: [0], ult: [3], mode: [10], flask: [12], gear: [13], camera: [8], lock: [11] };
