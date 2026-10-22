@@ -66,6 +66,15 @@ const PROFILES = {
         // Fight: the nearest foe; execute the broken; heavy at shield knights
         let foe = null, fd = 1e9;
         for (const e of G.enemies) { if (!Enemy.targetable(e)) continue; const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z); if (d < fd) { fd = d; foe = e; } }
+        if (foe && fd < 14 && p.S.ranged) {
+          // A ranged class: aim by lock-on, keep a middle distance (back off when close, close in when far), shoot or cast, a heavy now and then
+          G.lock = foe; const a = Math.atan2(foe.pos.x - p.pos.x, foe.pos.z - p.pos.z);
+          if (fd < 4.2) { In.stick.x = -Math.sin(a); In.stick.z = -Math.cos(a); }
+          else if (fd > 9.5 || W.route(p.pos, foe.pos)) { const g = W.route(p.pos, foe.pos) || foe.pos, ga = Math.atan2(g.x - p.pos.x, g.z - p.pos.z); In.stick.x = Math.sin(ga); In.stick.z = Math.cos(ga); }
+          else { const sa = a + Math.PI / 2 * (Math.floor(G.time / 3) % 2 ? 1 : -1); In.stick.x = Math.sin(sa) * 0.5; In.stick.z = Math.cos(sa) * 0.5; }
+          if (p.st > 18 && Math.random() < prof.aggro * 0.3) press(Math.random() < 0.22 ? 'heavy' : 'light');
+          return;
+        }
         if (foe && fd < 14) {
           const via = W.route(p.pos, foe.pos), goal = via || foe.pos;
           if (Player.executable(p)) { press('heavy'); return; }
@@ -101,8 +110,14 @@ const PROFILES = {
     window.outfit = k => {
       const I = __dw.Items, S = I.S, tier = Math.min(k, 6), rar = k >= 2 ? 1 : 0;
       S.level = 1 + 2 * k; S.xp = 0; S.camp = { forge: Math.min(3, k), apothecary: Math.min(3, k), yard: Math.min(3, k) };
-      for (const slot of ['weapon', 'shield', 'armor', 'helm']) { const it = I.generate(tier, { slot, type: slot === 'weapon' ? 'sword' : undefined, rarity: rar }); it.plus = Math.min(k, 4); it.gems = []; S.equip[slot] = it; }
-      S.talents = {}; S.points = 0; for (const id of ['steady', 'keen', 'riposte', 'steady', 'keen', 'riposte', 'precision', 'precision', 'fury'].slice(0, Math.min(9, 2 * k))) S.talents[id] = (S.talents[id] || 0) + 1;
+      const cls = S.cls || 'warrior', start = CFG.classes[cls].start || 'sword';
+      for (const slot of ['weapon', 'shield', 'armor', 'helm']) { const it = I.generate(tier, { slot, type: slot === 'weapon' ? start : undefined, rarity: rar }); it.plus = Math.min(k, 4); it.gems = []; S.equip[slot] = it; }
+      S.talents = {}; S.points = 0;
+      if (cls === 'warrior') for (const id of ['steady', 'keen', 'riposte', 'steady', 'keen', 'riposte', 'precision', 'precision', 'fury'].slice(0, Math.min(9, 2 * k))) S.talents[id] = (S.talents[id] || 0) + 1;
+      else {                                                                  // the class's own tree, first learnable talent first, two points a stage
+        const ids = Object.keys(CFG.trees[{ archer: 'marksman', mage: 'spellweaver', cleric: 'devotion' }[cls]].talents);
+        S.points = Math.min(18, 2 * k); for (let n = 0; n < 80 && S.points > 0; n++) { let got = false; for (const id of ids) { try { if (I.learn(id)) { got = true; break; } } catch (e) {} } if (!got) break; }
+      }
       __dw.G.onGearChanged(); __dw.G.player.hp = __dw.G.player.maxHp; __dw.G.player.flasks = __dw.G.player.S.flasks;
     };
     // A scene on screen: read it as a player would (finish the typing, go on, answer a choice at random)
