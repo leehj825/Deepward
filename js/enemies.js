@@ -336,7 +336,7 @@ const Enemy = (() => {
 
   function damage(e, n, cls = '') {
     e.hp -= n;
-    FX.text(Combat.chestPos(e.pos, 2.0 * e.def.scale), Math.round(n) + (cls === 'back' ? '!' : ''), 'dmg');
+    if (cls !== 'quiet') FX.text(Combat.chestPos(e.pos, 2.0 * e.def.scale), Math.round(n) + (cls === 'back' ? '!' : ''), 'dmg');
     if (e.hp <= 0) die(e); else if (e.boss) checkPhase(e);
   }
   function die(e) {
@@ -396,7 +396,7 @@ const Enemy = (() => {
     FX.shake(0.5); FX.hitStop(0.2); Snd.play('execute'); G.rumble(1, 0.8, 350); G.stats.crits++;
     hurtFlash(e, 0xffe0a0, 1.4);
     if (e.guardian) { damage(e, atk.dmg * (atk.critMult || CFG.player.critMult) * CFG.player.execute.execMult); if (e.state !== 'dead' && e.state !== 'roar') { e.posture = 0; stun(e, 1.0); } }
-    else damage(e, e.hp + 1);
+    else damage(e, e.hp + 1, 'quiet');                                     // a plain foe just dies: no number (it would show the foe's whole health, 99999 for the training dummy)
     if (G.stats) G.stats.executions = (G.stats.executions || 0) + 1;
   }
 
