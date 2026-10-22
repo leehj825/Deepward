@@ -253,7 +253,7 @@ const CFG = {
         { weight: 3, hits: [{ pose: 'pounce', wind: 0.8, active: 0.3, recover: 0.75, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true }] },
       ],
     },
-    // Feints: the first glint may be a fake, the real blow comes fast after it
+    // Feints: the first wind-up may be a fake (no ring), the real blow comes fast after it
     duelist: {
       name: 'Hollow Duelist', hp: 62, posture: 60, postureRegen: 18, speed: 3.0, radius: 0.45, scale: 1.02,
       flinch: false, approach: 2.0, cooldown: [0.9, 1.6], xp: 20, gold: 14,
@@ -965,13 +965,13 @@ const CFG = {
   ],
   tips: {
     execute: 'BROKEN! Hit HEAVY (@heavy) close by to EXECUTE it: an untouchable finishing blow.',
-    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.',
+    skeleton: 'A WHITE ring closing in means the attack can be blocked. Hold BLOCK (@block) - or raise it just as the ring closes to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (@heavy) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
     goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
-    spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
-    duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
-    brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
+    spider: 'An AMBER ring is a POUNCE: it smashes through a raised shield. PARRY it just as the ring closes, or DASH.',
+    duelist: 'Duelists FEINT: a wind-up with no ring is a fake. Wait for the real swing before you parry.',
+    brute: 'A RED ring is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 
@@ -1215,7 +1215,7 @@ const CFG = {
       ['Maren', 'One rule here: come back up. The gate by the fire leads down. Go when you are ready.'],
     ],
     pre: [
-      ['The Crypt is the first ring. The dead there are slow, but they never tire.', 'When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.'],
+      ['The Crypt is the first ring. The dead there are slow, but they never tire.', 'When a white ring closes in, raise your shield. Raise it just as the ring closes and you will throw them off balance.'],
       ['Below the Crypt stands the Iron Keep: the garrison that marched down to seal the Deep and never marched back.', 'Their shields still hold. A heavy blow breaks a guard, or get behind them.'],
       ['Past the Keep the tunnels open into the Den. Something big has been feeding there, and goblins scurry at its heels.', 'When its weapon burns red, do not block. Dash through it.'],
       ['Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.', 'Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.'],

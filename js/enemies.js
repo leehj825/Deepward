@@ -71,9 +71,7 @@ const Enemy = (() => {
     const h = e.atk.hits[e.hitIdx];
     e.phase = 'wind'; e.phaseT = 0; e.struck = false;
     if (h.blink) blink(e);
-    // The telegraph: a glint on the weapon (white = blockable, red = unblockable) and a floor ring for area attacks
-    const tipPos = () => e.rig.weapon.tip.getWorldPosition(new THREE.Vector3());
-    FX.glint(tipPos(), glowOf(h), h.unblockable || h.parryOnly ? 2.2 : 1.3, Math.min(0.5, h.wind * 0.6), tipPos);
+    // The telegraph: the timing circle (white = blockable, red = unblockable, amber = parry-only; see beginHit) and a floor ring for area attacks
     if (h.unblockable) {
       Snd.play('warn'); FX.text(Combat.chestPos(e.pos, 2.6 * e.def.scale), Settings.get('cues') ? '✖ DASH!' : '!', 'danger');
       Rig.flash(e.rig, GLOW_RED, 0.5); e.flashT = 0.25;

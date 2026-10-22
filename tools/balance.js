@@ -15,6 +15,20 @@ const PROFILES = {
   const pg = await b.newPage({ viewport: { width: 800, height: 500 } });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  if (process.env.LANGKO) {                                                      // LANGKO=1: play in Korean and list every text that stays English
+    await pg.evaluate(() => { localStorage.clear(); localStorage.setItem('dw_settings', JSON.stringify({ lang: 'ko' })); }); await pg.reload();
+    await pg.evaluate(() => {
+      window.__en = new Map();
+      const ALLOW = /^(WASD|Esc|Space|Enter|Tab|Shift|Ctrl|LB|RB|LT|RT|LS|RS|View|Menu|Key[A-Z]|Arrow\w+|Digit\d|PNG|FPS|XP|HP|OK|[A-Z]|px|ms|x|vs|Deepward|English|Lv|J|K|L|R|F|E|I|T|B|C|N|M|P)$/;
+      const bad = t => t && /[A-Za-z]{3}/.test(t) && t.split(/[^A-Za-z-]+/).filter(w => w.length >= 3).some(w => !ALLOW.test(w));
+      const note = (t, where) => { if (bad(t)) { const k = t.trim(); window.__en.set(k, (window.__en.get(k) || [0, where])); window.__en.get(k)[0]++; } };
+      const check = n => setTimeout(() => {
+        if (n.nodeType === 3) { if (n.isConnected && !n.parentElement.closest('script,style,[translate=no],textarea')) note(n.data, n.parentElement.id || n.parentElement.className || n.parentElement.tagName); }
+        else if (n.nodeType === 1 && n.isConnected) { for (const a of ['title', 'placeholder', 'aria-label']) note(n.getAttribute(a), a); for (const c of n.childNodes) check(c); }
+      }, 60);
+      new MutationObserver(l => { for (const m of l) { if (m.type === 'characterData') check(m.target); else if (m.type === 'attributes') check(m.target); else for (const a of m.addedNodes) check(a); } }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label'] });
+    });
+  }
   await pg.waitForTimeout(300);
   await pg.evaluate(() => {
     // ---------------- The bot ----------------
@@ -210,6 +224,7 @@ const PROFILES = {
       return { step: Story.step ? Story.step.id : 'end', i: S.main.i, steps: CFG.mainStory.steps.length, ending: S.main.ending || null, epilogue: !!F.epilogueSeen, unseenBeats: unseen, relicsFound: Object.keys(F).filter(k => k.startsWith('found_')).length, sceneLines: window.__sceneLines || 0, level: S.level, gold: S.gold, deaths: S.deaths };
     });
     console.log('\nSTORY', JSON.stringify(fin));
+    if (process.env.LANGKO) console.log('\nENGLISH LEFT', JSON.stringify(await pg.evaluate(() => [...window.__en.entries()].map(([k, v]) => [k, v[0], v[1]])), null, 0));
     console.log('\nstage  done  time  deaths  taken  flasks  boss  bossDeaths  stuck  level  step');
     for (const r of rows) console.log([String(r.stage).padEnd(6), String(r.done).padEnd(5), String(r.time).padStart(4), String(r.deaths).padStart(7), String(r.taken).padStart(6), String(r.flasks).padStart(7), String(r.boss).padStart(5), String(r.bossDeaths).padStart(10), String(r.stuck).padStart(6), String(r.level).padStart(6), r.step].join('  '));
     await b.close(); if (errs.length) console.log('ERRORS', errs.slice(0, 5));

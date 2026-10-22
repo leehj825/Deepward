@@ -59,7 +59,7 @@ Every model is built in code from primitives, and there are no model, texture or
 
 1. Light attacks
 2. Heavy attacks
-3. Blocking the white glint
+3. Blocking when the white ring closes
 4. Parrying at the moment of impact
 5. Dashing through a red, unblockable slam
 6. Breaking his posture and executing him
@@ -380,7 +380,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 
 ## How a fight works
 
-- **White glint** on an enemy weapon: the attack can be blocked. Raise the block within 0.2 s of impact to **parry**. A parry takes no damage and deals heavy posture damage.
+- **White ring** closing on an enemy: the attack can be blocked. Raise the block within 0.2 s of impact to **parry**. A parry takes no damage and deals heavy posture damage.
 - **Red glow** (and a red floor ring for area attacks): the attack is **unblockable**, so **dash** through it. The dash covers about 2.6 m in 0.3 s, leaves after-images, and in the behind view keeps you facing forward, so you can dash sideways or back.
 - **Stamina** pays for attacks, dashes and every blocked hit. If a block runs out of stamina, your guard breaks and you're stunned.
 - **Posture:** the yellow bar under an enemy's health. It fills from hits, parries and blocked blows. When it's full the enemy is **broken**, and your next hit is a 3× critical.

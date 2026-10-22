@@ -22,7 +22,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Stamina** pays for attacks, dashes and blocked hits. It regenerates after a short pause, and more slowly while you block.
 - **Posture:** enemies fill a posture bar from hits, blocks and parries. It drains when they're left alone, and when it's full they're broken.
 - **Telegraphs:**
-  - A white glint means blockable.
+  - A white ring closing in means blockable (the cross-shaped light on the weapon was removed: the ring is the only telegraph).
   - Red means unblockable, so dodge.
   - Area attacks draw a filling red ring on the floor.
   - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to dash sideways.
