@@ -149,7 +149,7 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip(Bindings.fmt('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.', 'pad')); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.'); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
@@ -353,7 +353,7 @@ let bannerT = null, tipT = null;
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 1800); }
 function showTip(txt) {
   if (!txt) return;
-  txt = Bindings.fmt(txt);                                                // @heavy and the like become the player's own keys
+  txt = Bindings.fmt(typeof I18N !== 'undefined' ? I18N.tr(txt) : txt);   // translated first (the table has the @heavy form), then @heavy and the like become the player's own keys
   if (document.body.classList.contains('touch') && !document.body.classList.contains('pad')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {

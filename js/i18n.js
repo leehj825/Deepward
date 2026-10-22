@@ -6,10 +6,10 @@
 const I18N = (() => {
   const TABLES = { ko: typeof LANG_KO !== 'undefined' ? LANG_KO : null };
   const NAMES = [['en', 'English'], ['ko', '한국어']];
-  let T = null, lang = 'en', tmpl = null, pats = [], done = new WeakMap(), cache = new Map();
+  let T = null, lang = 'en', tmpl = null, pats = [], done = new WeakMap(), cache = new Map(), ci = null;
   const NUM = /[-+−]?\d+(?:[.,]\d+)?/g;
   function use(l) {
-    lang = TABLES[l] ? l : 'en'; T = TABLES[lang]; cache.clear(); done = new WeakMap();
+    lang = TABLES[l] ? l : 'en'; T = TABLES[lang]; cache.clear(); done = new WeakMap(); ci = null;
     tmpl = new Map(); pats = [];
     if (T) for (const k in T) {
       if (k.includes('{a}')) {                                                  // a phrase around names: "Slay {0} {a}s"
@@ -46,6 +46,10 @@ const I18N = (() => {
     // An icon or mark in front, punctuation at the end ("🏆 Bones at Rest", "🔴 Ruby.")
     const pre = c.match(/^([^A-Za-z0-9{"'(]+)(.+)$/u); if (pre) { const r = find(pre[2]); if (r !== null) return pre[1] + r; }
     const post = c.match(/^(.+?)([.:!,]+)$/); if (post) { const r = find(post[1]); if (r !== null) return r + post[2]; }
+    // The same text in another case (a banner in capitals: "STAGE CLEARED"; a description lowercased inside a sentence)
+    if (c !== c.toLowerCase() || c !== c.toUpperCase()) { if (!ci) { ci = new Map(); for (const k in T) ci.set(k.toLowerCase(), k); } const k = ci.get(c.toLowerCase()); if (k) return T[k]; }
+    // A list ("🟡 Topaz, 🟢 Emerald"): each item on its own
+    if (c.includes(', ')) { const parts = c.split(', '), out = parts.map(p => find(p.trim())); if (out.every(x => x !== null)) return out.join(', '); }
     // In parts
     for (const sep of [' · ', ': ', ' — ', ' - ']) {
       if (!c.includes(sep)) continue;

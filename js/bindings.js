@@ -50,7 +50,8 @@ const Bindings = (() => {
   }
   // Fill @action tokens in a hint with the player's own bindings (the device in use: controller or keyboard)
   const device = () => document.body.classList.contains('pad') ? 'pad' : 'key';
-  const fmt = (txt, dev = device()) => String(txt).replace(/@(\w+)/g, (m, a) => KEYS[a] || PAD[a] ? label(a, dev, true) : m);
+  const tr = x => (typeof I18N !== 'undefined' ? I18N.tr(x) : x);
+  const fmt = (txt, dev = device()) => String(txt).replace(/@(\w+)/g, (m, a) => KEYS[a] || PAD[a] ? label(a, dev, true).split(' / ').map(tr).join(' / ') : m);
 
   // ---------------- Rebinding ----------------
   // listen: { act, dev } while waiting for the next key or button; the Controls panel shows it

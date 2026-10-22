@@ -10,9 +10,9 @@ const Tutorial = (() => {
     // @action becomes the player's own key or button (Settings → Controls)
     { id: 'light', need: 5, title: 'Strike', text: ['Hit Hobb with light attacks: @light.', 'Hit Hobb with light attacks: @light.', 'Hit Hobb with ATTACK.'], attack: null },
     { id: 'heavy', need: 2, title: 'Heavy blow', text: ['Land heavy attacks: @heavy. They break guards and posture.', 'Land heavy attacks: @heavy. They break guards and posture.', 'Land HEAVY attacks. They break guards and posture.'], attack: null },
-    { id: 'block', need: 3, title: 'Block', text: ['A WHITE glint means you can block. Hold @block as he swings.', 'A WHITE glint means you can block. Hold @block as he swings.', 'A WHITE glint means you can block. Hold BLOCK as he swings.'], attack: SLOW },
+    { id: 'block', need: 3, title: 'Block', text: ['A WHITE ring closing in means you can block. Hold @block as he swings.', 'A WHITE ring closing in means you can block. Hold @block as he swings.', 'A WHITE ring closing in means you can block. Hold BLOCK as he swings.'], attack: SLOW },
     { id: 'parry', need: 3, title: 'Parry', text: ['Raise the block right at the moment of impact - not early - to PARRY. Tap @block just as the blade lands.', 'Raise the block right at impact to PARRY. Tap @block just as the blade lands.', 'Tap BLOCK right as the blade lands to PARRY.'], attack: SLOW },
-    { id: 'dash', need: 2, title: 'Dash', text: ['RED glow and a red ring: unblockable. Dash out with @dodge (plus a direction) just before it lands.', 'RED glow: unblockable. Dash with @dodge (plus a direction) just before it lands.', 'RED glow: unblockable. Tap DASH just before it lands.'], attack: SLAM },
+    { id: 'dash', need: 2, title: 'Dash', text: ['A RED ring: unblockable. Dash out with @dodge (plus a direction) just before it lands.', 'A RED ring: unblockable. Dash with @dodge (plus a direction) just before it lands.', 'A RED ring: unblockable. Tap DASH just before it lands.'], attack: SLAM },
     { id: 'exec', need: 1, title: 'Break and execute', text: ['Fill his posture bar (parries and heavies), then hit @heavy close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then @heavy close by to EXECUTE him.', 'Fill his posture bar (parries and heavies), then HEAVY close by to EXECUTE him.'], attack: SLOW },
   ];
   let on = false, i = 0, n = 0, foe = null, base = null, lastHp = 0, pending = false;
@@ -55,7 +55,7 @@ const Tutorial = (() => {
   }
   function show() {
     const L = LESSONS[i];
-    box.innerHTML = `<div class="lt">Lesson ${i + 1} / ${LESSONS.length} · ${L.title} <b>${Math.min(n, L.need)} / ${L.need}</b></div><div class="lx">${Bindings.fmt(L.text[style()], style() === 1 ? 'pad' : 'key')}</div>
+    box.innerHTML = `<div class="lt">Lesson ${i + 1} / ${LESSONS.length} · ${L.title} <b>${Math.min(n, L.need)} / ${L.need}</b></div><div class="lx">${Bindings.fmt(typeof I18N !== 'undefined' ? I18N.tr(L.text[style()]) : L.text[style()], style() === 1 ? 'pad' : 'key')}</div>
       <div class="lb"><button data-t="skip">Skip lesson</button><button data-t="leave">Leave training</button></div>`;
     box.classList.add('show');
   }
