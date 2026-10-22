@@ -398,3 +398,5 @@ body.scene #pad, body.scene #stick, body.scene #padKeys, body.scene #keys, body.
 /* The ad banner takes a strip at the very top (--adh, set by js/ads.js to the banner's height once an ad has loaded): everything that sits at
    the top of the screen moves down by it, so the banner never covers the health bar, the place name, the buttons, the map or a tip. */
 body.has-ad #hud, body.has-ad #corner, body.has-ad #waveBox, body.has-ad #mapInfo, body.has-ad.touch #tip, body.has-ad #minimap:not(.big) { margin-top: var(--adh, 56px); }
+body.has-ad .screen { padding-top: calc(16px + var(--adh, 56px)); }                  /* menus, the title and the pause card start below the banner too */
+body.has-ad .pcard { max-height: calc(100vh - 32px - var(--adh, 56px)); }

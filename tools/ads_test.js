@@ -13,9 +13,11 @@ const { chromium } = require('playwright'); const path = require('path');
       document.getElementById('adSlot').innerHTML = '<div style="width:320px;height:50px"></div>'; Ads.show(true);
       const adh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--adh'));
       const after = Object.fromEntries(ids.map(i => [i, top(i)]));
-      return { adh, before, after, hiddenByDefault: !document.body.classList.contains('has-ad') || true };
+      const sc = document.getElementById('panel'); sc.classList.add('show'); document.getElementById('pcard').innerHTML = '<h2>x</h2>'.repeat(60); const pc = document.getElementById('pcard').getBoundingClientRect();
+      return { adh, before, after, cardTop: pc.top };
     });
     for (const id of Object.keys(r.after)) { if (r.after[id] < r.adh - 0.5 || r.after[id] < r.before[id] + r.adh - 0.5) bad.push(`${w}x${h} ${id}: ${r.before[id]} -> ${r.after[id]} (strip ${r.adh})`); }
+    if (r.cardTop < r.adh - 0.5) bad.push(`${w}x${h} panel card starts at ${r.cardTop}, under the strip ${r.adh}`);
     await pg.close();
   }
   await b.close();
