@@ -47,6 +47,12 @@ const path = require('path');
     I.S.main.i = 2; I.S.stage = 3; o.catchUp = /Maren/.test(Story.objective()) && I.S.main.i === 3;        // the Crypt's step is done by the cleared stage
     const hit = Story.event('talk', 'elder'); for (let k = 0; k < 40 && Scene.active; k++) { __dw.sim(0.1); Scene.next(); __dw.sim(4); if (Scene.current && Scene.current.choices.length) Scene.pick(0); else Scene.next(); }
     o.catchUp2 = hit && /Maren/.test(Story.objective()) && I.S.main.i === 5;                    // the report, then the Keep's step on its own, then the king step waits
+    // The sparring lesson still starts after Hobb's scene (the scene once overwrote the tutorial's 3D scene handle and left training stuck)
+    I.S.main.i = 1; p.pos.set(17, 0, 12.1); __dw.sim(0.4);
+    Story.event('talk', 'trainer', () => __dw.openPanel('trainer')); for (let k = 0; k < 40 && Scene.active; k++) { __dw.sim(0.1); Scene.next(); __dw.sim(4); Scene.next(); }
+    const tb = document.querySelector('[data-act="train"]'); if (tb) tb.click(); __dw.sim(0.3);
+    o.sparring = !!tb && G.training === true && G.enemies.length === 1 && /Lesson 1/.test(document.getElementById('lesson').textContent);
+    Tutorial.stop && Tutorial.stop(); G.training = false;
     // Saved
     Items.save(); o.saved = JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k => /dw_/.test(k) && /"main"/.test(localStorage.getItem(k)) ) || '') || '{}').main !== undefined;
     return o;

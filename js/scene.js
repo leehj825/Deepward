@@ -17,7 +17,7 @@ const Scene = (() => {
     S = { script, i: 0, t: 0, npc: npcOf(script.who), sel: 0, done, cam: null, label: {} };
     script.steps.forEach((st, k) => { if (st.label) S.label[st.label] = k; });
     if (S.npc) setup(S);
-    G.scene = S; G.state = 'scene'; Input.keys = {};
+    G.state = 'scene'; Input.keys = {};          // (not G.scene: that is the 3D scene the tutorial spawns its dummy into)
     $('letterbox').classList.add('on'); document.body.classList.add('cine', 'scene');
     if (document.pointerLockElement) document.exitPointerLock();
     show();
@@ -87,7 +87,7 @@ const Scene = (() => {
     if (S.npc) { S.npc.rig.root.rotation.z = 0; }
     $('letterbox').classList.remove('on'); document.body.classList.remove('cine', 'scene');
     if (G.state === 'scene') G.state = 'play';
-    S = null; G.scene = null;
+    S = null;
     if (d) d();
   }
   const skip = () => { if (S) { S.i = Infinity; end(); } };
