@@ -92,7 +92,7 @@ const Player = (() => {
       if (p.st <= 0) return false;
       let data;
       const ex = b.act === 'heavy' && executable(p);
-      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true }); p.combo = 0; }
+      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true, shot: undefined, heal: undefined, aoe: undefined });  p.combo = 0; }
       else if (b.act === 'heavy') { data = heavyOf(p); p.combo = 0; }
       else {
         // Weapon mastery rank 2 adds a finishing blow to the light combo
@@ -112,7 +112,6 @@ const Player = (() => {
   const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
   // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
   function executable(p) {
-    if (p.S.ranged) return null;                                    // the ranged classes do not step in for an execution
     let best = null, bd = Infinity;
     for (const e of G.enemies) {
       if (e.state !== 'broken') continue;
