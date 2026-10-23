@@ -26,4 +26,4 @@ Playwright scripts in `tools/`, driven through `window.__dw`. Run them one at a 
 ## Release build
 - Warrior only: `CFG.warriorOnly` (js/config.js) skips the class panel; `?classes=1` restores it (used by `tutorial_test` and `balance.js`). The party is unchanged.
 - The debug APK keeps the class choice: `tools/make_www.js` sets `warriorOnly: false` in the copied `www/js/config.js` unless `DW_RELEASE=1` (the store build must set it).
-- Signing: not set up yet (V7 in DESIGN.md); the user will supply the keystore details.
+- Signed store build: `.github/workflows/android-release.yml` runs on every push to `main` (and by hand): `DW_RELEASE=1` (warrior only, real ads), `tools/android_sign.js` adds the signing config and version (code = run number, name 1.0.N), then `assembleRelease bundleRelease`. Secrets: KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD. Artifact `deepward-release` holds the .apk and .aab. Not yet run on GitHub: check the first run. The ad consent prompt (R3) is still not built.

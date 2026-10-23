@@ -10,4 +10,10 @@ if (process.env.DW_RELEASE !== '1') {
   if (k === c) throw new Error('warriorOnly line not found in js/config.js');
   fs.writeFileSync(f, k);
 }
+// The store build also turns the ads from test ads to real ones
+if (process.env.DW_RELEASE === '1') {
+  const f = path.join(out, 'js', 'ads.js'), c = fs.readFileSync(f, 'utf8'), k = c.replace('testing: true }', 'testing: false }');
+  if (k === c) throw new Error('admob testing flag not found in js/ads.js');
+  fs.writeFileSync(f, k);
+}
 console.log('www/ ready:', fs.readdirSync(out).join(', '));

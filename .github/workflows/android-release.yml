@@ -1,0 +1,67 @@
+# Builds the signed store version of Deepward when something is merged to main: an installable release APK and the
+# Android App Bundle (.aab) for the Play Store. Warrior only, real ads (DW_RELEASE=1). The signing key comes from the
+# repository secrets KEYSTORE_B64 (the keystore file, base64), KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD.
+# Download the "deepward-release" artifact from the run. The version code is the run number.
+name: Android release
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main']
+    paths: ['js/**', 'css/**', 'vendor/**', 'index.html', 'tools/make_www.js', 'tools/android_patch.js', 'tools/android_sign.js', 'package.json', 'package-lock.json', 'capacitor.config.json', 'resources/**', 'icons/**', '.github/workflows/android-release.yml']
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      DW_RELEASE: '1'
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Accept Android SDK licenses (the runner already has the SDK)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Install Capacitor
+        run: npm ci
+      - name: Check the signing secrets are set
+        run: |
+          [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ] || { echo "A signing secret is missing"; exit 1; }
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+      - name: Generate the Android project and copy the game into it
+        run: |
+          npm run www
+          grep -q 'warriorOnly: !' www/js/config.js && grep -q 'testing: false' www/js/ads.js
+          [ -d android ] || npx cap add android
+          node tools/android_patch.js
+          npx cap sync android
+      - name: Set up the signing key and version
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore" node tools/android_sign.js
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+      - name: Build the signed APK and bundle
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleRelease bundleRelease --no-daemon
+      - name: Name the files after the version
+        run: |
+          mkdir out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/deepward-${VERSION_NAME}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "out/deepward-${VERSION_NAME}.aab"
+          rm -f "$RUNNER_TEMP/release.keystore"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: deepward-release
+          path: out/*
+          if-no-files-found: error
