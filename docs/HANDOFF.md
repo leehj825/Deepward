@@ -25,4 +25,5 @@ Playwright scripts in `tools/`, driven through `window.__dw`. Run them one at a 
 
 ## Release build
 - Warrior only: `CFG.warriorOnly` (js/config.js) skips the class panel; `?classes=1` restores it (used by `tutorial_test` and `balance.js`). The party is unchanged.
+- The debug APK keeps the class choice: `tools/make_www.js` sets `warriorOnly: false` in the copied `www/js/config.js` unless `DW_RELEASE=1` (the store build must set it).
 - Signing: not set up yet (V7 in DESIGN.md); the user will supply the keystore details.
