@@ -14,7 +14,21 @@ const PROFILES = {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 800, height: 500 } });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  await pg.goto('file://' + path.resolve(__dirname, '../index.html') + '?classes=1');
+  if (process.env.LANGKO) {                                                      // LANGKO=1: play in Korean and list every text that stays English
+    await pg.evaluate(() => { localStorage.clear(); localStorage.setItem('dw_settings', JSON.stringify({ lang: 'ko' })); }); await pg.reload();
+    await pg.evaluate(() => {
+      window.__en = new Map();
+      const ALLOW = /^(WASD|Esc|Space|Enter|Tab|Shift|Ctrl|LB|RB|LT|RT|LS|RS|View|Menu|Key[A-Z]|Arrow\w+|Digit\d|PNG|FPS|XP|HP|OK|[A-Z]|px|ms|x|vs|Deepward|English|Lv|J|K|L|R|F|E|I|T|B|C|N|M|P)$/;
+      const bad = t => t && /[A-Za-z]{3}/.test(t) && t.split(/[^A-Za-z-]+/).filter(w => w.length >= 3).some(w => !ALLOW.test(w));
+      const note = (t, where) => { if (bad(t)) { const k = t.trim(); window.__en.set(k, (window.__en.get(k) || [0, where])); window.__en.get(k)[0]++; } };
+      const check = n => setTimeout(() => {
+        if (n.nodeType === 3) { if (n.isConnected && !n.parentElement.closest('script,style,[translate=no],textarea')) note(n.data, n.parentElement.id || n.parentElement.className || n.parentElement.tagName); }
+        else if (n.nodeType === 1 && n.isConnected) { for (const a of ['title', 'placeholder', 'aria-label']) note(n.getAttribute(a), a); for (const c of n.childNodes) check(c); }
+      }, 60);
+      new MutationObserver(l => { for (const m of l) { if (m.type === 'characterData') check(m.target); else if (m.type === 'attributes') check(m.target); else for (const a of m.addedNodes) check(a); } }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label'] });
+    });
+  }
   await pg.waitForTimeout(300);
   await pg.evaluate(() => {
     // ---------------- The bot ----------------
@@ -63,9 +77,23 @@ const PROFILES = {
         }
         // Keep the parry window honest: let go of block between blows
         if (p.hp < p.maxHp * 0.35 && p.flasks > 0 && (!t || t.tt > 0.9)) { if (Player.drink(p)) m.flasks++; return; }
+        // A cleric mends itself below 55% health (heal mode: a light cast heals), and goes back to smiting above 85%
+        if (p.S.weaponType === 'scepter') {
+          if (p.hp < p.maxHp * 0.55 && !p.healMode) Player.toggleMode(p); else if (p.hp > p.maxHp * 0.85 && p.healMode) Player.toggleMode(p);
+          if (p.healMode && p.st > 12 && (!t || t.tt > 0.6)) { press('light'); return; }
+        }
         // Fight: the nearest foe; execute the broken; heavy at shield knights
         let foe = null, fd = 1e9;
         for (const e of G.enemies) { if (!Enemy.targetable(e)) continue; const d = Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z); if (d < fd) { fd = d; foe = e; } }
+        if (foe && fd < 14 && p.S.ranged) {
+          // A ranged class: aim by lock-on, keep a middle distance (back off when close, close in when far), shoot or cast, a heavy now and then
+          G.lock = foe; const a = Math.atan2(foe.pos.x - p.pos.x, foe.pos.z - p.pos.z);
+          if (fd < 4.2) { In.stick.x = -Math.sin(a); In.stick.z = -Math.cos(a); }
+          else if (fd > 9.5 || W.route(p.pos, foe.pos)) { const g = W.route(p.pos, foe.pos) || foe.pos, ga = Math.atan2(g.x - p.pos.x, g.z - p.pos.z); In.stick.x = Math.sin(ga); In.stick.z = Math.cos(ga); }
+          else { const sa = a + Math.PI / 2 * (Math.floor(G.time / 3) % 2 ? 1 : -1); In.stick.x = Math.sin(sa) * 0.5; In.stick.z = Math.cos(sa) * 0.5; }
+          if (p.st > 18 && Math.random() < prof.aggro * 0.3) press(Math.random() < 0.22 ? 'heavy' : 'light');
+          return;
+        }
         if (foe && fd < 14) {
           const via = W.route(p.pos, foe.pos), goal = via || foe.pos;
           if (Player.executable(p)) { press('heavy'); return; }
@@ -101,8 +129,14 @@ const PROFILES = {
     window.outfit = k => {
       const I = __dw.Items, S = I.S, tier = Math.min(k, 6), rar = k >= 2 ? 1 : 0;
       S.level = 1 + 2 * k; S.xp = 0; S.camp = { forge: Math.min(3, k), apothecary: Math.min(3, k), yard: Math.min(3, k) };
-      for (const slot of ['weapon', 'shield', 'armor', 'helm']) { const it = I.generate(tier, { slot, type: slot === 'weapon' ? 'sword' : undefined, rarity: rar }); it.plus = Math.min(k, 4); it.gems = []; S.equip[slot] = it; }
-      S.talents = {}; S.points = 0; for (const id of ['steady', 'keen', 'riposte', 'steady', 'keen', 'riposte', 'precision', 'precision', 'fury'].slice(0, Math.min(9, 2 * k))) S.talents[id] = (S.talents[id] || 0) + 1;
+      const cls = S.cls || 'warrior', start = CFG.classes[cls].start || 'sword';
+      for (const slot of ['weapon', 'shield', 'armor', 'helm']) { const it = I.generate(tier, { slot, type: slot === 'weapon' ? start : undefined, rarity: rar }); it.plus = Math.min(k, 4); it.gems = []; S.equip[slot] = it; }
+      S.talents = {}; S.points = 0;
+      if (cls === 'warrior') for (const id of ['steady', 'keen', 'riposte', 'steady', 'keen', 'riposte', 'precision', 'precision', 'fury'].slice(0, Math.min(9, 2 * k))) S.talents[id] = (S.talents[id] || 0) + 1;
+      else {                                                                  // the class's own tree, first learnable talent first, two points a stage
+        const ids = Object.keys(CFG.trees[{ archer: 'marksman', mage: 'spellweaver', cleric: 'devotion' }[cls]].talents);
+        S.points = Math.min(18, 2 * k); for (let n = 0; n < 80 && S.points > 0; n++) { let got = false; for (const id of ids) { try { if (I.learn(id)) { got = true; break; } } catch (e) {} } if (!got) break; }
+      }
       __dw.G.onGearChanged(); __dw.G.player.hp = __dw.G.player.maxHp; __dw.G.player.flasks = __dw.G.player.S.flasks;
     };
     // A scene on screen: read it as a player would (finish the typing, go on, answer a choice at random)
@@ -190,6 +224,7 @@ const PROFILES = {
       return { step: Story.step ? Story.step.id : 'end', i: S.main.i, steps: CFG.mainStory.steps.length, ending: S.main.ending || null, epilogue: !!F.epilogueSeen, unseenBeats: unseen, relicsFound: Object.keys(F).filter(k => k.startsWith('found_')).length, sceneLines: window.__sceneLines || 0, level: S.level, gold: S.gold, deaths: S.deaths };
     });
     console.log('\nSTORY', JSON.stringify(fin));
+    if (process.env.LANGKO) console.log('\nENGLISH LEFT', JSON.stringify(await pg.evaluate(() => [...window.__en.entries()].map(([k, v]) => [k, v[0], v[1]])), null, 0));
     console.log('\nstage  done  time  deaths  taken  flasks  boss  bossDeaths  stuck  level  step');
     for (const r of rows) console.log([String(r.stage).padEnd(6), String(r.done).padEnd(5), String(r.time).padStart(4), String(r.deaths).padStart(7), String(r.taken).padStart(6), String(r.flasks).padStart(7), String(r.boss).padStart(5), String(r.bossDeaths).padStart(10), String(r.stuck).padStart(6), String(r.level).padStart(6), r.step].join('  '));
     await b.close(); if (errs.length) console.log('ERRORS', errs.slice(0, 5));
@@ -198,7 +233,7 @@ const PROFILES = {
   const rows = [];
   for (const name of who === 'both' ? ['casual', 'skilled'] : [who]) {
     for (let k = from; k < to; k++) {
-      const r = await pg.evaluate(([k, prof]) => { __dw.setView('top'); __dw.arena(k); outfit(k); return runStage('stage', k, prof); }, [k, PROFILES[name]]);
+      const r = await pg.evaluate(([k, prof, cls]) => { __dw.setView('top'); __dw.arena(k); if (cls) __dw.Items.setClass(cls); outfit(k); return runStage('stage', k, prof); }, [k, PROFILES[name], process.env.CLASS || '']);
       rows.push(Object.assign({ who: name, what: 'stage ' + (k + 1) }, r)); console.log(JSON.stringify(rows[rows.length - 1]));
     }
     for (let f = 1; f <= floors; f++) {

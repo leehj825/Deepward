@@ -59,7 +59,7 @@ Every model is built in code from primitives, and there are no model, texture or
 
 1. Light attacks
 2. Heavy attacks
-3. Blocking the white glint
+3. Blocking when the white ring closes
 4. Parrying at the moment of impact
 5. Dashing through a red, unblockable slam
 6. Breaking his posture and executing him
@@ -249,16 +249,27 @@ Each Act II stage has its own champion: the Tidecaller, the Ice Bulwark, the Sla
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the full plan.
 
+**Classes and the party.** The release build has one calling, the warrior: the class choice is skipped (`CFG.warriorOnly` in `js/config.js`), and the party (Hobb, Mira, Pell, Aldo) fills the other roles. The debug APK keeps the class choice (`tools/make_www.js` unless `DW_RELEASE=1`). Open the page with `?classes=1` to get the class choice back; the tests that need another class and the balance bot do this. In the full game a new warden picks a calling: **Warrior** (sword and shield), **Archer** (bow; heavy attack is a fan of arrows), **Mage** (staff; heavy attack is a fireball around the target) or **Cleric** (scepter; smite or, with V, heal; heavy is a stronger smite or an area heal). Each has its own gear, talents and ultimate. At camp you can recruit up to two companions (Hobb the warrior, Mira the archer, Pell the mage, Aldo the cleric; the last three after you free them in the dungeon, all for gold). They follow you, fight, take hits (foes aim at the one who hurt them), go down and can be revived. A small trained network picks each companion's next move; they learn from your fights; they dash out of telegraphed blows. See `docs/DESIGN.md` (Classes, Party play, Companion policy) and `docs/TRAINING.md`.
+
+**The main story** (`docs/STORY.md`). The Deep was opened by King Orrin Varrow, who dug into the hill to bargain for his dead son; he wears the Crown that holds the Under and has become the Hollow King, and Maren, his second, climbed out and never said so. A chain of objectives (shown in the HUD, kept in the Journal, key U) runs through ten rings: things to examine in the dungeon, guardians' last words, scenes in which people turn to you with a camera over your shoulder and answer your choices, and three endings (the Watch, the Relief, the Breaking) that depend on what you did. Choices change a few things in play (Bram's prices, Rook's gate, your flasks). The Hollow King fights in two phases. Companions comment at key moments.
+
+**Dungeon shapes.** Besides the rectangular rooms, the Ogre Den, Spider Depths and Frost Halls are **caves** (rock formations, winding passages, glowing crystals, pools and mushrooms), the Iron Keep is a **ruined town** (houses along the walls, some you can walk into, a fountain, wells, carts) and the Bone Orchard a **forest** (trees, thickets, logs, lanterns). Obstacles are blockers, and tests prove a way through every section.
+
+**Korean.** No honorifics in text that speaks to the player; each character has a speech level (`docs/KOREAN_STYLE.md`).
+
+**Ads.** See the Ads section below.
+
 ## Status and roadmap
 
 Everything above is built and covered by the headless tests: ten stages in two acts, the Endless Deep with curses, Deepward Hold and its people, the Rim and the Fen with day and night, field bosses and the big monsters, materials and crafting, jobs, captives, the Ring, raids, Captain Rook's task, eight gear slots with weight, elements, uniques and gems, the 3D gear screen, appearance, growth with weapon arts, the codex, the training yard, difficulty and accessibility options, rebindable and customizable controls, save slots with export and import, automatic resolution for phones, and English and Korean. Only a debug APK is built for now.
 
-Next, in order (details in `docs/DESIGN.md` → Roadmap):
-0. **The hack-and-slash dungeon.** Hordes (H1), cave spaces (H2), forest and abandoned town (H3), story and natural NPCs (H4). Ordinary blows no longer stagger the warden.
-1. **Check what is built.** A real-phone pass (P1), Korean polish (P3), the balance bot on the new content (P4).
-2. **Feel.** A sound pass (P5), weather (P6), the Hold's day and night life (P7).
-3. **Content.** Act III (P8), more side quests (P9), companions (P10), set items (P11).
-4. **Later.** More languages (P12), cloud save (P13), and the signed release build (V7) when you want one.
+Next, in order (details in `docs/DESIGN.md` → Roadmap, R1 to R8):
+1. **Check on a real phone** (R1), a test that no two systems share a `G.*` field (R2), and the ad consent prompt and Play declaration before any release (R3).
+2. **Balance.** The cleric and archer solo (R4), and difficulty once there are real play notes (R5).
+3. **Story and levels.** The rest of R6 (distinct English voices) and R7 (curved outlines, bending streets, a new stage). The journal, effects of choices, ending reactions, captives' scenes, winding cave passages and enterable houses are built.
+4. **Polish.** A native read of the Korean, ambient sound, and the signed release build (R8).
+
+Built since the earlier list: hordes, cave, forest and town stages, the main story with its scenes and three endings, the two-phase Hollow King, companions that dash and comment, the timing circle on enemy blows, an ad banner, and Korean with a voice per character.
 
 ## Ads
 
@@ -323,6 +334,7 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
 - Master, music and effects volume.
 - Look sensitivity (0.4× to 2.4×).
 - Inverted vertical look.
+- **Pointing device:** Trackpad or Mouse (a mouse gets a gentler turn and a spike filter; the mouse is captured when you click the game).
 - Screen shake on or off.
 - Difficulty:
   - **Story:** half the damage, 25% softer foes, enemies attack 40% less often, and the parry window is 0.08 s wider.
@@ -330,6 +342,7 @@ cd android && ./gradlew assembleDebug        # -> android/app/build/outputs/apk/
   - **Hard:** 35% more damage, 20% tougher foes, quicker attacks, three may attack at once, and a tighter parry window.
 - Telegraph words: ✖ DASH! over unblockable attacks and ▲ PARRY! over parry-only ones, so you don't have to rely on red and amber.
 - Hit-stop and slow motion, each on or off.
+- **Timing circle** on enemy blows, on or off. **Companions use the learned battle policy**, **Companions keep learning from your fights** and **Companions dash out of telegraphed blows**, each on or off.
 - Graphics quality:
   - **Auto:** Medium on phones and tablets, High elsewhere.
   - **High:** sharp, with soft shadows.
@@ -364,6 +377,7 @@ There are two views; switch with **B** or the 🎥 button, and the game remember
 | Switch camera | B | View | 🎥 |
 | Full map | N | | Tap the minimap |
 | Codex | O | from the gear menu | from GEAR |
+| Journal (story, finds, what your choices changed) | U | from the gear menu | from GEAR or the pause menu |
 | Light attack (3-hit combo) | J / left-click | RB or X | ATTACK |
 | Heavy attack (breaks guards) | K / Q / middle-click | RT | HEAVY |
 | Block (hold), parry (tap at impact) | L / Shift / right-click | LB or LT | BLOCK |
@@ -380,16 +394,19 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 
 ## How a fight works
 
-- **White glint** on an enemy weapon: the attack can be blocked. Raise the block within 0.2 s of impact to **parry**. A parry takes no damage and deals heavy posture damage.
-- **Red glow** (and a red floor ring for area attacks): the attack is **unblockable**, so **dash** through it. The dash covers about 2.6 m in 0.3 s, leaves after-images, and in the behind view keeps you facing forward, so you can dash sideways or back.
+- **Hack and slash:** an ordinary blow hurts and pushes you a little but does not stop you; your combo goes on. Only an unblockable, an area blow, a boss's blow or a heavy one (posture 30 or more) staggers you, and not while you are in your own heavy swing.
+- **Hordes:** a section's wave gains extra light foes (weaker than the rest), the next wave starts when two are left, three foes may attack at once on Normal (two on Story, four on Hard), and every five kills in quick succession give back a little health and shorten the ultimate's wait.
+
+- **The timing circle:** every enemy blow that can reach you shows a ring above the enemy that shrinks to the exact moment of impact (it turns gold for the last parry window). It is the only telegraph: there is no light on the weapon. **White:** blockable; raise the block within 0.2 s of impact to **parry**. A parry takes no damage and deals heavy posture damage. Feints (the wind-up stops short) show no ring. Settings can switch the ring off.
+- **Red ring** (and a red floor ring for area attacks): the attack is **unblockable**, so **dash** through it. The dash covers about 2.6 m in 0.3 s, leaves after-images, and in the behind view keeps you facing forward, so you can dash sideways or back.
 - **Stamina** pays for attacks, dashes and every blocked hit. If a block runs out of stamina, your guard breaks and you're stunned.
 - **Posture:** the yellow bar under an enemy's health. It fills from hits, parries and blocked blows. When it's full the enemy is **broken**, and your next hit is a 3× critical.
-- **Amber glow:** the attack can only be **parried** (or dashed). A plain block is smashed aside and the hit lands anyway. Spiders pounce like this.
+- **Amber ring:** the attack can only be **parried** (or dashed). A plain block is smashed aside and the hit lands anyway. Spiders pounce like this.
 - **Lock-on:** C (right-stick click, 🎯) locks onto the foe nearest where you look. A gold marker spins over it, the camera swings to keep it in view, the hero faces it and strafes around it, and attacks go to it. When it dies, the lock moves to the next foe nearby.
 - **Execution:** when an enemy's posture breaks, its bar reads EXECUTE. A heavy attack close by finishes it with a slow-motion blow that nothing can interrupt. Ordinary foes die outright; guardians and champions take a huge critical instead.
 - **Shield knights** block light attacks from the front, so use a heavy attack or get behind them. **Brutes** don't flinch while they swing.
 - **Archers** keep their distance and shoot arrows you can block, parry or dash through. **Goblins** are fast and come in packs.
-- **Duelists** feint: the raised overhead stops short and the real slash comes right after, so wait for it before parrying.
+- **Duelists** feint: a wind-up with no ring is a fake, the real slash comes right after, so wait for it before parrying.
 
 ## Layout
 
@@ -399,7 +416,7 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `css/style.css` | All styles, including the touch and portrait layouts |
 | `js/bindings.js` | The player's keys and controller buttons per action, labels for hints, and rebinding |
 | `js/settings.js` | Player settings (volumes, look, screen shake, quality, difficulty, accessibility, vibration, touch layout), kept in the browser |
-| `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks), the stages (rooms, sizes, waves, themes, guardians), gear tables, camp buildings and the story script |
+| `js/config.js` | `CFG`: every balance number (player moves, enemies and their attacks), the stages (rooms, sizes, waves, themes, guardians), hordes, gear tables, classes, companions, camp buildings, the story text and the main story (`CFG.mainStory`: objectives, beats, scenes, relics, effects, banter) |
 | `js/items.js` | Gear generation (tiers, types, rarities, bonuses), what equipped gear does to the hero, inventory, gold and scrap, the saved game |
 | `js/camp.js` | The code-built camp: palisade, campfire, forge, stall, ledger, tents, the stairway gate, NPCs, building upgrades |
 | `js/ui.js` | Story dialogue and the menus (smithy, stall, ledger, gate, gear, stage cleared, fallen), with keyboard and controller navigation; boss bar, prompts, toasts |
@@ -422,6 +439,14 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `js/jobs.js` | The notice board's jobs: making them, counting progress, turning them in |
 | `js/field.js` | The Rim and the Fen: the field's terrain and decor, its zones, keeping them stocked with beasts, letting far ones go |
 | `js/map.js` | The minimap and compass |
+| `js/shots.js` | Arrows, bolts, fireballs and holy bolts for the ranged classes; healing |
+| `js/party.js` | Companions: recruiting, following, fighting, aggro, going down and being revived, the dash, the party list; asks the policy for each move |
+| `js/policy.js` | The companions' battle policy shared with the trainer: what they see, the legal moves, the hand-written rules, the 23 → 20 → 8 network, the learner |
+| `js/policy_weights.js` | The shipped weights (made by `tools/policy/train.js`; ignored if their shape does not match `policy.js`) |
+| `js/anims_magic.js` | Magic casting clips (generated by `tools/extract_magic.js` from the magic pack; do not edit) |
+| `js/scene.js` | Scenes: a person speaks to the warden in the world (camera, typed caption, choices that jump, flags) |
+| `js/story.js` | The main story: objectives, beats, relics, guardians' words, the ending and epilogue, companion comments, the journal's data |
+| `js/ads.js` | The ad banner: AdMob in the Android app (Deepward's own ids, test ads on), an AdSense slot on the web (off) |
 | `js/game.js` | Scene, camera, input, HUD, game flow, main loop, `window.__dw` test hook |
 | `tools/combat_test.js` | Headless checks of every combat mechanic (Playwright) |
 | `tools/gamepad_test.js` | Headless check of controller support with a simulated Xbox pad |
@@ -442,8 +467,19 @@ Any controller with the browser's standard layout works (Xbox, and PlayStation p
 | `tools/looks_test.js` | Headless check of the appearance screen: offered after the story, choices reach the hero and the save, the training offer follows |
 | `tools/world_test.js` | Headless check of Deepward Hold and the Rim: the camp's size and people, walking villagers, the townsfolk, gem cutting, tonics, the curio of the day; the Rim's zones, wandering and roused beasts, packs, the boar's charge, scouts' spears, leashing, gold banked at the gate, a cheaper fall; captives freed and their perks, rescued people walking in the Hold, the notice board's jobs, the Ring's list and a won fight; Sefa's caravan (buying, selling, staying two homecomings), a raid that batters the gate, is beaten or breaks it |
 | `tools/camp_test.js` | Headless check of the camp loop: story, smith, gear, ledger, gate, guardian chest, return, falling, saving |
+| `tools/class_test.js` | Headless check of the three new classes: weapons, attacks, heals, talents and gear |
+| `tools/party_test.js` | Headless check of the party: recruiting, following, fighting, aggro, going down, reviving, healing, the dash |
+| `tools/policy_test.js` | Headless check of the companions' network: shape, legal moves only, learning, saving, sharing; plays real fights, rules against network |
+| `tools/menu_test.js` | Headless check of going back to the title from the pause menu |
+| `tools/timing_test.js` | Headless check of the timing circle for every kind of enemy |
+| `tools/horde_test.js` | Headless check of bigger waves, the cap, chained waves, the kill streak and the attacker limit |
+| `tools/cave_test.js` | Headless check of the styled stages: blockers shape every section, a way through (grid flood), winding passages, houses you can enter, relics reachable |
+| `tools/story_test.js`, `story2_test.js`, `story3_test.js`, `story4_test.js`, `story5_test.js` | Headless checks of the story: scenes and objectives; Act I; Act II and the endings; the Hollow King's two phases and companion comments; the journal, effects of choices, lines after the ending, freed captives |
+| `tools/ads_test.js` | Headless check that nothing at the top of the screen (health bar, buttons, minimap, menus) sits under the ad strip |
+| `tools/policy/` | The companions' trainers: the fast simulator, imitation and evolution, real-game training and comparison (`docs/TRAINING.md`) |
+| `tools/i18n_harvest.js`, `tools/i18n_merge.py`, `tools/i18n/` | Korean: collects every English text, merges `ko_part*.json` into `js/lang_ko.js` (later files override earlier ones) |
 | `tools/make_icons.py` | Draws the icon in code and writes the web and store images (`icons/`) and the Android launcher icons and splash screens (`resources/android/res/`) |
-| `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles) plays every stage and some Endless floors with typical gear, and reports deaths, time, damage taken and boss times |
+| `tools/balance.js` | Balance bot: a scripted warden (casual and skilled profiles, any class) plays every stage and some Endless floors with typical gear and reports deaths, time, damage taken and boss times; `story` mode plays a whole campaign with the scenes and the ending; `LANGKO=1` lists text left in English; `PARTY=1` brings companions |
 | `tools/build_single.py` | Builds the single-file version |
 | `tools/extract_creature.js` | Turns the Creature Pack's mutant clips (retargeted with Nightfall Settlement's `retarget_mixamo.js` and `tools/creature_want.json`) into `js/anims_mutant.js` |
 | `tools/extract_anims.js` | Copies and mirrors clips from a Nightfall Settlement checkout: `node tools/extract_anims.js ../Nightfall-Settlement` |
@@ -466,7 +502,14 @@ node tools/gear_test.js
 node tools/save_test.js
 node tools/controls_test.js
 node tools/world_test.js
+node tools/class_test.js && node tools/party_test.js && node tools/policy_test.js 8
+node tools/timing_test.js && node tools/horde_test.js && node tools/cave_test.js
+node tools/story_test.js && node tools/story2_test.js && node tools/story3_test.js && node tools/story4_test.js && node tools/story5_test.js
+node tools/i18n_test.js && node tools/ads_test.js && node tools/menu_test.js
 node tools/balance.js both 4   # balance report (slow); not a pass/fail test
+node tools/balance.js story skilled warrior   # a whole campaign (about 25 minutes)
 ```
+
+Run them one at a time (several browsers at once can starve each other). `combat_test.js` takes several minutes. Known flakes: `controls_test` (the controller heavy-button check) and `party_test` (the cleric heal check) fail now and then and pass on a rerun.
 
 It drives the game through `window.__dw` and checks, in both camera views, parry, block, taking a hit, dodging an area slam, unblockable attacks, strafing, the light combo, shield bounce, guard break, the riposte critical, blocking and taking arrows, the parry-only pounce, the duelist's feint and goblin speed. It also walks a whole stage: the path is open end to end, monsters wake when you enter a section and chase you through a passage, the guardian comes out of its lair, and pressing on leads into stage 2. It also checks that the side rooms are reachable, the den's elite chases you out, the vault's spikes hurt, pots break, and a shrine's blessing applies.

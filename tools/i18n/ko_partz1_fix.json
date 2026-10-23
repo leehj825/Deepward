@@ -1,0 +1,21 @@
+{
+"New objective": "새 목표",
+"TALK": "대화",
+"Gem": "보석",
+"Raid Chief": "습격대장",
+"Top-down view - switch (B)": "탑다운 시점 - 전환 (B)",
+"Behind view - switch (B)": "뒤 시점 - 전환 (B)",
+"{a} has fallen. The way deeper is open.": "{a} 격파. 더 깊은 곳으로 가는 길이 열렸다.",
+"Return to camp to bank your gold, mend your gear and spend it, or press on into {a} while the blood is hot.": "캠프로 돌아가 골드를 맡기고 장비를 수리하고 소비하거나, 피가 끓을 때 그대로 밀고 나가 {a}에 도전하라.",
+"Press on to {a}": "{a}에 도전",
+"Fell in {a} · {0}/{1}": "{a}에서 쓰러짐 · {0}/{1}",
+"Foes move {0}% faster and attack more often": "적이 {0}% 더 빠르게 움직이고 더 자주 공격한다",
+"foes move {0}% faster and attack more often": "적이 {0}% 더 빠르게 움직이고 더 자주 공격한다",
+"Blocks stop {0}% less damage": "막기가 막아 주는 피해가 {0}% 줄어든다",
+"blocks stop {0}% less damage": "막기가 막아 주는 피해가 {0}% 줄어든다",
+"{a} ({b}), +{0}% gold": "{a} ({b}), 골드 +{0}%",
+"right-click": "우클릭",
+"middle-click": "가운데 클릭",
+"click": "클릭",
+"Space": "스페이스"
+}

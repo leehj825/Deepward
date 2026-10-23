@@ -31,6 +31,12 @@ const Props = (() => {
       k++;
     }
   }
+  // One crate placed by hand (inside an open house, say), broken like the others
+  function crate(room, lx, z) {
+    const wood = mat(0x6a4a2c), dark = mat(0x3a2a1e), g = new THREE.Group(); g.position.set(lx, 0, z); room.group.add(g);
+    put(g, new THREE.BoxGeometry(0.7, 0.7, 0.7), wood, 0, 0.35, 0).rotation.y = Math.random(); put(g, new THREE.BoxGeometry(0.74, 0.08, 0.74), dark, 0, 0.5, 0);
+    pots.push({ g, room, x: room.cx + lx, z, r: 0.5, crate: true, broken: false });
+  }
   function smash(q) {
     q.broken = true; q.room.group.remove(q.g);
     const at = new THREE.Vector3(q.x, 0.5, q.z);
@@ -197,5 +203,5 @@ const Props = (() => {
     for (const c of captives) if (!c.freed) out.push([c.x, c.z, 0.45]);
     return out;
   }
-  return { clear, breakables, strike, trap, shrine, mimic, captive, free, relic, examine, get relics() { return relics; }, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
+  return { clear, breakables, crate, strike, trap, shrine, mimic, captive, free, relic, examine, get relics() { return relics; }, get captives() { return captives; }, get mimics() { return mimics; }, nearest, offer, update, blockers, get pots() { return pots; }, get traps() { return traps; }, get shrines() { return shrines; } };
 })();

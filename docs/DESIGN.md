@@ -22,7 +22,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 - **Stamina** pays for attacks, dashes and blocked hits. It regenerates after a short pause, and more slowly while you block.
 - **Posture:** enemies fill a posture bar from hits, blocks and parries. It drains when they're left alone, and when it's full they're broken.
 - **Telegraphs:**
-  - A white glint means blockable.
+  - A white ring closing in means blockable (the cross-shaped light on the weapon was removed: the ring is the only telegraph).
   - Red means unblockable, so dodge.
   - Area attacks draw a filling red ring on the floor.
   - Enemies track you during the wind-up but commit 0.22 s before the hit, which is the moment to dash sideways.
@@ -68,7 +68,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 
 - **Archers** keep 5.5 to 10 m away, back off when you close in, and loose an arrow after a long draw. Arrows can be blocked, parried or dashed through. Archers don't take one of the two attack tokens, so they add pressure on top of the melee foes.
 - **Goblins** are small and fast, with quick thrusts and two-hit slashes; they come in packs.
-- **Spiders** are code-built eight-legged rigs. Their bite is ordinary, but the pounce glows **amber**: a block alone is smashed aside and the hit lands anyway. Only a parry (or a dash) answers it.
+- **Spiders** are code-built eight-legged rigs. Their bite is ordinary, but the pounce shows an **amber** timing ring: a block alone is smashed aside and the hit lands anyway. Only a parry (or a dash) answers it.
 - **Duelists** open with a raised overhead that is a **feint**: the wind-up stops short and the real slash follows quickly. Raising the guard on the feint wastes the parry window.
 - After the tenth stage the stages repeat with tougher enemies (`loopScale`), alongside the Endless Deep.
 
@@ -198,6 +198,7 @@ A 3D action dungeon crawler, played over the shoulder or from a fixed high view.
 ## Languages (built)
 
 - The code stays in English. `I18N` (js/i18n.js) watches the page (a MutationObserver on text nodes and the title / placeholder / aria-label attributes) and swaps each text for the chosen language's from its table, caching results. Lookup order: the exact text; the text with its numbers as {0}, {1}...; phrases with name slots ("Slay {0} {a}s", "Swift {a}", the longest pattern first, the name translated in its turn); an item name (tier and piece, the "of ..." suffix moved to the front for Korean); an icon in front or punctuation at the end; and finally the parts between " · ", ": ", " — ".
+- Korean text follows `docs/KOREAN_STYLE.md`: no honorifics in text to the player, a speech level per character, one spelling per name. The translation parts are merged in file-name order, so later files override earlier ones (`ko_partz*` hold the style pass). Text that holds a key label (`@heavy`) is translated before the label is filled in (`showTip`, the tutorial); lookups also try the same text in another case and each item of a comma list; phrases around stage names use `{a}`.
 - Settings → Language (`lang`, Korean by default on Korean devices). Switching back to English reloads the page. `translate="no"` keeps an element as written (the language names).
 - `tools/i18n_harvest.js` opens every screen headless and collects every text (plus CFG's strings, fixed strings in the code, and the parts of each line); `--missing ko` writes what the table lacks. `tools/i18n_merge.py` merges translated parts into the table and drops entries whose placeholders do not match. CSS-drawn texts (`::after`) have their own `html[lang]` rules. A Korean font stack and `word-break: keep-all`.
 
@@ -403,7 +404,7 @@ A new warden chooses a calling after the intro and before the looks screen (`CFG
 - **A tree for each ranged class**, shown to that class only (`tree.cls`, `Items.treeFor`; a warrior sees four trees, an archer five): **Marksman** (Volley: +1 arrow in the heavy fan per rank; Long Shot: +8% damage beyond 8 m; Quick Draw: 6% faster shooting; ultimate Arrow Storm: for 6 s every arrow is a burst of three), **Spellweaver** (Conduit: +8% damage; Wildfire: burns 30% harder; Wide Blast: +0.4 m blast; ultimate Meteor Shower: five fireballs on the foes around you), **Devotion** (Mercy: +10% healing; Swift Prayer: heal cooldowns −10%; Radiance: whoever you heal takes 6% less damage for 4 s; ultimate Halo: mends everyone near for 45% and burns the foes in it).
 - **Weapon mastery rank 2** (the melee weapons' fourth finishing blow) is, for the ranged classes: two more arrows in the heavy fan (bow), +0.5 m fireball blast (staff), healing +10% (scepter). The mastery list shows only the class's own weapons.
 
-## Party play (first step built: recruit, follow, fight)
+## Party play (built: recruit, follow, fight, aggro, revive, heal, dodge, comments)
 
 *Built:* `js/party.js`, the Party panel (Gear screen, then Party) and the party chips under the purse. Recruit in the Hold only. Anyone can be hired once for gold: Sergeant Hobb (warrior) 150, Mira (archer) 220, Pell (mage) 260, Brother Aldo (cleric) 220. A captive freed from the Deep (Mira, Pell, Aldo) joins free instead. Two at most (`CFG.party.max`). Each companion follows (first priority: back to the warden's side beyond 8 m, a warp beyond 18 m), then attacks the nearest foe within 9 m (training dummies are left alone, and so is everything during the training lessons). The warrior closes in and swings; the archer and mage hold 4–10 m, shoot, and now and then use their heavy; the cleric mends the warden below 75% (an area heal below 45%) and smites when everyone is well. They hit for about half of what a warden of their level and depth would, they use the same moves and Shots as the classes, and kills are credited to the warden. **Aggro:** every foe picks its target (`Enemy.pickTarget`, `e.tgt`, re-chosen every 0.45 s, not mid-blow) among the warden and the companions: score = threat (damage dealt to it, and a share of any healing done near it, fading with a 2.3 s half-life) + nearness (up to 21) + 9 for a tank (the warrior) + 5 for the current target. Swings and area blows hit everyone inside their reach (`Combat.enemyStrike`); arrows and orbs hit the first friend they touch; a bone caller's blast hits them too. **Companion health:** `80 + 6 per level + 14 per depth`, times 1.5 (warrior, also 25% less damage taken), 0.95 (cleric), 0.85 (archer), 0.75 (mage). A hard blow staggers; at zero they are **down** (not targeted, lying still) and get up by themselves after 25 s at 25%, at once when a heal lands (a downed friend comes first for the single heal; the area heal lifts everyone), and at full on entering the Hold or a stage. They catch their breath (1.5% a second) after 5 s unhurt. **Seeing it:** the party list under the purse shows each companion's bar, numbers and DOWN state, and a small bar floats over their heads (that is where the cleric aims). The cleric companion heals the lowest in the party and uses the area heal when two are hurt or one is below 40%. Saved as `S.party` and `S.hired`. `tools/party_test.js` covers it.
 
@@ -420,7 +421,7 @@ Team play with companions on top of the classes. Decisions so far:
 
 ## Companion policy (built: a tiny trained network, learning as you play)
 
-What it is: for each companion, a 21 → 20 → 7 network (587 numbers, `js/policy_weights.js`, about 8 KB) picks the next **move** in a fight: attack, heavy skill, back away (kite), regroup, heal, area heal, guard (the warrior braces: half damage, no attacks). Moving and attacking stay as they were; only the choice is learned. It runs about three times a second per companion. Following the warden still comes first (a companion more than 8 m away just regroups), and training dummies and the tutorial are left alone.
+What it is: for each companion, a 23 → 20 → 8 network (648 numbers, `js/policy_weights.js`, about 9 KB) picks the next **move** in a fight: attack, heavy skill, back away (kite), regroup, heal, area heal, guard (the warrior braces: half damage, no attacks) and **dodge** (a dash with the same untouchable window as the warden's). Moving and attacking stay as they were; only the choice is learned. It runs about three times a second per companion. Following the warden still comes first (a companion more than 8 m away just regroups), and training dummies and the tutorial are left alone.
 - **One shared file** (`js/policy.js`) holds what the network sees (`encode`: class, own and the warden's and the others' health, who is down, distances, how many foes are near, how many aim at it, seconds until the next blow lands, which moves are ready), which moves are legal (`legal`: only a cleric heals, only a warrior guards, nothing attacks without a target; the network can only reorder legal moves), the hand-written rules (`classic`) and the forward pass. The game and the trainer both use it, so they cannot disagree.
 - **Training, headless** (`node tools/policy/train.js [minutes]`): `tools/policy/sim.js` is a fast copy of the fight with no graphics (2 ms per fight: the real enemies, wind-ups, tokens, aggro rule, companion moves and numbers; a scripted warden). Step 1, imitation: the network copies the rules (99.6% agreement). Step 2, evolution strategies on three cores: random nudges that scored better in the simulator are kept (centred ranks, Adam, a pull toward the imitation weights), scored on fresh scenarios each generation; the best generation on 160 held-out scenarios is kept. Step 3, the test on 400 scenarios never used in training, paired with the rules (`docs/policy-report.md`). The fight is scored by clearing it (+), enemy health removed (+), time (−), companions downed (−25 each), the warden's death (−60), health lost.
 - **Result, 14 minutes of training:** in the simulator the network scores 3.5 ± 2.7 reward points above the rules (36.0 against 32.6) and clears 84% of fights against 82%. That is a modest gain, not a different league: the rules were already reasonable. The simulator is a sketch of the game, so the real check is `tools/policy_test.js`: the same fights in the real game (a tank and a healer, two shooters, against a wave with a brute and an archer, the warden fighting too), rules against network, which must not be worse. **In the real game the two are about level**, not better: over 8 fights each, tank and healer 0.78 (rules) against 0.88 (network, lower is better; clears 6 of 8 against 5 of 8), two shooters 2.17 against 1.63 (clears 2 of 8 against 4 of 8), well inside the noise of so few fights. **A larger test settled it: the network is better than the rules in the real game.** `tools/policy/real_train.js` plays randomized real fights (a party of one or two companions of random classes, a fighting warden, two or three waves, depth 0-3); on 120 fresh ones the shipped network scored 33.7 against the rules' 23.8, a paired difference of +9.9 ± 7.2 (fights won 55% against 47%, companions downed per fight 0.26 against 0.36, the warden dead 11% against 16%; `docs/real-training-report-2026-10-20.md`). The 8-fight comparison above was simply too small. (Training the per-class preferences against the real game for 20 minutes added +0.9 ± 7.2 on top: noise, not adopted.) Before that larger test, the picture looked like this: the simulator's 3.5 points did not show up clearly in the game: the simulator's physics, the enemies' movement and the scripted warden differ from the real ones. A first version of the test, with the warden standing still, showed the network losing more companions than the rules did; a warden that stands still is far from what it trained on, and the test now has the warden fight. Closing that gap (a more faithful simulator, or training against the game itself) is the next step for this work.
@@ -432,7 +433,9 @@ What it is: for each companion, a 21 → 20 → 7 network (587 numbers, `js/poli
 - **What the first real data showed.** Nine fights from a phone left the preferences almost unmoved (largest change 0.05 of a possible 2) and a running reward of −22.9 with a spread of 89, against about +30 in the simulator. In a long real fight the damage taken adds up to several times a health bar, which swamped the score and made the learner's steps about ten times too small. Fixes: each part of the score is capped (downs 3, health lost 1.5 bars each) and the whole kept in −100..100; the spread used to scale a step is capped at 30; the running reward starts at 25 and the first fight learns too. The learned data now also carries a log of the last 30 fights (reward, share cleared, time, downs, deaths, health lost, party, where); `node tools/policy/analyze.js <code>` prints it, so the real fights can be looked at before anything is trained on them. Nine fights are far too few to bake; a few hundred are a start.
 - **Training more, headless:** `node tools/policy/train.js 20 --continue` continues from the shipped weights for 20 minutes and replaces them only if the result scores at least 0.5 higher than the shipped weights on 400 unseen simulated scenarios (otherwise it keeps them). Without `--continue` it starts again from imitation of the rules. `node tools/policy_test.js` is the check in the real game before shipping weights.
 - **Switches:** Settings → "Companions use the learned battle policy" (off: the plain rules); learning has its own switch. With no weights file the rules run.
-- **Ideas that follow:** train per party composition; give the network the warden's recent habits (always rushing in, always standing back); let companions dodge (step out of a red ring) as a move; train against the real game with a few thousand fights at night on a build machine.
+- **Ideas that follow:** train per party composition; give the network the warden's recent habits (always rushing in, always standing back); (done: companions dodge, see above); train against the real game with a few thousand fights at night on a build machine.
+
+**The dodge move (built, 2026-10-21).** `Party.stateOf` now measures `danger` as the seconds until the next blow that would hit the companion actually lands (a wind-up aimed at it within reach, a floor ring covering it, an arrow heading at it), adds `aoe` (the blow is a ring: leave away from its middle) and `dodgeRdy` (free or recovering, cooldown 1.8 s, Settings → "Companions dash out of telegraphed blows"). The rules gained a reflex (dash in the last 0.26 s before a blow); decisions come every 0.06 s while a blow is near. The dash moves 2.6 m in 0.3 s, is untouchable from 0.02 to 0.24 s, and arrows pass through it. `tools/policy/sim.js` learned the same dash (and ±15% enemy randomization) and the old 21 → 7 weights were ignored until a 23 → 20 → 8 network was trained (imitation, then 15 minutes of evolution). Results: in the simulator the rules with the reflex score 43.4 against 34.6 without it (600 scenarios); the new network scores 44.7 against 45.3 for the rules (−0.7 ± 2.0: no better than the rules, as before), and passes `tools/policy_test.js` (tank and healer 0.59 against 0.42, two shooters 1.18 against 1.33, with more fights cleared). Not yet done: a real-game paired comparison with the dodge off (`compare_real.js` has no ablation switch yet).
 
 ## Polish for the party (built)
 
@@ -450,6 +453,18 @@ Packaging: never in the APK or the single-file build; a Settings toggle ("Living
 
 Photo mode (the frozen free camera, filters and Save picture) was removed from the game: the pause button, the H / D-pad-left binding, `G.photo` and its camera, the bar and its styles, the Korean texts and `tools/photo_test.js` are gone.
 
+## What was added since the roadmap began (a map of the newer parts)
+
+- **Timing circle** (`FX.timing`, `Enemy.beginHit`, Settings): a ring over each enemy blow that shrinks to the instant of impact, gold in the parry window; the only telegraph (the weapon light was removed). `tools/timing_test.js`.
+- **Hack and slash:** ordinary blows no longer stagger the warden (`CFG.player.staggerPosture`); hordes (`CFG.horde`): extra light foes, chained waves, a cap, more attackers, a kill streak; extras are weaker and pay less. `tools/horde_test.js`.
+- **Dungeon shapes** (`theme.style` of `cave`, `forest`, `town`, `World.build`): rock, tree and house blockers instead of plain rectangles; winding cave passages; houses with a door you can enter; `tools/cave_test.js` proves a way through every section, passage and relic by a grid flood. Doorway bars (lintels) were removed because they hid the warden.
+- **Story** (`js/scene.js`, `js/story.js`, `CFG.mainStory`, `docs/STORY.md`): scenes, objectives, beats, relics, last words, three endings, the Journal (U), effects of choices, comments from companions, two-phase Hollow King. Five story test files.
+- **Companions' dodge** and the 23 → 20 → 8 network (see Companion policy).
+- **Ads** (`js/ads.js`, README → Ads): AdMob banner in the app (test ads on until the store build), strip kept free at the top (`--adh`), menus start below it, the banner is put up again after the device turns.
+- **Korean:** speech levels and names (`docs/KOREAN_STYLE.md`).
+- **Mouse look:** a Pointing device setting (Trackpad or Mouse) and a spike filter for the mouse's captured movement.
+- **Balance bots:** all four classes, a campaign mode with scenes and relics, a Korean text scan (`docs/class-balance-report-2026-10-22.md`).
+
 ## Roadmap
 
 Each step is sized like the earlier S, T and V steps: one commit, its own test, and a debug APK.
@@ -460,7 +475,36 @@ Each step is sized like the earlier S, T and V steps: one commit, its own test, 
 - **W1–W6. The world above.** A bigger Hold with walking villagers; the Rim (zones, beasts, leash, day and night, field bosses); materials and crafting; the notice board, captives and the Ring; raids on the gate and Sefa's caravan; the big monsters (mutant, troll, golem) as field bosses, Endless champions and Ring fights.
 - **N1–N8.** The gate road fixed; natural postures (sitting, kneeling, everyday idles); skinned bodies (Hold 624 → 125 draw calls); balance against stage gold; horn, bell, guards fighting raiders; the Fen through the east gate; Captain Rook's war-camp task; appearance, the gauntlet and the rune vault, and Korean.
 
-### Next: the hack-and-slash dungeon (in this order)
+### Next: the list after the hack-and-slash dungeon (ranked; updated 2026-10-22)
+
+H1 to H4 are built (see below). What is left, in the order to do it:
+
+**R1. Check on a real phone.** Everything below was tested headless. Play the debug APK on a phone and a tablet and look at: the ad strip and the banner's position after turning the device (the banner is put up again when the width changes), the Korean text and the speech levels, the scene camera on a tall and a wide screen, the feel of the new combat (no stagger on ordinary blows), and frame rate with a full horde in the cave, forest and town stages (P1's exit criterion: 50+ FPS on Medium).
+
+**R2. Guard against the bug class we hit.** The scene system once overwrote `G.scene`, a field another system used, and the sparring lesson broke after Hobb's scene. Add a test that every `G.*` field is written by one module only, and run the bot through "scene, then shop / lesson / descent" for each scene type.
+
+**R3. Ads before any release.** The consent prompt for the EU and UK, the ads declaration in the Play Console, `testing: false` only in the store build, and an ad-free first-run check.
+
+**R4. Class balance** (`docs/class-balance-report-2026-10-22.md`). Solo, the cleric cannot finish stages and the archer loses time to armored foes. Try: the cleric's smite and heavy smite +40%; ranged hits ignore part of armor (cut by 25% instead of 40%); then re-run all four classes, the cleric with a party (`PARTY=1`), and the casual profile. Before judging further, teach the ranged bot to dodge and to give up on a foe it cannot reach.
+
+**R5. Difficulty.** The skilled bot clears every stage with 0 to 4 deaths, so Normal may be easy for a good player. Wait for real play notes, then tune (horde size, the last stages, the Hollow King's second phase).
+
+**R6. Story depth (built, except the English voices).**
+- Built: a **journal** (key U, the pause menu and the gear screen: where the story stands, what has been found, what the choices changed, the ending); **three effects of choices** (Bram trusts a warden who told him the truth: forge work costs 10% less; Rook's gate holds 25% longer after his banner came back; Maren's blessing: flasks heal 10% more; `CFG.mainStory.effects`); what **Bram, Tilda, Rook, Hobb and Wenna say after each ending**; a scene for **each freed captive** (Pell, Ilsa, Aldo, Mira); and companion comments on three more moments (the frozen orders, the mould, the graves). `tools/story5_test.js`.
+- Not done: distinct English voices per character (the lines already differ in tone; rewriting them changes the Korean keys, so it waits for a reviewer).
+- Scenes for more people: Bram, Tilda, Rook and the rescued captives only speak at set moments; villagers could react to the ending; companions could comment on more of the story.
+- A journal screen: finished objectives and what the warden learned.
+- Cheap consequences for choices (so far three change anything: Rook's banner, Bram's key, Maren's forgiveness): for example a discount from Bram after he was trusted.
+- English character voices: Korean has a voice per character (`docs/KOREAN_STYLE.md`), English does not. It means editing the story text in `js/config.js`, so the Korean keys change with it.
+
+**R7. Level design (built in part).**
+- Built: **winding cave passages** (a rock leans out of one wall, then the other, 2.4 m left open; a flood test walks every passage), cave dressing (pools, glowing mushrooms, stalagmites), **houses you can walk into** in the ruined town (three walls, a doorway, half a roof so the camera sees in, a bed, a table, a lamp and a crate; the grey banner hangs inside one when there is one). `tools/cave_test.js`.
+- Not done: curved chamber outlines (walkable space as shapes for `inSpace` and the camera), bending town streets, and a new stage (a village above the Orchard) instead of the restyled ones.
+- The original list: Winding cave tunnels and curved outlines (walkable space as shapes for `inSpace` and the camera), cave decor (pools, mushrooms, stalactites), houses you can walk into, streets that bend, and new stages (a village above the Orchard) instead of restyled ones.
+
+**R8. Polish.** A native read of the rewritten Korean lines (Rook's 하게체, Odo's 하오체 were written without a reviewer); ambient sound for the Hold, the Rim and the Fen (P5), and hearing the Under's boss theme; the signed release build, the icon and the store listing (V7).
+
+### Done: the hack-and-slash dungeon (H1 to H4)
 
 Ordinary blows no longer stagger the warden (built: only unblockable, area, boss and heavy blows do, and not during the warden's own heavy swing; `CFG.player.staggerPosture`). The steps below build on that.
 
@@ -490,14 +534,14 @@ Ordinary blows no longer stagger the warden (built: only unblockable, area, boss
 
 **P2.** (Photo mode was removed from the game, so there is no photo saving to do.)
 
-**P3. Korean polish.**
+**P3. Korean polish.** (Done since: no honorifics in text to the player, a speech level per character, one spelling per name, `docs/KOREAN_STYLE.md`; open: a native read, see R8.)
 - Texts built from pieces in code (key hints, tutorial lines, "Go deeper · floor 3") become whole sentences with numbered slots, so Korean word order comes out right.
 - A native read of the story lines and boss names.
 - The i18n test fails when new English shows up.
 
 **P4. Balance bot on the new content.** Run tools/balance.js (casual and skilled) through the Fen, the gauntlet, the Ring monsters and raids; tune health and damage where it dies too often or never.
 
-**P14. Class pass.** Balance the three new classes with the bots (solo clears of the stages, the Fen, the Ring and raids); give the archer and mage their own caster-friendly gear in Bram's craft tab; look over the class-picker and mode-toggle text with a native reader for Korean (the new strings are not in `lang_ko.js` yet).
+**P14. Class pass.** (The balance bot has now run all four classes: see R4 and `docs/class-balance-report-2026-10-22.md`.) Balance the three new classes with the bots (solo clears of the stages, the Fen, the Ring and raids); give the archer and mage their own caster-friendly gear in Bram's craft tab; look over the class-picker and mode-toggle text with a native reader for Korean (the new strings are not in `lang_ko.js` yet).
 
 ### Then: feel
 

@@ -7,13 +7,13 @@ const path = require('path');
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 1100, height: 700 } });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  await pg.goto('file://' + path.resolve(__dirname, '../index.html') + '?classes=1');
   await pg.waitForTimeout(300);
-  const r = await pg.evaluate(() => {
+  const r = await pg.evaluate(cls => {
     const out = {}, G = __dw.G, I = __dw.Items;
     __dw.setView('top'); __dw.start('new');
     while (__dw.UI.open && document.querySelector('.pcard.dialogue')) document.querySelector('#pcard .pb').click();
-    if (document.querySelector('[data-act="pickclass"]')) document.querySelector('[data-act="pickclass"][data-arg="warrior"]').click();                      // the calling, then
+    if (document.querySelector('[data-act="pickclass"]')) document.querySelector('[data-act="pickclass"][data-arg="' + cls + '"]').click();                      // the calling, then
     document.querySelector('[data-act="looksdone"]').click();                    // the warden's looks come between
     out.offer = !!document.querySelector('.pcard.trainOffer');
     document.querySelector('[data-act="train"]').click();
@@ -64,7 +64,7 @@ const path = require('path');
     G.startTraining(); out.again = Tutorial.active; document.querySelector('#lesson [data-t="leave"]').click();
     out.left = !Tutorial.active && !G.enemies.some(e => e.type === 'sparring' && e.state !== 'dead');
     return out;
-  });
+  }, process.env.CLASS || 'warrior');
   await b.close();
   const ok = !errs.length && r.offer && r.started && r.lessons.every(Boolean) && r.lessons.length === 6 && r.reward && r.again && r.left;
   console.log((ok ? 'PASS ' : 'FAIL ') + JSON.stringify(r));

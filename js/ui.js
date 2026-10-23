@@ -204,6 +204,24 @@ const UI = (() => {
       } else h += `<p class="dim">Below the last stage lies the Endless Deep. Defeat ${esc(CFG.stages[CFG.stages.length - 1].guardian)} to open it.</p>`;
       return h + btn('Stay in camp', 'close', '', false, 'leave');
     },
+    // The journal: where the story stands, what has been found, and what the warden's choices changed
+    journal() {
+      const S = Items.S, F = S.flags || {}, M = CFG.mainStory, cur = Story.step, done = (S.main && S.main.i) || 0;
+      let h = `<h2>Journal</h2><p class="sub">${cur ? '◈ ' + esc(cur.obj) : 'The story is told.'}</p>`;
+      h += '<h3>The story so far</h3>';
+      M.steps.slice(0, done).forEach(st => { h += `<div class="irow got"><div class="iinfo"><b>✔ ${esc(st.obj)}</b></div></div>`; });
+      if (cur) h += `<div class="irow"><div class="iinfo"><b>◈ ${esc(cur.obj)}</b> <small>now</small></div></div>`;
+      const found = Object.values(M.relics).flat().filter(r => F['found_' + r.id]);
+      h += '<h3>What you found</h3>';
+      if (!found.length) h += '<p class="dim">Nothing yet. Glowing things in the dungeon can be examined.</p>';
+      for (const r of found) { const b = M.beats.find(b => b.on[1] === r.id), sc = b && M.scenes[b.scene], txt = sc ? sc.steps.filter(x => x.text).map(x => x.text).slice(-1)[0] : ''; h += `<div class="irow"><div class="iinfo"><b>${esc(r.label)}</b><div class="istats dim">${esc(txt)}</div></div></div>`; }
+      const fx = M.effects.filter(e => F[e.flag]);
+      h += '<h3>What your choices changed</h3>';
+      if (!fx.length) h += '<p class="dim">Nothing yet. What you tell people, and what you bring back, matters.</p>';
+      for (const e of fx) h += `<div class="irow got"><div class="iinfo"><b>${esc(e.text)}</b></div></div>`;
+      const end = S.main && S.main.ending; if (end) h += `<h3>The ending</h3><div class="irow got"><div class="iinfo"><b>${esc({ watch: 'The Watch: you took up the Crown.', relief: 'The Relief: Maren took the Crown.', breaking: 'The Breaking: the Crown was broken.' }[end])}</b></div></div>`;
+      return h + btn('Close', 'close', '', false, 'leave');
+    },
     codex() {
       const S = Items.S, l = Codex.life(), t = tab.codex || (tab.codex = 'beasts'), ach = S.ach || {};
       let h = `<h2>Codex</h2><p class="sub">What the Deep has taught you.</p>` + tabs('codex', [['beasts', 'Bestiary'], ['uniques', 'Uniques'], ['ach', `Achievements ${Object.keys(ach).length}/${Codex.list.length}`], ['records', 'Records']]);
@@ -302,7 +320,7 @@ const UI = (() => {
       h += `<div class="statline">${matLine()}</div>`;
       h += `<div class="statline">Gems: ${held.length ? held.map(k => `${GM[k].icon} ×${S.gems[k]}`).join(' · ') + ' <small class="dim">(Bram sets them)</small>' : '<span class="dim">none yet</span>'} · Uniques found ${S.uniques.length} / ${C.uniques.length}</div>`;
       if (!inCamp) h += '<p class="dim">Changing gear here is free, but the fight waits while you look.</p>';
-      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks') + ' ' + btn('Party', 'open', 'party');
+      h += btn(`Expertise${S.points ? ' (' + S.points + ' to spend)' : ''}`, 'open', 'talents') + ' ' + btn('Journal', 'open', 'journal') + ' ' + btn('Codex', 'open', 'codex') + ' ' + btn('Appearance', 'open', 'looks') + ' ' + btn('Party', 'open', 'party');
       return h + btn('Close', 'close', '', false, 'leave');
     },
     // Expertise as a skill tree: four columns of nodes (three talents, then the ultimate) joined by lines that fill as you

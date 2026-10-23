@@ -46,6 +46,7 @@ function lockMouse(el) {
     if (has('camera')) toggleView();
     if (has('map')) MiniMap.toggle();
     if (has('codex') && G.state === 'play') openPanel('codex');
+    if (has('journal') && G.state === 'play') openPanel('journal');
     if (has('lock') && G.state === 'play') toggleLock();
     // Esc always pauses (an Esc that just released the captured mouse has already paused); so does P unless it is bound
     if ((ev.code === 'Escape' && performance.now() - (Input.unlockedAt || 0) > 200) || (ev.code === 'KeyP' && !A.length)) togglePause();
@@ -149,7 +150,7 @@ function pollPad(real) {
   let gp = null;
   for (const p of pads) if (p && p.connected && (p.mapping === 'standard' || !gp)) { gp = p; if (p.mapping === 'standard') break; }
   if (!gp) { if (Pad.id) { Pad.id = null; document.body.classList.remove('pad'); } Pad.move.x = Pad.move.z = 0; Pad.block = false; return; }
-  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip(Bindings.fmt('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.', 'pad')); }
+  if (Pad.id !== gp.id) { Pad.id = gp.id; Pad.prev = []; document.body.classList.add('pad'); showTip('Controller connected: left stick move, right stick camera, @light attack, @heavy heavy, @block block, @dodge dash.'); }
   const btn = i => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const now = gp.buttons.map((_, i) => btn(i)), prev = Pad.prev, down = i => now[i] && !prev[i];
   Pad.prev = now;
@@ -186,6 +187,7 @@ function pollPad(real) {
   if (pressed('gear')) openPanel('bag');
   if (pressed('talents')) openPanel('talents');
   if (pressed('codex')) openPanel('codex');
+  if (pressed('journal')) openPanel('journal');
   if (pressed('map')) MiniMap.toggle();
   if (View.mode === 'behind') {
     if (pressed('lock')) toggleLock();                                   // lock on (or recentre when nothing is near)
@@ -353,7 +355,7 @@ let bannerT = null, tipT = null;
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 1800); }
 function showTip(txt) {
   if (!txt) return;
-  txt = Bindings.fmt(txt);                                                // @heavy and the like become the player's own keys
+  txt = Bindings.fmt(typeof I18N !== 'undefined' ? I18N.tr(txt) : txt);   // translated first (the table has the @heavy form), then @heavy and the like become the player's own keys
   if (document.body.classList.contains('touch') && !document.body.classList.contains('pad')) txt = txt.replace(/\s*\([^)]*\)/g, '');   // key names in brackets mean nothing on a touch screen
   const t = $('tip'); t.textContent = txt; t.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => t.classList.remove('show'), 7000); }
 function updateHud() {
@@ -423,6 +425,7 @@ $('titleBtn').addEventListener('click', () => {
   if (Items.S) Items.save();
   location.reload();
 });
+$('journalBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('journal', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('codexBtn').addEventListener('click', () => { if (G.state !== 'pause') return; $('pause').classList.remove('show'); G.state = 'menu'; UI.show('codex', {}, () => { G.state = 'pause'; $('pause').classList.add('show'); }); });
 $('titleSetBtn').addEventListener('click', () => { Snd.init(); openSettings(); });
 // The score follows the action: camp, quiet dungeon, a fight (lingering 4 s after it ends), a guardian
@@ -535,7 +538,7 @@ function startGame(how = 'new') {
   G.state = 'play'; document.body.classList.add('playing');
   enterCamp();
   const S = Items.S;
-  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => openPanel('classpick')); }
+  if (!S.story.intro) { S.story.intro = true; Items.save(); say(CFG.story.intro, () => { if (CFG.warriorOnly) { Items.setClass('warrior'); G.onGearChanged(false); openPanel('looks', { first: true }); } else openPanel('classpick'); }); }
 }
 // Run fn after `sec` seconds of game time (so pausing, slow motion and tests all respect it)
 G.after = (sec, fn) => G.timers.push({ t: G.time + sec, fn });
@@ -700,7 +703,8 @@ function rollRaid() {
 G.startRaid = () => {
   const f = World.field(), R = CFG.raid, S = Items.S, B = R.bands.find(b => S.stage <= b.upTo), gz = f.rect.z0 + 2.5;
   const zone = { id: 'gate', name: 'The south gate', x: 0, z: gz, r: 3 }, m = Field.multOf({ mult: 1 });
-  G.raid = { on: true, gate: R.gate, zone, n: B.band.length + 1 };
+  const gate = R.gate * (S.flags && S.flags.rookBanner ? 1.25 : 1);                  // the story: Rook's banner returned
+  G.raid = { on: true, gate, max: gate, zone, n: B.band.length + 1 };
   [B.chief].concat(B.band).forEach((type, k) => G.queue.push({ type, at: new THREE.Vector3((k % 3 - 1) * 2.4, 0, gz + 24 + Math.floor(k / 3) * 2.6), mult: m.mult, hpMult: m.hpMult, zone, raid: true, elite: k === 0, t: G.time + k * 0.15 }));
   banner('RAIDERS AT THE GATE'); Snd.play('horn'); G.after(1.8, () => Snd.play('bell')); G.rumble && G.rumble(0.5, 0.7, 500);
   UI.toast('Captain Rook: Raiders on the Rim road! To the south gate!', '#ff7a2a');
@@ -730,7 +734,7 @@ function updateRaid(dt) {
     banner('THE GATE IS BROKEN'); Snd.play('lose'); UI.toast(`The raiders broke the gate and ran off with ◆ ${lost}`, '#ff5a4a');
     return;
   }
-  $('foesN').textContent = `Raid: ${band.length + G.queue.filter(q => q.raid).length} · gate ${Math.ceil(R.gate / CFG.raid.gate * 100)}%`;
+  $('foesN').textContent = `Raid: ${band.length + G.queue.filter(q => q.raid).length} · gate ${Math.ceil(R.gate / (G.raid.max || CFG.raid.gate) * 100)}%`;
 }
 // Sefa's caravan: now and then camped in the Hold when the warden comes home, for two homecomings
 function wandererComes() {
@@ -846,6 +850,7 @@ function interact() {
     Props.free(s.captive); const who = Items.rescue(), P = CFG.rescues.people.find(p => p.id === who.id);
     Items.S.rescued[Items.S.rescued.length - 1].where = World.label().split(' · ')[0];      // remembered: where the warden found them
     Snd.play('shrine'); Codex.add && Codex.add('rescues'); Items.save(); G.spot = null;
+    if (P && Story.event('rescue', who.id, () => say([['', 'Rescued ' + who.name + ': ' + P.perk + '.']]))) return;          // the story has a scene for each of them
     return say([[who.name, P ? 'You came for me? I thought the Deep had me for good. I will find my way to the Hold.' : 'Thank you, warden. I will go home to the Hold.']].concat(P ? [['', 'Rescued ' + who.name + ': ' + P.perk + '.']] : []));
   }
   if (s.id === 'gather') {                                                // a herb patch or an ore vein on the Rim
@@ -861,6 +866,7 @@ function interact() {
     FX.burst(new THREE.Vector3(s.x, 1.6, s.z), 0xff7a2a, 30, 6, 0.8); FX.ring(new THREE.Vector3(s.x, 0, s.z), 2, 0xff6a2a, 0.6, { r0: 0.3 }); Snd.play('slam');
     UI.toast(`War totem burned (${q.totems.filter(Boolean).length} / ${CFG.rookQuest.totems})`, '#ff9a4a'); G.quest(); Items.save(); G.spot = null; return;
   }
+  if (s.id === 'bard' && Story.event('talk', 'bard')) return;              // what the bard says after the ending
   if (s.id === 'bard' || s.id === 'guard') {                              // the townsfolk say their lines in turn
     const S = Items.S, [who, lines] = CFG.townsfolk[s.id]; S.talk = S.talk || {}; const i = (S.talk[s.id] || 0) % lines.length; S.talk[s.id] = i + 1;
     return say([[who, lines[i]]]);

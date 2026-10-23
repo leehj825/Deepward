@@ -1,5 +1,8 @@
 // Deepward - every balance number lives here. Times are in seconds, distances in metres, angles in degrees.
 const CFG = {
+  // The release build has one calling, the warrior (the companions fill the other roles). Open the page with ?classes=1
+  // to bring the class choice back (the tests and the balance bot do).
+  warriorOnly: !(typeof location !== 'undefined' && /[?&]classes=1/.test(location.search)),
   player: {
     hp: 100, stamina: 100,
     staminaRegen: 38, staminaDelay: 0.55,          // per second, after this long without spending any
@@ -253,7 +256,7 @@ const CFG = {
         { weight: 3, hits: [{ pose: 'pounce', wind: 0.8, active: 0.3, recover: 0.75, dmg: 18, posture: 20, range: 2.2, arc: 120, lunge: 5.5, leap: true, parryOnly: true }] },
       ],
     },
-    // Feints: the first glint may be a fake, the real blow comes fast after it
+    // Feints: the first wind-up may be a fake (no ring), the real blow comes fast after it
     duelist: {
       name: 'Hollow Duelist', hp: 62, posture: 60, postureRegen: 18, speed: 3.0, radius: 0.45, scale: 1.02,
       flinch: false, approach: 2.0, cooldown: [0.9, 1.6], xp: 20, gold: 14,
@@ -299,12 +302,21 @@ const CFG = {
       { id: 'throne', obj: 'Go down to the Throne of the Deep and face the Hollow King', on: ['guardian', 9] },
       { id: 'told', obj: 'The story is told. The Endless Deep goes on below.' },
     ],
+    // What the warden's choices changed in play (listed in the journal; the code that applies each is named)
+    effects: [
+      { flag: 'bramKnows', text: 'Bram trusts you: his forge work (upgrades and rerolls) costs 10% less.' },            // Items.upgradeCost, rerollCost
+      { flag: 'rookBanner', text: "Rook's gate holds 25% longer when raiders come." },                                   // G.startRaid
+      { flag: 'maren_forgiven', text: "Maren's blessing: healing flasks heal 10% more." },                             // Player.gearStats
+    ],
     // What a guardian says as it wakes (a caption), for the last one
     wakeLines: { 9: ['The Hollow King', 'Warden. Do it properly. I have waited long enough to deserve that.'] },
     // The hired companions speak a line or two at the story's key moments (a caption each): who -> text, by moment
     banter: {
       confess: { hobb: 'Forty years, and she carried it alone. Hm. I would have carried it with her.', mira: 'She left a man behind. Everyone leaves someone. What you do after that is what counts.', pell: 'I will note it on the map. Not the secret. The place she stood when she said it.', aldo: 'Confession is half of mercy. The other half is being heard. You heard her.' },
       throne: { hobb: 'Stance, warden. Whatever is in that chair, it still has to be fought on two feet.', mira: 'Two voices. I do not like two voices.', pell: 'The break in the rim. It fits. Of course it fits.', aldo: 'He was a person. Maren said so. Let us be gentle where we can.' },
+      frost: { hobb: 'Orders written to be obeyed. Whoever wrote that never thought he would be forgotten.', mira: 'Tracks stop at the wall. Nobody left this hall. They just stood.', pell: 'Hold until relieved. A perfectly clear instruction. A perfectly terrible one.', aldo: 'Forty winters of waiting for a word. Let us give them one.' },
+      forge: { hobb: 'A mould for a crown. I have seen swords made kinder.', mira: 'Bram is going to want to know about this. I would not want to be the one to tell him.', pell: 'Made to bind, not to rule. Someone chose those words carefully. I admire that and I dislike it.', aldo: 'A lock is only cruel when no one holds the key. Who held the key?' },
+      graves: { hobb: 'Every tree, a soldier. Aye. I have walked past rows like this before.', mira: 'Maren. That is her name, on the bark, with the moss scraped off. Someone has been visiting.', pell: 'I shall not chart this place. Some ground should stay blank.', aldo: 'They planted the living among the dead, and the dead kept their place. Go gently.' },
       watch: { hobb: 'Hold the line, warden. I will hold it with you.', mira: 'The lamp will be lit. I will make sure of it.', pell: 'The Deep is quiet. I have never been so unhappy to see a calm map.', aldo: 'A watch is a kind of prayer. Do not forget to rest.' },
       relief: { hobb: 'She walked in on her own feet. That is a good way to go.', mira: 'She came back for him. Few do.', pell: 'I will draw the chair. Empty, with the lamp beside it.', aldo: 'Peace to them both.' },
       breaking: { hobb: 'Bad knees and all, I will help pull the carts.', mira: 'The roads will be long. I will scout them.', pell: 'A new map, a new place. I did not think I was ready.', aldo: 'Home is where the lamps are lit. We will light them again.' },
@@ -354,9 +366,9 @@ const CFG = {
       { id: 'marenSlip', on: ['talk', 'elder'], needs: ['done_spiders'], scene: 'marenSlip' },
       // Act II
       { id: 'f-mural', on: ['find', 'temple-mural'], scene: 'f-mural' },
-      { id: 'f-orders', on: ['find', 'frost-orders'], scene: 'f-orders' },
-      { id: 'f-mould', on: ['find', 'forge-mould'], scene: 'f-mould' },
-      { id: 'f-graves', on: ['find', 'orchard-graves'], scene: 'f-graves' },
+      { id: 'f-orders', on: ['find', 'frost-orders'], scene: 'f-orders', banter: 'frost' },
+      { id: 'f-mould', on: ['find', 'forge-mould'], scene: 'f-mould', banter: 'forge' },
+      { id: 'f-graves', on: ['find', 'orchard-graves'], scene: 'f-graves', banter: 'graves' },
       { id: 'f-crown', on: ['find', 'throne-crown'], scene: 'f-crown', banter: 'throne' },
       { id: 'bramComes', on: ['talk', 'smith'], needs: ['done_confess'], scene: 'bramComes' },
       { id: 'rookTired', on: ['talk', 'guard'], needs: ['done_prophet'], scene: 'rookTired' },
@@ -364,6 +376,17 @@ const CFG = {
       { id: 'bramForge', on: ['talk', 'smith'], needs: ['done_frost'], scene: 'bramForge' },
       { id: 'bramKey', on: ['talk', 'smith'], needs: ['done_forge'], scene: 'bramKey', set: ['keyFound'] },
       { id: 'tildaQuiet', on: ['talk', 'trader'], needs: ['done_forge'], scene: 'tildaQuiet' },
+      // After the story: what people say once the ending has happened (each scene has a line per ending)
+      { id: 'bramEnd', on: ['talk', 'smith'], needs: ['epilogueSeen'], scene: 'bramEnd' },
+      { id: 'tildaEnd', on: ['talk', 'trader'], needs: ['epilogueSeen'], scene: 'tildaEnd' },
+      { id: 'rookEnd', on: ['talk', 'guard'], needs: ['epilogueSeen'], scene: 'rookEnd' },
+      { id: 'hobbEnd', on: ['talk', 'trainer'], needs: ['epilogueSeen'], scene: 'hobbEnd' },
+      { id: 'wennaEnd', on: ['talk', 'bard'], needs: ['epilogueSeen'], scene: 'wennaEnd' },
+      // The people the warden frees in the dungeon
+      { id: 'rescuePell', on: ['rescue', 'pell'], scene: 'rescuePell' },
+      { id: 'rescueIlsa', on: ['rescue', 'ilsa'], scene: 'rescueIlsa' },
+      { id: 'rescueAldo', on: ['rescue', 'aldo'], scene: 'rescueAldo' },
+      { id: 'rescueMira', on: ['rescue', 'mira'], scene: 'rescueMira' },
     ],
     scenes: {
       greet: { who: 'elder', name: 'Maren', steps: [
@@ -441,6 +464,48 @@ const CFG = {
         { text: 'The Deep is closing. The hill will not hold. We have to leave Varrow.' },
         { text: 'You came back up, warden. That was the one rule. It is all I asked. I think it is the thing I am proudest of.' },
         { narr: true, text: 'Bram stays at the anvil until the last cart. He does not look back.' },
+      ] },
+      bramEnd: { who: 'smith', name: 'Bram', steps: [
+        { text: 'The Crown sits on you like it was cast for you. It was not. Remember that when it feels heavy.', if: 'ending_watch' },
+        { text: 'Maren\'s chair is empty. I have been making her a new lamp. It is the only thing I can make that I am sure of.', if: 'ending_relief' },
+        { text: 'The anvil is cold. I broke it, you broke it, we broke it. Fine. I will forge a wheel for the carts instead.', if: 'ending_breaking' },
+        { text: 'Whatever my family made, it is over now. I would like to make something for the living next.' },
+      ] },
+      tildaEnd: { who: 'trader', name: 'Tilda', steps: [
+        { text: 'The Deep is quiet, the roads are open and I have a queue of carters. I do not want to know how you did it. Just, thank you.', if: 'ending_watch' },
+        { text: 'People keep leaving flowers on Maren\'s chair. I have started selling them. She would have hated that. I think she would have laughed.', if: 'ending_relief' },
+        { text: 'Pack light, they say. I have never packed light in my life. Come on, help me with this crate.', if: 'ending_breaking' },
+      ] },
+      rookEnd: { who: 'guard', name: 'Captain Rook', steps: [
+        { text: 'The gate has not been touched in a week. I find I do not know what to do with my hands.', if: 'ending_watch' },
+        { text: 'The bells stopped. Aldric would have wanted to hear that, I think. I told his banner. It seemed the right thing.', if: 'ending_relief' },
+        { text: 'My company will see the camp to the road. For the first time in forty years, I am walking away from a post, and it is not desertion.', if: 'ending_breaking' },
+      ] },
+      hobbEnd: { who: 'hobb', name: 'Hobb', steps: [
+        { text: 'You still come to the yard. Good. A warden who stops training starts forgetting why.', if: 'ending_watch' },
+        { text: 'She learned the stance in the end. I watched her kneel to it. Do not tell anyone I said that.', if: 'ending_relief' },
+        { text: 'Pack the dummies. We are not leaving them behind. A dummy has taken more blows than any of us.', if: 'ending_breaking' },
+      ] },
+      wennaEnd: { who: 'bard', name: 'Wenna', steps: [
+        { text: 'I have a new song. It has a king in it, and a crown, and a warden who came back up. It is not a happy song. It is a true one.', if: 'ending_watch' },
+        { text: 'Shall I sing it? "Her chair is by the fire, and the lamp is never out..." No? Then I shall keep it until you are ready.', if: 'ending_relief' },
+        { text: 'A song for the road, then. They are always better on the road. Come, walk with us a while.', if: 'ending_breaking' },
+      ] },
+      rescuePell: { who: null, name: '', steps: [
+        { text: 'Pell the cartographer, found in the dark with a chart pinned to his chest.', name: '', narr: true },
+        { text: 'You came for me? I thought the Deep had me. The map, the map is intact! Wonderful. I shall draw you the way home, and a few ways onward.', name: 'Pell' },
+      ] },
+      rescueIlsa: { who: null, name: '', steps: [
+        { text: 'Ilsa the cook, sitting on an upturned pot, one ladle held like a spear.', narr: true },
+        { text: 'About time. Another hour and I would have started on the skeletons. Get me out of here and I will see you fed properly.', name: 'Ilsa' },
+      ] },
+      rescueAldo: { who: null, name: '', steps: [
+        { text: 'Brother Aldo, kneeling in the dust of a side room, hands folded.', narr: true },
+        { text: 'I prayed that someone would come. I did not dare pray for it to be you. Bless you, warden. I will find the Hold.', name: 'Brother Aldo' },
+      ] },
+      rescueMira: { who: null, name: '', steps: [
+        { text: 'Mira the scout, bow strung, back against the wall, watching the door.', narr: true },
+        { text: 'Took you long enough. I counted the dead going past. Nine. I know where they came from. Remind me, and I will show you.', name: 'Mira' },
       ] },
       'f-portrait': { who: null, name: '', steps: [{ narr: true, text: 'A long gallery of portraits. One frame has been turned to face the wall. On its back, in chalk: ORRIN.' }] },
       rookAsk: { who: 'guard', name: 'Captain Rook', steps: [
@@ -965,13 +1030,13 @@ const CFG = {
   ],
   tips: {
     execute: 'BROKEN! Hit HEAVY (@heavy) close by to EXECUTE it: an untouchable finishing blow.',
-    skeleton: 'A WHITE glint means the attack can be blocked. Hold BLOCK (@block) - or raise it right at impact to PARRY.',
+    skeleton: 'A WHITE ring closing in means the attack can be blocked. Hold BLOCK (@block) - or raise it just as the ring closes to PARRY.',
     knight: 'Shields stop light attacks. A HEAVY attack (@heavy) breaks the guard - or dash behind them.',
     archer: 'Archers keep their distance. BLOCK the arrows or DASH aside, then close in fast.',
     goblin: 'Goblins are quick but fragile. Keep moving - do not let a pack surround you.',
-    spider: 'An AMBER flash is a POUNCE: it smashes through a raised shield. PARRY it at the very last instant, or DASH.',
-    duelist: 'Duelists FEINT: the first glint may be a fake. Wait for the real swing before you parry.',
-    brute: 'A RED glow is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
+    spider: 'An AMBER ring is a POUNCE: it smashes through a raised shield. PARRY it just as the ring closes, or DASH.',
+    duelist: 'Duelists FEINT: a wind-up with no ring is a fake. Wait for the real swing before you parry.',
+    brute: 'A RED ring is UNBLOCKABLE. DASH (@dodge) through it - you are invulnerable mid-dash.',
   },
   pillarR: 0.75,
 
@@ -1215,7 +1280,7 @@ const CFG = {
       ['Maren', 'One rule here: come back up. The gate by the fire leads down. Go when you are ready.'],
     ],
     pre: [
-      ['The Crypt is the first ring. The dead there are slow, but they never tire.', 'When steel glints white, raise your shield. Raise it at the last moment and you will throw them off balance.'],
+      ['The Crypt is the first ring. The dead there are slow, but they never tire.', 'When a white ring closes in, raise your shield. Raise it just as the ring closes and you will throw them off balance.'],
       ['Below the Crypt stands the Iron Keep: the garrison that marched down to seal the Deep and never marched back.', 'Their shields still hold. A heavy blow breaks a guard, or get behind them.'],
       ['Past the Keep the tunnels open into the Den. Something big has been feeding there, and goblins scurry at its heels.', 'When its weapon burns red, do not block. Dash through it.'],
       ['Below the Den the stone turns to web. The Spider Depths. Bram lost a brother there.', 'Their pounce will smash a shield aside. Meet it with a parry, at the last heartbeat, or be elsewhere.'],

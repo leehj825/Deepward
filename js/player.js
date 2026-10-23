@@ -22,6 +22,7 @@ const Player = (() => {
     // The people freed from the Deep: Ilsa's cooking, Brother Aldo's blessing, and a share of gold for every one
     if (typeof Items !== 'undefined' && Items.S && Items.S.rescued) {
       if (Items.rescued('ilsa')) S.flaskHeal *= 1.1;
+      if (Items.S && Items.S.flags && Items.S.flags.maren_forgiven) S.flaskHeal *= 1.1;      // the story: Maren's blessing
       if (Items.rescued('aldo')) S.maxHp = Math.round(S.maxHp * 1.05);
       S.goldFind *= 1 + Math.min(CFG.rescues.goldMax, Items.S.rescued.length * CFG.rescues.gold);
     }
@@ -91,7 +92,7 @@ const Player = (() => {
       if (p.st <= 0) return false;
       let data;
       const ex = b.act === 'heavy' && executable(p);
-      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true }); p.combo = 0; }
+      if (ex) { data = Object.assign({}, heavyOf(p), P.execute, { exec: ex, lunge: 0, cost: 0, breaksGuard: true, shot: undefined, heal: undefined, aoe: undefined });  p.combo = 0; }
       else if (b.act === 'heavy') { data = heavyOf(p); p.combo = 0; }
       else {
         // Weapon mastery rank 2 adds a finishing blow to the light combo
@@ -111,7 +112,6 @@ const Player = (() => {
   const comboLen = p => lightOf(p).length + (p.S.finisher ? 1 : 0);
   // A posture-broken enemy close in front (or locked) can be executed with a heavy attack
   function executable(p) {
-    if (p.S.ranged) return null;                                    // the ranged classes do not step in for an execution
     let best = null, bd = Infinity;
     for (const e of G.enemies) {
       if (e.state !== 'broken') continue;

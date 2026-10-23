@@ -16,7 +16,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #07060a; col
 #waveBox { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 2px 4px #000; }
 #adSlot { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5; max-width: 100vw; line-height: 0; overflow: hidden; border-radius: 4px; }
 body:not(.playing) #adSlot { display: none !important; }
-body.has-ad #waveBox { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
 #waveBox b { display: block; font-size: 18px; letter-spacing: 0.12em; color: #f2d27a; }
 #waveBox small { font-size: 12px; opacity: 0.75; }
 #questLine { display: block; margin-top: 2px; color: #f2d27a; opacity: 0.9 !important; }
@@ -89,14 +88,7 @@ body:not(.playing) #hud, body:not(.playing) #minimap, body:not(.playing) #mapInf
   #hud { width: min(260px, 52vw); }
   #waveBox { left: auto; right: max(12px, env(safe-area-inset-right)); top: calc(56px + env(safe-area-inset-top)); transform: none; text-align: right; }
   #waveBox b { font-size: 15px; }
-    /* a narrow screen has no room beside the ad: it takes the top row and the rest moves down */
-  body.has-ad #hud { top: calc(60px + env(safe-area-inset-top)); }
-  body.has-ad #corner { top: calc(58px + env(safe-area-inset-top)); }
-  body.has-ad #minimap { top: calc(106px + env(safe-area-inset-top)); }
-  body.has-ad #mapInfo { top: calc(262px + env(safe-area-inset-top)); }
-  body.has-ad #waveBox { top: calc(106px + env(safe-area-inset-top)); }
-  body.has-ad #tip { top: 158px; }
-  body.touch #tip { top: 110px; font-size: 13px; }
+    body.touch #tip { top: 110px; font-size: 13px; }
 }
 #keys .vb { display: none; }
 body.behind #keys .vb { display: inline; }
@@ -402,3 +394,9 @@ body.scene #pad, body.scene #stick, body.scene #padKeys, body.scene #keys, body.
 #sceneBox.narr .st { font-style: italic; opacity: 0.92; } #sceneBox.narr .sn { display: none; }
 #whisper { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); text-align: center; max-width: min(640px, 88vw); font-size: 20px; font-style: italic; color: #e8dcc0; text-shadow: 0 2px 6px #000, 0 0 18px #000; opacity: 0; pointer-events: none; transition: opacity 1.2s; z-index: 5; }
 #whisper.show { opacity: 1; } #whisper small { display: block; font-style: normal; font-size: 12px; letter-spacing: 0.18em; color: #f2d27a; margin-bottom: 4px; text-transform: uppercase; }
+
+/* The ad banner takes a strip at the very top (--adh, set by js/ads.js to the banner's height once an ad has loaded): everything that sits at
+   the top of the screen moves down by it, so the banner never covers the health bar, the place name, the buttons, the map or a tip. */
+body.has-ad #hud, body.has-ad #corner, body.has-ad #waveBox, body.has-ad #mapInfo, body.has-ad.touch #tip, body.has-ad #minimap:not(.big) { margin-top: var(--adh, 56px); }
+body.has-ad .screen { padding-top: calc(16px + var(--adh, 56px)); }                  /* menus, the title and the pause card start below the banner too */
+body.has-ad .pcard { max-height: calc(100vh - 32px - var(--adh, 56px)); }

@@ -262,7 +262,8 @@ const Items = (() => {
   function remove(id) { const i = S.inv.findIndex(x => x.id === id); return i < 0 ? null : S.inv.splice(i, 1)[0]; }
   function addGold(n) { n = Math.round(n); S.gold += n; S.tripGold += n; return n; }
   // Bram rerolls one bonus: a different kind that fits the slot and is not already on the piece, rolled for its tier
-  const rerollCost = it => { const R = C.reroll, k = 1 + R.growth * (it.rerolls || 0); return { gold: Math.round(R.gold * (it.tier + 1) * k), scrap: Math.round(R.scrap * k) }; };
+  const trust = () => (S && S.flags && S.flags.bramKnows ? 0.9 : 1);                      // the story: Bram trusts the warden who told him the truth
+  const rerollCost = it => { const R = C.reroll, k = 1 + R.growth * (it.rerolls || 0); return { gold: Math.round(R.gold * (it.tier + 1) * k * trust()), scrap: Math.round(R.scrap * k) }; };
   function reroll(it, i) {
     const c = rerollCost(it), cur = it.aff[i]; if (!cur || S.gold < c.gold || S.scrap < c.scrap) return false;
     const have = it.aff.map(a => a.k), keys = affixKeys(it.slot).filter(k => !have.includes(k));
@@ -271,7 +272,7 @@ const Items = (() => {
     it.aff[i] = rollAffix(pick(keys), it.tier);
     return true;
   }
-  function upgradeCost(it) { return { gold: Math.round(40 * (it.tier + 1) * (1 + it.rarity * 0.5) * (1 + it.plus * 0.6)), scrap: 2 + it.plus * 2 + it.rarity }; }
+  function upgradeCost(it) { return { gold: Math.round(40 * (it.tier + 1) * (1 + it.rarity * 0.5) * (1 + it.plus * 0.6) * trust()), scrap: 2 + it.plus * 2 + it.rarity }; }
   const maxPlus = () => C.maxUpgrade[S.camp.forge];
 
   // ---------------- Saving ----------------

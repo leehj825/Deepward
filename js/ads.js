@@ -9,16 +9,23 @@
 const Ads = (() => {
   const CONF = { client: '', slot: '', width: 320, height: 50, admob: { banner: 'ca-app-pub-4400173019354346/4461123131', testing: true } };
   let el = null;
-  const show = on => { document.body.classList.toggle('has-ad', !!on); if (el) el.style.display = on ? 'block' : 'none'; };
+  const strip = h => document.documentElement.style.setProperty('--adh', Math.round(h) + 'px');            // the height the game leaves free at the top
+  const show = on => { if (on) strip(CONF.height + 6); document.body.classList.toggle('has-ad', !!on); if (el) el.style.display = on ? 'block' : 'none'; };
   const native = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.AdMob);
   // The app: initialise AdMob, show the banner at the top centre; the HUD makes room only once an ad has really loaded
   async function nativeBanner() {
     const A = Capacitor.Plugins.AdMob;
     try {
       await A.initialize({ initializeForTesting: !!CONF.admob.testing });
-      A.addListener('bannerAdLoaded', () => document.body.classList.add('has-ad'));
+      A.addListener('bannerAdSizeChanged', info => { if (info && info.height) strip(info.height + 6); });           // the real size, in the page's pixels
+      A.addListener('bannerAdLoaded', () => { if (!document.documentElement.style.getPropertyValue('--adh')) strip(CONF.height + 6); document.body.classList.add('has-ad'); });
       A.addListener('bannerAdFailedToLoad', () => document.body.classList.remove('has-ad'));
-      await A.showBanner({ adId: CONF.admob.banner, adSize: 'BANNER', position: 'TOP_CENTER', margin: 0, isTesting: !!CONF.admob.testing });
+      const show = () => A.showBanner({ adId: CONF.admob.banner, adSize: 'BANNER', position: 'TOP_CENTER', margin: 0, isTesting: !!CONF.admob.testing });
+      await show();
+      // The system lays the banner out once, for the screen as it was: after a turn of the device it would stay centred for the old width.
+      // When the page's width changes, take it down and put it up again so it is centred for the new one.
+      let w = innerWidth, t = null;
+      addEventListener('resize', () => { clearTimeout(t); t = setTimeout(async () => { if (Math.abs(innerWidth - w) < 40) return; w = innerWidth; try { await A.removeBanner(); await show(); } catch (e) {} }, 500); });
     } catch (e) { document.body.classList.remove('has-ad'); }
   }
   function init() {
