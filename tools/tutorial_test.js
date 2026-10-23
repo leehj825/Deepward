@@ -7,7 +7,7 @@ const path = require('path');
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 1100, height: 700 } });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  await pg.goto('file://' + path.resolve(__dirname, '../index.html') + '?classes=1');
   await pg.waitForTimeout(300);
   const r = await pg.evaluate(cls => {
     const out = {}, G = __dw.G, I = __dw.Items;

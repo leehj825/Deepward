@@ -14,7 +14,7 @@ const PROFILES = {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 800, height: 500 } });
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  await pg.goto('file://' + path.resolve(__dirname, '../index.html') + '?classes=1');
   if (process.env.LANGKO) {                                                      // LANGKO=1: play in Korean and list every text that stays English
     await pg.evaluate(() => { localStorage.clear(); localStorage.setItem('dw_settings', JSON.stringify({ lang: 'ko' })); }); await pg.reload();
     await pg.evaluate(() => {

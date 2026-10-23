@@ -22,3 +22,7 @@ Playwright scripts in `tools/`, driven through `window.__dw`. Run them one at a 
 - R3 ad consent prompt, Play Console declaration, `testing:false` for the store build.
 - R4 class balance: cleric smite about +40%, let ranged hits ignore part of armor, party run for the cleric, bot dodging.
 - R5 difficulty. R6 remainder: English per-character voices. R7 remainder: curved cave outlines, bending streets, a new stage. R8 polish: native Korean read, ambient sound, signed release build.
+
+## Release build
+- Warrior only: `CFG.warriorOnly` (js/config.js) skips the class panel; `?classes=1` restores it (used by `tutorial_test` and `balance.js`). The party is unchanged.
+- Signing: not set up yet (V7 in DESIGN.md); the user will supply the keystore details.

@@ -1,5 +1,8 @@
 // Deepward - every balance number lives here. Times are in seconds, distances in metres, angles in degrees.
 const CFG = {
+  // The release build has one calling, the warrior (the companions fill the other roles). Open the page with ?classes=1
+  // to bring the class choice back (the tests and the balance bot do).
+  warriorOnly: !(typeof location !== 'undefined' && /[?&]classes=1/.test(location.search)),
   player: {
     hp: 100, stamina: 100,
     staminaRegen: 38, staminaDelay: 0.55,          // per second, after this long without spending any
