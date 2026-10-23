@@ -2,6 +2,12 @@
 
 A quarter-view 3D action dungeon crawler that runs in the browser (Three.js r128, no build step). No town, no army: the whole game is the fight. Every enemy attack is telegraphed, and each dungeon tier demands a skill the last one didn't: spacing, then dodging, blocking, parrying, and reading feints.
 
+| The camp, Deepward Hold | A fight in the Crypt |
+| --- | --- |
+| ![The camp](docs/screenshots/camp.png) | ![A fight in the Crypt](docs/screenshots/dungeon.png) |
+
+(Made by `node tools/screenshots.js`.)
+
 Every model is built in code from primitives, and there are no model, texture or sound files. Characters move with the same motion-capture animations as Nightfall Settlement. Those clips come from Mixamo, were retargeted to Nightfall's stick-figure rig, and are copied here as joint rotations by `tools/extract_anims.js`. They cover sword-and-shield idle, walking, running and strafing in every direction, combo attacks, a jump smash, a shield block (also while walking), hit reactions and deaths, plus great-sword moves for the brute. The dash and the stagger poses are still hand-made.
 
 **Gear screen.** Open it with I (or Tab, d-pad down on a controller, GEAR on touch):
