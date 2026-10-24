@@ -72,9 +72,16 @@ if (!styles.includes('windowSplashScreenBackground')) {
   console.log('AdMob app id set in the manifest (' + (process.env.ADMOB_APP_ID ? 'from ADMOB_APP_ID' : 'Deepward app id') + ')');
 }
 
-// Play automatic protection needs minSdkVersion 24 or higher (Capacitor 6 generates 22)
+// Play needs minSdkVersion 24+ (automatic protection) and targetSdkVersion 36+ (Capacitor 6 generates 22, 34 and 34).
+// Compiling against API 36 needs Android Gradle Plugin 8.9+, which needs Gradle 8.11.1+.
 const varsF = path.join(root, 'android/variables.gradle');
 let vars = fs.readFileSync(varsF, 'utf8');
-vars = vars.replace(/minSdkVersion\s*=\s*\d+/, 'minSdkVersion = 24');
+vars = vars.replace(/minSdkVersion\s*=\s*\d+/, 'minSdkVersion = 24')
+           .replace(/compileSdkVersion\s*=\s*\d+/, 'compileSdkVersion = 36')
+           .replace(/targetSdkVersion\s*=\s*\d+/, 'targetSdkVersion = 36');
 fs.writeFileSync(varsF, vars);
-console.log('minSdkVersion set to 24');
+const topF = path.join(root, 'android/build.gradle');
+fs.writeFileSync(topF, fs.readFileSync(topF, 'utf8').replace(/(com\.android\.tools\.build:gradle:)[\d.]+/, '$18.9.1'));
+const wrapF = path.join(root, 'android/gradle/wrapper/gradle-wrapper.properties');
+fs.writeFileSync(wrapF, fs.readFileSync(wrapF, 'utf8').replace(/gradle-[\d.]+-(all|bin)\.zip/, 'gradle-8.11.1-$1.zip'));
+console.log('minSdk 24, compileSdk/targetSdk 36, AGP 8.9.1, Gradle 8.11.1');
