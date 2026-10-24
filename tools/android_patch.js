@@ -71,3 +71,10 @@ if (!styles.includes('windowSplashScreenBackground')) {
   fs.writeFileSync(manF, m);
   console.log('AdMob app id set in the manifest (' + (process.env.ADMOB_APP_ID ? 'from ADMOB_APP_ID' : 'Deepward app id') + ')');
 }
+
+// Play automatic protection needs minSdkVersion 24 or higher (Capacitor 6 generates 22)
+const varsF = path.join(root, 'android/variables.gradle');
+let vars = fs.readFileSync(varsF, 'utf8');
+vars = vars.replace(/minSdkVersion\s*=\s*\d+/, 'minSdkVersion = 24');
+fs.writeFileSync(varsF, vars);
+console.log('minSdkVersion set to 24');
